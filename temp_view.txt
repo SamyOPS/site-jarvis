@@ -1,29 +1,27 @@
-﻿import { Feature108 } from "@/components/shadcnblocks-com-feature108";
+import { Feature108 } from "@/components/shadcnblocks-com-feature108";
 import { Gallery6 } from "@/components/gallery6";
 import { Blog7 } from "@/components/blog7";
 import { ClientsShowcase } from "@/components/clients-showcase";
 import { About3 } from "@/components/about-3";
 import { ShaderBackground } from "@/components/hero-shader";
-import { Header2 } from "@/components/header-2";
-import { Footer2 } from "@/components/footer-2";
 import { Shield, Code2, Sparkles } from "lucide-react";
 
 export default function Home() {
   const expertises = [
     {
-      title: "Support & InfogÇ¸rance IT",
+      title: "Support & InfogǸrance IT",
       description:
-        "Assistance utilisateurs, supervision, maintenance, sÇ¸curitÇ¸ et gestion du parc informatique.",
+        "Assistance utilisateurs, supervision, maintenance, sǸcuritǸ et gestion du parc informatique.",
     },
     {
-      title: "DÇ¸veloppement dƒ?Tapplications",
+      title: "DǸveloppement d�?Tapplications",
       description:
-        "Applications web, mobiles et mÇ¸tiers. Du MVP au produit complet.",
+        "Applications web, mobiles et mǸtiers. Du MVP au produit complet.",
     },
     {
       title: "Conseil & Transformation Digitale",
       description:
-        "Architecture, audit, cloud, cybersÇ¸curitÇ¸ et pilotage de projets.",
+        "Architecture, audit, cloud, cybersǸcuritǸ et pilotage de projets.",
     },
   ];
   const newsItems = [
@@ -188,7 +186,7 @@ export default function Home() {
       badge: "Expertise Jarvis",
       title: item.title,
       description: item.description,
-      buttonText: "DÃ©couvrir",
+      buttonText: "Découvrir",
       imageSrc:
         index === 0
           ? "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
@@ -201,9 +199,17 @@ export default function Home() {
 
   return (
     <div className="bg-[#0A1A2F] text-white">
-      <Header2 />
       <main>
         <ShaderBackground />
+
+        <section className="bg-white text-[#1E1E1E]">
+          <Feature108
+            badge="Jarvis Connect"
+            heading="Nos expertises clǸs"
+            description="Support & infogǸrance, dǸveloppement applicatif, conseil et transformation digitale pour des SI performants."
+            tabs={expertiseTabs}
+          />
+        </section>
 
         <About3
           title="Jarvis Connect, partenaire IT & digital"
@@ -218,12 +224,11 @@ export default function Home() {
           achievements={aboutAchievements}
         />
 
-        <section className="bg-white text-[#1E1E1E]">
-          <Feature108
-            badge="Jarvis Connect"
-            heading="Nos expertises cl€÷s"
-            description="Support & infog€÷rance, d€÷veloppement applicatif, conseil et transformation digitale pour des SI performants."
-            tabs={expertiseTabs}
+        <section className="bg-[#F4F7FA] text-[#1E1E1E]">
+          <Gallery6
+            heading="Actualites de Jarvis Connect"
+            demoUrl="#"
+            items={newsItems}
           />
         </section>
 
@@ -238,14 +243,6 @@ export default function Home() {
           ctaUrl="#"
         />
 
-        <section className="bg-[#F4F7FA] text-[#1E1E1E]">
-          <Gallery6
-            heading="Actualites de Jarvis Connect"
-            demoUrl="#"
-            items={newsItems}
-          />
-        </section>
-
         <section className="bg-white text-[#1E1E1E]">
           <Blog7
             tagline="Recrutement"
@@ -256,11 +253,10 @@ export default function Home() {
             posts={jobOffers}
           />
         </section>
-
-        <Footer2 />
       </main>
     </div>
   );
 }
+
 
 
