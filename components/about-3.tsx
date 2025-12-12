@@ -111,6 +111,37 @@ export const About3 = ({
             />
           </div>
         </div>
+      </div>
+      <div className="mt-12 bg-[#050B14] px-6 py-12 text-white md:mt-16 md:px-10 md:py-16">
+        <div className="mx-auto flex max-w-6xl flex-col gap-10 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-4 md:max-w-xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#1A73E8]">
+              Nos partenaires
+            </p>
+            <h3 className="font-display text-3xl font-semibold leading-tight text-white md:text-4xl">
+              {companiesTitle}
+            </h3>
+            <p className="text-sm text-white/75">
+              Une sélection de partenaires qui nous accompagnent sur nos projets clés.
+            </p>
+          </div>
+          <div className="grid flex-1 grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {companies.map((company, idx) => (
+              <div
+                className="flex h-28 items-center justify-center border border-white/15 bg-white/5 px-4 py-3 transition hover:-translate-y-1 hover:border-white/40"
+                key={company.alt + idx}
+              >
+                <img
+                  src={company.src}
+                  alt={company.alt}
+                  className="max-h-14 max-w-[80%] object-contain"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="container mx-auto px-6 lg:px-10">
         <div className="relative overflow-hidden rounded-none bg-[#F4F7FA] p-8 md:p-12">
           <div className="flex flex-col gap-4 text-center md:text-left">
             <h2 className="text-3xl font-semibold md:text-4xl">
