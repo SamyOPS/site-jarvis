@@ -1,9 +1,9 @@
 ﻿import { Feature108 } from "@/components/shadcnblocks-com-feature108";
 import { Gallery6 } from "@/components/gallery6";
+import { HeroSection } from "@/components/hero-section-with-smooth-bg-shader";
 import { Blog7 } from "@/components/blog7";
 import { ClientsShowcase } from "@/components/clients-showcase";
 import { About3 } from "@/components/about-3";
-import { ShaderBackground } from "@/components/hero-shader";
 import { Header2 } from "@/components/header-2";
 import { Footer2 } from "@/components/footer-2";
 import { Shield, Code2, Sparkles } from "lucide-react";
@@ -203,7 +203,23 @@ export default function Home() {
     <div className="bg-[#0A1A2F] text-white">
       <Header2 />
       <main>
-        <ShaderBackground />
+        <HeroSection
+          title="Jarvis Connect propulse vos projets"
+          highlightText="IT & digital"
+          description="Support, developpement applicatif et securite reunis au sein d une equipe senior qui intervient vite et bien pour vos utilisateurs."
+          showScrollIcon
+          scrollIconLabel="Scroll vers les expertises"
+          scrollText="Decouvrir notre expertise"
+          colors={["#0A1A2F", "#0d1f35", "#11345f", "#1f4f7d", "#2aa0dd", "#7ce0ff"]}
+          className="text-white"
+          titleClassName="!text-white drop-shadow-[0_12px_30px_rgba(0,0,0,0.35)]"
+          descriptionClassName="text-white/90"
+          buttonClassName="border-white/40"
+          maxWidth="max-w-5xl"
+          veilOpacity="bg-[#0A1A2F]/55"
+          fontFamily="Inter, system-ui, -apple-system, sans-serif"
+          fontWeight={700}
+        />
 
         <About3
           title="Jarvis Connect, partenaire IT & digital"
@@ -218,7 +234,7 @@ export default function Home() {
           achievements={aboutAchievements}
         />
 
-        <section className="bg-white text-[#1E1E1E]">
+        <section id="expertises" className="bg-white text-[#1E1E1E]">
           <Feature108
             badge="Jarvis Connect"
             heading="Nos expertises cl€÷s"
@@ -262,5 +278,3 @@ export default function Home() {
     </div>
   );
 }
-
-

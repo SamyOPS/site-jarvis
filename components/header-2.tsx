@@ -27,7 +27,11 @@ export function Header2() {
 
           <nav className="hidden md:flex items-center gap-6 text-sm text-white/80">
             {navLinks.map((link) => (
-              <a key={link.label} href={link.href} className="hover:text-white">
+              <a
+                key={link.label}
+                href={link.href}
+                className="hover:text-white transition-all duration-200 hover:[text-shadow:0_0_12px_#1A73E8]"
+              >
                 {link.label}
               </a>
             ))}
@@ -43,7 +47,7 @@ export function Header2() {
                   "rounded-none bg-white text-black hover:bg-white/90 border border-white",
               })}
             >
-              Espace salarie
+              Connexion
             </a>
             <a
               href="#"
@@ -54,7 +58,7 @@ export function Header2() {
                   "rounded-none bg-white text-black hover:bg-white/90 border border-white",
               })}
             >
-              Espace entreprise
+              Inscription
             </a>
           </div>
         </div>
