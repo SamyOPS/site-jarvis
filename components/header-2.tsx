@@ -1,6 +1,6 @@
 "use client";
 
-import { buttonVariants } from "@/components/ui/button";
+import { LogIn, UserPlus } from "lucide-react";
 
 const navLinks = [
   { label: "Accueil", href: "#" },
@@ -16,10 +16,7 @@ export function Header2() {
     <header className="sticky top-0 z-50 bg-black text-white border-b border-white/10">
       <div className="max-w-6xl mx-auto px-4 lg:px-6">
         <div className="flex items-center justify-between gap-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 flex items-center justify-center bg-white text-black font-semibold tracking-tight rounded-none">
-              JC
-            </div>
+          <div className="flex items-center">
             <span className="text-sm font-semibold tracking-wide uppercase text-white">
               Jarvis Connect
             </span>
@@ -37,28 +34,21 @@ export function Header2() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <a
               href="#"
-              className={buttonVariants({
-                variant: "secondary",
-                size: "default",
-                className:
-                  "rounded-none bg-white text-black hover:bg-white/90 border border-white",
-              })}
+              aria-label="Connexion"
+              className="p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
             >
-              Connexion
+              <LogIn className="h-5 w-5" />
             </a>
+            <span className="h-4 w-px bg-white/20" aria-hidden="true" />
             <a
               href="#"
-              className={buttonVariants({
-                variant: "secondary",
-                size: "default",
-                className:
-                  "rounded-none bg-white text-black hover:bg-white/90 border border-white",
-              })}
+              aria-label="Inscription"
+              className="p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
             >
-              Inscription
+              <UserPlus className="h-5 w-5" />
             </a>
           </div>
         </div>

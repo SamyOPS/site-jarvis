@@ -1,4 +1,4 @@
-﻿import { Feature108 } from "@/components/shadcnblocks-com-feature108";
+import { Feature108 } from "@/components/shadcnblocks-com-feature108";
 import { Gallery6 } from "@/components/gallery6";
 import { HeroSection } from "@/components/hero-section-with-smooth-bg-shader";
 import { Blog7 } from "@/components/blog7";
@@ -6,24 +6,25 @@ import { ClientsShowcase } from "@/components/clients-showcase";
 import { About3 } from "@/components/about-3";
 import { Header2 } from "@/components/header-2";
 import { Footer2 } from "@/components/footer-2";
+import { AnimatedSection } from "@/components/animated-section";
 import { Shield, Code2, Sparkles } from "lucide-react";
 
 export default function Home() {
   const expertises = [
     {
-      title: "Support & InfogÇ¸rance IT",
+      title: "Support & Infogerance IT",
       description:
-        "Assistance utilisateurs, supervision, maintenance, sÇ¸curitÇ¸ et gestion du parc informatique.",
+        "Assistance utilisateurs, supervision, maintenance, securite et gestion du parc informatique.",
     },
     {
-      title: "DÇ¸veloppement dƒ?Tapplications",
+      title: "Developpement d'applications",
       description:
-        "Applications web, mobiles et mÇ¸tiers. Du MVP au produit complet.",
+        "Applications web, mobiles et metiers. Du MVP au produit complet.",
     },
     {
       title: "Conseil & Transformation Digitale",
       description:
-        "Architecture, audit, cloud, cybersÇ¸curitÇ¸ et pilotage de projets.",
+        "Architecture, audit, cloud, cybersecurite et pilotage de projets.",
     },
   ];
   const newsItems = [
@@ -188,7 +189,7 @@ export default function Home() {
       badge: "Expertise Jarvis",
       title: item.title,
       description: item.description,
-      buttonText: "DÃ©couvrir",
+      buttonText: "Decouvrir",
       imageSrc:
         index === 0
           ? "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
@@ -200,80 +201,100 @@ export default function Home() {
   }));
 
   return (
-    <div className="bg-[#0A1A2F] text-white">
-      <Header2 />
+    <div className="text-white">
+      <AnimatedSection as="div" delay={0.05}>
+        <Header2 />
+      </AnimatedSection>
       <main>
-        <HeroSection
-          title="Jarvis Connect propulse vos projets"
-          highlightText="IT & digital"
-          description="Support, developpement applicatif et securite reunis au sein d une equipe senior qui intervient vite et bien pour vos utilisateurs."
-          showScrollIcon
-          scrollIconLabel="Scroll vers les expertises"
-          scrollText="Decouvrir notre expertise"
-          colors={["#0A1A2F", "#0d1f35", "#11345f", "#1f4f7d", "#2aa0dd", "#7ce0ff"]}
-          className="text-white"
-          titleClassName="!text-white drop-shadow-[0_12px_30px_rgba(0,0,0,0.35)]"
-          descriptionClassName="text-white/90"
-          buttonClassName="border-white/40"
-          maxWidth="max-w-5xl"
-          veilOpacity="bg-[#0A1A2F]/55"
-          fontFamily="Inter, system-ui, -apple-system, sans-serif"
-          fontWeight={700}
-        />
-
-        <About3
-          title="Jarvis Connect, partenaire IT & digital"
-          description="Nous combinons support, developpement applicatif et securite pour accompagner la croissance des PME et ETI."
-          mainImage={aboutMainImage}
-          secondaryImage={aboutSecondaryImage}
-          breakout={aboutBreakout}
-          companiesTitle="Experts transverses pour vos projets"
-          companies={aboutCompanies}
-          achievementsTitle="Notre impact"
-          achievementsDescription="Une equipe senior, des process industriels et une culture de la disponibilite pour vos utilisateurs."
-          achievements={aboutAchievements}
-        />
-
-        <section id="expertises" className="bg-white text-[#1E1E1E]">
-          <Feature108
-            badge="Jarvis Connect"
-            heading="Nos expertises cl€÷s"
-            description="Support & infog€÷rance, d€÷veloppement applicatif, conseil et transformation digitale pour des SI performants."
-            tabs={expertiseTabs}
-          />
+        <section>
+          <AnimatedSection as="div" delay={0.1}>
+            <HeroSection
+              title="Jarvis Connect propulse vos projets"
+              highlightText="IT & digital"
+              description="Support, developpement applicatif et securite reunis au sein d une equipe senior qui intervient vite et bien pour vos utilisateurs."
+              showScrollIcon
+              scrollIconLabel="Scroll vers les expertises"
+              scrollText="Decouvrir notre expertise"
+              colors={["#0A1A2F", "#0d1f35", "#11345f", "#1f4f7d", "#2aa0dd", "#7ce0ff"]}
+              className="text-white"
+              titleClassName="!text-white drop-shadow-[0_12px_30px_rgba(0,0,0,0.35)]"
+              descriptionClassName="text-white/90"
+              buttonClassName="border-white/40"
+              maxWidth="max-w-5xl"
+              veilOpacity="bg-[#0A1A2F]/55"
+              fontFamily="Inter, system-ui, -apple-system, sans-serif"
+              fontWeight={700}
+            />
+          </AnimatedSection>
         </section>
 
-        <ClientsShowcase
-          title="Ils nous font confiance"
-          description="Nous livrons nos solutions numeriques en partenariat avec des acteurs majeurs en France et en Europe."
-          clients={clients}
-          highlightLogo="https://dummyimage.com/400x400/ffffff/000000&text=Danone"
-          quote="Nous avons trouve chez Jarvis Connect cette efficacite et cette flexibilite, avec une equipe qui accompagne sur la technique comme sur la logistique."
-          author="Jean-Philippe Salomon, Manager IT"
-          ctaLabel="Voir tous nos clients"
-          ctaUrl="#"
-        />
+        <section>
+          <AnimatedSection as="div" delay={0.15}>
+            <About3
+              title="Jarvis Connect, partenaire IT & digital"
+              description="Nous combinons support, developpement applicatif et securite pour accompagner la croissance des PME et ETI."
+              mainImage={aboutMainImage}
+              secondaryImage={aboutSecondaryImage}
+              breakout={aboutBreakout}
+              companiesTitle="Experts transverses pour vos projets"
+              companies={aboutCompanies}
+              achievementsTitle="Notre impact"
+              achievementsDescription="Une equipe senior, des process industriels et une culture de la disponibilite pour vos utilisateurs."
+              achievements={aboutAchievements}
+            />
+          </AnimatedSection>
+        </section>
+
+        <section id="expertises" className="bg-white text-[#1E1E1E]">
+          <AnimatedSection as="div" delay={0.2}>
+            <Feature108
+              badge="Jarvis Connect"
+              heading="Nos expertises cles"
+              description="Support & infogerance, developpement applicatif, conseil et transformation digitale pour des SI performants."
+              tabs={expertiseTabs}
+            />
+          </AnimatedSection>
+        </section>
+
+        <section>
+          <AnimatedSection as="div" delay={0.3}>
+            <ClientsShowcase
+              title="Ils nous font confiance"
+              description="Nous livrons nos solutions numeriques en partenariat avec des acteurs majeurs en France et en Europe."
+              clients={clients}
+              highlightLogo="https://dummyimage.com/400x400/ffffff/000000&text=Danone"
+              quote="Nous avons trouve chez Jarvis Connect cette efficacite et cette flexibilite, avec une equipe qui accompagne sur la technique comme sur la logistique."
+              author="Jean-Philippe Salomon, Manager IT"
+              ctaLabel="Voir tous nos clients"
+              ctaUrl="#"
+            />
+          </AnimatedSection>
+        </section>
 
         <section className="bg-[#F4F7FA] text-[#1E1E1E]">
-          <Gallery6
-            heading="Actualites de Jarvis Connect"
-            demoUrl="#"
-            items={newsItems}
-          />
+          <AnimatedSection as="div" delay={0.35}>
+            <Gallery6 heading="Actualites de Jarvis Connect" demoUrl="#" items={newsItems} />
+          </AnimatedSection>
         </section>
 
         <section className="bg-white text-[#1E1E1E]">
-          <Blog7
-            tagline="Recrutement"
-            heading="Nos offres d'emploi"
-            description="Decouvrez les opportunites ouvertes chez Jarvis Connect et rejoignez une equipe technique qui fait bouger les SI."
-            buttonText="Voir toutes les offres"
-            buttonUrl="#"
-            posts={jobOffers}
-          />
+          <AnimatedSection as="div" delay={0.4}>
+            <Blog7
+              tagline="Recrutement"
+              heading="Nos offres d'emploi"
+              description="Decouvrez les opportunites ouvertes chez Jarvis Connect et rejoignez une equipe technique qui fait bouger les SI."
+              buttonText="Voir toutes les offres"
+              buttonUrl="#"
+              posts={jobOffers}
+            />
+          </AnimatedSection>
         </section>
 
-        <Footer2 />
+        <section>
+          <AnimatedSection as="div" delay={0.45}>
+            <Footer2 />
+          </AnimatedSection>
+        </section>
       </main>
     </div>
   );
