@@ -1,6 +1,5 @@
 import { ArrowRight } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,7 +29,6 @@ interface Blog7Props {
 }
 
 const Blog7 = ({
-  tagline = "Recrutement",
   heading = "Nos offres d'emploi",
   description = "Découvrez les postes ouverts et rejoignez l'équipe Jarvis Connect. Des missions ambitieuses pour faire grandir votre carrière.",
   buttonText = "Toutes les offres",
@@ -78,9 +76,6 @@ const Blog7 = ({
     <section className="bg-white py-16 text-[#0A1A2F] md:py-20">
       <div className="container mx-auto flex flex-col items-center gap-12 px-6 lg:px-10 xl:px-16">
         <div className="text-center">
-          <Badge variant="secondary" className="mb-4 rounded-none">
-            {tagline}
-          </Badge>
           <h2 className="mb-3 text-pretty text-3xl font-semibold md:mb-4 md:text-4xl lg:mb-5 lg:max-w-3xl lg:text-5xl">
             {heading}
           </h2>

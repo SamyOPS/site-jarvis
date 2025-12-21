@@ -7,59 +7,61 @@ import { About3 } from "@/components/about-3";
 import { Header2 } from "@/components/header-2";
 import { Footer2 } from "@/components/footer-2";
 import { AnimatedSection } from "@/components/animated-section";
+import { Contact2 } from "@/components/contact-2";
 import { Shield, Code2, Sparkles } from "lucide-react";
 
 export default function Home() {
   const expertises = [
     {
-      title: "Support & Infogerance IT",
+      title: "Support & Infogérance IT",
       description:
-        "Assistance utilisateurs, supervision, maintenance, securite et gestion du parc informatique.",
+        "Assistance utilisateurs, supervision, maintenance, sécurité et gestion du parc informatique.",
     },
     {
-      title: "Developpement d'applications",
+      title: "Développement d'applications",
       description:
-        "Applications web, mobiles et metiers. Du MVP au produit complet.",
+        "Applications web, mobiles et métiers. Du MVP au produit complet.",
     },
     {
       title: "Conseil & Transformation Digitale",
       description:
-        "Architecture, audit, cloud, cybersecurite et pilotage de projets.",
+        "Architecture, audit, cloud, cybersécurité et pilotage de projets.",
     },
   ];
+
   const newsItems = [
     {
       id: "news-1",
       title: "Support 24/7 et ouverture du SOC Jarvis",
       summary:
-        "Nouvelle equipe dediee a la supervision et a la reponse aux incidents pour renforcer la securite de nos clients.",
+        "Nouvelle équipe dédiée à la supervision et à la réponse aux incidents pour renforcer la sécurité de nos clients.",
       url: "#",
       image:
         "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
     },
     {
       id: "news-2",
-      title: "Lancement d un centre de competence Cloud",
+      title: "Lancement d'un centre de compétence Cloud",
       summary:
-        "Accompagnement sur Azure et AWS pour la modernisation des infrastructures et l industrialisation des deploiements.",
+        "Accompagnement sur Azure et AWS pour la modernisation des infrastructures et l'industrialisation des déploiements.",
       url: "#",
       image:
         "https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=1200&q=80",
     },
     {
       id: "news-3",
-      title: "Nouveau programme d innovation applicative",
+      title: "Nouveau programme d'innovation applicative",
       summary:
-        "Ateliers design et MVP pour accelerer la livraison de produits digitaux en moins de 12 semaines.",
+        "Ateliers design et MVP pour accélérer la livraison de produits digitaux en moins de 12 semaines.",
       url: "#",
       image:
         "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80",
     },
     {
       id: "news-4",
-      title: "Partenariat strategique cybersecurite",
+      title: "Partenariat stratégique cybersécurité",
       summary:
-        "Renforcement de notre offre SOC, pentest et sensibilisation des equipes avec un partenaire specialise.",
+        "Renforcement de notre offre SOC, pentest et sensibilisation des équipes avec un partenaire spécialisé.",
       url: "#",
       image:
         "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80",
@@ -69,36 +71,36 @@ export default function Home() {
   const jobOffers = [
     {
       id: "job-1",
-      title: "Ingenieur support N2/N3",
+      title: "Ingénieur support N2/N3",
       summary:
         "Prise en charge des incidents complexes, supervision et automatisation pour nos clients ETI et PME.",
       label: "CDI",
       author: "Jarvis Connect",
-      published: "Dec 2025",
+      published: "Déc 2025",
       url: "#",
       image:
         "https://images.unsplash.com/photo-1525182008055-f88b95ff7980?auto=format&fit=crop&w=1200&q=80",
     },
     {
       id: "job-2",
-      title: "Developpeur Full Stack JS",
+      title: "Développeur Full Stack JS",
       summary:
-        "Delivery de produits web (React/Node), APIs et front-end avec forte exigence qualite et securite.",
+        "Delivery de produits web (React/Node), APIs et front-end avec forte exigence qualité et sécurité.",
       label: "CDI",
       author: "Jarvis Connect",
-      published: "Dec 2025",
+      published: "Déc 2025",
       url: "#",
       image:
         "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80",
     },
     {
       id: "job-3",
-      title: "Consultant Cloud & Secu",
+      title: "Consultant Cloud & Sécu",
       summary:
         "Architecture, migration et hardening sur Azure/AWS avec approche FinOps et gouvernance.",
       label: "CDI",
       author: "Jarvis Connect",
-      published: "Dec 2025",
+      published: "Déc 2025",
       url: "#",
       image:
         "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80",
@@ -111,7 +113,7 @@ export default function Home() {
       logo: "https://dummyimage.com/400x400/ffffff/000000&text=Danone",
     },
     {
-      name: "Opera de Paris",
+      name: "Opéra de Paris",
       logo: "https://dummyimage.com/400x400/ffffff/000000&text=Opera+de+Paris",
     },
     {
@@ -119,7 +121,7 @@ export default function Home() {
       logo: "https://dummyimage.com/400x400/ffffff/000000&text=Groupe+ADP",
     },
     {
-      name: "Bordeaux Metropole",
+      name: "Bordeaux Métropole",
       logo: "https://dummyimage.com/400x400/ffffff/000000&text=Bordeaux+Metropole",
     },
     {
@@ -135,27 +137,22 @@ export default function Home() {
       logo: "https://dummyimage.com/400x400/ffffff/000000&text=Stellantis",
     },
     {
-      name: "Hopital de Cannes",
+      name: "Hôpital de Cannes",
       logo: "https://dummyimage.com/400x400/ffffff/000000&text=Hopital+de+Cannes",
     },
   ];
 
   const aboutMainImage = {
     src: "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80",
-    alt: "Equipe Jarvis Connect",
-  };
-
-  const aboutSecondaryImage = {
-    src: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80",
-    alt: "Collaboration et atelier",
+    alt: "Équipe Jarvis Connect",
   };
 
   const aboutBreakout = {
     src: "https://dummyimage.com/160x60/0a1a2f/ffffff&text=Jarvis+Connect",
     alt: "Jarvis Connect",
-    title: "Des equipes engagees pour vos projets IT",
+    title: "Des équipes engagées pour vos projets IT",
     description:
-      "Support, developpement et securite assures par une equipe senior qui s aligne sur vos enjeux.",
+      "Support, développement et sécurité assurés par une équipe senior qui s'aligne sur vos enjeux. Nous pilotons les incidents, la supervision et l'industrialisation des déploiements pour que vos utilisateurs restent productifs. Nos experts anticipent les risques, documentent les architectures et vous accompagnent sur la durée, avec des engagements clairs et une communication transparente.",
     buttonText: "En savoir plus",
     buttonUrl: "#",
   };
@@ -168,11 +165,20 @@ export default function Home() {
   ];
 
   const aboutAchievements = [
-    { label: "Clients accompagnes", value: "120+" },
-    { label: "Projets delivers", value: "300+" },
+    { label: "Clients accompagnés", value: "50+" },
+    { label: "Projets délivrés", value: "250+" },
     { label: "Satisfaction", value: "98%" },
-    { label: "Disponibilite support", value: "24/7" },
+    { label: "Disponibilité support", value: "24/7" },
   ];
+
+  const contactInfo = {
+    title: "Contact Jarvis Connect",
+    description:
+      "Parlez-nous de vos projets, support ou sécurité. Notre équipe répond vite pour vous accompagner.",
+    phone: "+33 (0)1 23 45 67 89",
+    email: "contact@jarvisconnect.fr",
+    web: { label: "jarvisconnect.fr", url: "https://jarvisconnect.fr" },
+  };
 
   const expertiseTabs = expertises.map((item, index) => ({
     value: `tab-${index + 1}`,
@@ -189,7 +195,7 @@ export default function Home() {
       badge: "Expertise Jarvis",
       title: item.title,
       description: item.description,
-      buttonText: "Decouvrir",
+      buttonText: "Découvrir",
       imageSrc:
         index === 0
           ? "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
@@ -211,10 +217,10 @@ export default function Home() {
             <HeroSection
               title="Jarvis Connect propulse vos projets"
               highlightText="IT & digital"
-              description="Support, developpement applicatif et securite reunis au sein d une equipe senior qui intervient vite et bien pour vos utilisateurs."
+              description="Support, développement applicatif et sécurité réunis au sein d'une équipe senior qui intervient vite et bien pour vos utilisateurs."
               showScrollIcon
               scrollIconLabel="Scroll vers les expertises"
-              scrollText="Decouvrir notre expertise"
+              scrollText="Découvrir notre expertise"
               colors={["#0A1A2F", "#0d1f35", "#11345f", "#1f4f7d", "#2aa0dd", "#7ce0ff"]}
               className="text-white"
               titleClassName="!text-white drop-shadow-[0_12px_30px_rgba(0,0,0,0.35)]"
@@ -232,14 +238,13 @@ export default function Home() {
           <AnimatedSection as="div" delay={0.15}>
             <About3
               title="Jarvis Connect, partenaire IT & digital"
-              description="Nous combinons support, developpement applicatif et securite pour accompagner la croissance des PME et ETI."
+              description="Nous combinons support, développement applicatif et sécurité pour accompagner la croissance des PME et ETI."
               mainImage={aboutMainImage}
-              secondaryImage={aboutSecondaryImage}
               breakout={aboutBreakout}
               companiesTitle="Experts transverses pour vos projets"
               companies={aboutCompanies}
               achievementsTitle="Notre impact"
-              achievementsDescription="Une equipe senior, des process industriels et une culture de la disponibilite pour vos utilisateurs."
+              achievementsDescription="Une équipe senior, des process industriels et une culture de la disponibilité pour vos utilisateurs."
               achievements={aboutAchievements}
             />
           </AnimatedSection>
@@ -249,8 +254,8 @@ export default function Home() {
           <AnimatedSection as="div" delay={0.2}>
             <Feature108
               badge="Jarvis Connect"
-              heading="Nos expertises cles"
-              description="Support & infogerance, developpement applicatif, conseil et transformation digitale pour des SI performants."
+              heading="Nos expertises clés"
+              description="Support & infogérance, développement applicatif, conseil et transformation digitale pour des SI performants."
               tabs={expertiseTabs}
             />
           </AnimatedSection>
@@ -260,20 +265,18 @@ export default function Home() {
           <AnimatedSection as="div" delay={0.3}>
             <ClientsShowcase
               title="Ils nous font confiance"
-              description="Nous livrons nos solutions numeriques en partenariat avec des acteurs majeurs en France et en Europe."
+              description="Nous livrons nos solutions numériques en partenariat avec des acteurs majeurs en France et en Europe."
               clients={clients}
               highlightLogo="https://dummyimage.com/400x400/ffffff/000000&text=Danone"
-              quote="Nous avons trouve chez Jarvis Connect cette efficacite et cette flexibilite, avec une equipe qui accompagne sur la technique comme sur la logistique."
+              quote="Nous avons trouvé chez Jarvis Connect cette efficacité et cette flexibilité, avec une équipe qui accompagne sur la technique comme sur la logistique."
               author="Jean-Philippe Salomon, Manager IT"
-              ctaLabel="Voir tous nos clients"
-              ctaUrl="#"
             />
           </AnimatedSection>
         </section>
 
         <section className="bg-[#F4F7FA] text-[#1E1E1E]">
           <AnimatedSection as="div" delay={0.35}>
-            <Gallery6 heading="Actualites de Jarvis Connect" demoUrl="#" items={newsItems} />
+            <Gallery6 heading="Actualités de Jarvis Connect" demoUrl="#" items={newsItems} />
           </AnimatedSection>
         </section>
 
@@ -282,10 +285,22 @@ export default function Home() {
             <Blog7
               tagline="Recrutement"
               heading="Nos offres d'emploi"
-              description="Decouvrez les opportunites ouvertes chez Jarvis Connect et rejoignez une equipe technique qui fait bouger les SI."
+              description="Découvrez les opportunités ouvertes chez Jarvis Connect et rejoignez une équipe technique qui fait bouger les SI."
               buttonText="Voir toutes les offres"
               buttonUrl="#"
               posts={jobOffers}
+            />
+          </AnimatedSection>
+        </section>
+
+        <section className="bg-white text-[#1E1E1E]">
+          <AnimatedSection as="div" delay={0.42}>
+            <Contact2
+              title={contactInfo.title}
+              description={contactInfo.description}
+              phone={contactInfo.phone}
+              email={contactInfo.email}
+              web={contactInfo.web}
             />
           </AnimatedSection>
         </section>

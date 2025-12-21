@@ -21,14 +21,12 @@ interface Tab {
 }
 
 interface Feature108Props {
-  badge?: string;
   heading?: string;
   description?: string;
   tabs?: Tab[];
 }
 
 const Feature108 = ({
-  badge = "shadcnblocks.com",
   heading = "A Collection of Components Built With Shadcn & Tailwind",
   description = "Join us to build flawless web solutions.",
   tabs = [
@@ -83,9 +81,6 @@ const Feature108 = ({
     <section className="py-16 md:py-20">
       <div className="container mx-auto">
         <div className="flex flex-col items-center gap-3 text-center">
-          <Badge variant="outline" className="rounded-none">
-            {badge}
-          </Badge>
           <h1 className="max-w-2xl text-3xl font-semibold md:text-4xl">
             {heading}
           </h1>

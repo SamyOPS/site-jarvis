@@ -12,8 +12,6 @@ interface ClientsShowcaseProps {
   highlightLogo?: string;
   quote?: string;
   author?: string;
-  ctaLabel?: string;
-  ctaUrl?: string;
 }
 
 export function ClientsShowcase({
@@ -23,9 +21,7 @@ export function ClientsShowcase({
   clients = [],
   highlightLogo,
   quote,
-  author,
-  ctaLabel = "Voir tous nos clients",
-  ctaUrl = "#",
+  author
 }: ClientsShowcaseProps) {
   return (
     <section className="bg-[#050B14] text-white">
@@ -78,14 +74,6 @@ export function ClientsShowcase({
                 />
               </a>
             ))}
-          </div>
-          <div className="flex justify-end">
-            <a
-              href={ctaUrl}
-              className="rounded-none border border-white/50 px-5 py-3 text-sm font-semibold text-white transition hover:border-white hover:bg-white hover:text-[#0A1A2F]"
-            >
-              {ctaLabel}
-            </a>
           </div>
         </div>
       </div>
