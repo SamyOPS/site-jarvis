@@ -93,19 +93,21 @@ const Blog7 = ({
           {posts.map((post) => (
             <Card
               key={post.id}
-              className="grid grid-rows-[auto_auto_1fr_auto] rounded-none"
+              className="group grid grid-rows-[auto_auto_1fr_auto] rounded-none"
             >
               <div className="aspect-[16/9] w-full">
                 <a
                   href={post.url}
                   target="_blank"
-                  className="transition-opacity duration-200 fade-in hover:opacity-70"
+                  className="flex h-full transition-opacity duration-200 fade-in hover:opacity-80"
                 >
-                  <img
-                    src={post.image}
-                    alt={post.title}
-                    className="h-full w-full object-cover object-center"
-                  />
+                  <div className="relative h-full w-full origin-bottom overflow-hidden">
+                    <img
+                      src={post.image}
+                      alt={post.title}
+                      className="h-full w-full object-cover object-center transition duration-300 group-hover:scale-105"
+                    />
+                  </div>
                 </a>
               </div>
               <CardHeader>
@@ -125,7 +127,7 @@ const Blog7 = ({
                   className="flex items-center text-foreground hover:underline"
                 >
                   Voir l'offre
-                  <ArrowRight className="ml-2 size-4" />
+                  <ArrowRight className="ml-2 size-4 transition-transform group-hover:translate-x-1" />
                 </a>
               </CardFooter>
             </Card>

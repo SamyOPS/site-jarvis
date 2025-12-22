@@ -4,6 +4,7 @@ import { LogIn, UserPlus } from "lucide-react";
 
 const navLinks = [
   { label: "Accueil", href: "#" },
+  { label: "Dashboard", href: "/dashboard" },
   { label: "Expertises", href: "#expertises" },
   { label: "Clients", href: "#clients" },
   { label: "Actualites", href: "#actualites" },
@@ -36,7 +37,7 @@ export function Header2() {
 
           <div className="flex items-center gap-2">
             <a
-              href="#"
+              href="/login"
               aria-label="Connexion"
               className="p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
             >
@@ -44,7 +45,7 @@ export function Header2() {
             </a>
             <span className="h-4 w-px bg-white/20" aria-hidden="true" />
             <a
-              href="#"
+              href="/register"
               aria-label="Inscription"
               className="p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
             >

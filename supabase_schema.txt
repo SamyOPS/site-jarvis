@@ -1,0 +1,253 @@
+# Supabase – Documentation technique Job Platform (Jarvis Connect)
+
+Ce document décrit **l’architecture complète de la base de données**, les **relations**, les **Row Level Security (RLS)** et les règles de **Storage** pour la plateforme d’offres d’emploi *Jarvis Connect*.
+
+Il sert de **référence unique** pour :
+
+* développement frontend / backend
+* audits sécurité
+* onboarding technique
+
+---
+
+## 1. Vue d’ensemble
+
+### Acteurs
+
+* **Candidate** : consulte les offres et postule
+* **Professional** : publie des offres (après vérification)
+* **Admin** : contrôle total (modération, accès global)
+
+### Principes clés
+
+* Sécurité assurée exclusivement par **RLS Supabase** (aucune logique de sécurité côté client)
+* Séparation claire entre :
+
+  * profils utilisateurs
+  * offres d’emploi
+  * candidatures
+  * vérification professionnelle
+  * fichiers (CV)
+
+---
+
+## 2. Table `profiles`
+
+### Rôle
+
+Table centrale représentant le **profil applicatif** d’un utilisateur Supabase (`auth.users`).
+
+### Colonnes principales
+
+* `id` (uuid, PK) : lié à `auth.users.id`
+* `email` : email utilisateur
+* `full_name`
+* `role` : `candidate | professional | admin`
+* `professional_status` : `none | pending | verified | rejected`
+* `company_name`
+
+### Relations
+
+* 1–1 avec `auth.users`
+* 1–N avec `job_offers`
+* 1–N avec `applications`
+
+### RLS
+
+| Action | Autorisé    | Condition                             |
+| ------ | ----------- | ------------------------------------- |
+| SELECT | Utilisateur | son propre profil (`id = auth.uid()`) |
+| UPDATE | Utilisateur | son propre profil                     |
+| ALL    | Admin       | `role = 'admin'`                      |
+
+### Sécurité supplémentaire (obligatoire)
+
+* Un **trigger SQL** empêche tout utilisateur non-admin de modifier les champs critiques :
+
+  * `role`
+  * `professional_status`
+
+> Supabase RLS ne permettant pas la protection au niveau colonne, ce trigger est **indispensable**.
+
+---
+
+## 3. Table `job_offers`
+
+### Rôle
+
+Stocke les **offres d’emploi** publiées par les professionnels.
+
+### Colonnes principales
+
+* `id` (uuid)
+* `title`, `slug`, `description`
+* `department`, `location`, `work_mode`
+* `contract_type`, `experience_level`
+* `salary_min`, `salary_max`
+* `tech_stack` (jsonb)
+* `company_name`
+* `status` : `draft | published | archived`
+* `published_at`
+* `created_by` → `profiles.id`
+
+### Logique métier
+
+* Une offre n’est visible publiquement que si `status = 'published'`
+* Le champ `published_at` est automatiquement renseigné via **trigger SQL** lors du passage à `published`
+
+### RLS
+
+| Action | Autorisé             | Condition                                                     |
+| ------ | -------------------- | ------------------------------------------------------------- |
+| SELECT | Public               | `status = 'published'`                                        |
+| INSERT | Professional vérifié | `role = 'professional'` ET `professional_status = 'verified'` |
+| UPDATE | Pro propriétaire     | `created_by = auth.uid()`                                     |
+| DELETE | Pro propriétaire     | `created_by = auth.uid()`                                     |
+| ALL    | Admin                | accès total                                                   |
+
+### Index recommandés
+
+* `job_offers(status)`
+* `job_offers(created_by)`
+* `job_offers(slug)` **(unique, lookup frontend & SEO)**
+
+---
+
+## 4. Table `applications`
+
+### Rôle
+
+Représente une **candidature** d’un candidat à une offre.
+
+### Colonnes principales
+
+* `job_id` → `job_offers.id`
+* `candidate_id` → `profiles.id`
+* `cover_letter`
+* `cv_url`
+* `status` : `submitted | reviewed | rejected | accepted`
+
+### Contraintes
+
+* Un candidat ne peut postuler **qu’une seule fois par offre** (`UNIQUE(job_id, candidate_id)`)
+
+### RLS
+
+| Action | Autorisé     | Condition                                                           |
+| ------ | ------------ | ------------------------------------------------------------------- |
+| INSERT | Candidate    | `candidate_id = auth.uid()`                                         |
+| SELECT | Candidate    | ses candidatures                                                    |
+| SELECT | Professional | candidatures liées à **ses offres uniquement**                      |
+| UPDATE | Professional | **uniquement le champ `status`** sur les candidatures de ses offres |
+| ALL    | Admin        | accès total                                                         |
+
+---
+
+## 5. Table `professional_verification_requests`
+
+### Rôle
+
+Gère le **workflow de vérification des professionnels** avant publication d’offres.
+
+### Colonnes principales
+
+* `user_id` → `profiles.id`
+* `company_name`, `website`
+* `document_urls` (jsonb)
+* `status` : `pending | verified | rejected`
+* `reviewed_by` → `profiles.id`
+
+### RLS
+
+| Action | Autorisé    | Condition         |
+| ------ | ----------- | ----------------- |
+| SELECT | Utilisateur | sa propre demande |
+| INSERT | Utilisateur | sa propre demande |
+| ALL    | Admin       | gestion complète  |
+
+---
+
+## 6. Table `profile_cvs`
+
+### Rôle
+
+Stocke les **métadonnées du CV principal** d’un utilisateur.
+
+### Colonnes
+
+* `user_id` (PK)
+* `storage_path`
+* `file_name`, `mime_type`, `size_bytes`
+
+### RLS
+
+| Action | Autorisé    | Condition              |
+| ------ | ----------- | ---------------------- |
+| ALL    | Utilisateur | `user_id = auth.uid()` |
+| ALL    | Admin       | accès total            |
+
+> Les **recruteurs n’ont aucun accès** aux CV de profil.
+
+---
+
+## 7. Storage Supabase – CV
+
+### Bucket
+
+* Nom : `cvs`
+* Visibilité : **PRIVATE**
+
+### Convention de chemin
+
+```
+cvs/<user_id>/cv.pdf
+```
+
+### Règles d’accès
+
+* Utilisateur : accès uniquement à son dossier (`cvs/<auth.uid()>/*`)
+* Admin : accès global
+* **Aucun accès recruteur** (même via URL signée)
+
+> Les **URLs signées** sont réservées exclusivement aux **admins**.
+
+---
+
+## 8. Vues & performance
+
+### Vue publique
+
+* `public_job_offers`
+
+  * Vue SQL simple (non matérialisée)
+  * Filtre uniquement `status = 'published'`
+
+### Index principaux
+
+* `job_offers(status)`
+* `job_offers(created_by)`
+* `job_offers(slug)`
+* `applications(job_id)`
+* `applications(candidate_id)`
+
+---
+
+## 9. Principes de sécurité
+
+* Aucune donnée sensible exposée sans RLS
+* Aucun champ critique modifiable côté client
+* Storage strictement privé
+* Accès admin basé uniquement sur `profiles.role = 'admin'`
+
+---
+
+## 10. Évolutions prévues (V2)
+
+* Modération des offres par admin
+* Historique des statuts de candidature
+* Messagerie candidat / recruteur
+* Multi-CV par utilisateur
+
+---
+
+**Document de référence technique – Jarvis Connect**

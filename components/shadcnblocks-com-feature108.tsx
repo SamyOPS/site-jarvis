@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 interface TabContent {
-  badge: string;
   title: string;
   description: string;
   buttonText: string;
@@ -35,7 +34,6 @@ const Feature108 = ({
       icon: <Zap className="h-auto w-4 shrink-0" />,
       label: "Boost Revenue",
       content: {
-        badge: "Modern Tactics",
         title: "Make your site a true standout.",
         description:
           "Discover new web trends that help you craft sleek, highly functional sites that drive traffic and convert leads into customers.",
@@ -50,7 +48,6 @@ const Feature108 = ({
       icon: <Pointer className="h-auto w-4 shrink-0" />,
       label: "Higher Engagement",
       content: {
-        badge: "Expert Features",
         title: "Boost your site with top-tier design.",
         description:
           "Use stellar design to easily engage users and strengthen their loyalty. Create a seamless experience that keeps them coming back for more.",
@@ -65,7 +62,6 @@ const Feature108 = ({
       icon: <Layout className="h-auto w-4 shrink-0" />,
       label: "Stunning Layouts",
       content: {
-        badge: "Elite Solutions",
         title: "Build an advanced web experience.",
         description:
           "Lift your brand with modern tech that grabs attention and drives action. Create a digital experience that stands out from the crowd.",
@@ -106,12 +102,6 @@ const Feature108 = ({
                 className="grid place-items-center gap-12 lg:grid-cols-2 lg:gap-8"
               >
                 <div className="flex flex-col gap-5">
-                  <Badge
-                    variant="outline"
-                    className="w-fit rounded-none bg-background"
-                  >
-                    {tab.content.badge}
-                  </Badge>
                   <h3 className="text-3xl font-semibold lg:text-5xl">
                     {tab.content.title}
                   </h3>

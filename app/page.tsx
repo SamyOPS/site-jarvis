@@ -253,7 +253,6 @@ export default function Home() {
         <section id="expertises" className="bg-white text-[#1E1E1E]">
           <AnimatedSection as="div" delay={0.2}>
             <Feature108
-              badge="Jarvis Connect"
               heading="Nos expertises clés"
               description="Support & infogérance, développement applicatif, conseil et transformation digitale pour des SI performants."
               tabs={expertiseTabs}

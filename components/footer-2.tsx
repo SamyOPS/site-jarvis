@@ -112,7 +112,7 @@ export function Footer2() {
 
           <div className="flex gap-4">
             <a
-              href="#"
+              href="/register"
               className={buttonVariants({
                 variant: "secondary",
                 size: "default",
@@ -124,7 +124,7 @@ export function Footer2() {
             </a>
 
             <a
-              href="#"
+              href="/entreprise"
               className={buttonVariants({
                 variant: "secondary",
                 size: "default",
