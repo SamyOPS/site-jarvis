@@ -1,4 +1,4 @@
-import { Feature108 } from "@/components/shadcnblocks-com-feature108";
+﻿import { Feature108 } from "@/components/shadcnblocks-com-feature108";
 import { Gallery6 } from "@/components/gallery6";
 import { HeroSection } from "@/components/hero-section-with-smooth-bg-shader";
 import { Blog7 } from "@/components/blog7";
@@ -46,7 +46,7 @@ export default function Home() {
         "Accompagnement sur Azure et AWS pour la modernisation des infrastructures et l'industrialisation des déploiements.",
       url: "#",
       image:
-        "https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1753715613382-dc3e8456dbc9?q=80&w=1082&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     },
     {
       id: "news-3",
@@ -109,36 +109,36 @@ export default function Home() {
 
   const clients = [
     {
-      name: "Danone",
-      logo: "https://dummyimage.com/400x400/ffffff/000000&text=Danone",
+      name: "Sisley",
+      logo: "/client/sisley.png",
     },
     {
-      name: "Opéra de Paris",
-      logo: "https://dummyimage.com/400x400/ffffff/000000&text=Opera+de+Paris",
+      name: "BPCE",
+      logo: "/client/bpce.png",
     },
     {
-      name: "Groupe ADP",
-      logo: "https://dummyimage.com/400x400/ffffff/000000&text=Groupe+ADP",
+      name: "Burberry",
+      logo: "/client/burberry.png",
     },
     {
-      name: "Bordeaux Métropole",
-      logo: "https://dummyimage.com/400x400/ffffff/000000&text=Bordeaux+Metropole",
+      name: "Etypharm",
+      logo: "/client/etypharm.png",
     },
     {
-      name: "Thales",
-      logo: "https://dummyimage.com/400x400/ffffff/000000&text=Thales",
+      name: "Foncia",
+      logo: "/client/Foncia.png",
     },
     {
-      name: "Safran",
-      logo: "https://dummyimage.com/400x400/ffffff/000000&text=Safran",
+      name: "RSA",
+      logo: "/client/rsa.png",
     },
     {
-      name: "Stellantis",
-      logo: "https://dummyimage.com/400x400/ffffff/000000&text=Stellantis",
+      name: "ALD Automotive",
+      logo: "/client/ald.png",
     },
     {
-      name: "Hôpital de Cannes",
-      logo: "https://dummyimage.com/400x400/ffffff/000000&text=Hopital+de+Cannes",
+      name: "BNP Paribas",
+      logo: "/client/bnp.png",
     },
   ];
 
@@ -153,15 +153,17 @@ export default function Home() {
     title: "Des équipes engagées pour vos projets IT",
     description:
       "Support, développement et sécurité assurés par une équipe senior qui s'aligne sur vos enjeux. Nous pilotons les incidents, la supervision et l'industrialisation des déploiements pour que vos utilisateurs restent productifs. Nos experts anticipent les risques, documentent les architectures et vous accompagnent sur la durée, avec des engagements clairs et une communication transparente.",
+    extra:
+      "Nous mettons en place les bons indicateurs, les outils de collaboration et la formation pour que vos ‚quipes adoptent les nouvelles solutions sans friction.",
     buttonText: "En savoir plus",
     buttonUrl: "#",
   };
 
   const aboutCompanies = [
-    { src: "https://dummyimage.com/140x50/0a1a2f/ffffff&text=Cloud", alt: "Cloud" },
-    { src: "https://dummyimage.com/140x50/0a1a2f/ffffff&text=Data", alt: "Data" },
-    { src: "https://dummyimage.com/140x50/0a1a2f/ffffff&text=Security", alt: "Security" },
-    { src: "https://dummyimage.com/140x50/0a1a2f/ffffff&text=Apps", alt: "Apps" },
+    { src: "/partenaire/nxo.png", alt: "NXO" },
+    { src: "/partenaire/scc.png", alt: "SCC" },
+    { src: "/partenaire/opteamis.png", alt: "Opteamis" },
+    { src: "/partenaire/iris.png", alt: "IRIS" },
   ];
 
   const aboutAchievements = [
@@ -266,9 +268,19 @@ export default function Home() {
               title="Ils nous font confiance"
               description="Nous livrons nos solutions numériques en partenariat avec des acteurs majeurs en France et en Europe."
               clients={clients}
-              highlightLogo="https://dummyimage.com/400x400/ffffff/000000&text=Danone"
-              quote="Nous avons trouvé chez Jarvis Connect cette efficacité et cette flexibilité, avec une équipe qui accompagne sur la technique comme sur la logistique."
-              author="Jean-Philippe Salomon, Manager IT"
+              highlightLogo="/client/sisley.png"
+              quote={
+                <>
+                  "Nous travaillons depuis quelques mois avec la société <em>Jarvis Connect</em> et j'en suis pleinement satisfait.
+                  <br />
+                  <br />
+                  Des réponses rapides, pertinentes. Une équipe a notre écoute, souple et réactive !
+                  <br />
+                  <br />
+                  Je ne peux que recommander !"
+                </>
+              }
+              author="Julien S, Responsable support IT"
             />
           </AnimatedSection>
         </section>
@@ -299,7 +311,6 @@ export default function Home() {
               description={contactInfo.description}
               phone={contactInfo.phone}
               email={contactInfo.email}
-              web={contactInfo.web}
             />
           </AnimatedSection>
         </section>

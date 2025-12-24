@@ -124,7 +124,7 @@ export function Footer2() {
             </a>
 
             <a
-              href="/entreprise"
+              href="/register"
               className={buttonVariants({
                 variant: "secondary",
                 size: "default",

@@ -59,22 +59,31 @@ export default function LoginPage() {
     if (error) {
       setStatus({ type: "error", message: error.message });
     } else {
-      // Si le profil n'existe pas encore, on tente de le créer (RLS doit autoriser l'utilisateur connecté).
+      let resolvedRole = (data.user?.user_metadata as { role?: string } | undefined)?.role;
+
+      // Si le profil n'existe pas encore, on tente de le creer (RLS doit autoriser l'utilisateur connecte).
       if (data.user) {
         const { data: profileRow, error: profileSelectError } = await supabase
           .from("profiles")
-          .select("id")
+          .select("id, role")
           .eq("id", data.user.id)
           .maybeSingle();
 
+        if (profileRow?.role) {
+          resolvedRole = profileRow.role;
+        }
+
         if (!profileRow && !profileSelectError) {
-          const { error: profileUpsertError } = await supabase.from("profiles").upsert({
-            id: data.user.id,
-            email,
-          });
+          const { error: profileUpsertError } = await supabase
+            .from("profiles")
+            .upsert({
+              id: data.user.id,
+              email,
+              role: resolvedRole ?? "candidate",
+            });
 
           if (profileUpsertError) {
-            console.warn("Création de profil ignorée :", profileUpsertError.message);
+            console.warn("Creation de profil ignoree :", profileUpsertError.message);
           }
         }
       }
@@ -83,7 +92,7 @@ export default function LoginPage() {
         type: "success",
         message: `Connecte en tant que ${data.user?.email ?? "utilisateur"}`,
       });
-      router.push("/dashboard");
+      router.push("/");
     }
 
     setLoading(false);

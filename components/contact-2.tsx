@@ -14,11 +14,10 @@ interface Contact2Props {
 }
 
 export const Contact2 = ({
-  title = "Contact Us",
+  title = "Contactez-Nous",
   description = "We are available for questions, feedback, or collaboration opportunities. Let us know how we can help!",
-  phone = "(123) 34567890",
+  phone = "(123) 6 95 56 23 36",
   email = "email@example.com",
-  web = { label: "shadcnblocks.com", url: "https://shadcnblocks.com" },
 }: Contact2Props) => {
   return (
     <section className="py-32">
@@ -33,11 +32,11 @@ export const Contact2 = ({
             </div>
             <div className="mx-auto w-fit lg:mx-0">
               <h3 className="mb-6 text-center text-2xl font-semibold lg:text-left">
-                Contact Details
+                Contact
               </h3>
               <ul className="ml-4 list-disc">
                 <li>
-                  <span className="font-bold">Phone: </span>
+                  <span className="font-bold">Tel: </span>
                   {phone}
                 </li>
                 <li>
@@ -46,32 +45,26 @@ export const Contact2 = ({
                     {email}
                   </a>
                 </li>
-                <li>
-                  <span className="font-bold">Web: </span>
-                  <a href={web.url} target="_blank" className="underline">
-                    {web.label}
-                  </a>
-                </li>
               </ul>
             </div>
           </div>
           <div className="mx-auto flex max-w-screen-md flex-col gap-6 border p-10">
             <div className="flex gap-4">
               <div className="grid w-full items-center gap-1.5">
-                <Label htmlFor="firstname">First Name</Label>
+                <Label htmlFor="firstname">Prénom</Label>
                 <Input
                   type="text"
                   id="firstname"
-                  placeholder="First Name"
+                  placeholder="Prénom"
                   className="rounded-none"
                 />
               </div>
               <div className="grid w-full items-center gap-1.5">
-                <Label htmlFor="lastname">Last Name</Label>
+                <Label htmlFor="lastname">Nom</Label>
                 <Input
                   type="text"
                   id="lastname"
-                  placeholder="Last Name"
+                  placeholder="Nom"
                   className="rounded-none"
                 />
               </div>
@@ -81,18 +74,18 @@ export const Contact2 = ({
               <Input type="email" id="email" placeholder="Email" className="rounded-none" />
             </div>
             <div className="grid w-full items-center gap-1.5">
-              <Label htmlFor="subject">Subject</Label>
-              <Input type="text" id="subject" placeholder="Subject" className="rounded-none" />
+              <Label htmlFor="subject">Sujet</Label>
+              <Input type="text" id="subject" placeholder="Sujet" className="rounded-none" />
             </div>
             <div className="grid w-full gap-1.5">
               <Label htmlFor="message">Message</Label>
               <Textarea
-                placeholder="Type your message here."
+                placeholder="Saisissez votre message"
                 id="message"
                 className="rounded-none"
               />
             </div>
-            <Button className="w-full rounded-none">Send Message</Button>
+            <Button className="w-full rounded-none">Envoyer</Button>
           </div>
         </div>
       </div>

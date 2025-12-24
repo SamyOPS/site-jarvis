@@ -15,6 +15,13 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -29,13 +36,24 @@ type Status =
   | { type: "error"; message: string }
   | { type: "success"; message: string };
 
+type RoleChoice = "candidate" | "professional" | "salarie";
+
 export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [company, setCompany] = useState("");
+  const [website, setWebsite] = useState("");
+  const [roleChoice, setRoleChoice] = useState<RoleChoice>("candidate");
   const [status, setStatus] = useState<Status>({ type: "idle" });
   const [loading, setLoading] = useState(false);
+
+  const mappedRole =
+    roleChoice === "professional" ? "professional" : roleChoice === "salarie" ? "salarie" : "candidate";
+  const mappedStatus = roleChoice === "professional" || roleChoice === "salarie" ? "pending" : "none";
+  const isPro = roleChoice === "professional";
+  const isSalarie = roleChoice === "salarie";
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -56,7 +74,14 @@ export default function RegisterPage() {
       email,
       password,
       options: {
-        data: { full_name: fullName, role: "candidate" },
+        data: {
+          full_name: fullName,
+          company_name: isPro ? company : null,
+          website: isPro ? website : null,
+          role: mappedRole,
+          professional_status: mappedStatus,
+          account_kind: roleChoice, // trace du choix salarie/candidat/pro
+        },
       },
     });
 
@@ -67,13 +92,15 @@ export default function RegisterPage() {
     }
 
     if (data.user) {
-      // Best effort pour renseigner le profil (si RLS l'autorise dès l'inscription).
       const { error: profileError } = await supabase.from("profiles").upsert({
         id: data.user.id,
         email,
         full_name: fullName || null,
+        company_name: isPro ? company : null,
+        role: mappedRole,
+        professional_status: mappedStatus,
       });
-      // Pas bloquant si RLS empêche l'upsert.
+
       if (profileError) {
         console.warn("Upsert profile ignoré:", profileError.message);
       }
@@ -85,15 +112,13 @@ export default function RegisterPage() {
         "Compte créé. Vérifie tes emails si la confirmation est activée, puis connecte-toi.",
     });
     setLoading(false);
-
-    // Redirige vers la page de login après un court délai
     setTimeout(() => router.push("/login"), 1200);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0A1A2F] via-[#0f2744] to-[#0A1A2F] text-white">
       <div className="mx-auto flex min-h-screen max-w-5xl items-center justify-center px-4 py-16">
-        <Card className="w-full max-w-xl border-white/10 bg-white/10 text-white shadow-2xl backdrop-blur">
+        <Card className="w-full max-w-2xl border-white/10 bg-white/10 text-white shadow-2xl backdrop-blur">
           <CardHeader className="space-y-2">
             <div className="flex items-center gap-2 text-sm uppercase tracking-wide text-white/70">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10">
@@ -102,16 +127,35 @@ export default function RegisterPage() {
               <span>Créer un compte</span>
             </div>
             <CardTitle className="text-3xl font-semibold">
-              Inscription utilisateur
+              Inscription (candidat, salarié ou pro)
             </CardTitle>
             <CardDescription className="text-white/70">
-              Comptes standard (ni admin ni pro). Utilise ton email et choisis un
-              mot de passe.
+              Choisis le type de compte. Les admins sont créés directement dans Supabase.
             </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-white/80">Type de compte</Label>
+                <Select
+                  value={roleChoice}
+                  onValueChange={(val: RoleChoice) => setRoleChoice(val)}
+                >
+                  <SelectTrigger className="border-white/10 bg-white/5 text-white focus:ring-[#2aa0dd]">
+                    <SelectValue placeholder="Sélectionne un type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#0A1A2F] text-white border-white/10">
+                    <SelectItem value="candidate">Candidat</SelectItem>
+                    <SelectItem value="salarie">Salarié</SelectItem>
+                    <SelectItem value="professional">Entreprise / Pro</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-white/60">
+                  Pro = rôle professional (statut pending). Salarié = rôle salarie (statut pending). Candidat = rôle candidate (statut none).
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="fullName" className="text-white/80">
                   Nom complet (optionnel)
@@ -126,6 +170,40 @@ export default function RegisterPage() {
                   autoComplete="name"
                 />
               </div>
+
+              {isPro && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="company" className="text-white/80">
+                      Nom de l&apos;entreprise
+                    </Label>
+                    <Input
+                      id="company"
+                      type="text"
+                      required={isPro}
+                      value={company}
+                      onChange={(event) => setCompany(event.target.value)}
+                      className="border-white/10 bg-white/5 text-white placeholder:text-white/40 focus-visible:ring-[#2aa0dd]"
+                      placeholder="Ma société"
+                      autoComplete="organization"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="website" className="text-white/80">
+                      Site web (optionnel)
+                    </Label>
+                    <Input
+                      id="website"
+                      type="url"
+                      value={website}
+                      onChange={(event) => setWebsite(event.target.value)}
+                      className="border-white/10 bg-white/5 text-white placeholder:text-white/40 focus-visible:ring-[#2aa0dd]"
+                      placeholder="https://exemple.com"
+                      autoComplete="url"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-white/80">
@@ -182,7 +260,11 @@ export default function RegisterPage() {
                 disabled={loading}
                 className="w-full bg-[#2aa0dd] text-white hover:bg-[#2493cb]"
               >
-                {loading ? "Création du compte..." : "Créer le compte"}
+                {loading
+                  ? "Création du compte..."
+                  : isPro
+                    ? "Créer le compte pro"
+                    : "Créer le compte"}
               </Button>
             </form>
 
@@ -190,16 +272,15 @@ export default function RegisterPage() {
               <p className="mb-2 font-semibold text-white">À savoir :</p>
               <ul className="list-disc space-y-1 pl-4">
                 <li>
-                  Ce formulaire crée un compte standard. Le rôle admin/pro reste
-                  réservé et géré côté base.
+                  Rôle envoyé : <code>{mappedRole}</code> |
+                  Statut pro : <code>{mappedStatus}</code> (pending seulement pour pro).
                 </li>
                 <li>
-                  Si la confirmation email est activée, vérifie ta boîte puis
-                  connecte-toi.
+                  Pense à activer/ajuster la policy RLS d&apos;insert sur
+                  <code>profiles</code> (auth.uid() = id) ou garde le trigger côté base.
                 </li>
                 <li>
-                  En cas d&apos;échec RLS sur l&apos;upsert du profil, seule la création du
-                  compte sera faite (non bloquant).
+                  Admins sont créés directement dans Supabase (pas via ce formulaire).
                 </li>
               </ul>
             </div>

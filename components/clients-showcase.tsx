@@ -1,3 +1,6 @@
+import { ReactNode } from "react";
+
+
 interface ClientLogo {
   name: string;
   logo: string;
@@ -10,7 +13,7 @@ interface ClientsShowcaseProps {
   description?: string;
   clients?: ClientLogo[];
   highlightLogo?: string;
-  quote?: string;
+  quote?: ReactNode;
   author?: string;
 }
 
@@ -28,7 +31,7 @@ export function ClientsShowcase({
       <div className="mx-auto flex max-w-6xl flex-col gap-10 px-6 py-16 lg:flex-row lg:items-start lg:gap-12 lg:px-10 lg:py-20">
         <div className="flex-1 space-y-8">
           <div className="space-y-3">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#1A73E8]">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#1557C0]">
               {tag}
             </p>
             <h2 className="font-display text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
@@ -42,20 +45,9 @@ export function ClientsShowcase({
               <img
                 src={highlightLogo}
                 alt="Client principal"
-                className="mx-auto h-28 w-28 object-contain"
+                className="mx-auto h-40 w-40 object-contain"
               />
             </div>
-          )}
-
-          {quote && (
-            <blockquote className="space-y-4">
-              <p className="text-lg text-white/90">“{quote}”</p>
-              {author && (
-                <footer className="text-sm font-medium text-white/70">
-                  {author}
-                </footer>
-              )}
-            </blockquote>
           )}
         </div>
 
@@ -77,6 +69,19 @@ export function ClientsShowcase({
           </div>
         </div>
       </div>
+
+      {quote && (
+        <div className="mx-auto max-w-6xl px-6 pb-16 lg:px-10 lg:pb-20">
+          <blockquote className="w-full text-white/90">
+            <div className="text-lg leading-relaxed">{quote}</div>
+            {author && (
+              <footer className="mt-3 text-sm font-semibold text-white/70">
+                {author}
+              </footer>
+            )}
+          </blockquote>
+        </div>
+      )}
     </section>
   );
 }
