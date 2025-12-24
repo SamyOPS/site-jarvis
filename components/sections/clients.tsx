@@ -7,7 +7,7 @@ interface ClientLogo {
   url?: string;
 }
 
-interface ClientsShowcaseProps {
+interface ClientsProps {
   tag?: string;
   title?: string;
   description?: string;
@@ -17,7 +17,7 @@ interface ClientsShowcaseProps {
   author?: string;
 }
 
-export function ClientsShowcase({
+export function Clients({
   tag = "Nos clients",
   title = "Ils nous font confiance",
   description = "Pour deployer nos solutions numeriques a travers l'Europe.",
@@ -25,7 +25,7 @@ export function ClientsShowcase({
   highlightLogo,
   quote,
   author
-}: ClientsShowcaseProps) {
+}: ClientsProps) {
   return (
     <section className="bg-[#050B14] text-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-10 px-6 py-16 lg:flex-row lg:items-start lg:gap-12 lg:px-10 lg:py-20">

@@ -1,13 +1,14 @@
-﻿import { Feature108 } from "@/components/shadcnblocks-com-feature108";
-import { Gallery6 } from "@/components/gallery6";
-import { HeroSection } from "@/components/hero-section-with-smooth-bg-shader";
-import { Blog7 } from "@/components/blog7";
-import { ClientsShowcase } from "@/components/clients-showcase";
-import { About3 } from "@/components/about-3";
-import { Header2 } from "@/components/header-2";
-import { Footer2 } from "@/components/footer-2";
-import { AnimatedSection } from "@/components/animated-section";
-import { Contact2 } from "@/components/contact-2";
+﻿import { TabsFeaturettes } from "@/components/sections/tabs-featurettes";
+import { Actualites } from "@/components/sections/actualites";
+import { Hero } from "@/components/sections/hero";
+import { OffresEmploi } from "@/components/sections/offres-emploi";
+import { Clients } from "@/components/sections/clients";
+import { About } from "@/components/sections/about";
+import { Header } from "@/components/sections/header";
+import { Footer } from "@/components/sections/footer";
+import { FormationsSupport } from "@/components/sections/formations-support";
+import { SectionAnimee } from "@/components/sections/section-animee";
+import { Contact } from "@/components/sections/contact";
 import { Shield, Code2, Sparkles } from "lucide-react";
 
 export default function Home() {
@@ -34,7 +35,7 @@ export default function Home() {
       id: "news-1",
       title: "Support 24/7 et ouverture du SOC Jarvis",
       summary:
-        "Nouvelle équipe dédiée à la supervision et à la réponse aux incidents pour renforcer la sécurité de nos clients.",
+        "Nouvelle équipe dédié … la supervision et … la réponse aux incidents pour renforcer la sécurité de nos clients.",
       url: "#",
       image:
         "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
@@ -144,17 +145,17 @@ export default function Home() {
 
   const aboutMainImage = {
     src: "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80",
-    alt: "Équipe Jarvis Connect",
+    alt: "quipe Jarvis Connect",
   };
 
   const aboutBreakout = {
     src: "https://dummyimage.com/160x60/0a1a2f/ffffff&text=Jarvis+Connect",
     alt: "Jarvis Connect",
-    title: "Des équipes engagées pour vos projets IT",
+    title: "Des ‚quipes engag‚es pour vos projets IT",
     description:
-      "Support, développement et sécurité assurés par une équipe senior qui s'aligne sur vos enjeux. Nous pilotons les incidents, la supervision et l'industrialisation des déploiements pour que vos utilisateurs restent productifs. Nos experts anticipent les risques, documentent les architectures et vous accompagnent sur la durée, avec des engagements clairs et une communication transparente.",
+      "Support, d‚veloppement et s‚curit‚ assur‚s par une ‚quipe senior qui s'aligne sur vos enjeux. Nous pilotons les incidents, la supervision et l'industrialisation des d‚ploiements pour que vos utilisateurs restent productifs. Nos experts anticipent les risques, documentent les architectures et vous accompagnent sur la dur‚e, avec des engagements clairs et une communication transparente.",
     extra:
-      "Nous mettons en place les bons indicateurs, les outils de collaboration et la formation pour que vos ‚quipes adoptent les nouvelles solutions sans friction.",
+      "Nous mettons en place les bons indicateurs, les outils de collaboration et la formation pour que vos 'quipes adoptent les nouvelles solutions sans friction.",
     buttonText: "En savoir plus",
     buttonUrl: "#",
   };
@@ -167,18 +168,14 @@ export default function Home() {
   ];
 
   const aboutAchievements = [
-    { label: "Clients accompagnés", value: "50+" },
-    { label: "Projets délivrés", value: "250+" },
+    { label: "Clients accompagn‚s", value: "50+" },
+    { label: "Projets d‚livr‚s", value: "250+" },
     { label: "Satisfaction", value: "98%" },
-    { label: "Disponibilité support", value: "24/7" },
+    { label: "Disponibilit‚ support", value: "24/7" },
   ];
 
   const contactInfo = {
-    title: "Contact Jarvis Connect",
-    description:
-      "Parlez-nous de vos projets, support ou sécurité. Notre équipe répond vite pour vous accompagner.",
-    phone: "+33 (0)1 23 45 67 89",
-    email: "contact@jarvisconnect.fr",
+    title: "Contactez\u00a0Nous",
     web: { label: "jarvisconnect.fr", url: "https://jarvisconnect.fr" },
   };
 
@@ -197,7 +194,7 @@ export default function Home() {
       badge: "Expertise Jarvis",
       title: item.title,
       description: item.description,
-      buttonText: "Découvrir",
+      buttonText: "D‚couvrir",
       imageSrc:
         index === 0
           ? "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
@@ -210,13 +207,13 @@ export default function Home() {
 
   return (
     <div className="text-white">
-      <AnimatedSection as="div" delay={0.05}>
-        <Header2 />
-      </AnimatedSection>
+      <SectionAnimee as="div" delay={0.05}>
+        <Header />
+      </SectionAnimee>
       <main>
         <section>
-          <AnimatedSection as="div" delay={0.1}>
-            <HeroSection
+          <SectionAnimee as="div" delay={0.1}>
+            <Hero
               title="Jarvis Connect propulse vos projets"
               highlightText="IT & digital"
               description="Support, développement applicatif et sécurité réunis au sein d'une équipe senior qui intervient vite et bien pour vos utilisateurs."
@@ -233,12 +230,12 @@ export default function Home() {
               fontFamily="Inter, system-ui, -apple-system, sans-serif"
               fontWeight={700}
             />
-          </AnimatedSection>
+          </SectionAnimee>
         </section>
 
         <section>
-          <AnimatedSection as="div" delay={0.15}>
-            <About3
+          <SectionAnimee as="div" delay={0.15}>
+            <About
               title="Jarvis Connect, partenaire IT & digital"
               description="Nous combinons support, développement applicatif et sécurité pour accompagner la croissance des PME et ETI."
               mainImage={aboutMainImage}
@@ -249,22 +246,22 @@ export default function Home() {
               achievementsDescription="Une équipe senior, des process industriels et une culture de la disponibilité pour vos utilisateurs."
               achievements={aboutAchievements}
             />
-          </AnimatedSection>
+          </SectionAnimee>
         </section>
 
         <section id="expertises" className="bg-white text-[#1E1E1E]">
-          <AnimatedSection as="div" delay={0.2}>
-            <Feature108
+          <SectionAnimee as="div" delay={0.2}>
+            <TabsFeaturettes
               heading="Nos expertises clés"
               description="Support & infogérance, développement applicatif, conseil et transformation digitale pour des SI performants."
               tabs={expertiseTabs}
             />
-          </AnimatedSection>
+          </SectionAnimee>
         </section>
 
         <section>
-          <AnimatedSection as="div" delay={0.3}>
-            <ClientsShowcase
+          <SectionAnimee as="div" delay={0.3}>
+            <Clients
               title="Ils nous font confiance"
               description="Nous livrons nos solutions numériques en partenariat avec des acteurs majeurs en France et en Europe."
               clients={clients}
@@ -274,7 +271,7 @@ export default function Home() {
                   "Nous travaillons depuis quelques mois avec la société <em>Jarvis Connect</em> et j'en suis pleinement satisfait.
                   <br />
                   <br />
-                  Des réponses rapides, pertinentes. Une équipe a notre écoute, souple et réactive !
+                  Des réponses rapides, pertinentes. Une équipe a notre équipecoute, souple et réactive !
                   <br />
                   <br />
                   Je ne peux que recommander !"
@@ -282,18 +279,24 @@ export default function Home() {
               }
               author="Julien S, Responsable support IT"
             />
-          </AnimatedSection>
+          </SectionAnimee>
         </section>
 
         <section className="bg-[#F4F7FA] text-[#1E1E1E]">
-          <AnimatedSection as="div" delay={0.35}>
-            <Gallery6 heading="Actualités de Jarvis Connect" demoUrl="#" items={newsItems} />
-          </AnimatedSection>
+          <SectionAnimee as="div" delay={0.35}>
+            <Actualites heading="Actualités de Jarvis Connect" demoUrl="#" items={newsItems} />
+          </SectionAnimee>
         </section>
 
         <section className="bg-white text-[#1E1E1E]">
-          <AnimatedSection as="div" delay={0.4}>
-            <Blog7
+          <SectionAnimee as="div" delay={0.37}>
+            <FormationsSupport />
+          </SectionAnimee>
+        </section>
+
+        <section className="bg-white text-[#1E1E1E]">
+          <SectionAnimee as="div" delay={0.4}>
+            <OffresEmploi
               tagline="Recrutement"
               heading="Nos offres d'emploi"
               description="Découvrez les opportunités ouvertes chez Jarvis Connect et rejoignez une équipe technique qui fait bouger les SI."
@@ -301,24 +304,21 @@ export default function Home() {
               buttonUrl="#"
               posts={jobOffers}
             />
-          </AnimatedSection>
+          </SectionAnimee>
         </section>
 
-        <section className="bg-white text-[#1E1E1E]">
-          <AnimatedSection as="div" delay={0.42}>
-            <Contact2
+        <section className="bg-[#000080] text-white">
+          <SectionAnimee as="div" delay={0.42}>
+            <Contact
               title={contactInfo.title}
-              description={contactInfo.description}
-              phone={contactInfo.phone}
-              email={contactInfo.email}
             />
-          </AnimatedSection>
+          </SectionAnimee>
         </section>
 
         <section>
-          <AnimatedSection as="div" delay={0.45}>
-            <Footer2 />
-          </AnimatedSection>
+          <SectionAnimee as="div" delay={0.45}>
+            <Footer />
+          </SectionAnimee>
         </section>
       </main>
     </div>

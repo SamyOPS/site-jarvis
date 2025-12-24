@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-interface Contact2Props {
+interface ContactProps {
   title?: string;
   description?: string;
   phone?: string;
@@ -13,22 +13,22 @@ interface Contact2Props {
   web?: { label: string; url: string };
 }
 
-export const Contact2 = ({
-  title = "Contactez-Nous",
-  description = "We are available for questions, feedback, or collaboration opportunities. Let us know how we can help!",
-  phone = "(123) 6 95 56 23 36",
-  email = "email@example.com",
-}: Contact2Props) => {
+export const Contact = ({
+  title = "Contactez\u00a0Nous",
+  description = "Nous sommes disponibles pour vos questions, retours ou opportunités de collaboration. Dites-nous comment nous pouvons vous aider !",
+  phone = "+33 6 95 56 23 36",
+  email = "contact@jarvisconnect.fr",
+}: ContactProps) => {
   return (
     <section className="py-32">
       <div className="container">
         <div className="mx-auto flex max-w-screen-xl flex-col justify-between gap-10 lg:flex-row lg:gap-20">
           <div className="mx-auto flex max-w-sm flex-col justify-between gap-10">
             <div className="text-center lg:text-left">
-              <h1 className="mb-2 text-5xl font-semibold lg:mb-1 lg:text-6xl">
+              <h1 className="mb-4 text-5xl font-semibold lg:mb-6 lg:text-6xl">
                 {title}
               </h1>
-              <p className="text-muted-foreground">{description}</p>
+              <p className="text-white/80">{description}</p>
             </div>
             <div className="mx-auto w-fit lg:mx-0">
               <h3 className="mb-6 text-center text-2xl font-semibold lg:text-left">
@@ -48,7 +48,7 @@ export const Contact2 = ({
               </ul>
             </div>
           </div>
-          <div className="mx-auto flex max-w-screen-md flex-col gap-6 border p-10">
+          <div className="mx-auto flex max-w-screen-md flex-col gap-6 border bg-white p-10 text-[#1E1E1E]">
             <div className="flex gap-4">
               <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="firstname">Prénom</Label>

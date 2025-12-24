@@ -4,7 +4,7 @@ import { MeshGradient } from "@paper-design/shaders-react"
 import { ArrowDown } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
-interface HeroSectionProps {
+interface HeroProps {
   title?: string
   highlightText?: string
   description?: string
@@ -29,7 +29,7 @@ interface HeroSectionProps {
   fontWeight?: number
 }
 
-export function HeroSection({
+export function Hero({
   title = "Intelligent AI Agents for",
   highlightText = "Smart Brands",
   description = "Transform your brand and evolve it through AI-driven brand guidelines and always up-to-date core components.",
@@ -52,7 +52,7 @@ export function HeroSection({
   fontFamily = "Satoshi, sans-serif",
   fontWeight = 500,
   buttonHref,
-}: HeroSectionProps) {
+}: HeroProps) {
   const [dimensions, setDimensions] = useState({ width: 1920, height: 1080 })
   const [mounted, setMounted] = useState(false)
   const sectionRef = useRef<HTMLElement | null>(null)

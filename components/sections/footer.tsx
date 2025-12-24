@@ -67,7 +67,7 @@ const socialLinks = [
   { icon: TwitterIcon, href: "#" },
 ];
 
-export function Footer2() {
+export function Footer() {
   return (
     <footer className="bg-black text-white border-t border-white/10">
       <div className="max-w-6xl mx-auto px-4 lg:px-6">

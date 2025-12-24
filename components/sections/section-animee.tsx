@@ -3,18 +3,18 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { ComponentPropsWithoutRef } from "react";
 
-type AnimatedSectionProps = ComponentPropsWithoutRef<"section"> & {
+type SectionAnimeeProps = ComponentPropsWithoutRef<"section"> & {
   as?: "div" | "section";
   delay?: number;
 };
 
-export function AnimatedSection({
+export function SectionAnimee({
   as = "section",
   delay = 0,
   children,
   className,
   ...props
-}: AnimatedSectionProps) {
+}: SectionAnimeeProps) {
   const shouldReduceMotion = useReducedMotion();
   const MotionTag = as === "div" ? motion.div : motion.section;
 

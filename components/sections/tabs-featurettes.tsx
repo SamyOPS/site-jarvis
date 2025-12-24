@@ -19,13 +19,13 @@ interface Tab {
   content: TabContent;
 }
 
-interface Feature108Props {
+interface TabsFeaturettesProps {
   heading?: string;
   description?: string;
   tabs?: Tab[];
 }
 
-const Feature108 = ({
+const TabsFeaturettes = ({
   heading = "A Collection of Components Built With Shadcn & Tailwind",
   description = "Join us to build flawless web solutions.",
   tabs = [
@@ -72,7 +72,7 @@ const Feature108 = ({
       },
     },
   ],
-}: Feature108Props) => {
+}: TabsFeaturettesProps) => {
   return (
     <section className="py-16 md:py-20">
       <div className="container mx-auto">
@@ -129,4 +129,4 @@ const Feature108 = ({
   );
 };
 
-export { Feature108 };
+export { TabsFeaturettes };

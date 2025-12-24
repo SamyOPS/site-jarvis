@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-interface About3Props {
+interface AboutProps {
   title?: string;
   description?: string;
   mainImage?: {
@@ -131,7 +131,7 @@ const AnimatedNumber = ({
   );
 };
 
-export const About3 = ({
+export const About = ({
   title = "About Us",
   description = "Shadcnblocks is a passionate team dedicated to creating innovative solutions that empower businesses to thrive in the digital age.",
   mainImage = {
@@ -148,7 +148,7 @@ export const About3 = ({
   achievementsTitle = "Our Achievements in Numbers",
   achievementsDescription = "Providing businesses with effective tools to improve workflows, boost efficiency, and encourage growth.",
   achievements = defaultAchievements,
-}: About3Props = {}) => {
+}: AboutProps = {}) => {
   const extraBreakoutText =
     breakout.extra ??
     "Nous pilotons les incidents, la supervision et l'industrialisation des dǸploiements pour que vos utilisateurs restent productifs.";

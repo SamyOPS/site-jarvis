@@ -19,7 +19,7 @@ interface Post {
   image: string;
 }
 
-interface Blog7Props {
+interface OffresEmploiProps {
   tagline?: string;
   heading?: string;
   description?: string;
@@ -28,7 +28,7 @@ interface Blog7Props {
   posts?: Post[];
 }
 
-const Blog7 = ({
+const OffresEmploi = ({
   heading = "Nos offres d'emploi",
   description = "Découvrez les postes ouverts et rejoignez l'équipe Jarvis Connect. Des missions ambitieuses pour faire grandir votre carrière.",
   buttonText = "Toutes les offres",
@@ -71,7 +71,7 @@ const Blog7 = ({
         "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80",
     },
   ],
-}: Blog7Props) => {
+}: OffresEmploiProps) => {
   return (
     <section className="bg-white py-16 text-[#0A1A2F] md:py-20">
       <div className="container mx-auto flex flex-col items-center gap-12 px-6 lg:px-10 xl:px-16">
@@ -138,4 +138,4 @@ const Blog7 = ({
   );
 };
 
-export { Blog7 };
+export { OffresEmploi };
