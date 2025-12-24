@@ -6,12 +6,10 @@ import { ChevronDown, LogIn, UserPlus } from "lucide-react";
 
 const navLinks = [
   { label: "Accueil", href: "#" },
-  { label: "Dashboard", href: "/dashboard" },
   { label: "Expertises", href: "#expertises" },
   { label: "Clients", href: "#clients" },
   { label: "Actualites", href: "#actualites" },
   { label: "Offres", href: "#offres" },
-  { label: "Contact", href: "#contact" },
 ];
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
