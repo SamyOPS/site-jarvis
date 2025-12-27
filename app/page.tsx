@@ -1,4 +1,4 @@
-﻿import { TabsFeaturettes } from "@/components/sections/tabs-featurettes";
+import { TabsFeaturettes } from "@/components/sections/tabs-featurettes";
 import { Actualites } from "@/components/sections/actualites";
 import { Hero } from "@/components/sections/hero";
 import { OffresEmploi } from "@/components/sections/offres-emploi";
@@ -7,7 +7,6 @@ import { About } from "@/components/sections/about";
 import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 import { FormationsSupport } from "@/components/sections/formations-support";
-import { SectionAnimee } from "@/components/sections/section-animee";
 import { Contact } from "@/components/sections/contact";
 import { Shield, Code2, Sparkles } from "lucide-react";
 
@@ -35,7 +34,7 @@ export default function Home() {
       id: "news-1",
       title: "Support 24/7 et ouverture du SOC Jarvis",
       summary:
-        "Nouvelle équipe dédié … la supervision et … la réponse aux incidents pour renforcer la sécurité de nos clients.",
+        "Nouvelle équipe dédiée à la supervision et à la réponse aux incidents pour renforcer la sécurité de nos clients.",
       url: "#",
       image:
         "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
@@ -145,17 +144,17 @@ export default function Home() {
 
   const aboutMainImage = {
     src: "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80",
-    alt: "quipe Jarvis Connect",
+    alt: "Équipe Jarvis Connect",
   };
 
   const aboutBreakout = {
     src: "https://dummyimage.com/160x60/0a1a2f/ffffff&text=Jarvis+Connect",
     alt: "Jarvis Connect",
-    title: "Des ‚quipes engag‚es pour vos projets IT",
+    title: "Des équipes engagées pour vos projets IT",
     description:
-      "Support, d‚veloppement et s‚curit‚ assur‚s par une ‚quipe senior qui s'aligne sur vos enjeux. Nous pilotons les incidents, la supervision et l'industrialisation des d‚ploiements pour que vos utilisateurs restent productifs. Nos experts anticipent les risques, documentent les architectures et vous accompagnent sur la dur‚e, avec des engagements clairs et une communication transparente.",
+      "Support, développement et sécurité assurés par une équipe senior qui s'aligne sur vos enjeux. Nous pilotons les incidents, la supervision et l'industrialisation des déploiements pour que vos utilisateurs restent productifs. Nos experts anticipent les risques, documentent les architectures et vous accompagnent sur la durée, avec des engagements clairs et une communication transparente.",
     extra:
-      "Nous mettons en place les bons indicateurs, les outils de collaboration et la formation pour que vos 'quipes adoptent les nouvelles solutions sans friction.",
+      "Nous mettons en place les bons indicateurs, les outils de collaboration et la formation pour que vos équipes adoptent les nouvelles solutions sans friction.",
     buttonText: "En savoir plus",
     buttonUrl: "#",
   };
@@ -168,10 +167,10 @@ export default function Home() {
   ];
 
   const aboutAchievements = [
-    { label: "Clients accompagn‚s", value: "50+" },
-    { label: "Projets d‚livr‚s", value: "250+" },
+    { label: "Clients accompagnés", value: "50+" },
+    { label: "Projets livrés", value: "250+" },
     { label: "Satisfaction", value: "98%" },
-    { label: "Disponibilit‚ support", value: "24/7" },
+    { label: "Disponibilité support", value: "24/7" },
   ];
 
   const contactInfo = {
@@ -194,7 +193,7 @@ export default function Home() {
       badge: "Expertise Jarvis",
       title: item.title,
       description: item.description,
-      buttonText: "D‚couvrir",
+      buttonText: "Découvrir",
       imageSrc:
         index === 0
           ? "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
@@ -207,118 +206,98 @@ export default function Home() {
 
   return (
     <div className="text-white">
-      <SectionAnimee as="div" delay={0.05}>
-        <Header />
-      </SectionAnimee>
+      <Header />
       <main>
         <section>
-          <SectionAnimee as="div" delay={0.1}>
-            <Hero
-              title="Jarvis Connect propulse vos projets"
-              highlightText="IT & digital"
-              description="Support, développement applicatif et sécurité réunis au sein d'une équipe senior qui intervient vite et bien pour vos utilisateurs."
-              showScrollIcon
-              scrollIconLabel="Scroll vers les expertises"
-              scrollText="Découvrir notre expertise"
-              colors={["#0A1A2F", "#0d1f35", "#11345f", "#1f4f7d", "#2aa0dd", "#7ce0ff"]}
-              className="text-white"
-              titleClassName="!text-white drop-shadow-[0_12px_30px_rgba(0,0,0,0.35)]"
-              descriptionClassName="text-white/90"
-              buttonClassName="border-white/40"
-              maxWidth="max-w-5xl"
-              veilOpacity="bg-[#0A1A2F]/55"
-              fontFamily="Inter, system-ui, -apple-system, sans-serif"
-              fontWeight={700}
-            />
-          </SectionAnimee>
+          <Hero
+            title="Jarvis Connect propulse vos projets"
+            highlightText="IT & digital"
+            description="Support, développement applicatif et sécurité réunis au sein d'une équipe senior qui intervient vite et bien pour vos utilisateurs."
+            showScrollIcon
+            scrollIconLabel="Scroll vers les expertises"
+            scrollText="Découvrir notre expertise"
+            colors={["#0A1A2F", "#0d1f35", "#11345f", "#1f4f7d", "#2aa0dd", "#7ce0ff"]}
+            className="text-white"
+            titleClassName="!text-white drop-shadow-[0_12px_30px_rgba(0,0,0,0.35)]"
+            descriptionClassName="text-white/90"
+            buttonClassName="border-white/40"
+            maxWidth="max-w-5xl"
+            veilOpacity="bg-[#0A1A2F]/55"
+            fontFamily="Inter, system-ui, -apple-system, sans-serif"
+            fontWeight={700}
+          />
         </section>
 
         <section>
-          <SectionAnimee as="div" delay={0.15}>
-            <About
-              title="Jarvis Connect, partenaire IT & digital"
-              description="Nous combinons support, développement applicatif et sécurité pour accompagner la croissance des PME et ETI."
-              mainImage={aboutMainImage}
-              breakout={aboutBreakout}
-              companiesTitle="Experts transverses pour vos projets"
-              companies={aboutCompanies}
-              achievementsTitle="Notre impact"
-              achievementsDescription="Une équipe senior, des process industriels et une culture de la disponibilité pour vos utilisateurs."
-              achievements={aboutAchievements}
-            />
-          </SectionAnimee>
+          <About
+            title="Jarvis Connect, partenaire IT & digital"
+            description="Nous combinons support, développement applicatif et sécurité pour accompagner la croissance des PME et ETI."
+            mainImage={aboutMainImage}
+            breakout={aboutBreakout}
+            companiesTitle="Experts transverses pour vos projets"
+            companies={aboutCompanies}
+            achievementsTitle="Notre impact"
+            achievementsDescription="Une équipe senior, des process industriels et une culture de la disponibilité pour vos utilisateurs."
+            achievements={aboutAchievements}
+          />
         </section>
 
         <section id="expertises" className="bg-white text-[#1E1E1E]">
-          <SectionAnimee as="div" delay={0.2}>
-            <TabsFeaturettes
-              heading="Nos expertises clés"
-              description="Support & infogérance, développement applicatif, conseil et transformation digitale pour des SI performants."
-              tabs={expertiseTabs}
-            />
-          </SectionAnimee>
+          <TabsFeaturettes
+            heading="Nos expertises clés"
+            description="Support & infogérance, développement applicatif, conseil et transformation digitale pour des SI performants."
+            tabs={expertiseTabs}
+          />
         </section>
 
         <section>
-          <SectionAnimee as="div" delay={0.3}>
-            <Clients
-              title="Ils nous font confiance"
-              description="Nous livrons nos solutions numériques en partenariat avec des acteurs majeurs en France et en Europe."
-              clients={clients}
-              highlightLogo="/client/sisley.png"
-              quote={
-                <>
-                  "Nous travaillons depuis quelques mois avec la société <em>Jarvis Connect</em> et j'en suis pleinement satisfait.
-                  <br />
-                  <br />
-                  Des réponses rapides, pertinentes. Une équipe a notre équipecoute, souple et réactive !
-                  <br />
-                  <br />
-                  Je ne peux que recommander !"
-                </>
-              }
-              author="Julien S, Responsable support IT"
-            />
-          </SectionAnimee>
+          <Clients
+            title="Ils nous font confiance"
+            description="Nous livrons nos solutions numériques en partenariat avec des acteurs majeurs en France et en Europe."
+            clients={clients}
+            highlightLogo="/client/sisley.png"
+            quote={
+              <>
+                "Nous travaillons depuis quelques mois avec la société <em>Jarvis Connect</em> et j'en suis pleinement satisfait.
+                <br />
+                <br />
+                Des réponses rapides, pertinentes. Une équipe à notre écoute, souple et réactive !
+                <br />
+                <br />
+                Je ne peux que recommander !"
+              </>
+            }
+            author="Julien S, Responsable support IT"
+          />
         </section>
 
         <section className="bg-[#F4F7FA] text-[#1E1E1E]">
-          <SectionAnimee as="div" delay={0.35}>
-            <Actualites heading="Actualités de Jarvis Connect" demoUrl="#" items={newsItems} />
-          </SectionAnimee>
+          <Actualites heading="Actualités de Jarvis Connect" demoUrl="#" items={newsItems} />
         </section>
 
         <section className="bg-white text-[#1E1E1E]">
-          <SectionAnimee as="div" delay={0.37}>
-            <FormationsSupport />
-          </SectionAnimee>
+          <FormationsSupport />
         </section>
 
         <section className="bg-white text-[#1E1E1E]">
-          <SectionAnimee as="div" delay={0.4}>
-            <OffresEmploi
-              tagline="Recrutement"
-              heading="Nos offres d'emploi"
-              description="Découvrez les opportunités ouvertes chez Jarvis Connect et rejoignez une équipe technique qui fait bouger les SI."
-              buttonText="Voir toutes les offres"
-              buttonUrl="#"
-              posts={jobOffers}
-            />
-          </SectionAnimee>
+          <OffresEmploi
+            tagline="Recrutement"
+            heading="Nos offres d'emploi"
+            description="Découvrez les opportunités ouvertes chez Jarvis Connect et rejoignez une équipe technique qui fait bouger les SI."
+            buttonText="Voir toutes les offres"
+            buttonUrl="#"
+            posts={jobOffers}
+          />
         </section>
 
         <section className="bg-[#000080] text-white">
-          <SectionAnimee as="div" delay={0.42}>
-            <Contact
-              title={contactInfo.title}
-            />
-          </SectionAnimee>
+          <Contact
+            title={contactInfo.title}
+          />
         </section>
 
         <section>
-          <SectionAnimee as="div" delay={0.45}>
-            <Footer />
-          </SectionAnimee>
+          <Footer />
         </section>
       </main>
     </div>
