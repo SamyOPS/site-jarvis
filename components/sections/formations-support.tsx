@@ -49,9 +49,17 @@ export const FormationsSupport = ({
   ],
 }: FormationsSupportProps) => {
   return (
-    <section className="relative py-32 bg-white">
+    <section className="relative overflow-hidden bg-white py-32">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-10 top-8 h-20 w-40 bg-[#000080] opacity-100"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-10 right-4 h-16 w-36 bg-[#000080] opacity-100"
+      />
       <div className="container flex flex-col gap-16 lg:px-16">
-        <div className="lg:ml-auto w-full">
+        <div className="w-full lg:ml-auto">
           <h2 className="mb-3 text-right text-xl font-semibold md:mb-4 md:text-4xl lg:mb-6 whitespace-nowrap">
             {heading}
           </h2>
@@ -86,16 +94,20 @@ export const FormationsSupport = ({
               </div>
             </div>
           )}
+        </div>
+      </div>
+      {features.slice(1).length > 0 && (
+        <div className="container mt-6 grid gap-6 px-6 md:grid-cols-2 md:px-10 lg:gap-8 lg:px-16">
           {features.slice(1).map((feature) => (
-            <div key={feature.id} className="flex flex-col overflow-clip rounded-none">
-              <div className="max-h-[16rem]">
+            <div key={feature.id} className="flex flex-col gap-4">
+              <div className="overflow-hidden rounded-none">
                 <img
                   src={feature.image}
                   alt={feature.title}
                   className="aspect-[16/9] h-full w-full object-cover object-center"
                 />
               </div>
-              <div className="px-6 py-8 md:px-8 md:py-10 lg:px-10 lg:py-12">
+              <div>
                 <h3 className="mb-3 text-lg font-semibold md:mb-4 md:text-2xl lg:mb-6">
                   {feature.title}
                 </h3>
@@ -106,7 +118,7 @@ export const FormationsSupport = ({
             </div>
           ))}
         </div>
-      </div>
+      )}
     </section>
   );
 };

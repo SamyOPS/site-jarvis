@@ -154,7 +154,11 @@ export const About = ({
     "Nous pilotons les incidents, la supervision et l'industrialisation des dǸploiements pour que vos utilisateurs restent productifs.";
 
   return (
-    <section className="relative bg-white pt-16 pb-10 text-[#0A1A2F] md:pt-20 md:pb-12">
+    <section className="relative overflow-hidden bg-white pt-16 pb-10 text-[#0A1A2F] md:pt-20 md:pb-12">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-10 right-6 h-16 w-36 bg-[#000080] opacity-100"
+      />
       <div className="container relative z-10 mx-auto px-6 lg:px-10">
         <div className="mb-10 flex flex-col gap-4 text-center md:text-left">
           <h1 className="w-full text-4xl font-semibold leading-tight md:text-5xl">

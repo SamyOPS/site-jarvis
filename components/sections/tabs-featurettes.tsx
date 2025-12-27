@@ -74,7 +74,15 @@ const TabsFeaturettes = ({
   ],
 }: TabsFeaturettesProps) => {
   return (
-    <section className="py-16 md:py-20">
+    <section className="relative overflow-hidden bg-white py-16 md:py-20">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-10 top-8 h-14 w-36 bg-[#000080] opacity-100"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-6 right-2 h-16 w-40 bg-[#000080] opacity-100"
+      />
       <div className="container mx-auto">
         <div className="flex flex-col items-center gap-3 text-center">
           <h1 className="max-w-2xl text-3xl font-semibold md:text-4xl">
@@ -94,7 +102,7 @@ const TabsFeaturettes = ({
               </TabsTrigger>
             ))}
           </TabsList>
-          <div className="mx-auto mt-6 max-w-screen-xl rounded-none bg-muted/70 p-6 lg:p-12">
+          <div className="mx-auto mt-6 max-w-screen-xl rounded-none bg-[#F4F7FA] p-6 lg:p-12">
             {tabs.map((tab) => (
               <TabsContent
                 key={tab.value}
