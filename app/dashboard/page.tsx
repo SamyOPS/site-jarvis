@@ -267,6 +267,12 @@ export default function DashboardPage() {
     setProfileUpdatingId(null);
   };
 
+  const buildUniqueSlug = (title: string) => {
+    const base = slugify(title) || "offre";
+    const suffix = crypto.randomUUID().slice(0, 8);
+    return `${base}-${suffix}`;
+  };
+
   const handleOfferSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase || !adminProfile) return;
@@ -276,7 +282,7 @@ export default function DashboardPage() {
 
     const payload = {
       title: offerForm.title,
-      slug: slugify(offerForm.title) || crypto.randomUUID(),
+      slug: buildUniqueSlug(offerForm.title),
       description: offerForm.description,
       location: offerForm.location || null,
       contract_type: offerForm.contract_type || null,
