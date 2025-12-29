@@ -78,11 +78,13 @@ export function Header() {
     <header className="sticky top-0 z-50 bg-black text-white border-b border-white/10">
       <div className="max-w-6xl mx-auto px-4 lg:px-6">
         <div className="flex items-center justify-between gap-4 py-4">
-          <div className="flex items-center">
-            <span className="text-sm font-semibold tracking-wide uppercase text-white">
-              Jarvis Connect
-            </span>
-          </div>
+          <a href="#" className="flex items-center">
+            <img
+              src="/logo%20jarvis.png"
+              alt="Jarvis Connect"
+              className="h-10 w-auto"
+            />
+          </a>
 
           <nav className="hidden md:flex items-center gap-6 text-sm text-white/80">
             {navLinks.map((link) => (

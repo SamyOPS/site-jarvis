@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { AlertCircle, ArrowRight, CalendarClock, Loader2, MapPin, Tag } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, CalendarClock, Loader2, MapPin, Tag } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -94,6 +94,15 @@ export default function OffresPage() {
   return (
     <div className="min-h-screen bg-white text-[#0A1A2F]">
       <div className="container mx-auto px-6 py-14 lg:px-10 xl:px-16">
+        <div className="mb-6 flex items-center">
+          <Button variant="link" className="p-0 text-[#0A1A2F]" asChild>
+            <a href="/" className="inline-flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Retour à l'accueil
+            </a>
+          </Button>
+        </div>
+
         <div className="text-center space-y-3 mb-10">
           <p className="text-sm uppercase tracking-[0.2em] text-[#0A1A2F]/70">Carrières</p>
           <h1 className="text-3xl font-semibold md:text-4xl lg:text-5xl">Toutes nos offres d&apos;emploi</h1>

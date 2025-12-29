@@ -35,7 +35,7 @@ export default function Home() {
       title: "Support 24/7 et ouverture du SOC Jarvis",
       summary:
         "Nouvelle équipe dédiée à la supervision et à la réponse aux incidents pour renforcer la sécurité de nos clients.",
-      url: "#",
+      url: "/en-developpement",
       image:
         "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
     },
@@ -44,7 +44,7 @@ export default function Home() {
       title: "Lancement d'un centre de compétence Cloud",
       summary:
         "Accompagnement sur Azure et AWS pour la modernisation des infrastructures et l'industrialisation des déploiements.",
-      url: "#",
+      url: "/en-developpement",
       image:
         "https://images.unsplash.com/photo-1753715613382-dc3e8456dbc9?q=80&w=1082&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     },
@@ -53,7 +53,7 @@ export default function Home() {
       title: "Nouveau programme d'innovation applicative",
       summary:
         "Ateliers design et MVP pour accélérer la livraison de produits digitaux en moins de 12 semaines.",
-      url: "#",
+      url: "/en-developpement",
       image:
         "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80",
     },
@@ -62,7 +62,7 @@ export default function Home() {
       title: "Partenariat stratégique cybersécurité",
       summary:
         "Renforcement de notre offre SOC, pentest et sensibilisation des équipes avec un partenaire spécialisé.",
-      url: "#",
+      url: "/en-developpement",
       image:
         "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80",
     },
@@ -194,6 +194,7 @@ export default function Home() {
       title: item.title,
       description: item.description,
       buttonText: "Découvrir",
+      buttonUrl: "/en-developpement",
       imageSrc:
         index === 0
           ? "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
@@ -228,7 +229,7 @@ export default function Home() {
           />
         </section>
 
-        <section>
+        <section id="about">
           <About
             title="Jarvis Connect, partenaire IT & digital"
             description="Nous combinons support, développement applicatif et sécurité pour accompagner la croissance des PME et ETI."
@@ -250,7 +251,7 @@ export default function Home() {
           />
         </section>
 
-        <section>
+        <section id="clients">
           <Clients
             title="Ils nous font confiance"
             description="Nous livrons nos solutions numériques en partenariat avec des acteurs majeurs en France et en Europe."
@@ -271,26 +272,26 @@ export default function Home() {
           />
         </section>
 
-        <section className="bg-[#F4F7FA] text-[#1E1E1E]">
-          <Actualites heading="Actualités de Jarvis Connect" demoUrl="#" items={newsItems} />
+        <section id="actualites" className="bg-[#F4F7FA] text-[#1E1E1E]">
+          <Actualites heading="Actualités de Jarvis Connect" demoUrl="/en-developpement" items={newsItems} />
         </section>
 
-        <section className="bg-white text-[#1E1E1E]">
-          <FormationsSupport />
+        <section id="formations" className="bg-white text-[#1E1E1E]">
+          <FormationsSupport linkUrl="/en-developpement" />
         </section>
 
-        <section className="bg-white text-[#1E1E1E]">
+        <section id="offres" className="bg-white text-[#1E1E1E]">
           <OffresEmploi
             tagline="Recrutement"
             heading="Nos offres d'emploi"
             description="Découvrez les opportunités ouvertes chez Jarvis Connect et rejoignez une équipe technique qui fait bouger les SI."
             buttonText="Voir toutes les offres"
-            buttonUrl="#"
+            buttonUrl="/offres"
             posts={jobOffers}
           />
         </section>
 
-        <section className="bg-[#000080] text-white">
+        <section id="contact" className="bg-[#000080] text-white">
           <Contact
             title={contactInfo.title}
           />
@@ -303,3 +304,4 @@ export default function Home() {
     </div>
   );
 }
+

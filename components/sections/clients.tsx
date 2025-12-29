@@ -18,7 +18,7 @@ interface ClientsProps {
 }
 
 export function Clients({
-  tag = "Nos clients",
+  tag = "Nos Références clients",
   title = "Ils nous font confiance",
   description = "Pour deployer nos solutions numeriques a travers l'Europe.",
   clients = [],

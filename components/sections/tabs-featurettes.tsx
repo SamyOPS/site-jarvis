@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
 import { Layout, Pointer, Zap } from "lucide-react";
 
@@ -8,6 +9,7 @@ interface TabContent {
   title: string;
   description: string;
   buttonText: string;
+  buttonUrl?: string;
   imageSrc: string;
   imageAlt: string;
 }
@@ -119,8 +121,11 @@ const TabsFeaturettes = ({
                   <Button
                     className="mt-2.5 w-fit gap-2 rounded-none"
                     size="lg"
+                    asChild
                   >
-                    {tab.content.buttonText}
+                    <Link href={tab.content.buttonUrl ?? "#"}>
+                      {tab.content.buttonText}
+                    </Link>
                   </Button>
                 </div>
                 <img

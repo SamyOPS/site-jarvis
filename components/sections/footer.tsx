@@ -6,63 +6,39 @@ import {
   LinkedinIcon,
   TwitterIcon,
 } from "lucide-react";
+
 import { buttonVariants } from "@/components/ui/button";
 
 const footerLinks = [
   {
-    title: "Company",
+    title: "Navigation",
     links: [
-      { href: "#", label: "The Linomore Blog" },
-      { href: "#", label: "Engineering Blog" },
-      { href: "#", label: "Marketplace" },
-      { href: "#", label: "Whatƒ?Ts New" },
-      { href: "#", label: "About" },
-      { href: "#", label: "Press" },
-      { href: "#", label: "Careers" },
-      { href: "#", label: "Link in Bio" },
-      { href: "#", label: "Social Good" },
+      { href: "#", label: "Accueil" },
+      { href: "#about", label: "A propos" },
+      { href: "#expertises", label: "Expertises" },
+      { href: "#clients", label: "Clients" },
     ],
   },
   {
-    title: "Community",
+    title: "Ressources",
     links: [
-      { href: "#", label: "Linktree for Enterprise" },
-      { href: "#", label: "2023 Creator Report" },
-      { href: "#", label: "2022 Creator Report" },
-      { href: "#", label: "Charities" },
-      { href: "#", label: "Whatƒ?Ts Trending" },
-      { href: "#", label: "Creator Profile Directory" },
-      { href: "#", label: "Explore Templates" },
+      { href: "#actualites", label: "Actualites" },
+      { href: "#formations", label: "Formations support" },
+      { href: "#offres", label: "Offres d'emploi" },
     ],
   },
   {
-    title: "Support",
+    title: "Plateforme",
     links: [
-      { href: "#", label: "Help Topics" },
-      { href: "#", label: "Getting Started" },
-      { href: "#", label: "Linoree Pro" },
-      { href: "#", label: "Features & How-tos" },
-      { href: "#", label: "FAQs" },
-      { href: "#", label: "Report a Violation" },
-    ],
-  },
-  {
-    title: "Legal",
-    links: [
-      { href: "#", label: "Terms & Conditions" },
-      { href: "#", label: "Privacy Notice" },
-      { href: "#", label: "Cookie Notice" },
-      { href: "#", label: "Trust Center" },
-      { href: "#", label: "Cookie Preferences" },
-      { href: "#", label: "Transparency Report" },
-      { href: "#", label: "Law Enforcement Access Policy" },
+      { href: "/register", label: "Espace salarie" },
+      { href: "/register", label: "Espace entreprise" },
+      { href: "#offres", label: "Rejoindre l'equipe" },
     ],
   },
 ];
 
 const socialLinks = [
   { icon: FacebookIcon, href: "#" },
-  { icon: InstagramIcon, href: "#" },
   { icon: LinkedinIcon, href: "#" },
   { icon: TwitterIcon, href: "#" },
 ];
@@ -71,27 +47,37 @@ export function Footer() {
   return (
     <footer className="bg-black text-white border-t border-white/10">
       <div className="max-w-6xl mx-auto px-4 lg:px-6">
-        {/* Grid container with headings and links */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-8">
-          {footerLinks.map((item, i) => (
-            <div key={i}>
-              <h3 className="mb-4 text-xs uppercase tracking-wide text-white/80">
-                {item.title}
-              </h3>
-              <ul className="space-y-2 text-sm text-white/70">
-                {item.links.map((link) => (
-                  <li key={link.label}>
-                    <a href={link.href} className="hover:text-white">
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        <div className="flex flex-col gap-8 py-8 md:flex-row md:items-start">
+          <div className="md:w-[220px]">
+            <img
+              src="/logo%20jarvis.png"
+              alt="Jarvis Connect"
+              className="h-16 w-auto object-contain"
+            />
+            <p className="mt-4 max-w-xs text-sm text-white/70">
+              Jarvis Connect — Support, développement et sécurité.
+            </p>
+          </div>
+          <div className="grid flex-1 grid-cols-2 gap-8 md:ml-auto md:grid-cols-3">
+            {footerLinks.map((item, i) => (
+              <div key={i}>
+                <h3 className="mb-4 text-xs uppercase tracking-wide text-white/80">
+                  {item.title}
+                </h3>
+                <ul className="space-y-2 text-sm text-white/70">
+                  {item.links.map((link) => (
+                    <li key={link.label}>
+                      <a href={link.href} className="hover:text-white">
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="h-px bg-white/10" />
-        {/* Social Buttons + App Links */}
         <div className="py-5 flex flex-wrap items-center justify-between gap-4">
           <div className="flex gap-2 items-center">
             {socialLinks.map(({ icon: Icon, href }, i) => (
@@ -110,43 +96,12 @@ export function Footer() {
             ))}
           </div>
 
-          <div className="flex gap-4">
-            <a
-              href="/register"
-              className={buttonVariants({
-                variant: "secondary",
-                size: "default",
-                className:
-                  "rounded-none bg-white text-black hover:bg-white/90 border border-white",
-              })}
-            >
-              Espace salarié
-            </a>
-
-            <a
-              href="/register"
-              className={buttonVariants({
-                variant: "secondary",
-                size: "default",
-                className:
-                  "rounded-none bg-white text-black hover:bg-white/90 border border-white",
-              })}
-            >
-              Espace entreprise
-            </a>
-          </div>
+          <div className="flex gap-4" />
         </div>
         <div className="h-px bg-white/10" />
         <div className="text-center text-xs text-white/60 py-4">
           <p>
-            ¶¸ {new Date().getFullYear()}{" "}
-            <a
-              href="https://x.com/sshahaider"
-              className="hover:text-white hover:underline"
-            >
-              sshahaider
-            </a>
-            . All rights reserved.
+            (c) {new Date().getFullYear()} Jarvis Connect. Tous droits reserves.
           </p>
         </div>
       </div>
