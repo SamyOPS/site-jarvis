@@ -50,14 +50,6 @@ export const FormationsSupport = ({
 }: FormationsSupportProps) => {
   return (
     <section className="relative overflow-hidden bg-white py-32">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -left-10 top-8 h-20 w-40 bg-[#000080] opacity-100"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute bottom-10 right-4 h-16 w-36 bg-[#000080] opacity-100"
-      />
       <div className="container flex flex-col gap-16 lg:px-16">
         <div className="w-full lg:ml-auto">
           <h2 className="mb-3 text-right text-xl font-semibold md:mb-4 md:text-4xl lg:mb-6 whitespace-nowrap">

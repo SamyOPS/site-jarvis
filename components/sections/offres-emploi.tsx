@@ -141,10 +141,6 @@ const OffresEmploi = ({
 
   return (
     <section className="relative overflow-hidden bg-white py-16 text-[#0A1A2F] md:py-20">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -left-12 top-6 h-20 w-40 bg-[#000080] opacity-100"
-      />
       <div className="container mx-auto flex flex-col items-center gap-12 px-6 lg:px-10 xl:px-16">
         <div className="text-center">
           <h2 className="mb-3 text-pretty text-3xl font-semibold md:mb-4 md:text-4xl lg:mb-5 lg:max-w-3xl lg:text-5xl">
