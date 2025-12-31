@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { ChevronDown, LogIn, UserPlus } from "lucide-react";
 
@@ -9,7 +9,14 @@ const navLinks = [
   { label: "Expertises", href: "#expertises" },
   { label: "Clients", href: "#clients" },
   { label: "Actualites", href: "#actualites" },
+  { label: "Formations", href: "#formations" },
   { label: "Offres", href: "#offres" },
+];
+
+const expertiseLinks = [
+  { label: "Support & Infogerance", href: "/expertises/support" },
+  { label: "Developpement applicatif", href: "/expertises/developpement" },
+  { label: "Conseil & Transformation", href: "/expertises/conseil" },
 ];
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -24,6 +31,8 @@ export function Header() {
   const [userLabel, setUserLabel] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [expertiseMenuOpen, setExpertiseMenuOpen] = useState(false);
+  const expertiseMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!supabase) return;
@@ -61,6 +70,21 @@ export function Header() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        expertiseMenuRef.current &&
+        !expertiseMenuRef.current.contains(event.target as Node)
+      ) {
+        setExpertiseMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const getDashboardPath = (role?: string | null) => {
     if (role === "admin") return "/dashboard";
     if (role === "professional") return "/dashboard/pro";
@@ -87,15 +111,51 @@ export function Header() {
           </a>
 
           <nav className="hidden md:flex items-center gap-6 text-sm text-white/80">
-            {navLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                className="hover:text-white transition-all duration-200 hover:[text-shadow:0_0_12px_#1A73E8]"
-              >
-                {link.label}
-              </a>
-            ))}
+            {navLinks.map((link) =>
+              link.label === "Expertises" ? (
+                <div key={link.label} className="relative" ref={expertiseMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setExpertiseMenuOpen((v) => !v)}
+                    className="inline-flex items-center gap-1 hover:text-white transition-all duration-200 hover:[text-shadow:0_0_12px_#1A73E8]"
+                  >
+                    {link.label}
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                  <div
+                    className={`absolute left-0 top-full mt-2 min-w-[240px] border border-white/10 bg-black/90 p-2 shadow-lg ${
+                      expertiseMenuOpen ? "block" : "hidden"
+                    }`}
+                  >
+                    <a
+                      href={link.href}
+                      className="block px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                    >
+                      Vue d'ensemble
+                    </a>
+                    <div className="my-1 h-px bg-white/10" />
+                    {expertiseLinks.map((item) => (
+                      <a
+                        key={item.href}
+                        href={item.href}
+                        className="block px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                        onClick={() => setExpertiseMenuOpen(false)}
+                      >
+                        {item.label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  className="hover:text-white transition-all duration-200 hover:[text-shadow:0_0_12px_#1A73E8]"
+                >
+                  {link.label}
+                </a>
+              )
+            )}
           </nav>
 
           <div className="flex items-center gap-2">

@@ -6,6 +6,12 @@ import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  HoverSlider,
+  HoverSliderImage,
+  HoverSliderImageWrap,
+  TextStaggerHover,
+} from "@/components/animated-slideshow";
 
 export type ExpertiseKey = "support" | "developpement" | "conseil";
 
@@ -13,6 +19,12 @@ type Card = {
   title: string;
   description: string;
   items?: string[];
+};
+
+type Slide = {
+  title: string;
+  image: string;
+  caption?: string;
 };
 
 export type ExpertiseContent = {
@@ -27,6 +39,7 @@ export type ExpertiseContent = {
   steps: { title: string; detail: string }[];
   deliverables: string[];
   seoDescription: string;
+  slides?: Slide[];
 };
 
 export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
@@ -119,6 +132,23 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
     ],
     seoDescription:
       "Support utilisateurs, supervision, infogerance et securite operationnelle pour des SI disponibles 24/7.",
+    slides: [
+      {
+        title: "Support utilisateur 24/7",
+        image:
+          "https://images.unsplash.com/photo-1525182008055-f88b95ff7980?auto=format&fit=crop&w=1200&q=80",
+      },
+      {
+        title: "Supervision et MCO",
+        image:
+          "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
+      },
+      {
+        title: "Securite operationnelle",
+        image:
+          "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80",
+      },
+    ],
   },
   developpement: {
     badge: "Developpement",
@@ -205,6 +235,23 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
     ],
     seoDescription:
       "Equipes produit pour concevoir et livrer vos applications web et mobiles avec un run industrialise.",
+    slides: [
+      {
+        title: "Discovery produit",
+        image:
+          "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80",
+      },
+      {
+        title: "Engineering full stack",
+        image:
+          "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80",
+      },
+      {
+        title: "Run et observabilite",
+        image:
+          "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1200&q=80",
+      },
+    ],
   },
   conseil: {
     badge: "Conseil",
@@ -291,6 +338,23 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
     ],
     seoDescription:
       "Conseil, architecture cible, modernisation cloud et securite pour transformer votre SI en maitrisant le risque.",
+    slides: [
+      {
+        title: "Diagnostic 360",
+        image:
+          "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80",
+      },
+      {
+        title: "Architecture cloud & data",
+        image:
+          "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=1200&q=80",
+      },
+      {
+        title: "Gouvernance et pilotage",
+        image:
+          "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80",
+      },
+    ],
   },
 };
 
@@ -403,6 +467,48 @@ export const ExpertisePageView = ({ expertise }: { expertise: ExpertiseContent }
             </div>
           </div>
         </section>
+
+        {expertise.slides && expertise.slides.length > 0 && (
+          <section className="bg-white">
+            <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
+              <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-center">
+                <div className="space-y-4">
+                  <p className="text-sm uppercase tracking-[0.2em] text-[#000080]">En images</p>
+                  <h2 className="text-3xl font-semibold text-[#0A1A2F] md:text-4xl">
+                    Apercu de nos interventions
+                  </h2>
+                  <p className="text-[#0A1A2F]/80">
+                    Passez la souris sur chaque ligne pour faire defiler les visuels. Nous affinerons
+                    ces contenus pour chaque page.
+                  </p>
+                </div>
+                <HoverSlider className="grid gap-6">
+                  <div className="flex flex-wrap gap-3 text-lg font-semibold text-[#0A1A2F] md:text-xl">
+                    {expertise.slides.map((slide, index) => (
+                      <TextStaggerHover
+                        key={slide.title}
+                        text={slide.title}
+                        index={index}
+                        className="cursor-pointer border border-transparent px-2 py-1 hover:border-[#000080]/30"
+                      />
+                    ))}
+                  </div>
+                  <HoverSliderImageWrap className="relative aspect-[16/9] overflow-hidden rounded-none border border-[#0A1A2F]/10 bg-[#f8fafc]">
+                    {expertise.slides.map((slide, index) => (
+                      <HoverSliderImage
+                        key={slide.title}
+                        index={index}
+                        src={slide.image}
+                        alt={slide.title}
+                        className="size-full object-cover"
+                      />
+                    ))}
+                  </HoverSliderImageWrap>
+                </HoverSlider>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="bg-white">
           <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
