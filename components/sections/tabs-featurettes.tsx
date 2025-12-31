@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
 import { Layout, Pointer, Zap } from "lucide-react";
@@ -110,12 +112,8 @@ const TabsFeaturettes = ({
                   <p className="text-muted-foreground lg:text-lg">
                     {tab.content.description}
                   </p>
-                  <Button
-                    className="mt-2.5 w-fit gap-2 rounded-none"
-                    size="lg"
-                    asChild
-                  >
-                    <Link href={tab.content.buttonUrl ?? "#"}>
+                  <Button className="mt-2.5 w-fit gap-2 rounded-none" size="lg" asChild>
+                    <Link href={tab.content.buttonUrl ?? "/expertises/support"} prefetch={false}>
                       {tab.content.buttonText}
                     </Link>
                   </Button>
