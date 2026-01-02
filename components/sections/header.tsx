@@ -122,29 +122,20 @@ export function Header() {
                     {link.label}
                     <ChevronDown className="h-4 w-4" />
                   </button>
-                  <div
-                    className={`absolute left-0 top-full mt-2 min-w-[240px] border border-white/10 bg-black/90 p-2 shadow-lg ${
-                      expertiseMenuOpen ? "block" : "hidden"
-                    }`}
-                  >
-                    <a
-                      href={link.href}
-                      className="block px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
-                    >
-                      Vue d'ensemble
-                    </a>
-                    <div className="my-1 h-px bg-white/10" />
-                    {expertiseLinks.map((item) => (
-                      <a
-                        key={item.href}
-                        href={item.href}
-                        className="block px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
-                        onClick={() => setExpertiseMenuOpen(false)}
-                      >
-                        {item.label}
-                      </a>
-                    ))}
-                  </div>
+                  {expertiseMenuOpen ? (
+                    <div className="absolute left-0 top-full mt-2 min-w-[240px] border border-white/10 bg-black/90 p-2 shadow-lg">
+                      {expertiseLinks.map((item) => (
+                        <a
+                          key={item.href}
+                          href={item.href}
+                          className="block px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                          onClick={() => setExpertiseMenuOpen(false)}
+                        >
+                          {item.label}
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <a
