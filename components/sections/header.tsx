@@ -5,12 +5,12 @@ import { createClient } from "@supabase/supabase-js";
 import { ChevronDown, LogIn, UserPlus } from "lucide-react";
 
 const navLinks = [
-  { label: "Accueil", href: "#" },
-  { label: "Expertises", href: "#expertises" },
-  { label: "Clients", href: "#clients" },
-  { label: "Actualites", href: "#actualites" },
-  { label: "Formations", href: "#formations" },
-  { label: "Offres", href: "#offres" },
+  { label: "Accueil", href: "/" },
+  { label: "Expertises", href: "/expertises" },
+  { label: "Formations", href: "/#formations" },
+  { label: "Actualites", href: "/#actualites" },
+  { label: "Offres", href: "/offres" },
+  { label: "Contact", href: "/contact" },
 ];
 
 const expertiseLinks = [
@@ -101,12 +101,12 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 bg-black text-white border-b border-white/10">
       <div className="max-w-6xl mx-auto px-4 lg:px-6">
-        <div className="flex items-center justify-between gap-4 py-4">
+        <div className="flex items-center justify-between gap-4 py-6">
           <a href="#" className="flex items-center">
             <img
               src="/logo%20jarvis.png"
               alt="Jarvis Connect"
-              className="h-10 w-auto"
+              className="h-12 w-auto"
             />
           </a>
 

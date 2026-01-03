@@ -6,6 +6,8 @@ import { ArrowLeft, CalendarClock, Loader2, MapPin, Tag } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Header } from "@/components/sections/header";
+import { Footer } from "@/components/sections/footer";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -80,7 +82,9 @@ export default function OffresDetailPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="min-h-screen bg-white text-[#0A1A2F]">
-      <div className="container mx-auto px-6 py-14 lg:px-10 xl:px-16">
+      <Header />
+
+      <main className="container mx-auto px-6 py-14 lg:px-10 xl:px-16">
         <div className="mb-8 flex items-center gap-3 text-sm">
           <Button variant="link" className="p-0 text-[#0A1A2F]" asChild>
             <a href="/offres" className="inline-flex items-center gap-2">
@@ -183,10 +187,10 @@ export default function OffresDetailPage({ params }: { params: Promise<{ id: str
               </p>
               <div className="flex flex-col gap-3">
                 <Button className="w-full rounded-none bg-[#000080] text-white hover:bg-[#000080]/90" asChild>
-                  <a href="/#contact">Postuler</a>
+                  <a href="/contact">Postuler</a>
                 </Button>
                 <Button className="w-full rounded-none border border-[#0A1A2F]/20 bg-white text-[#0A1A2F] hover:bg-[#000080]/10" asChild>
-                  <a href="/#contact">Contacter l'equipe</a>
+                  <a href="/contact">Contacter l'equipe</a>
                 </Button>
                 <Button variant="link" className="w-full justify-start text-[#0A1A2F]" asChild>
                   <a href="/offres" className="inline-flex items-center gap-2">
@@ -201,7 +205,9 @@ export default function OffresDetailPage({ params }: { params: Promise<{ id: str
             Offre introuvable ou non disponible.
           </div>
         )}
-      </div>
+      </main>
+
+      <Footer />
     </div>
   );
 }

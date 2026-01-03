@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
+import { InstagramIcon, LinkedinIcon } from "lucide-react";
 
 const footerLinks = [
   {
@@ -10,9 +11,16 @@ const footerLinks = [
       { href: "#", label: "Accueil" },
       { href: "#about", label: "A propos" },
       { href: "#expertises", label: "Expertises" },
-      { href: "#clients", label: "Clients" },
+      { href: "#actualites", label: "Actualites" },
+      { href: "#formations", label: "Formations" },
+      { href: "/contact", label: "Contact" },
     ],
   },
+];
+
+const socialLinks = [
+  { label: "LinkedIn", href: "#", icon: LinkedinIcon },
+  { label: "Instagram", href: "#", icon: InstagramIcon },
 ];
 
 export function Footer() {
@@ -38,24 +46,46 @@ export function Footer() {
 
   return (
     <footer ref={footerRef} className="relative overflow-hidden bg-black text-white border-t border-white/10">
-      <div className="max-w-7xl mx-auto px-4 pt-16 pb-32 lg:px-8 lg:pt-20 lg:pb-40 relative">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-3">
-          {footerLinks.map((item, i) => (
-            <div key={i}>
-              <h3 className="mb-4 text-xs uppercase tracking-wide text-white/80">
-                {item.title}
-              </h3>
-              <ul className="space-y-2 text-sm text-white/70">
-                {item.links.map((link) => (
-                  <li key={link.label}>
-                    <a href={link.href} className="hover:text-white">
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
+      <div className="max-w-screen-xl mx-auto px-6 pt-20 pb-48 lg:px-12 lg:pt-24 lg:pb-64 relative">
+        <div className="flex flex-col gap-10 md:flex-row md:items-start md:gap-12 md:justify-between">
+          <div className="w-full md:w-2/3 lg:w-3/4">
+            <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 text-left">
+              {footerLinks.map((item, i) => (
+                <div key={i}>
+                  <h3 className="mb-4 flex items-center gap-2 text-xs uppercase tracking-wide text-white/80">
+                    <span aria-hidden="true">↳</span> {item.title}
+                  </h3>
+                  <ul className="space-y-2 text-sm text-white/70">
+                    {item.links.map((link) => (
+                      <li key={link.label}>
+                        <a href={link.href} className="hover:text-white">
+                          {link.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+          <div className="md:w-1/3 lg:w-1/4">
+            <h3 className="mb-4 flex items-center gap-2 text-xs uppercase tracking-wide text-white/80">
+              <span aria-hidden="true">↳</span> Suivez-nous
+            </h3>
+            <ul className="space-y-2 text-sm text-white/70">
+              {socialLinks.map((item) => (
+                <li key={item.label} className="flex items-center gap-2">
+                  <a
+                    href={item.href}
+                    className="flex items-center gap-2 text-sm text-white/70 hover:text-white"
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
 

@@ -70,7 +70,7 @@ export default function PageEnDeveloppement() {
             </ul>
             <div className="border border-[#000080] bg-[#000080]/5 px-4 py-3 text-sm text-[#0A1A2F]">
               Besoin d'aller plus vite ?{" "}
-              <Link className="font-semibold text-[#000080] underline" href="/#contact">
+              <Link className="font-semibold text-[#000080] underline" href="/contact">
                 Contactez-nous
               </Link>{" "}
               et nous reviendrons vers vous rapidement.

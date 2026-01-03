@@ -7,7 +7,6 @@ import { About } from "@/components/sections/about";
 import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 import { FormationsSupport } from "@/components/sections/formations-support";
-import { Contact } from "@/components/sections/contact";
 import { Shield, Code2, Sparkles } from "lucide-react";
 
 export default function Home() {
@@ -176,11 +175,6 @@ export default function Home() {
     { label: "Disponibilit' support", value: "24/7" },
   ];
 
-  const contactInfo = {
-    title: "Contactez\u00a0Nous",
-    web: { label: "jarvisconnect.fr", url: "https://jarvisconnect.fr" },
-  };
-
   const expertiseTabs = expertises.map((item, index) => ({
     value: `tab-${index + 1}`,
     icon:
@@ -275,28 +269,22 @@ export default function Home() {
           />
         </section>
 
-        <section className="bg-[#F4F7FA] text-[#1E1E1E]">
-          <Actualites heading="Actualit‚s de Jarvis Connect" demoUrl="#" items={newsItems} />
+        <section id="actualites" className="bg-[#F4F7FA] text-[#1E1E1E]">
+          <Actualites heading="Actualit's de Jarvis Connect" demoUrl="#" items={newsItems} />
         </section>
 
-        <section className="bg-white text-[#1E1E1E]">
+        <section id="formations" className="bg-white text-[#1E1E1E]">
           <FormationsSupport />
         </section>
 
-        <section className="bg-white text-[#1E1E1E]">
+        <section id="offres" className="bg-white text-[#1E1E1E]">
           <OffresEmploi
             tagline="Recrutement"
             heading="Nos offres d'emploi"
-            description="D‚couvrez les opportunit‚s ouvertes chez Jarvis Connect et rejoignez une ‚quipe technique qui fait bouger les SI."
+            description="D'couvrez les opportunit's ouvertes chez Jarvis Connect et rejoignez une 'quipe technique qui fait bouger les SI."
             buttonText="Voir toutes les offres"
             buttonUrl="#"
             posts={jobOffers}
-          />
-        </section>
-
-        <section id="contact" className="bg-[#000080] text-white">
-          <Contact
-            title={contactInfo.title}
           />
         </section>
 

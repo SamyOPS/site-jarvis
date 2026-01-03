@@ -50,7 +50,7 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
       "Assistance utilisateurs, supervision proactive et securite operationnelle pour garder votre SI disponible.",
     heroNote: "Equipe francophone/anglophone, astreinte et pilote dedie.",
     actions: [
-      { label: "Parler a un expert", href: "/#contact", variant: "primary" },
+      { label: "Parler a un expert", href: "/contact", variant: "primary" },
       { label: "Voir nos offres", href: "/offres", variant: "secondary" },
     ],
     highlights: [
@@ -157,7 +157,7 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
       "Squads seniors pour livrer vos produits web et mobiles, de la discovery au run en production.",
     heroNote: "Design, dev, QA et securite integrees avec accompagnement produit.",
     actions: [
-      { label: "Lancer un projet", href: "/#contact", variant: "primary" },
+      { label: "Lancer un projet", href: "/contact", variant: "primary" },
       { label: "Decouvrir nos roles", href: "/offres", variant: "secondary" },
     ],
     highlights: [
@@ -260,7 +260,7 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
       "Architecture cible, modernisation cloud, cyber et gouvernance pour un SI plus robuste et agile.",
     heroNote: "Une approche pragmatique, pilotee par la valeur et le risque.",
     actions: [
-      { label: "Planifier un cadrage", href: "/#contact", variant: "primary" },
+      { label: "Planifier un cadrage", href: "/contact", variant: "primary" },
       { label: "Voir nos expertises", href: "/#expertises", variant: "secondary" },
     ],
     highlights: [
@@ -608,7 +608,7 @@ export const ExpertisePageView = ({ expertise }: { expertise: ExpertiseContent }
                 size="lg"
                 className="rounded-none bg-[#000080] text-white hover:bg-[#000080]/90"
               >
-                <Link href="/#contact" className="inline-flex items-center gap-2">
+                <Link href="/contact" className="inline-flex items-center gap-2">
                   Etre contacte
                   <ArrowRight className="h-4 w-4" />
                 </Link>
