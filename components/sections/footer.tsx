@@ -45,20 +45,20 @@ export function Footer() {
   }, []);
 
   return (
-    <footer ref={footerRef} className="relative overflow-hidden bg-black text-white border-t border-white/10">
+    <footer ref={footerRef} className="relative overflow-hidden bg-[#f5f5f5] text-black border-t border-black/10">
       <div className="max-w-screen-xl mx-auto px-6 pt-20 pb-48 lg:px-12 lg:pt-24 lg:pb-64 relative">
         <div className="flex flex-col gap-10 md:flex-row md:items-start md:gap-12 md:justify-between">
           <div className="w-full md:w-2/3 lg:w-3/4">
             <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 text-left">
               {footerLinks.map((item, i) => (
                 <div key={i}>
-                  <h3 className="mb-4 flex items-center gap-2 text-xs uppercase tracking-wide text-white/80">
+                  <h3 className="mb-4 flex items-center gap-2 text-xs uppercase tracking-wide text-black/80">
                     <span aria-hidden="true">↳</span> {item.title}
                   </h3>
-                  <ul className="space-y-2 text-sm text-white/70">
+                  <ul className="space-y-2 text-sm text-black/70">
                     {item.links.map((link) => (
                       <li key={link.label}>
-                        <a href={link.href} className="hover:text-white">
+                        <a href={link.href} className="hover:text-black">
                           {link.label}
                         </a>
                       </li>
@@ -69,15 +69,15 @@ export function Footer() {
             </div>
           </div>
           <div className="md:w-1/3 lg:w-1/4">
-            <h3 className="mb-4 flex items-center gap-2 text-xs uppercase tracking-wide text-white/80">
+            <h3 className="mb-4 flex items-center gap-2 text-xs uppercase tracking-wide text-black/80">
               <span aria-hidden="true">↳</span> Suivez-nous
             </h3>
-            <ul className="space-y-2 text-sm text-white/70">
+            <ul className="space-y-2 text-sm text-black/70">
               {socialLinks.map((item) => (
                 <li key={item.label} className="flex items-center gap-2">
                   <a
                     href={item.href}
-                    className="flex items-center gap-2 text-sm text-white/70 hover:text-white"
+                    className="flex items-center gap-2 text-sm text-black/70 hover:text-black"
                   >
                     <item.icon className="h-4 w-4" />
                     {item.label}
@@ -89,28 +89,17 @@ export function Footer() {
         </div>
       </div>
 
-      <div
-        className={`pointer-events-none absolute inset-x-0 bottom-[-4%] block select-none whitespace-nowrap text-center font-extrabold uppercase tracking-[0.05em] leading-none text-white transition-all duration-700 ease-out ${
-          showBrand ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
-        }`}
-        style={{ fontSize: "clamp(56px, 10vw, 160px)" }}
-      >
-        {"Jarvis Connect".split("").map((char, index) => (
-          <span key={`${char}-${index}`} className="relative inline-block overflow-hidden leading-none">
+      <div className="pointer-events-none absolute right-0 bottom-0 flex flex-col items-end gap-2 pb-2 pr-4 text-right">
+        <div
+          className={`select-none whitespace-nowrap text-center font-extrabold uppercase tracking-[0.05em] leading-none text-black transition-all duration-700 ease-out ${
+            showBrand ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
+          }`}
+          style={{ fontSize: "clamp(56px, 10vw, 160px)" }}
+        >
+          {"Jarvis Connect".split("").map((char, index) => (
             <motion.span
-              className="inline-block opacity-0"
-              initial={{ y: "0%" }}
-              animate={showBrand ? { y: "-110%", opacity: 0 } : { y: "0%", opacity: 0 }}
-              transition={{
-                delay: index * 0.24,
-                duration: 0.9,
-                ease: [0.25, 0.46, 0.45, 0.94],
-              }}
-            >
-              {char === " " ? "\u00A0" : char}
-            </motion.span>
-            <motion.span
-              className="absolute left-0 top-0 inline-block opacity-100"
+              key={`${char}-${index}`}
+              className="inline-block"
               initial={{ y: "110%" }}
               animate={showBrand ? { y: "0%" } : { y: "110%" }}
               transition={{
@@ -121,8 +110,14 @@ export function Footer() {
             >
               {char === " " ? "\u00A0" : char}
             </motion.span>
-          </span>
-        ))}
+          ))}
+        </div>
+        <div className="text-[11px] uppercase tracking-[0.16em] text-black/60">
+          Jarvis Connect - Tous droits reserves
+        </div>
+      </div>
+      <div className="pointer-events-none absolute left-4 bottom-0 pb-2 text-[11px] uppercase tracking-[0.16em] text-black/60">
+        Developement & Design by S
       </div>
     </footer>
   );

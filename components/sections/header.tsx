@@ -44,7 +44,6 @@ export function Header() {
         const meta = user.user_metadata as { full_name?: string; name?: string };
         const fullName = meta?.full_name ?? meta?.name ?? user.email ?? null;
         setUserLabel(fullName);
-        // récupérer le rôle stocké dans profiles si possible
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
@@ -99,10 +98,10 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-black text-white border-b border-white/10">
+    <header className="sticky top-0 z-50 bg-[#f5f5f5] text-black border-b border-black/10">
       <div className="max-w-6xl mx-auto px-4 lg:px-6">
         <div className="flex items-center justify-between gap-4 py-6">
-          <a href="#" className="flex items-center">
+          <a href="/" className="flex items-center">
             <img
               src="/logo%20jarvis.png"
               alt="Jarvis Connect"
@@ -110,25 +109,25 @@ export function Header() {
             />
           </a>
 
-          <nav className="hidden md:flex items-center gap-6 text-sm text-white/80">
+          <nav className="hidden md:flex items-center gap-6 text-sm text-black/70">
             {navLinks.map((link) =>
               link.label === "Expertises" ? (
                 <div key={link.label} className="relative" ref={expertiseMenuRef}>
                   <button
                     type="button"
                     onClick={() => setExpertiseMenuOpen((v) => !v)}
-                    className="inline-flex items-center gap-1 hover:text-white transition-all duration-200 hover:[text-shadow:0_0_12px_#1A73E8]"
+                    className="inline-flex items-center gap-1 hover:text-black transition-all duration-200"
                   >
                     {link.label}
                     <ChevronDown className="h-4 w-4" />
                   </button>
                   {expertiseMenuOpen ? (
-                    <div className="absolute left-0 top-full mt-2 min-w-[240px] border border-white/10 bg-black/90 p-2 shadow-lg">
+                    <div className="absolute left-0 top-full mt-2 min-w-[240px] border border-black/10 bg-white p-2 shadow-lg">
                       {expertiseLinks.map((item) => (
                         <a
                           key={item.href}
                           href={item.href}
-                          className="block px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                          className="block px-3 py-2 text-sm text-black/80 hover:bg-black/5 hover:text-black transition-colors"
                           onClick={() => setExpertiseMenuOpen(false)}
                         >
                           {item.label}
@@ -141,7 +140,7 @@ export function Header() {
                 <a
                   key={link.label}
                   href={link.href}
-                  className="hover:text-white transition-all duration-200 hover:[text-shadow:0_0_12px_#1A73E8]"
+                  className="hover:text-black transition-all duration-200"
                 >
                   {link.label}
                 </a>
@@ -157,24 +156,24 @@ export function Header() {
                     type="button"
                     onClick={() => setMenuOpen((open) => !open)}
                     onBlur={() => setTimeout(() => setMenuOpen(false), 120)}
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-black/70 hover:text-black hover:bg-black/5 transition-colors"
                   >
                     <span className="max-w-[180px] truncate">{userLabel}</span>
                     <ChevronDown className="h-4 w-4" />
                   </button>
                   {menuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-black/90 p-2 shadow-lg">
+                    <div className="absolute right-0 mt-2 w-48 bg-white p-2 shadow-lg border border-black/10">
                       <a
                         href={getDashboardPath(userRole)}
-                        className="block px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                        className="block px-3 py-2 text-sm text-black/80 hover:bg-black/5 hover:text-black transition-colors"
                       >
                         Mon espace
                       </a>
                       <button
                         onClick={handleSignOut}
-                        className="block w-full px-3 py-2 text-left text-sm text-red-100 hover:bg-white/10 hover:text-white transition-colors"
+                        className="block w-full px-3 py-2 text-left text-sm text-red-500 hover:bg-black/5 hover:text-red-600 transition-colors"
                       >
-                        Déconnexion
+                        Dゼconnexion
                       </button>
                     </div>
                   )}
@@ -185,15 +184,15 @@ export function Header() {
                 <a
                   href="/login"
                   aria-label="Connexion"
-                  className="p-2 text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                  className="p-2 text-black/70 hover:text-black hover:bg-black/5 transition-colors"
                 >
                   <LogIn className="h-5 w-5" />
                 </a>
-                <span className="h-4 w-px bg-white/20" aria-hidden="true" />
+                <span className="h-4 w-px bg-black/10" aria-hidden="true" />
                 <a
                   href="/register"
                   aria-label="Inscription"
-                  className="p-2 text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                  className="p-2 text-black/70 hover:text-black hover:bg-black/5 transition-colors"
                 >
                   <UserPlus className="h-5 w-5" />
                 </a>

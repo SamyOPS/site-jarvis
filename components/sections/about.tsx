@@ -139,9 +139,9 @@ export const About = ({
     alt: "placeholder",
   },
   breakout = {
-    title: "Des Ǹquipes engagǸes pour vos projets IT",
+    title: "Des €÷quipes engag€÷es pour vos projets IT",
     description:
-      "Support, dǸveloppement et sǸcuritǸ assurǸs par une Ǹquipe senior qui s'aligne sur vos enjeux.",
+      "Support, dÇ¸veloppement et sÇ¸curitÇ¸ assurÇ¸s par une Ç¸quipe senior qui s'aligne sur vos enjeux.",
   },
   companiesTitle = "Valued by clients worldwide",
   companies = defaultCompanies,
@@ -151,7 +151,7 @@ export const About = ({
 }: AboutProps = {}) => {
   const extraBreakoutText =
     breakout.extra ??
-    "Nous pilotons les incidents, la supervision et l'industrialisation des dǸploiements pour que vos utilisateurs restent productifs.";
+    "Nous pilotons les incidents, la supervision et l'industrialisation des d€÷ploiements pour que vos utilisateurs restent productifs.";
 
   return (
     <section className="relative overflow-hidden bg-white pt-16 pb-10 text-[#0A1A2F] md:pt-20 md:pb-12">
@@ -197,7 +197,7 @@ export const About = ({
                 {companiesTitle}
               </h3>
               <p className="text-sm text-white/75">
-                Une sǸlection de partenaires qui nous accompagnent sur nos projets clǸs.
+                Une sÇ¸lection de partenaires qui nous accompagnent sur nos projets clÇ¸s.
               </p>
             </div>
             <div className="grid flex-1 grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
