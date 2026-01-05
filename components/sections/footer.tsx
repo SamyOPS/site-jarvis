@@ -89,12 +89,12 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="pointer-events-none absolute right-0 bottom-0 flex flex-col items-end gap-2 pb-2 pr-4 text-right">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 px-4 pb-6 text-center">
         <div
-          className={`select-none whitespace-nowrap text-center font-extrabold uppercase tracking-[0.05em] leading-none text-black transition-all duration-700 ease-out ${
+          className={`select-none text-center font-extrabold uppercase tracking-[0.05em] leading-none text-black transition-all duration-700 ease-out flex flex-wrap justify-center ${
             showBrand ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
           }`}
-          style={{ fontSize: "clamp(56px, 10vw, 160px)" }}
+          style={{ fontSize: "clamp(40px, 8vw, 140px)" }}
         >
           {"Jarvis Connect".split("").map((char, index) => (
             <motion.span
@@ -105,19 +105,17 @@ export function Footer() {
               transition={{
                 delay: index * 0.025,
                 duration: 0.9,
-                ease: [0.25, 0.46, 0.45, 0.94],
-              }}
+              ease: [0.25, 0.46, 0.45, 0.94],
+            }}
             >
               {char === " " ? "\u00A0" : char}
             </motion.span>
           ))}
         </div>
-        <div className="text-[11px] uppercase tracking-[0.16em] text-black/60">
-          Jarvis Connect - Tous droits reserves
+        <div className="flex w-full max-w-screen-xl flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-black/60 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
+          <div className="text-left">Developement & Design by S</div>
+          <div className="text-left sm:text-right">Jarvis Connect - Tous droits reserves</div>
         </div>
-      </div>
-      <div className="pointer-events-none absolute left-4 bottom-0 pb-2 text-[11px] uppercase tracking-[0.16em] text-black/60">
-        Developement & Design by S
       </div>
     </footer>
   );

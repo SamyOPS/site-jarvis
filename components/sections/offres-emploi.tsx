@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowRight } from "lucide-react";
+import { motion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -83,6 +84,8 @@ const OffresEmploi = ({
       ? createClient(supabaseUrl, supabaseAnonKey)
       : null;
 
+  const isUsingRemote = Boolean(supabase);
+
   const [remoteOffers, setRemoteOffers] = useState<Post[] | null>(null);
 
   useEffect(() => {
@@ -135,69 +138,94 @@ const OffresEmploi = ({
   }, []);
 
   const offersToRender = useMemo(
-    () => remoteOffers ?? posts,
-    [remoteOffers, posts]
+    () => (isUsingRemote ? remoteOffers ?? [] : posts),
+    [isUsingRemote, remoteOffers, posts]
   );
 
   return (
     <section className="relative overflow-hidden bg-white py-16 text-[#0A1A2F] md:py-20">
       <div className="container mx-auto flex flex-col items-center gap-12 px-6 lg:px-10 xl:px-16">
         <div className="text-center">
-          <h2 className="mb-3 text-pretty text-3xl font-semibold md:mb-4 md:text-4xl lg:mb-5 lg:max-w-3xl lg:text-5xl">
+          <motion.h2
+            className="mb-3 text-pretty text-3xl font-semibold md:mb-4 md:text-4xl lg:mb-5 lg:max-w-3xl lg:text-5xl"
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1] }}
+          >
             {heading}
-          </h2>
-          <p className="mb-6 text-muted-foreground md:text-base lg:max-w-2xl lg:text-lg">
+          </motion.h2>
+          <motion.p
+            className="mb-6 text-muted-foreground md:text-base lg:max-w-2xl lg:text-lg"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.4, ease: [0.33, 1, 0.68, 1], delay: 0.05 }}
+          >
             {description}
-          </p>
-          <Button variant="link" className="w-full rounded-none sm:w-auto" asChild>
-            <a href={buttonUrl}>
-              {buttonText}
-              <ArrowRight className="ml-2 size-4" />
-            </a>
-          </Button>
+          </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.4, ease: [0.33, 1, 0.68, 1], delay: 0.08 }}
+          >
+            <Button variant="link" className="group w-full rounded-none sm:w-auto no-underline hover:no-underline" asChild>
+              <a href={buttonUrl} className="no-underline hover:no-underline">
+                {buttonText}
+                <ArrowRight className="ml-2 size-4 transition-transform duration-200 group-hover:translate-x-1" />
+              </a>
+            </Button>
+          </motion.div>
         </div>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-          {offersToRender.map((post) => (
-            <Card
-              key={post.id}
-              className="group grid grid-rows-[auto_auto_1fr_auto] rounded-none"
-            >
-              <div className="aspect-[16/9] w-full">
-                <a
-                  href={post.url}
-                  className="flex h-full transition-opacity duration-200 fade-in hover:opacity-80"
-                >
-                  <div className="relative h-full w-full origin-bottom overflow-hidden">
-                    <img
-                      src={post.image}
-                      alt={post.title}
-                      className="h-full w-full object-cover object-center transition duration-300 group-hover:scale-105"
-                    />
+        {offersToRender.length === 0 ? (
+          <div className="w-full text-center text-sm text-muted-foreground">
+            Chargement des offres…
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+            {offersToRender.map((post, idx) => (
+              <motion.div
+                key={post.id}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1], delay: idx * 0.15 }}
+              >
+                <Card className="group grid grid-rows-[auto_auto_1fr_auto] rounded-none">
+                  <div className="aspect-[16/9] w-full">
+                    <a
+                      href={post.url}
+                      className="flex h-full transition-opacity duration-200 fade-in hover:opacity-80"
+                    >
+                      <div className="relative h-full w-full origin-bottom overflow-hidden">
+                        <img
+                          src={post.image}
+                          alt={post.title}
+                          className="h-full w-full object-cover object-center transition duration-300 group-hover:scale-105"
+                        />
+                      </div>
+                    </a>
                   </div>
-                </a>
-              </div>
-              <CardHeader>
-                <h3 className="text-lg font-semibold hover:underline md:text-xl">
-                  <a href={post.url}>
-                    {post.title}
-                  </a>
-                </h3>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">{post.summary}</p>
-              </CardContent>
-              <CardFooter>
-                <a
-                  href={post.url}
-                  className="flex items-center text-foreground hover:underline"
-                >
-                  Voir l'offre
-                  <ArrowRight className="ml-2 size-4 transition-transform group-hover:translate-x-1" />
-                </a>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+                  <CardHeader>
+                    <h3 className="text-lg font-semibold hover:underline md:text-xl">
+                      <a href={post.url}>{post.title}</a>
+                    </h3>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">{post.summary}</p>
+                  </CardContent>
+                  <CardFooter>
+                    <a href={post.url} className="flex items-center text-foreground">
+                      Voir l'offre
+                      <ArrowRight className="ml-2 size-4 transition-transform group-hover:translate-x-1" />
+                    </a>
+                  </CardFooter>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

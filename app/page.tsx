@@ -145,7 +145,7 @@ export default function Home() {
   ];
 
   const aboutMainImage = {
-    src: "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80",
+    src: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1200&auto=format&fit=crop&q=80",
     alt: "Équipe Jarvis Connect",
   };
 
@@ -172,7 +172,6 @@ export default function Home() {
     { label: "Clients accompagnés", value: "50+" },
     { label: "Projets délivrés", value: "250+" },
     { label: "Satisfaction", value: "98%" },
-    { label: "Disponibilité support", value: "24/7" },
   ];
 
   const expertiseTabs = expertises.map((item, index) => ({
