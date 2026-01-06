@@ -23,6 +23,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Jarvis Connect",
   description: "Description de Jarvis",
+  icons: {
+    icon: "/favicon.jpeg",
+    shortcut: "/favicon.jpeg",
+  },
 };
 
 export default function RootLayout({
@@ -31,7 +35,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="fr">
+      <head>
+        <link rel="icon" href="/favicon.jpeg" type="image/jpeg" />
+      </head>
       <body
         className={`${inter.variable} ${interDisplay.variable} ${geistMono.variable} antialiased`}
       >

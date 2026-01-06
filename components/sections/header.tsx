@@ -182,7 +182,7 @@ export function Header() {
             ) : (
               <>
                 <a
-                  href="/login"
+                  href="/auth"
                   aria-label="Connexion"
                   className="p-2 text-black/70 hover:text-black hover:bg-black/5 transition-colors"
                 >
@@ -190,7 +190,7 @@ export function Header() {
                 </a>
                 <span className="h-4 w-px bg-black/10" aria-hidden="true" />
                 <a
-                  href="/register"
+                  href="/auth"
                   aria-label="Inscription"
                   className="p-2 text-black/70 hover:text-black hover:bg-black/5 transition-colors"
                 >

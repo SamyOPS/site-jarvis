@@ -31,7 +31,7 @@ export const FormationsSupport = ({
       description:
         "Modules pratiques sur la gestion des incidents, l'escalade, la supervision, la communication et les standards ITIL.",
       image:
-        "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+        "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=1200&auto=format&fit=crop",
     },
     {
       id: "feature-2",
@@ -51,15 +51,19 @@ export const FormationsSupport = ({
     },
   ],
 }: FormationsSupportProps) => {
+  const primary = features[0];
+  const others = features.slice(1);
+  if (!primary) return null;
+
   return (
     <motion.section
-      className="relative flex min-h-screen items-center overflow-hidden bg-white py-14 text-[#0A1A2F] md:py-16"
+      className="relative overflow-hidden bg-white py-14 text-[#0A1A2F] md:py-16"
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.5, ease: [0.33, 1, 0.68, 1] }}
     >
-      <div className="mx-auto flex w-full flex-col items-center gap-12 px-4 md:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 md:px-6 lg:px-8">
         <motion.div
           className="space-y-3 text-center"
           initial={{ opacity: 0, y: 14 }}
@@ -84,38 +88,77 @@ export const FormationsSupport = ({
           </motion.a>
         </motion.div>
 
-        <div className="grid w-full gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {features.map((feature, idx) => (
-            <motion.div
-              key={feature.id}
-              className="group flex flex-col overflow-hidden bg-white"
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
+        <motion.div
+          className="grid gap-8 md:grid-cols-[1.1fr_1fr] md:items-center"
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1] }}
+        >
+          <motion.div
+            className="overflow-hidden rounded-none"
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1] }}
+          >
+            <motion.img
+              src={primary.image}
+              alt={primary.title}
+              className="h-[240px] w-full object-cover transition duration-500 group-hover:scale-105 md:h-[280px]"
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
               viewport={{ once: true, amount: 0.2 }}
-              transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1], delay: idx * 0.12 }}
-            >
-              <div className="mx-auto w-full overflow-hidden">
-                <motion.img
-                  src={feature.image}
-                  alt={feature.title}
-                  className="h-[220px] w-full object-cover transition duration-500 group-hover:scale-105 md:h-[240px]"
-                  initial={{ opacity: 0 }}
-                  whileInView={{ opacity: 1 }}
-                  viewport={{ once: true, amount: 0.1 }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                />
-              </div>
-              <div className="flex flex-1 flex-col gap-4 px-6 py-8 text-left md:px-8 md:py-10">
-                <h3 className="text-xl font-semibold md:text-2xl">{feature.title}</h3>
-                <p className="text-muted-foreground md:text-lg">{feature.description}</p>
-                <div className="mt-auto inline-flex items-center gap-2 text-sm font-medium text-[#0A1A2F]">
-                  Découvrir le module
-                  <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
+          </motion.div>
+
+          <motion.div
+            className="flex flex-col gap-4 text-left md:pl-4 lg:pl-8"
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1], delay: 0.05 }}
+          >
+            <h3 className="text-2xl font-semibold md:text-3xl">{primary.title}</h3>
+            <p className="text-muted-foreground md:text-lg">{primary.description}</p>
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-[#0A1A2F]">
+              Découvrir le module
+              <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {others.length > 0 && (
+          <div className="grid w-full gap-6 md:grid-cols-2">
+            {others.map((feature, idx) => (
+              <motion.div
+                key={feature.id}
+                className="group flex flex-col overflow-hidden bg-white"
+                initial={{ opacity: 0, y: 14 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 0.4, ease: [0.33, 1, 0.68, 1], delay: idx * 0.08 }}
+              >
+                <div className="overflow-hidden rounded-none mb-3 md:mb-4">
+                  <motion.img
+                    src={feature.image}
+                    alt={feature.title}
+                    className="h-[240px] w-full object-cover transition duration-500 group-hover:scale-105 md:h-[280px]"
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true, amount: 0.2 }}
+                    transition={{ duration: 0.45, ease: "easeOut" }}
+                  />
                 </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+                <div className="flex flex-col gap-3 text-left px-2 md:px-0">
+                  <h4 className="text-xl font-semibold md:text-2xl">{feature.title}</h4>
+                  <p className="text-muted-foreground md:text-lg">{feature.description}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
     </motion.section>
   );

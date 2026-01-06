@@ -188,7 +188,7 @@ export default function DashboardPage() {
   const handleSignOut = async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
-    window.location.href = "/login";
+    window.location.href = "/auth";
   };
 
   const renderStatusBadge = (status: string | null) => {
