@@ -53,23 +53,20 @@ export const FormationsSupport = ({
 }: FormationsSupportProps) => {
   return (
     <motion.section
-      className="relative overflow-hidden bg-white py-20 text-[#0A1A2F] md:py-24"
+      className="relative flex min-h-screen items-center overflow-hidden bg-white py-14 text-[#0A1A2F] md:py-16"
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.5, ease: [0.33, 1, 0.68, 1] }}
     >
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-12 px-6 lg:px-10">
+      <div className="mx-auto flex w-full flex-col items-center gap-12 px-4 md:px-6 lg:px-8">
         <motion.div
-          className="text-center space-y-3"
+          className="space-y-3 text-center"
           initial={{ opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.2 }}
           transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1] }}
         >
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#1A73E8]">
-            Formations
-          </p>
           <h2 className="text-3xl font-semibold md:text-4xl lg:text-5xl">{heading}</h2>
           <p className="mx-auto max-w-3xl text-base text-muted-foreground md:text-lg">
             {description}
@@ -87,21 +84,21 @@ export const FormationsSupport = ({
           </motion.a>
         </motion.div>
 
-        <div className="grid w-full gap-8 md:grid-cols-2">
+        <div className="grid w-full gap-8 md:grid-cols-2 lg:grid-cols-3">
           {features.map((feature, idx) => (
             <motion.div
               key={feature.id}
-              className={`group flex flex-col overflow-hidden border border-black/5 bg-white shadow-sm ${idx === 0 ? "md:col-span-2 md:flex-row" : ""}`}
+              className="group flex flex-col overflow-hidden bg-white"
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
               transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1], delay: idx * 0.12 }}
             >
-              <div className={`${idx === 0 ? "md:w-1/2" : "w-full"} aspect-[4/3] overflow-hidden`}>
+              <div className="mx-auto w-full overflow-hidden">
                 <motion.img
                   src={feature.image}
                   alt={feature.title}
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                  className="h-[220px] w-full object-cover transition duration-500 group-hover:scale-105 md:h-[240px]"
                   initial={{ opacity: 0 }}
                   whileInView={{ opacity: 1 }}
                   viewport={{ once: true, amount: 0.1 }}
@@ -109,9 +106,6 @@ export const FormationsSupport = ({
                 />
               </div>
               <div className="flex flex-1 flex-col gap-4 px-6 py-8 text-left md:px-8 md:py-10">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1A73E8]">
-                  Module {idx + 1}
-                </p>
                 <h3 className="text-xl font-semibold md:text-2xl">{feature.title}</h3>
                 <p className="text-muted-foreground md:text-lg">{feature.description}</p>
                 <div className="mt-auto inline-flex items-center gap-2 text-sm font-medium text-[#0A1A2F]">
