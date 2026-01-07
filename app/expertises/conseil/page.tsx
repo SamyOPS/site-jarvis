@@ -7,6 +7,7 @@ import {
 } from "@/components/animated-slideshow";
 import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
+import { ParticlePage } from "@/components/particle-page";
 
 const categories = ["Diagnostic", "Architecture cible", "Cloud & FinOps", "Data & Gouvernance", "Cyber", "Pilotage"];
 const conseilImages = [
@@ -29,9 +30,9 @@ export const metadata: Metadata = {
 
 export default function ConseilPage() {
   return (
-    <div className="min-h-screen bg-white text-[#0A1A2F]">
+    <ParticlePage className="bg-white text-[#0A1A2F]">
       <Header />
-      <main>
+      <main className="particle-readability">
         <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
           <div className="mb-8 space-y-2">
             <p className="text-sm uppercase tracking-[0.2em] text-[#000080]">Expertise</p>
@@ -66,6 +67,7 @@ export default function ConseilPage() {
         </div>
       </main>
       <Footer />
-    </div>
+    </ParticlePage>
   );
 }
+

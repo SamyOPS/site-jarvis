@@ -57,7 +57,7 @@ export const FormationsSupport = ({
 
   return (
     <motion.section
-      className="relative overflow-hidden bg-white py-14 text-[#0A1A2F] md:py-16"
+      className="relative overflow-hidden py-14 text-[#0A1A2F] md:py-16"
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
@@ -134,7 +134,7 @@ export const FormationsSupport = ({
             {others.map((feature, idx) => (
               <motion.div
                 key={feature.id}
-                className="group flex flex-col overflow-hidden bg-white"
+                className="group flex flex-col overflow-hidden"
                 initial={{ opacity: 0, y: 14 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
@@ -163,3 +163,4 @@ export const FormationsSupport = ({
     </motion.section>
   );
 };
+

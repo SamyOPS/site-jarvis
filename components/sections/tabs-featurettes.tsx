@@ -115,7 +115,7 @@ const TabsFeaturettes = ({
 
   return (
     <motion.section
-      className="relative overflow-hidden bg-white py-16 md:py-20"
+      className="relative overflow-hidden py-16 md:py-20"
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.25 }}
@@ -208,3 +208,4 @@ const TabsFeaturettes = ({
 };
 
 export { TabsFeaturettes };
+

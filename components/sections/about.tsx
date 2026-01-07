@@ -155,7 +155,7 @@ export const About = ({
     "Nous pilotons les incidents, la supervision et l'industrialisation des d€÷ploiements pour que vos utilisateurs restent productifs.";
 
   return (
-    <section className="relative overflow-hidden bg-white pt-16 pb-10 text-[#0A1A2F] md:pt-20 md:pb-12">
+    <section className="relative overflow-hidden pt-16 pb-10 text-[#0A1A2F] md:pt-20 md:pb-12">
       <div className="container relative z-10 mx-auto px-6 lg:px-10">
         <div className="mb-10 flex flex-col gap-4 text-center md:text-left">
           <motion.h1
@@ -296,3 +296,4 @@ export const About = ({
     </section>
   );
 };
+

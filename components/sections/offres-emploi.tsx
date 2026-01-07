@@ -143,7 +143,7 @@ const OffresEmploi = ({
   );
 
   return (
-    <section className="relative overflow-hidden bg-white py-16 text-[#0A1A2F] md:py-20">
+    <section className="relative overflow-hidden py-16 text-[#0A1A2F] md:py-20">
       <div className="container mx-auto flex flex-col items-center gap-12 px-6 lg:px-10 xl:px-16">
         <div className="text-center">
           <motion.h2
@@ -232,3 +232,4 @@ const OffresEmploi = ({
 };
 
 export { OffresEmploi };
+

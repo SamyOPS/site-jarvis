@@ -226,3 +226,4 @@ const Actualites = ({
 };
 
 export { Actualites };
+
