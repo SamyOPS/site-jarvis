@@ -111,7 +111,7 @@ export function ParticleField({
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < maxDistance) {
             const opacity = 1 - dist / maxDistance;
-            ctx.strokeStyle = `rgba(0,0,128,${0.2 * opacity})`;
+            ctx.strokeStyle = `rgba(0,0,128,${0.35 * opacity})`;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
@@ -122,7 +122,7 @@ export function ParticleField({
       }
 
       for (const p of particles) {
-        ctx.fillStyle = "rgba(0,0,128,0.6)";
+        ctx.fillStyle = "rgba(0,0,128,0.8)";
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fill();
@@ -162,7 +162,7 @@ export function ParticleField({
   }, []);
 
   const positioning = fixed ? "fixed" : "absolute";
-  const baseClasses = "pointer-events-none inset-0 h-full w-full opacity-50";
+  const baseClasses = "pointer-events-none inset-0 h-full w-full opacity-70";
 
   return <canvas ref={canvasRef} className={`${positioning} ${baseClasses} ${className}`} />;
 }
