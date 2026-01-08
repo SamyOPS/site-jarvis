@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { ChevronDown, LogIn, UserPlus } from "lucide-react";
+import { ChevronDown, LogIn, Menu, UserPlus, X } from "lucide-react";
 
 const navLinks = [
   { label: "Accueil", href: "/" },
@@ -32,6 +32,7 @@ export function Header() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expertiseMenuOpen, setExpertiseMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const expertiseMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -100,12 +101,12 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 bg-[#f5f5f5] text-black border-b border-black/10">
       <div className="max-w-6xl mx-auto px-4 lg:px-6">
-        <div className="flex items-center justify-between gap-4 py-6">
+        <div className="flex items-center justify-between gap-4 py-4">
           <a href="/" className="flex items-center">
             <img
               src="/logonoir.png"
               alt="Jarvis Connect"
-              className="h-24 w-auto"
+              className="h-20 w-auto"
             />
           </a>
 
@@ -198,8 +199,50 @@ export function Header() {
                 </a>
               </>
             )}
+            <button
+              type="button"
+              className="md:hidden p-2 text-black/70 hover:text-black hover:bg-black/5 transition-colors"
+              aria-label={mobileNavOpen ? "Fermer le menu" : "Ouvrir le menu"}
+              onClick={() => setMobileNavOpen((open) => !open)}
+            >
+              {mobileNavOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </div>
         </div>
+        {mobileNavOpen ? (
+          <div className="md:hidden pb-6">
+            <div className="flex flex-col gap-2 rounded-2xl border border-black/10 bg-white/90 p-4 text-sm text-black/80 shadow-lg backdrop-blur">
+              {navLinks.map((link) =>
+                link.label === "Expertises" ? (
+                  <div key={link.label} className="flex flex-col gap-2">
+                    <span className="text-xs uppercase tracking-[0.2em] text-black/50">
+                      Expertises
+                    </span>
+                    {expertiseLinks.map((item) => (
+                      <a
+                        key={item.href}
+                        href={item.href}
+                        className="rounded-lg px-3 py-2 hover:bg-black/5 hover:text-black transition-colors"
+                        onClick={() => setMobileNavOpen(false)}
+                      >
+                        {item.label}
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    className="rounded-lg px-3 py-2 hover:bg-black/5 hover:text-black transition-colors"
+                    onClick={() => setMobileNavOpen(false)}
+                  >
+                    {link.label}
+                  </a>
+                )
+              )}
+            </div>
+          </div>
+        ) : null}
       </div>
     </header>
   );

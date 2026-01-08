@@ -14,8 +14,6 @@ import { Header } from "@/components/sections/header";
 
 import { Footer } from "@/components/sections/footer";
 
-import { ParticlePage } from "@/components/particle-page";
-
 import { FormationsSupport } from "@/components/sections/formations-support";
 
 import { Shield, Code2, Sparkles } from "lucide-react";
@@ -410,7 +408,7 @@ export default function Home() {
 
     <>
 
-    <ParticlePage className="bg-white" fullPage>
+    <div className="min-h-screen bg-white">
       <div className="text-white">
 
       <Header />
@@ -582,7 +580,7 @@ export default function Home() {
 
     </div>
 
-    </ParticlePage>
+    </div>
 
 
     <Footer />

@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/card";
 import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
-import { ParticlePage } from "@/components/particle-page";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -96,7 +95,7 @@ export default function OffresPage() {
 
   return (
     <>
-    <ParticlePage className="bg-white text-[#0A1A2F]">
+    <div className="min-h-screen bg-white text-[#0A1A2F]">
       <Header />
 
       <main className="particle-readability container mx-auto px-6 py-14 lg:px-10 xl:px-16">
@@ -215,7 +214,7 @@ export default function OffresPage() {
           </div>
         )}
       </main>
-    </ParticlePage>
+    </div>
 
     <Footer />
     </>

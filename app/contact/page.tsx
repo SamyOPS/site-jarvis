@@ -2,7 +2,6 @@
 
 import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
-import { ParticlePage } from "@/components/particle-page";
 import { motion } from "motion/react";
 
 export default function ContactPage() {
@@ -23,7 +22,7 @@ export default function ContactPage() {
 
   return (
     <>
-    <ParticlePage className="bg-[#eaedf0] text-[#2f3b42]">
+    <div className="min-h-screen bg-[#eaedf0] text-[#2f3b42]">
       <Header />
 
       <main className="particle-readability max-w-6xl mx-auto px-6 pt-16 pb-24 lg:pt-24 lg:pb-32">
@@ -147,7 +146,7 @@ export default function ContactPage() {
           </motion.div>
         </form>
       </main>
-    </ParticlePage>
+    </div>
 
     <Footer />
     </>

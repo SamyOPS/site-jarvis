@@ -7,7 +7,6 @@ import {
 } from "@/components/animated-slideshow";
 import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
-import { ParticlePage } from "@/components/particle-page";
 
 const categories = ["Discovery", "UX/UI", "Front/Back/API", "Qualite & Tests", "CI/CD", "Observabilite"];
 const devImages = [
@@ -31,7 +30,7 @@ export const metadata: Metadata = {
 export default function DeveloppementPage() {
   return (
     <>
-    <ParticlePage className="bg-white text-[#0A1A2F]">
+    <div className="min-h-screen bg-white text-[#0A1A2F]">
       <Header />
       <main className="particle-readability">
         <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
@@ -67,7 +66,7 @@ export default function DeveloppementPage() {
           </HoverSlider>
         </div>
       </main>
-    </ParticlePage>
+    </div>
 
     <Footer />
     </>

@@ -1,7 +1,5 @@
 "use client";
 
-import { ArrowDown } from "lucide-react";
-
 interface HeroProps {
   title?: string;
   highlightText?: string;
@@ -33,8 +31,8 @@ export function Hero(props: HeroProps) {
     highlightText = "IT & digital",
     description = "Support, developpement applicatif et securite reunis dans une equipe senior qui intervient vite et bien.",
     buttonText = "Nous contacter",
-    onButtonClick,
     buttonHref,
+    onButtonClick,
     showScrollIcon = false,
     scrollText = "Decouvrir notre expertise",
     scrollIconLabel = "Scroll",
@@ -42,62 +40,93 @@ export function Hero(props: HeroProps) {
     titleClassName = "",
     descriptionClassName = "",
     buttonClassName = "",
-    maxWidth = "max-w-6xl",
-    fontFamily = "Satoshi, sans-serif",
-    fontWeight = 600,
+    maxWidth = "max-w-4xl",
+    veilOpacity = "",
+    fontFamily,
+    fontWeight,
   } = props;
 
-  const handleButtonClick = () => {
-    if (onButtonClick) {
-      onButtonClick();
-    }
-  };
+  const resolvedButtonText = showScrollIcon ? undefined : buttonText;
+  const resolvedButtonHref = showScrollIcon ? undefined : buttonHref;
+  const typographyStyle =
+    fontFamily || fontWeight
+      ? { fontFamily, fontWeight }
+      : undefined;
 
   return (
-    <section
-      className={`relative flex min-h-screen w-full items-center justify-center bg-blue-700 px-6 py-24 text-white ${className}`}
-    >
-      <div className={`relative z-10 mx-auto w-full ${maxWidth}`}>
-        <div className="space-y-6 text-center">
+    <div className={`relative w-full overflow-hidden ${className}`}>
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage:
+            "url(https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)",
+        }}
+        aria-hidden
+      />
+      <div className={`absolute inset-0 ${veilOpacity}`} aria-hidden />
+      <div className="relative mx-auto flex min-h-screen w-full items-center px-6">
+        <div className={`mx-auto w-full ${maxWidth} text-center`} style={typographyStyle}>
           <h1
-            className={`text-balance text-3xl font-bold leading-tight sm:text-4xl md:text-5xl lg:text-6xl ${titleClassName}`}
-            style={{ fontFamily, fontWeight }}
+            className={`text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl ${titleClassName}`}
           >
-            {title}{" "}
-            {highlightText && <span className="text-blue-100">{highlightText}</span>}
+            {title}
+            {highlightText ? <span className="opacity-90"> {highlightText}</span> : null}
           </h1>
-          <p
-            className={`mx-auto max-w-3xl text-base text-white/90 sm:text-lg md:text-xl ${descriptionClassName}`}
-          >
-            {description}
-          </p>
-          {showScrollIcon ? (
-            <div className="flex flex-col items-center gap-3">
-              <span
-                aria-label={scrollIconLabel}
-                className={`inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/40 bg-white/10 text-white ${buttonClassName}`}
-              >
-                <ArrowDown className="h-4 w-4" aria-hidden />
-              </span>
-              {scrollText && <p className="text-sm text-white/80">{scrollText}</p>}
-            </div>
-          ) : buttonHref ? (
-            <a
-              href={buttonHref}
-              className={`inline-flex items-center justify-center rounded-full border border-white/60 bg-white px-6 py-3 text-sm font-semibold text-blue-800 transition-colors hover:bg-blue-100 sm:px-8 sm:py-4 sm:text-base ${buttonClassName}`}
+
+          {description ? (
+            <p
+              className={`mt-6 text-base sm:text-lg ${descriptionClassName}`}
             >
-              {buttonText}
-            </a>
-          ) : (
-            <button
-              onClick={handleButtonClick}
-              className={`rounded-full border border-white/60 bg-white px-6 py-3 text-sm font-semibold text-blue-800 transition-colors hover:bg-blue-100 sm:px-8 sm:py-4 sm:text-base ${buttonClassName}`}
-            >
-              {buttonText}
-            </button>
-          )}
+              {description}
+            </p>
+          ) : null}
+
+          <div className="mt-8 flex flex-col items-center gap-4">
+            {resolvedButtonText ? (
+              resolvedButtonHref ? (
+                <a
+                  href={resolvedButtonHref}
+                  className={`rounded-full border border-white/20 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] transition hover:border-white/40 ${buttonClassName}`}
+                >
+                  {resolvedButtonText}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onButtonClick}
+                  className={`rounded-full border border-white/20 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] transition hover:border-white/40 ${buttonClassName}`}
+                >
+                  {resolvedButtonText}
+                </button>
+              )
+            ) : null}
+
+            {showScrollIcon ? (
+              <div className="flex flex-col items-center gap-2 text-sm">
+                <span
+                  aria-label={scrollIconLabel}
+                  className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/30 animate-bounce"
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 5v14" />
+                    <path d="m19 12-7 7-7-7" />
+                  </svg>
+                </span>
+                {scrollText ? <span>{scrollText}</span> : null}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }

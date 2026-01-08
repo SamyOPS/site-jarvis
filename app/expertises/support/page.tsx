@@ -7,7 +7,6 @@ import {
 } from "@/components/animated-slideshow";
 import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
-import { ParticlePage } from "@/components/particle-page";
 
 const categories = ["Service Desk", "Supervision & MCO", "Infogerance", "Securite", "PRA/PCA"];
 const supportImages = [
@@ -30,7 +29,7 @@ export const metadata: Metadata = {
 export default function SupportPage() {
   return (
     <>
-    <ParticlePage className="bg-white text-[#0A1A2F]">
+    <div className="min-h-screen bg-white text-[#0A1A2F]">
       <Header />
       <main className="particle-readability">
         <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
@@ -66,7 +65,7 @@ export default function SupportPage() {
           </HoverSlider>
         </div>
       </main>
-    </ParticlePage>
+    </div>
 
     <Footer />
     </>
