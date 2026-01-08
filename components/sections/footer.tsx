@@ -4,18 +4,25 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { InstagramIcon, LinkedinIcon } from "lucide-react";
 
-const footerLinks = [
-  {
-    title: "Navigation",
-    links: [
-      { href: "#", label: "Accueil" },
-      { href: "#about", label: "A propos" },
-      { href: "#expertises", label: "Expertises" },
-      { href: "#actualites", label: "Actualites" },
-      { href: "#formations", label: "Formations" },
-      { href: "/contact", label: "Contact" },
-    ],
-  },
+const sitemapLinks = [
+  { href: "/", label: "Accueil" },
+  { href: "/expertises", label: "Expertises" },
+  { href: "/#actualites", label: "Actualites" },
+  { href: "/#formations", label: "Formations" },
+  { href: "/offres", label: "Offres" },
+  { href: "/contact", label: "Contact" },
+];
+
+const legalLinks = [
+  { href: "/mentions-legales", label: "Mentions legales" },
+  { href: "/politique-de-confidentialite", label: "Politique de confidentialite" },
+  { href: "/cgv", label: "CGV" },
+];
+
+const solutionLinks = [
+  { href: "/expertises/support", label: "Support" },
+  { href: "/expertises/developpement", label: "Developpement" },
+  { href: "/expertises/conseil", label: "Conseil" },
 ];
 
 const socialLinks = [
@@ -47,44 +54,113 @@ export function Footer() {
   return (
     <footer ref={footerRef} className="relative overflow-hidden bg-[#f5f5f5] text-black border-t border-black/10">
       <div className="max-w-screen-xl mx-auto px-6 pt-20 pb-48 lg:px-12 lg:pt-24 lg:pb-64 relative">
-        <div className="flex flex-col gap-10 md:flex-row md:items-start md:gap-12 md:justify-between">
-          <div className="w-full md:w-2/3 lg:w-3/4">
-            <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 text-left">
-              {footerLinks.map((item, i) => (
-                <div key={i}>
-                  <h3 className="mb-4 flex items-center gap-2 text-xs uppercase tracking-wide text-black/80">
-                    <span aria-hidden="true">↳</span> {item.title}
-                  </h3>
-                  <ul className="space-y-2 text-sm text-black/70">
-                    {item.links.map((link) => (
-                      <li key={link.label}>
-                        <a href={link.href} className="hover:text-black">
-                          {link.label}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+        <div className="flex flex-col gap-12 lg:flex-row lg:items-start lg:justify-between">
+          <div className="w-full lg:w-1/3">
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-black/80">
+              Newsletter
+            </h3>
+            <form className="flex flex-col gap-3 sm:flex-row" action="#" method="POST">
+              <input
+                type="email"
+                name="newsletterEmail"
+                placeholder="Votre email"
+                className="h-11 w-full rounded-none border border-black/15 bg-white px-3 text-sm text-black/80 placeholder:text-black/40 focus:outline-none"
+                required
+              />
+              <button
+                type="submit"
+                className="h-11 border border-black/70 px-4 text-sm font-semibold uppercase tracking-wide text-black/80 transition hover:bg-black hover:text-white"
+              >
+                S&apos;inscrire
+              </button>
+            </form>
+
+            <div className="mt-8">
+              <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-black/80">
+                Suivez-nous
+              </h3>
+              <ul className="space-y-2 text-sm text-black/70">
+                {socialLinks.map((item) => (
+                  <li key={item.label} className="flex items-center gap-2">
+                    <a
+                      href={item.href}
+                      className="flex items-center gap-2 text-sm text-black/70 hover:text-black"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
-          <div className="md:w-1/3 lg:w-1/4">
-            <h3 className="mb-4 flex items-center gap-2 text-xs uppercase tracking-wide text-black/80">
-              <span aria-hidden="true">↳</span> Suivez-nous
-            </h3>
-            <ul className="space-y-2 text-sm text-black/70">
-              {socialLinks.map((item) => (
-                <li key={item.label} className="flex items-center gap-2">
+
+          <div className="w-full lg:w-2/3">
+            <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
+              <div>
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-black/80">
+                  Sitemap
+                </h3>
+                <ul className="space-y-2 text-sm text-black/70">
+                  {sitemapLinks.map((link) => (
+                    <li key={link.label}>
+                      <a href={link.href} className="hover:text-black">
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-black/80">
+                  Solutions
+                </h3>
+                <ul className="space-y-2 text-sm text-black/70">
+                  {solutionLinks.map((link) => (
+                    <li key={link.label}>
+                      <a href={link.href} className="hover:text-black">
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-black/80">
+                  Informations
+                </h3>
+                <ul className="space-y-2 text-sm text-black/70">
+                  {legalLinks.map((link) => (
+                    <li key={link.label}>
+                      <a href={link.href} className="hover:text-black">
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold uppercase tracking-wide text-black/80">
+                    Adresse
+                  </h4>
+                  <div className="mt-2 text-sm text-black/70">
+                    Av. de la Liberation, 60160 Montataire
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold uppercase tracking-wide text-black/80">
+                    Contact
+                  </h4>
                   <a
-                    href={item.href}
-                    className="flex items-center gap-2 text-sm text-black/70 hover:text-black"
+                    href="mailto:bonjour@jarvis-connect.fr"
+                    className="mt-2 inline-block text-sm text-black/70 hover:text-black"
                   >
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
+                    bonjour@jarvis-connect.fr
                   </a>
-                </li>
-              ))}
-            </ul>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

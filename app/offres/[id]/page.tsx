@@ -82,6 +82,7 @@ export default function OffresDetailPage({ params }: { params: Promise<{ id: str
   );
 
   return (
+    <>
     <ParticlePage className="bg-white text-[#0A1A2F]">
       <Header />
 
@@ -207,9 +208,10 @@ export default function OffresDetailPage({ params }: { params: Promise<{ id: str
           </div>
         )}
       </main>
-
-      <Footer />
     </ParticlePage>
+
+    <Footer />
+    </>
   );
 }
 

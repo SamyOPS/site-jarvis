@@ -18,6 +18,7 @@ export default function ContactPage() {
   const titleLines = ["PRENEZ CONTACT", "AVEC NOTRE EQUIPE"];
 
   return (
+    <>
     <ParticlePage className="bg-[#eaedf0] text-[#2f3b42]">
       <Header />
 
@@ -142,9 +143,10 @@ export default function ContactPage() {
           </motion.div>
         </form>
       </main>
-
-      <Footer />
     </ParticlePage>
+
+    <Footer />
+    </>
   );
 }
 

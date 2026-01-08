@@ -95,6 +95,7 @@ export default function OffresPage() {
   };
 
   return (
+    <>
     <ParticlePage className="bg-white text-[#0A1A2F]">
       <Header />
 
@@ -214,9 +215,10 @@ export default function OffresPage() {
           </div>
         )}
       </main>
-
-      <Footer />
     </ParticlePage>
+
+    <Footer />
+    </>
   );
 }
 

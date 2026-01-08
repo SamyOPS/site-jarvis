@@ -7,8 +7,8 @@ import { ChevronDown, LogIn, UserPlus } from "lucide-react";
 const navLinks = [
   { label: "Accueil", href: "/" },
   { label: "Expertises", href: "/expertises" },
-  { label: "Formations", href: "/#formations" },
   { label: "Actualites", href: "/#actualites" },
+  { label: "Formations", href: "/#formations" },
   { label: "Offres", href: "/offres" },
   { label: "Contact", href: "/contact" },
 ];
@@ -103,9 +103,9 @@ export function Header() {
         <div className="flex items-center justify-between gap-4 py-6">
           <a href="/" className="flex items-center">
             <img
-              src="/logo%20jarvis.png"
+              src="/logonoir.png"
               alt="Jarvis Connect"
-              className="h-12 w-auto"
+              className="h-24 w-auto"
             />
           </a>
 

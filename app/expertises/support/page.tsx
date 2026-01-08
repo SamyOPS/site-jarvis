@@ -29,6 +29,7 @@ export const metadata: Metadata = {
 
 export default function SupportPage() {
   return (
+    <>
     <ParticlePage className="bg-white text-[#0A1A2F]">
       <Header />
       <main className="particle-readability">
@@ -65,8 +66,10 @@ export default function SupportPage() {
           </HoverSlider>
         </div>
       </main>
-      <Footer />
     </ParticlePage>
+
+    <Footer />
+    </>
   );
 }
 
