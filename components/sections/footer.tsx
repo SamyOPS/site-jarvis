@@ -52,7 +52,7 @@ export function Footer() {
   }, []);
 
   return (
-    <footer ref={footerRef} className="relative overflow-hidden bg-[#f5f5f5] text-black border-t border-black/10">
+    <footer ref={footerRef} className="relative overflow-visible sm:overflow-hidden bg-[#f5f5f5] text-black border-t border-black/10">
       <div className="max-w-screen-xl mx-auto px-6 pt-20 pb-48 lg:px-12 lg:pt-24 lg:pb-64 relative">
         <div className="flex flex-col gap-12 lg:flex-row lg:items-start lg:justify-between">
           <div className="w-full lg:w-1/3">
@@ -167,10 +167,9 @@ export function Footer() {
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 px-4 pb-6 text-center">
         <div
-          className={`select-none text-center font-extrabold uppercase tracking-[0.05em] leading-none text-black transition-all duration-700 ease-out flex flex-wrap justify-center ${
+          className={`select-none text-center font-extrabold uppercase tracking-[0.015em] sm:tracking-[0.05em] leading-[0.9] text-black transition-all duration-700 ease-out flex flex-wrap justify-center text-[clamp(18px,9vw,56px)] sm:text-[clamp(40px,8vw,140px)] ${
             showBrand ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
           }`}
-          style={{ fontSize: "clamp(40px, 8vw, 140px)" }}
         >
           {"Jarvis Connect".split("").map((char, index) => (
             <motion.span

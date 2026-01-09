@@ -136,11 +136,12 @@ export default function OffresPage() {
             {sortedOffers.map((offer) => (
               <Card
                 key={offer.id}
-                className="group grid grid-rows-[auto_auto_1fr_auto] rounded-none border border-[#0A1A2F]/10 shadow-sm"
+                className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#0A1A2F]/10 bg-white shadow-[0_12px_35px_-24px_rgba(10,26,47,0.8)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_45px_-22px_rgba(10,26,47,0.8)]"
               >
-                <div className="h-36 w-full bg-gradient-to-br from-[#e6f3ff] to-[#f7fbff] group-hover:from-[#d9ecff] group-hover:to-white transition-colors" />
-                <CardHeader>
-                  <div className="flex items-center gap-2 text-xs text-[#0A1A2F]/70">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(0,0,128,0.08),_transparent_55%)]" />
+                <div className="pointer-events-none absolute right-0 top-0 h-24 w-24 translate-x-8 -translate-y-8 rounded-full bg-[#000080]/10 blur-2xl" />
+                <CardHeader className="relative z-10 space-y-4 pb-4">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-[#0A1A2F]/70">
                     <Badge variant="outline" className="border-[#0A1A2F]/20 text-[#0A1A2F]">
                       {offer.contract_type ?? "Contrat"}
                     </Badge>
@@ -154,13 +155,19 @@ export default function OffresPage() {
                         {offer.department}
                       </Badge>
                     )}
+                    {offer.published_at && (
+                      <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-[#0A1A2F]/10 bg-white/80 px-3 py-1 text-[11px] text-[#0A1A2F]/70">
+                        <CalendarClock className="h-3.5 w-3.5" />
+                        {new Date(offer.published_at).toLocaleDateString()}
+                      </span>
+                    )}
                   </div>
                   <CardTitle className="text-xl font-semibold text-[#0A1A2F]">{offer.title}</CardTitle>
                   <CardDescription className="text-[#0A1A2F]/70">
                     {offer.company_name ?? "Entreprise confidentielle"}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3 text-sm text-[#0A1A2F]/80">
+                <CardContent className="relative z-10 flex-1 space-y-4 text-sm text-[#0A1A2F]/80">
                   <div className="flex flex-wrap items-center gap-3">
                     {offer.location && (
                       <span className="inline-flex items-center gap-1">
@@ -172,12 +179,6 @@ export default function OffresPage() {
                       <span className="inline-flex items-center gap-1">
                         <Tag className="h-4 w-4" />
                         {offer.experience_level}
-                      </span>
-                    )}
-                    {offer.published_at && (
-                      <span className="inline-flex items-center gap-1">
-                        <CalendarClock className="h-4 w-4" />
-                        {new Date(offer.published_at).toLocaleDateString()}
                       </span>
                     )}
                   </div>
@@ -194,14 +195,15 @@ export default function OffresPage() {
                     </div>
                   ) : null}
                 </CardContent>
-                <CardFooter className="flex items-center justify-between text-[#0A1A2F]">
-                  <Badge variant="outline" className="border-emerald-300/70 text-emerald-700">
-                    {offer.status ?? "published"}
-                  </Badge>
-                  <Button variant="link" className="text-[#0A1A2F] hover:text-[#0A1A2F]" asChild>
+                <CardFooter className="relative z-10 flex items-center justify-end text-[#0A1A2F]">
+                  <Button
+                    variant="outline"
+                    className="rounded-full border-[#0A1A2F]/20 px-5 text-[#0A1A2F] transition hover:border-[#000080]/40 hover:text-[#000080]"
+                    asChild
+                  >
                     <a href={`/offres/${offer.id}`}>
                       Voir le détail
-                      <ArrowRight className="ml-1 h-4 w-4" />
+                      <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                     </a>
                   </Button>
                 </CardFooter>

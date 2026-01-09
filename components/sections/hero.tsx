@@ -67,7 +67,7 @@ export function Hero(props: HeroProps) {
       <div className="relative mx-auto flex min-h-screen w-full items-center px-6">
         <div className={`mx-auto w-full ${maxWidth} text-center`} style={typographyStyle}>
           <h1
-            className={`text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl ${titleClassName}`}
+            className={`text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl hero-text-reveal ${titleClassName}`}
           >
             {title}
             {highlightText ? <span className="opacity-90"> {highlightText}</span> : null}
@@ -75,7 +75,8 @@ export function Hero(props: HeroProps) {
 
           {description ? (
             <p
-              className={`mt-6 text-base sm:text-lg ${descriptionClassName}`}
+              className={`mt-6 text-base sm:text-lg hero-text-reveal ${descriptionClassName}`}
+              style={{ animationDelay: "120ms" }}
             >
               {description}
             </p>

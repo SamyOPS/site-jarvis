@@ -131,11 +131,6 @@ export default function OffresDetailPage({ params }: { params: Promise<{ id: str
                     {offer.department}
                   </Badge>
                 )}
-                {offer.status && (
-                  <Badge variant="outline" className="border-emerald-300/60 text-emerald-700">
-                    {offer.status}
-                  </Badge>
-                )}
               </div>
 
               <div className="grid gap-3 text-sm text-[#0A1A2F]/80">
