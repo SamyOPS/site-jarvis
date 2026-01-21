@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ChevronDown, LogIn, Menu, UserPlus, X } from "lucide-react";
 
@@ -8,8 +9,8 @@ const navLinks = [
   { label: "Accueil", href: "/" },
   { label: "Expertises", href: "/expertises" },
   { label: "Actualites", href: "/#actualites" },
-  { label: "Formations", href: "/formations" },
-  { label: "Offres", href: "/offres" },
+  { label: "Formations", href: "/#formations" },
+  { label: "Offres", href: "/#offres" },
   { label: "Contact", href: "/contact" },
 ];
 
@@ -28,6 +29,8 @@ const supabase =
     : null;
 
 export function Header() {
+  const pathname = usePathname();
+  const router = useRouter();
   const [userLabel, setUserLabel] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -69,6 +72,27 @@ export function Header() {
       subscription.unsubscribe();
     };
   }, []);
+
+  const handleAnchorClick = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    href: string
+  ) => {
+    if (!href.startsWith("/#")) return;
+
+    event.preventDefault();
+    const hash = href.replace("/#", "");
+
+    if (pathname !== "/") {
+      router.push(href);
+      return;
+    }
+
+    const target = document.getElementById(hash);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.history.pushState(null, "", `/#${hash}`);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -142,6 +166,7 @@ export function Header() {
                   key={link.label}
                   href={link.href}
                   className="hover:text-black transition-all duration-200"
+                  onClick={(event) => handleAnchorClick(event, link.href)}
                 >
                   {link.label}
                 </a>
@@ -234,7 +259,10 @@ export function Header() {
                     key={link.label}
                     href={link.href}
                     className="rounded-lg px-3 py-2 hover:bg-black/5 hover:text-black transition-colors"
-                    onClick={() => setMobileNavOpen(false)}
+                    onClick={(event) => {
+                      handleAnchorClick(event, link.href);
+                      setMobileNavOpen(false);
+                    }}
                   >
                     {link.label}
                   </a>

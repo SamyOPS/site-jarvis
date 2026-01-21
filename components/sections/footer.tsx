@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { InstagramIcon, LinkedinIcon } from "lucide-react";
 
 const sitemapLinks = [
-  { href: "/", label: "Accueil" },
-  { href: "/expertises", label: "Expertises" },
+  { href: "/#top", label: "Accueil" },
+  { href: "/#expertises", label: "Expertises" },
   { href: "/#actualites", label: "Actualites" },
   { href: "/#formations", label: "Formations" },
-  { href: "/offres", label: "Offres" },
+  { href: "/#offres", label: "Offres" },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -33,6 +34,8 @@ const socialLinks = [
 export function Footer() {
   const footerRef = useRef<HTMLElement | null>(null);
   const [showBrand, setShowBrand] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     const target = footerRef.current;
@@ -50,6 +53,27 @@ export function Footer() {
     observer.observe(target);
     return () => observer.disconnect();
   }, []);
+
+  const handleAnchorClick = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    href: string
+  ) => {
+    if (!href.startsWith("/#")) return;
+
+    event.preventDefault();
+    const hash = href.replace("/#", "");
+
+    if (pathname !== "/") {
+      router.push(href);
+      return;
+    }
+
+    const target = document.getElementById(hash);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.history.pushState(null, "", `/#${hash}`);
+    }
+  };
 
   return (
     <footer ref={footerRef} className="relative overflow-hidden bg-[#f5f5f5] text-black border-t border-black/10">
@@ -104,7 +128,11 @@ export function Footer() {
                 <ul className="space-y-2 text-sm text-black/70">
                   {sitemapLinks.map((link) => (
                     <li key={link.label}>
-                      <a href={link.href} className="hover:text-black">
+                      <a
+                        href={link.href}
+                        className="hover:text-black"
+                        onClick={(event) => handleAnchorClick(event, link.href)}
+                      >
                         {link.label}
                       </a>
                     </li>

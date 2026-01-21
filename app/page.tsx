@@ -414,6 +414,7 @@ export default function Home() {
       <Header />
 
       <main className="particle-readability">
+        <div id="top" />
 
         <section>
 
