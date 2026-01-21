@@ -22,7 +22,7 @@ export const FormationsSupport = ({
   heading = "Formations Support",
   description =
     "Programmes courts pour former vos équipes support (N1/N2), supervision, ITIL, outils et automatisations pour des interventions plus rapides.",
-  linkUrl = "#formations",
+  linkUrl = "/formations",
   linkText = "Découvrir les formations",
   features = [
     {
@@ -122,10 +122,13 @@ export const FormationsSupport = ({
           >
             <h3 className="text-2xl font-semibold md:text-3xl">{primary.title}</h3>
             <p className="text-muted-foreground md:text-lg">{primary.description}</p>
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-[#0A1A2F]">
+            <a
+              href="/formations/parcours-support"
+              className="inline-flex items-center gap-2 text-sm font-medium text-[#0A1A2F] transition hover:text-[#000080]"
+            >
               Découvrir le module
               <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
-            </div>
+            </a>
           </motion.div>
         </motion.div>
 

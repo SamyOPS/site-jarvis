@@ -101,7 +101,7 @@ export default function OffresPage() {
       <main className="particle-readability container mx-auto px-6 py-14 lg:px-10 xl:px-16">
         <div className="mb-6 flex items-center">
           <Button variant="link" className="p-0 text-[#0A1A2F]" asChild>
-            <a href="/" className="inline-flex items-center gap-2">
+            <a href="/#offres" className="inline-flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" />
               Retour à l'accueil
             </a>

@@ -542,7 +542,7 @@ export default function Home() {
 
         <section id="actualites" className="bg-[#F4F7FA] text-[#1E1E1E]">
 
-          <Actualites heading="Actualit's de Jarvis Connect" demoUrl="#" items={newsItems} />
+          <Actualites heading="Actualités de Jarvis Connect" demoUrl="#" items={newsItems} />
 
         </section>
 
