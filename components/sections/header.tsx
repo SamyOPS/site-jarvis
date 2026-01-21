@@ -101,12 +101,12 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 bg-[#f5f5f5] text-black border-b border-black/10">
       <div className="max-w-6xl mx-auto px-4 lg:px-6">
-        <div className="flex items-center justify-between gap-4 py-4">
+        <div className="flex items-center justify-between gap-4 py-2">
           <a href="/" className="flex items-center">
             <img
               src="/logonoir.png"
               alt="Jarvis Connect"
-              className="h-20 w-auto"
+              className="h-14 w-auto"
             />
           </a>
 
