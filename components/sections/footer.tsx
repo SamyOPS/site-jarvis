@@ -170,7 +170,7 @@ export function Footer() {
           className={`select-none text-center font-extrabold uppercase tracking-[0.05em] leading-none text-black transition-all duration-700 ease-out flex flex-wrap justify-center ${
             showBrand ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
           }`}
-          style={{ fontSize: "clamp(40px, 8vw, 140px)" }}
+          style={{ fontSize: "clamp(28px, 6vw, 90px)" }}
         >
           {"Jarvis Connect".split("").map((char, index) => (
             <motion.span
