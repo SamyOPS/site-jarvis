@@ -30,7 +30,7 @@ export default function Home() {
 
       description:
 
-        "Assistance utilisateurs, supervision, maintenance, sécurité et gestion du parc informatique.",
+        "Assistance utilisateurs et supervision 24/7, maintenance proactive, securite renforcee et pilotage complet du parc informatique. Nous prenons en charge N1 a N3, mettons en place des SLA mesurables, un reporting clair et un plan d'amelioration continue pour une disponibilite maximale.",
 
       href: "/expertises/support",
 
@@ -42,7 +42,7 @@ export default function Home() {
 
       description:
 
-        "Applications web, mobiles et métiers. Du MVP au produit complet.",
+        "Applications web, mobiles et metiers concues pour generer de la valeur. De la discovery a la mise en production, nos equipes UX/UI et dev full stack livrent vite, avec tests, CI/CD et qualite produit. Objectif: un MVP convaincant puis un produit robuste, evolutif et performant.",
 
       href: "/expertises/developpement",
 
@@ -54,7 +54,7 @@ export default function Home() {
 
       description:
 
-        "Architecture, audit, cloud, cybersécurité et pilotage de projets.",
+        "Architecture, audit, cloud et cybersecurite pour transformer votre SI en levier business. Nous definissons une roadmap claire, un business case solide et une gouvernance efficace, puis pilotons les chantiers avec vos equipes pour accelerer la transformation et reduire les risques.",
 
       href: "/expertises/conseil",
 
@@ -589,5 +589,7 @@ export default function Home() {
   );
 
 }
+
+
 
 
