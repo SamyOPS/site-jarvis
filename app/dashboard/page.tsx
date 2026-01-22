@@ -513,7 +513,7 @@ export default function DashboardPage() {
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-[#0A1A2F]/70">Etat</span>
-                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-emerald-50">
+                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">
                   <CheckCircle2 className="h-4 w-4" />
                   Connecte
                 </span>
@@ -613,7 +613,7 @@ export default function DashboardPage() {
                           variant="outline"
                           disabled={isUpdating}
                           onClick={() => handleProfessionalStatusChange(profile.id, "verified")}
-                          className="border-emerald-400/60 text-emerald-50 hover:bg-emerald-500/10"
+                          className="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
                         >
                           {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           Valider
@@ -623,7 +623,7 @@ export default function DashboardPage() {
                           variant="outline"
                           disabled={isUpdating}
                           onClick={() => handleProfessionalStatusChange(profile.id, "pending")}
-                          className="border-amber-300/60 text-amber-50 hover:bg-amber-500/10"
+                          className="border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
                         >
                           Remettre en attente
                         </Button>
@@ -632,7 +632,7 @@ export default function DashboardPage() {
                           variant="outline"
                           disabled={isUpdating}
                           onClick={() => handleProfessionalStatusChange(profile.id, "rejected")}
-                          className="border-red-400/60 text-red-100 hover:bg-red-500/10"
+                          className="border-red-300 bg-red-50 text-red-800 hover:bg-red-100"
                         >
                           Refuser
                         </Button>
