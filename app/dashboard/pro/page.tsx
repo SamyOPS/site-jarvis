@@ -33,10 +33,32 @@ type Status =
   | { type: "error"; message: string }
   | { type: "success"; message: string };
 
+type JobOffer = {
+  id: string;
+  title: string;
+  status: string | null;
+  location: string | null;
+  contract_type: string | null;
+  published_at: string | null;
+};
+
 export default function ProDashboardPage() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [jobOffers, setJobOffers] = useState<JobOffer[]>([]);
+  const [offersLoading, setOffersLoading] = useState(false);
+  const [offersError, setOffersError] = useState<string | null>(null);
+  const [offerActionId, setOfferActionId] = useState<string | null>(null);
+  const [offerActionStatus, setOfferActionStatus] = useState<Status>({ type: "idle" });
+  const [editingOfferId, setEditingOfferId] = useState<string | null>(null);
+  const [offerEditSaving, setOfferEditSaving] = useState(false);
+  const [offerEditStatus, setOfferEditStatus] = useState<Status>({ type: "idle" });
+  const [offerEditForm, setOfferEditForm] = useState({
+    title: "",
+    location: "",
+    contract_type: "",
+  });
   const [offerSaving, setOfferSaving] = useState(false);
   const [offerStatus, setOfferStatus] = useState<Status>({ type: "idle" });
   const [offerForm, setOfferForm] = useState({
@@ -108,6 +130,31 @@ export default function ProDashboardPage() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!supabase || !profile?.id) return;
+
+    const loadOffers = async () => {
+      setOffersLoading(true);
+      setOffersError(null);
+
+      const { data, error: offersError } = await supabase
+        .from("job_offers")
+        .select("id,title,status,location,contract_type,published_at")
+        .eq("created_by", profile.id)
+        .order("published_at", { ascending: false, nullsFirst: false });
+
+      if (offersError) {
+        setOffersError(offersError.message);
+      } else {
+        setJobOffers(data ?? []);
+      }
+
+      setOffersLoading(false);
+    };
+
+    void loadOffers();
+  }, [profile?.id]);
+
   const isPending = profile?.professional_status === "pending";
   const isRejected = profile?.professional_status === "rejected";
   const isVerified = profile?.professional_status === "verified";
@@ -174,6 +221,81 @@ export default function ProDashboardPage() {
     }
 
     setOfferSaving(false);
+  };
+
+  const handleOfferEditStart = (offer: JobOffer) => {
+    setOfferEditStatus({ type: "idle" });
+    setOfferEditSaving(false);
+    setEditingOfferId(offer.id);
+    setOfferEditForm({
+      title: offer.title ?? "",
+      location: offer.location ?? "",
+      contract_type: offer.contract_type ?? "",
+    });
+  };
+
+  const handleOfferEditCancel = () => {
+    setEditingOfferId(null);
+    setOfferEditStatus({ type: "idle" });
+    setOfferEditSaving(false);
+  };
+
+  const handleOfferEditSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase || !editingOfferId) return;
+
+    setOfferEditSaving(true);
+    setOfferEditStatus({ type: "idle" });
+
+    const payload = {
+      title: offerEditForm.title,
+      location: offerEditForm.location || null,
+      contract_type: offerEditForm.contract_type || null,
+    };
+
+    const currentId = editingOfferId;
+    const { error: updateError } = await supabase
+      .from("job_offers")
+      .update(payload)
+      .eq("id", currentId);
+
+    if (updateError) {
+      setOfferEditStatus({ type: "error", message: updateError.message });
+    } else {
+      setOfferEditStatus({ type: "success", message: "Offre mise a jour." });
+      setJobOffers((prev) =>
+        prev.map((offer) =>
+          offer.id === currentId
+            ? {
+                ...offer,
+                title: payload.title,
+                location: payload.location,
+                contract_type: payload.contract_type,
+              }
+            : offer
+        )
+      );
+      setEditingOfferId(null);
+    }
+
+    setOfferEditSaving(false);
+  };
+
+  const handleOfferDelete = async (offerId: string) => {
+    if (!supabase) return;
+    setOfferActionId(offerId);
+    setOfferActionStatus({ type: "idle" });
+
+    const { error: deleteError } = await supabase.from("job_offers").delete().eq("id", offerId);
+
+    if (deleteError) {
+      setOfferActionStatus({ type: "error", message: deleteError.message });
+    } else {
+      setOfferActionStatus({ type: "success", message: "Offre supprimee." });
+      setJobOffers((prev) => prev.filter((offer) => offer.id !== offerId));
+    }
+
+    setOfferActionId(null);
   };
 
   return (
@@ -482,6 +604,169 @@ export default function ProDashboardPage() {
                 </CardContent>
               </Card>
             )}
+
+            <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm">
+              <CardHeader className="space-y-1">
+                <CardTitle className="text-xl">Mes offres publiees</CardTitle>
+                <CardDescription className="text-[#0A1A2F]/70">
+                  Liste des offres que tu as deposees.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {offersError && (
+                  <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-900">
+                    {offersError}
+                  </div>
+                )}
+                {offerActionStatus.type !== "idle" && (
+                  <div
+                    className={`rounded-md border px-3 py-2 text-sm ${
+                      offerActionStatus.type === "error"
+                        ? "border-red-300 bg-red-50 text-red-900"
+                        : "border-emerald-300 bg-emerald-50 text-emerald-900"
+                    }`}
+                  >
+                    {offerActionStatus.message}
+                  </div>
+                )}
+                {offersLoading ? (
+                  <div className="flex items-center gap-2 text-[#0A1A2F]/70">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Chargement des offres...
+                  </div>
+                ) : jobOffers.length ? (
+                  <div className="space-y-2">
+                    {jobOffers.map((offer) => (
+                      <div
+                        key={offer.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
+                      >
+                        <div className="space-y-1">
+                          <div className="font-semibold">{offer.title}</div>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-[#0A1A2F]/70">
+                            {offer.contract_type && <span>{offer.contract_type}</span>}
+                            {offer.location && <span>{offer.location}</span>}
+                            {offer.published_at && (
+                              <span>{new Date(offer.published_at).toLocaleDateString()}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]">
+                            {offer.status ?? "draft"}
+                          </Badge>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-slate-300 text-[#0A1A2F]"
+                            disabled={offerEditSaving && editingOfferId === offer.id}
+                            onClick={() => handleOfferEditStart(offer)}
+                          >
+                            Modifier
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-red-300 text-red-700 hover:bg-red-50"
+                            disabled={offerActionId === offer.id}
+                            onClick={() => {
+                              const confirmDelete = window.confirm(
+                                "Supprimer definitivement cette offre ?"
+                              );
+                              if (confirmDelete) {
+                                void handleOfferDelete(offer.id);
+                              }
+                            }}
+                          >
+                            {offerActionId === offer.id ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : null}
+                            Supprimer
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {editingOfferId && (
+                      <form
+                        className="mt-3 space-y-3 rounded-md border border-slate-200 bg-white p-3 text-sm"
+                        onSubmit={handleOfferEditSubmit}
+                      >
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="space-y-1.5">
+                            <Label className="text-[#0A1A2F]/80">Titre</Label>
+                            <Input
+                              value={offerEditForm.title}
+                              onChange={(e) =>
+                                setOfferEditForm((prev) => ({ ...prev, title: e.target.value }))
+                              }
+                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                              placeholder="Titre de l'offre"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[#0A1A2F]/80">Localisation</Label>
+                            <Input
+                              value={offerEditForm.location}
+                              onChange={(e) =>
+                                setOfferEditForm((prev) => ({ ...prev, location: e.target.value }))
+                              }
+                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                              placeholder="Paris / Remote"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[#0A1A2F]/80">Type de contrat</Label>
+                          <Input
+                            value={offerEditForm.contract_type}
+                            onChange={(e) =>
+                              setOfferEditForm((prev) => ({
+                                ...prev,
+                                contract_type: e.target.value,
+                              }))
+                            }
+                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                            placeholder="CDI / CDD / Freelance"
+                          />
+                        </div>
+                        {offerEditStatus.type !== "idle" && (
+                          <div
+                            className={`flex items-start gap-2 rounded-md border px-3 py-2 ${
+                              offerEditStatus.type === "error"
+                                ? "border-red-300 bg-red-50 text-red-900"
+                                : "border-emerald-300 bg-emerald-50 text-emerald-900"
+                            }`}
+                          >
+                            <p className="leading-relaxed">{offerEditStatus.message}</p>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="submit"
+                            disabled={offerEditSaving}
+                            className="bg-[#0A1A2F] text-white hover:bg-[#0d2a4b]"
+                          >
+                            {offerEditSaving ? "Enregistrement..." : "Enregistrer"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="border-slate-300 text-[#0A1A2F]"
+                            disabled={offerEditSaving}
+                            onClick={handleOfferEditCancel}
+                          >
+                            Annuler
+                          </Button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-[#0A1A2F]/70">Aucune offre publiee pour le moment.</div>
+                )}
+              </CardContent>
+            </Card>
           </>
         )}
 
