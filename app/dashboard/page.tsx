@@ -50,6 +50,13 @@ type JobOffer = {
   status: string | null;
   location: string | null;
   contract_type: string | null;
+  description: string | null;
+  department: string | null;
+  work_mode: string | null;
+  experience_level: string | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  tech_stack: string[] | null;
   published_at: string | null;
 };
 
@@ -83,6 +90,13 @@ export default function DashboardPage() {
     contract_type: "",
     company_name: "",
     status: "",
+    description: "",
+    department: "",
+    work_mode: "",
+    experience_level: "",
+    salary_min: "",
+    salary_max: "",
+    tech_stack: "",
   });
   const [offerForm, setOfferForm] = useState({
     title: "",
@@ -164,7 +178,9 @@ export default function DashboardPage() {
 
       const { data: offersData, error: offersError } = await supabase
         .from("job_offers")
-        .select("id,title,company_name,status,location,contract_type,published_at")
+        .select(
+          "id,title,company_name,status,location,contract_type,description,department,work_mode,experience_level,salary_min,salary_max,tech_stack,published_at"
+        )
         .order("published_at", { ascending: false, nullsFirst: false });
 
       if (offersError) {
@@ -358,6 +374,13 @@ export default function DashboardPage() {
       contract_type: offer.contract_type ?? "",
       company_name: offer.company_name ?? "",
       status: offer.status ?? "",
+      description: offer.description ?? "",
+      department: offer.department ?? "",
+      work_mode: offer.work_mode ?? "",
+      experience_level: offer.experience_level ?? "",
+      salary_min: offer.salary_min?.toString() ?? "",
+      salary_max: offer.salary_max?.toString() ?? "",
+      tech_stack: offer.tech_stack?.join(", ") ?? "",
     });
   };
 
@@ -380,6 +403,15 @@ export default function DashboardPage() {
       contract_type: offerEditForm.contract_type || null,
       company_name: offerEditForm.company_name || null,
       status: offerEditForm.status || null,
+      description: offerEditForm.description,
+      department: offerEditForm.department || null,
+      work_mode: offerEditForm.work_mode || null,
+      experience_level: offerEditForm.experience_level || null,
+      salary_min: offerEditForm.salary_min ? Number(offerEditForm.salary_min) : null,
+      salary_max: offerEditForm.salary_max ? Number(offerEditForm.salary_max) : null,
+      tech_stack: offerEditForm.tech_stack
+        ? offerEditForm.tech_stack.split(",").map((s) => s.trim()).filter(Boolean)
+        : null,
     };
 
     const currentId = editingOfferId;
@@ -403,6 +435,13 @@ export default function DashboardPage() {
                 contract_type: payload.contract_type,
                 company_name: payload.company_name,
                 status: payload.status,
+                description: payload.description,
+                department: payload.department,
+                work_mode: payload.work_mode,
+                experience_level: payload.experience_level,
+                salary_min: payload.salary_min,
+                salary_max: payload.salary_max,
+                tech_stack: payload.tech_stack,
               }
             : offer
         )
@@ -753,19 +792,34 @@ export default function DashboardPage() {
                         className="mt-3 space-y-3 rounded-md border border-slate-200 bg-white p-3 text-sm"
                         onSubmit={handleOfferEditSubmit}
                       >
+                        <div className="space-y-1.5">
+                          <Label className="text-[#0A1A2F]/80">Titre</Label>
+                          <Input
+                            value={offerEditForm.title}
+                            onChange={(e) =>
+                              setOfferEditForm((prev) => ({ ...prev, title: e.target.value }))
+                            }
+                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                            placeholder="Titre de l'offre"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[#0A1A2F]/80">Description</Label>
+                          <Textarea
+                            value={offerEditForm.description}
+                            onChange={(e) =>
+                              setOfferEditForm((prev) => ({
+                                ...prev,
+                                description: e.target.value,
+                              }))
+                            }
+                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                            placeholder="Missions, profil recherche, stack..."
+                            rows={4}
+                          />
+                        </div>
                         <div className="grid gap-3 md:grid-cols-2">
-                          <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Titre</Label>
-                            <Input
-                              value={offerEditForm.title}
-                              onChange={(e) =>
-                                setOfferEditForm((prev) => ({ ...prev, title: e.target.value }))
-                              }
-                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                              placeholder="Titre de l'offre"
-                              required
-                            />
-                          </div>
                           <div className="space-y-1.5">
                             <Label className="text-[#0A1A2F]/80">Entreprise</Label>
                             <Input
@@ -780,8 +834,6 @@ export default function DashboardPage() {
                               placeholder="Nom de l'entreprise"
                             />
                           </div>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2">
                           <div className="space-y-1.5">
                             <Label className="text-[#0A1A2F]/80">Localisation</Label>
                             <Input
@@ -793,6 +845,8 @@ export default function DashboardPage() {
                               placeholder="Paris / Remote"
                             />
                           </div>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
                           <div className="space-y-1.5">
                             <Label className="text-[#0A1A2F]/80">Type de contrat</Label>
                             <Input
@@ -807,6 +861,98 @@ export default function DashboardPage() {
                               placeholder="CDI / CDD / Freelance"
                             />
                           </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[#0A1A2F]/80">Departement</Label>
+                            <Input
+                              value={offerEditForm.department}
+                              onChange={(e) =>
+                                setOfferEditForm((prev) => ({
+                                  ...prev,
+                                  department: e.target.value,
+                                }))
+                              }
+                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                              placeholder="IT / Support / Cloud"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="space-y-1.5">
+                            <Label className="text-[#0A1A2F]/80">Mode de travail</Label>
+                            <Input
+                              value={offerEditForm.work_mode}
+                              onChange={(e) =>
+                                setOfferEditForm((prev) => ({
+                                  ...prev,
+                                  work_mode: e.target.value,
+                                }))
+                              }
+                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                              placeholder="Remote / Hybride / On-site"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[#0A1A2F]/80">Niveau d'experience</Label>
+                            <Input
+                              value={offerEditForm.experience_level}
+                              onChange={(e) =>
+                                setOfferEditForm((prev) => ({
+                                  ...prev,
+                                  experience_level: e.target.value,
+                                }))
+                              }
+                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                              placeholder="Junior / Intermediaire / Senior"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-[#0A1A2F]/80">Salaire min</Label>
+                            <Input
+                              type="number"
+                              value={offerEditForm.salary_min}
+                              onChange={(e) =>
+                                setOfferEditForm((prev) => ({
+                                  ...prev,
+                                  salary_min: e.target.value,
+                                }))
+                              }
+                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                              placeholder="50000"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[#0A1A2F]/80">Salaire max</Label>
+                            <Input
+                              type="number"
+                              value={offerEditForm.salary_max}
+                              onChange={(e) =>
+                                setOfferEditForm((prev) => ({
+                                  ...prev,
+                                  salary_max: e.target.value,
+                                }))
+                              }
+                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                              placeholder="70000"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[#0A1A2F]/80">
+                            Stack technique (separee par des virgules)
+                          </Label>
+                          <Input
+                            value={offerEditForm.tech_stack}
+                            onChange={(e) =>
+                              setOfferEditForm((prev) => ({
+                                ...prev,
+                                tech_stack: e.target.value,
+                              }))
+                            }
+                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                            placeholder="React, Node, PostgreSQL"
+                          />
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-[#0A1A2F]/80">Statut</Label>
