@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { InstagramIcon, LinkedinIcon } from "lucide-react";
 
 const sitemapLinks = [
-  { href: "/", label: "Accueil" },
-  { href: "/expertises", label: "Expertises" },
+  { href: "/#top", label: "Accueil" },
+  { href: "/#expertises", label: "Expertises" },
   { href: "/#actualites", label: "Actualites" },
   { href: "/#formations", label: "Formations" },
-  { href: "/offres", label: "Offres" },
+  { href: "/#offres", label: "Offres" },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -33,6 +34,8 @@ const socialLinks = [
 export function Footer() {
   const footerRef = useRef<HTMLElement | null>(null);
   const [showBrand, setShowBrand] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     const target = footerRef.current;
@@ -51,11 +54,38 @@ export function Footer() {
     return () => observer.disconnect();
   }, []);
 
+  const handleAnchorClick = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    href: string
+  ) => {
+    if (!href.startsWith("/#")) return;
+
+    event.preventDefault();
+    const hash = href.replace("/#", "");
+
+    if (pathname !== "/") {
+      router.push(href);
+      return;
+    }
+
+    const target = document.getElementById(hash);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.history.pushState(null, "", `/#${hash}`);
+    }
+  };
+
   return (
     <footer ref={footerRef} className="relative overflow-hidden bg-[#f5f5f5] text-black border-t border-black/10">
       <div className="max-w-screen-xl mx-auto px-6 pt-20 pb-48 lg:px-12 lg:pt-24 lg:pb-64 relative">
         <div className="flex flex-col gap-12 lg:flex-row lg:items-start lg:justify-between">
-          <div className="w-full lg:w-1/3">
+          <motion.div
+            className="w-full lg:w-1/3"
+            initial={{ opacity: 0, x: -32 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 0.6, ease: [0.33, 1, 0.68, 1] }}
+          >
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-black/80">
               Newsletter
             </h3>
@@ -93,9 +123,15 @@ export function Footer() {
                 ))}
               </ul>
             </div>
-          </div>
+          </motion.div>
 
-          <div className="w-full lg:w-2/3">
+          <motion.div
+            className="w-full lg:w-2/3"
+            initial={{ opacity: 0, x: -32 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 0.6, ease: [0.33, 1, 0.68, 1], delay: 0.1 }}
+          >
             <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
               <div>
                 <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-black/80">
@@ -104,7 +140,11 @@ export function Footer() {
                 <ul className="space-y-2 text-sm text-black/70">
                   {sitemapLinks.map((link) => (
                     <li key={link.label}>
-                      <a href={link.href} className="hover:text-black">
+                      <a
+                        href={link.href}
+                        className="hover:text-black"
+                        onClick={(event) => handleAnchorClick(event, link.href)}
+                      >
                         {link.label}
                       </a>
                     </li>
@@ -161,7 +201,7 @@ export function Footer() {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
 

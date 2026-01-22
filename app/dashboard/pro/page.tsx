@@ -7,6 +7,9 @@ import { AlertCircle, Ban, Loader2, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -25,10 +28,29 @@ type ProfileRow = {
   company_name: string | null;
 };
 
+type Status =
+  | { type: "idle" }
+  | { type: "error"; message: string }
+  | { type: "success"; message: string };
+
 export default function ProDashboardPage() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [offerSaving, setOfferSaving] = useState(false);
+  const [offerStatus, setOfferStatus] = useState<Status>({ type: "idle" });
+  const [offerForm, setOfferForm] = useState({
+    title: "",
+    description: "",
+    location: "",
+    contract_type: "",
+    department: "",
+    work_mode: "",
+    experience_level: "",
+    salary_min: "",
+    salary_max: "",
+    tech_stack: "",
+  });
 
   useEffect(() => {
     if (!supabase) {
@@ -88,6 +110,71 @@ export default function ProDashboardPage() {
 
   const isPending = profile?.professional_status === "pending";
   const isRejected = profile?.professional_status === "rejected";
+  const isVerified = profile?.professional_status === "verified";
+
+  const slugify = (value: string) =>
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 120);
+
+  const buildUniqueSlug = (title: string) => {
+    const base = slugify(title) || "offre";
+    const suffix = crypto.randomUUID().slice(0, 8);
+    return `${base}-${suffix}`;
+  };
+
+  const handleOfferSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase || !profile) return;
+
+    setOfferSaving(true);
+    setOfferStatus({ type: "idle" });
+
+    const payload = {
+      title: offerForm.title,
+      slug: buildUniqueSlug(offerForm.title),
+      description: offerForm.description,
+      location: offerForm.location || null,
+      contract_type: offerForm.contract_type || null,
+      company_name: profile.company_name || null,
+      status: "published",
+      created_by: profile.id,
+      department: offerForm.department || null,
+      work_mode: offerForm.work_mode || null,
+      experience_level: offerForm.experience_level || null,
+      salary_min: offerForm.salary_min ? Number(offerForm.salary_min) : null,
+      salary_max: offerForm.salary_max ? Number(offerForm.salary_max) : null,
+      tech_stack: offerForm.tech_stack
+        ? offerForm.tech_stack.split(",").map((s) => s.trim()).filter(Boolean)
+        : null,
+      published_at: new Date().toISOString(),
+    };
+
+    const { error: insertError } = await supabase.from("job_offers").insert(payload);
+
+    if (insertError) {
+      setOfferStatus({ type: "error", message: insertError.message });
+    } else {
+      setOfferStatus({ type: "success", message: "Offre publiee avec succes." });
+      setOfferForm({
+        title: "",
+        description: "",
+        location: "",
+        contract_type: "",
+        department: "",
+        work_mode: "",
+        experience_level: "",
+        salary_min: "",
+        salary_max: "",
+        tech_stack: "",
+      });
+    }
+
+    setOfferSaving(false);
+  };
 
   return (
     <div className="min-h-screen bg-white text-[#0A1A2F]">
@@ -172,15 +259,229 @@ export default function ProDashboardPage() {
                 </CardContent>
               </Card>
 
+              {!isVerified && (
+                <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm">
+                  <CardHeader className="space-y-1">
+                    <CardTitle className="text-xl">Deposer une offre</CardTitle>
+                    <CardDescription className="text-[#0A1A2F]/70">
+                      Disponible apres validation du compte professionnel.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="text-sm text-[#0A1A2F]/70">
+                    {isPending
+                      ? "Ton compte est en cours de verification. Tu pourras publier des offres des que le statut sera verifie."
+                      : "Demande la verification de ton compte pour publier des offres."}
+                    <div className="mt-4">
+                      <Button
+                        variant="outline"
+                        className="border-slate-300 text-[#0A1A2F]"
+                        onClick={() => (window.location.href = "/contact")}
+                      >
+                        Contacter l'administration
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {isVerified && (
               <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm">
                 <CardHeader className="space-y-1">
-                  <CardTitle className="text-xl">Fonctionnalités</CardTitle>
+                  <CardTitle className="text-xl">Deposer une offre</CardTitle>
                   <CardDescription className="text-[#0A1A2F]/70">
-                    La création d&apos;offres et le dépôt de documents seront réactivés plus tard.
+                    Publie une offre visible immediatement sur le site.
                   </CardDescription>
                 </CardHeader>
+                <CardContent>
+                  <form className="space-y-4" onSubmit={handleOfferSubmit}>
+                    <div className="space-y-2">
+                      <Label htmlFor="pro-offer-title" className="text-[#0A1A2F]/80">
+                        Titre
+                      </Label>
+                      <Input
+                        id="pro-offer-title"
+                        required
+                        value={offerForm.title}
+                        onChange={(e) =>
+                          setOfferForm((prev) => ({ ...prev, title: e.target.value }))
+                        }
+                        className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                        placeholder="Responsable support IT"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="pro-offer-description" className="text-[#0A1A2F]/80">
+                        Description
+                      </Label>
+                      <Textarea
+                        id="pro-offer-description"
+                        required
+                        value={offerForm.description}
+                        onChange={(e) =>
+                          setOfferForm((prev) => ({ ...prev, description: e.target.value }))
+                        }
+                        className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                        placeholder="Missions, profil recherche, stack..."
+                        rows={4}
+                      />
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="pro-offer-location" className="text-[#0A1A2F]/80">
+                          Localisation
+                        </Label>
+                        <Input
+                          id="pro-offer-location"
+                          value={offerForm.location}
+                          onChange={(e) =>
+                            setOfferForm((prev) => ({ ...prev, location: e.target.value }))
+                          }
+                          className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                          placeholder="Paris / Remote"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="pro-offer-contract" className="text-[#0A1A2F]/80">
+                          Type de contrat
+                        </Label>
+                        <Input
+                          id="pro-offer-contract"
+                          value={offerForm.contract_type}
+                          onChange={(e) =>
+                            setOfferForm((prev) => ({ ...prev, contract_type: e.target.value }))
+                          }
+                          className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                          placeholder="CDI / CDD / Freelance"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="pro-offer-department" className="text-[#0A1A2F]/80">
+                          Departement
+                        </Label>
+                        <Input
+                          id="pro-offer-department"
+                          value={offerForm.department}
+                          onChange={(e) =>
+                            setOfferForm((prev) => ({ ...prev, department: e.target.value }))
+                          }
+                          className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                          placeholder="Support / Cloud / IT"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="pro-offer-workmode" className="text-[#0A1A2F]/80">
+                          Mode de travail
+                        </Label>
+                        <Input
+                          id="pro-offer-workmode"
+                          value={offerForm.work_mode}
+                          onChange={(e) =>
+                            setOfferForm((prev) => ({ ...prev, work_mode: e.target.value }))
+                          }
+                          className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                          placeholder="Remote / Hybride / On-site"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="pro-offer-experience" className="text-[#0A1A2F]/80">
+                          Niveau d&apos;experience
+                        </Label>
+                        <Input
+                          id="pro-offer-experience"
+                          value={offerForm.experience_level}
+                          onChange={(e) =>
+                            setOfferForm((prev) => ({ ...prev, experience_level: e.target.value }))
+                          }
+                          className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                          placeholder="Junior / Intermediaire / Senior"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="pro-offer-salary-min" className="text-[#0A1A2F]/80">
+                            Salaire min
+                          </Label>
+                          <Input
+                            id="pro-offer-salary-min"
+                            type="number"
+                            value={offerForm.salary_min}
+                            onChange={(e) =>
+                              setOfferForm((prev) => ({ ...prev, salary_min: e.target.value }))
+                            }
+                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                            placeholder="50000"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="pro-offer-salary-max" className="text-[#0A1A2F]/80">
+                            Salaire max
+                          </Label>
+                          <Input
+                            id="pro-offer-salary-max"
+                            type="number"
+                            value={offerForm.salary_max}
+                            onChange={(e) =>
+                              setOfferForm((prev) => ({ ...prev, salary_max: e.target.value }))
+                            }
+                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                            placeholder="70000"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="pro-offer-tech" className="text-[#0A1A2F]/80">
+                        Stack technique (separee par des virgules)
+                      </Label>
+                      <Input
+                        id="pro-offer-tech"
+                        value={offerForm.tech_stack}
+                        onChange={(e) =>
+                          setOfferForm((prev) => ({ ...prev, tech_stack: e.target.value }))
+                        }
+                        className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
+                        placeholder="React, Node, PostgreSQL"
+                      />
+                    </div>
+
+                    {offerStatus.type !== "idle" && (
+                      <div
+                        className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
+                          offerStatus.type === "error"
+                            ? "border-red-300 bg-red-50 text-red-900"
+                            : "border-emerald-300 bg-emerald-50 text-emerald-900"
+                        }`}
+                      >
+                        {offerStatus.type === "error" ? (
+                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        ) : (
+                          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                        )}
+                        <p className="leading-relaxed">{offerStatus.message}</p>
+                      </div>
+                    )}
+
+                    <Button
+                      type="submit"
+                      disabled={offerSaving}
+                      className="w-full bg-[#0A1A2F] text-white hover:bg-[#0d2a4b]"
+                    >
+                      {offerSaving ? "Publication en cours..." : "Publier l'offre"}
+                    </Button>
+                  </form>
+                </CardContent>
               </Card>
-            </div>
+            )}
           </>
         )}
 
@@ -196,3 +497,5 @@ export default function ProDashboardPage() {
     </div>
   );
 }
+
+
