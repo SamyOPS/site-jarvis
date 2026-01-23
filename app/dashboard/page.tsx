@@ -11,6 +11,7 @@ import {
   Trash2,
   ShieldCheck,
   Users,
+  ArrowLeft,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -479,6 +480,12 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-white text-[#0A1A2F]">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10">
+        <Button variant="link" className="w-fit self-start p-0 text-[#0A1A2F]" asChild>
+          <a href="/" className="inline-flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Retour à l'accueil
+          </a>
+        </Button>
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3 text-sm uppercase tracking-wide text-[#0A1A2F]/70">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white">

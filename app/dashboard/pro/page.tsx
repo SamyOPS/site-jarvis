@@ -2,7 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient, type Session, type User } from "@supabase/supabase-js";
-import { AlertCircle, Ban, Loader2, ShieldCheck, Clock3, LogOut, CheckCircle2 } from "lucide-react";
+import {
+  AlertCircle,
+  Ban,
+  Loader2,
+  ShieldCheck,
+  Clock3,
+  LogOut,
+  CheckCircle2,
+  ArrowLeft,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -371,6 +380,12 @@ export default function ProDashboardPage() {
   return (
     <div className="min-h-screen bg-white text-[#0A1A2F]">
       <div className="mx-auto max-w-5xl px-4 py-10 space-y-4">
+        <Button variant="link" className="w-fit self-start p-0 text-[#0A1A2F]" asChild>
+          <a href="/" className="inline-flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Retour à l'accueil
+          </a>
+        </Button>
         <div className="flex items-center gap-3 text-sm uppercase tracking-wide text-[#0A1A2F]/70">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0A1A2F]/5 text-[#0A1A2F]">
             <ShieldCheck className="h-4 w-4" />
