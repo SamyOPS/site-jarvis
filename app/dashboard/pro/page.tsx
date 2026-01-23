@@ -218,12 +218,21 @@ export default function ProDashboardPage() {
       published_at: new Date().toISOString(),
     };
 
-    const { error: insertError } = await supabase.from("job_offers").insert(payload);
+    const { data, error: insertError } = await supabase
+      .from("job_offers")
+      .insert(payload)
+      .select(
+        "id,title,status,location,contract_type,description,department,work_mode,experience_level,salary_min,salary_max,tech_stack,company_name,published_at"
+      )
+      .single();
 
     if (insertError) {
       setOfferStatus({ type: "error", message: insertError.message });
     } else {
       setOfferStatus({ type: "success", message: "Offre publiee avec succes." });
+      if (data) {
+        setJobOffers((prev) => [data, ...prev]);
+      }
       setOfferForm({
         title: "",
         description: "",

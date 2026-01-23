@@ -316,14 +316,21 @@ export default function DashboardPage() {
       published_at: new Date().toISOString(),
     };
 
-    const { error: insertError } = await supabase
+    const { data, error: insertError } = await supabase
       .from("job_offers")
-      .insert(payload);
+      .insert(payload)
+      .select(
+        "id,title,company_name,status,location,contract_type,description,department,work_mode,experience_level,salary_min,salary_max,tech_stack,published_at"
+      )
+      .single();
 
     if (insertError) {
       setOfferStatus({ type: "error", message: insertError.message });
     } else {
       setOfferStatus({ type: "success", message: "Offre créée." });
+      if (data) {
+        setJobOffers((prev) => [data, ...prev]);
+      }
       setOfferForm({
         title: "",
         description: "",
