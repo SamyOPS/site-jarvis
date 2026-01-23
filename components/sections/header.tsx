@@ -199,7 +199,7 @@ export function Header() {
                         onClick={handleSignOut}
                         className="block w-full px-3 py-2 text-left text-sm text-red-500 hover:bg-black/5 hover:text-red-600 transition-colors"
                       >
-                        Dゼconnexion
+                        Déconnexion
                       </button>
                     </div>
                   )}
