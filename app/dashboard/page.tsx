@@ -1206,8 +1206,8 @@ export default function DashboardPage() {
                 <div
                   className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
                     offerStatus.type === "error"
-                      ? "border-red-400/70 bg-red-500/10 text-red-100"
-                      : "border-emerald-400/70 bg-emerald-500/10 text-emerald-50"
+                      ? "border-red-300 bg-red-50 text-red-900"
+                      : "border-emerald-300 bg-emerald-50 text-emerald-900"
                   }`}
                 >
                   {offerStatus.type === "error" ? (

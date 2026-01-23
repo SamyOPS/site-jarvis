@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { AlertCircle, Ban, Loader2, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { createClient, type Session, type User } from "@supabase/supabase-js";
+import { AlertCircle, Ban, Loader2, ShieldCheck, Clock3, LogOut, CheckCircle2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,8 @@ type JobOffer = {
 };
 
 export default function ProDashboardPage() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,10 +115,14 @@ export default function ProDashboardPage() {
         return;
       }
 
+      const currentSession = sessionData.session;
+      setSession(currentSession);
+      setUser(currentSession.user);
+
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("id,email,full_name,role,professional_status,company_name")
-        .eq("id", sessionData.session.user.id)
+        .eq("id", currentSession.user.id)
         .single();
 
       if (profileError) {
@@ -176,6 +182,17 @@ export default function ProDashboardPage() {
   const isPending = profile?.professional_status === "pending";
   const isRejected = profile?.professional_status === "rejected";
   const isVerified = profile?.professional_status === "verified";
+
+  const sessionExpiry = useMemo(() => {
+    if (!session?.expires_at) return null;
+    return new Date(session.expires_at * 1000).toLocaleString();
+  }, [session]);
+
+  const handleSignOut = async () => {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    window.location.href = "/auth";
+  };
 
   const slugify = (value: string) =>
     value
@@ -422,8 +439,18 @@ export default function ProDashboardPage() {
                     <span className="font-medium">{profile?.email ?? "-"}</span>
                   </div>
                   <div className="flex items-center justify-between">
+                    <span className="text-[#0A1A2F]/70">Nom complet</span>
+                    <span className="font-medium">{profile?.full_name ?? "Non renseigne"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
                     <span className="text-[#0A1A2F]/70">Entreprise</span>
                     <span className="font-medium">{profile?.company_name ?? "Non renseignée"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#0A1A2F]/70">Role</span>
+                    <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]">
+                      {profile?.role ?? "professional"}
+                    </Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-[#0A1A2F]/70">Statut pro</span>
@@ -431,6 +458,49 @@ export default function ProDashboardPage() {
                       {profile?.professional_status ?? "inconnu"}
                     </Badge>
                   </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm">
+                <CardHeader className="space-y-1">
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Clock3 className="h-5 w-5" />
+                    Session actuelle
+                  </CardTitle>
+                  <CardDescription className="text-[#0A1A2F]/70">
+                    Infos supabase.auth.getSession().
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#0A1A2F]/70">Etat</span>
+                    <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Connecte
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#0A1A2F]/70">Expire</span>
+                    <span className="font-medium">{sessionExpiry ?? "Inconnu"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#0A1A2F]/70">User ID</span>
+                    <span className="font-mono text-xs">{user?.id ?? "N/A"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#0A1A2F]/70">Email confirme</span>
+                    <span className="font-medium">
+                      {user?.email_confirmed_at ? "Oui" : "Non / inconnu"}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleSignOut}
+                    className="border-slate-300 text-[#0A1A2F] hover:bg-white"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Se deconnecter
+                  </Button>
                 </CardContent>
               </Card>
 
