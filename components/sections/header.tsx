@@ -36,7 +36,9 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [expertiseMenuOpen, setExpertiseMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [hideHeader, setHideHeader] = useState(false);
   const expertiseMenuRef = useRef<HTMLDivElement | null>(null);
+  const lastScrollYRef = useRef(0);
 
   useEffect(() => {
     if (!supabase) return;
@@ -72,6 +74,34 @@ export function Header() {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    lastScrollYRef.current = window.scrollY;
+    const onScroll = () => {
+      const currentY = window.scrollY;
+      const lastY = lastScrollYRef.current;
+      const delta = currentY - lastY;
+
+      if (mobileNavOpen) {
+        setHideHeader(false);
+        lastScrollYRef.current = currentY;
+        return;
+      }
+
+      if (currentY <= 80) {
+        setHideHeader(false);
+      } else if (delta > 6) {
+        setHideHeader(true);
+      } else if (delta < -4) {
+        setHideHeader(false);
+      }
+
+      lastScrollYRef.current = currentY;
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [mobileNavOpen]);
 
   const handleAnchorClick = (
     event: React.MouseEvent<HTMLAnchorElement>,
@@ -109,6 +139,34 @@ export function Header() {
     };
   }, []);
 
+  useEffect(() => {
+    lastScrollYRef.current = window.scrollY;
+    const onScroll = () => {
+      const currentY = window.scrollY;
+      const lastY = lastScrollYRef.current;
+      const delta = currentY - lastY;
+
+      if (mobileNavOpen) {
+        setHideHeader(false);
+        lastScrollYRef.current = currentY;
+        return;
+      }
+
+      if (currentY <= 80) {
+        setHideHeader(false);
+      } else if (delta > 6) {
+        setHideHeader(true);
+      } else if (delta < -4) {
+        setHideHeader(false);
+      }
+
+      lastScrollYRef.current = currentY;
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [mobileNavOpen]);
+
   const getDashboardPath = (role?: string | null) => {
     if (role === "admin") return "/dashboard";
     if (role === "professional") return "/dashboard/pro";
@@ -123,7 +181,11 @@ export function Header() {
   };
 
   return (
-    <header className="relative z-50 bg-[#f5f5f5] text-black border-b border-black/10">
+    <header
+      className={`sticky top-0 z-50 bg-[#f5f5f5] text-black border-b border-black/10 transition-transform duration-300 will-change-transform ${
+        hideHeader ? "-translate-y-full" : "translate-y-0"
+      }`}
+    >
       <div className="max-w-6xl mx-auto px-4 lg:px-6 overflow-visible">
         <div className="flex items-center justify-between gap-4 py-2">
           <a href="/" className="flex items-center">
