@@ -8,6 +8,102 @@ import { ArrowLeft } from "lucide-react";
 import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 
+
+function renderMarkdown(content: string) {
+  const lines = content.split(/\r?\n/);
+  const blocks: Array<JSX.Element> = [];
+  let listItems: string[] = [];
+
+  const flushList = () => {
+    if (!listItems.length) return;
+    const items = listItems.slice();
+    listItems = [];
+    
+    blocks.push(
+      <ul key={`list-${blocks.length}`} className="my-4 list-disc space-y-2 pl-6 text-sm text-slate-700">
+        {items.map((item, idx) => (
+          <li key={`${item}-${idx}`}>{renderInline(item)}</li>
+        ))}
+      </ul>
+    );
+  };
+
+  const renderInline = (text: string) => {
+    const parts: Array<string | JSX.Element> = [];
+    const regex = /\*\*(.+?)\*\*/g;
+    let lastIndex = 0;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(text.slice(lastIndex, match.index));
+      }
+      parts.push(
+        <strong key={`${match[1]}-${match.index}`} className="font-semibold text-[#0A1A2F]">
+          {match[1]}
+        </strong>
+      );
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) {
+      parts.push(text.slice(lastIndex));
+    }
+    return parts;
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushList();
+      continue;
+    }
+    if (trimmed === "---") {
+      flushList();
+      blocks.push(<hr key={`hr-${blocks.length}`} className="my-6 border-slate-200" />);
+      continue;
+    }
+    if (trimmed.startsWith("# ")) {
+      flushList();
+      blocks.push(
+        <h1 key={`h1-${blocks.length}`} className="mt-6 text-2xl font-semibold text-[#0A1A2F]">
+          {trimmed.replace(/^#\s+/, "")}
+        </h1>
+      );
+      continue;
+    }
+    if (trimmed.startsWith("## ")) {
+      flushList();
+      blocks.push(
+        <h2 key={`h2-${blocks.length}`} className="mt-5 text-xl font-semibold text-[#0A1A2F]">
+          {trimmed.replace(/^##\s+/, "")}
+        </h2>
+      );
+      continue;
+    }
+    if (trimmed.startsWith("### ")) {
+      flushList();
+      blocks.push(
+        <h3 key={`h3-${blocks.length}`} className="mt-4 text-lg font-semibold text-[#0A1A2F]">
+          {trimmed.replace(/^###\s+/, "")}
+        </h3>
+      );
+      continue;
+    }
+    if (trimmed.startsWith("- ")) {
+      
+      listItems.push(trimmed.replace(/^-\s+/, ""))
+      continue;
+    }
+    flushList();
+    blocks.push(
+      <p key={`p-${blocks.length}`} className="mt-3 text-sm leading-7 text-slate-700">
+        {renderInline(trimmed)}
+      </p>
+    );
+  }
+
+  flushList();
+  return blocks;
+}
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -140,9 +236,7 @@ export default function ActuDetailPage() {
                 <p className="mt-4 text-base text-slate-600">{item.excerpt}</p>
               )}
               {item.content && (
-                <div className="mt-6 whitespace-pre-wrap text-sm leading-7 text-slate-700">
-                  {item.content}
-                </div>
+                <div className="mt-6">{renderMarkdown(item.content)}</div>
               )}
             </article>
           )}

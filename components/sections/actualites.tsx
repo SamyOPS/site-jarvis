@@ -2,6 +2,7 @@
 
 import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react";
 import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { motion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,14 @@ import {
   CarouselItem,
 } from "@/components/ui/carousel";
 
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+const supabase =
+  supabaseUrl && supabaseAnonKey
+    ? createClient(supabaseUrl, supabaseAnonKey)
+    : null;
 interface GalleryItem {
   id: string;
   title: string;
@@ -26,55 +35,84 @@ interface ActualitesProps {
   items?: GalleryItem[];
 }
 
+
+const fallbackItems: GalleryItem[] = [
+  {
+    id: "item-1",
+    title: "Build Modern UIs",
+    summary: "Create stunning user interfaces with our comprehensive design system.",
+    url: "#",
+    image: "/images/block/placeholder-dark-1.svg",
+  },
+  {
+    id: "item-2",
+    title: "Computer Vision Technology",
+    summary:
+      "Powerful image recognition and processing capabilities that allow AI systems to analyze, understand, and interpret visual information from the world.",
+    url: "#",
+    image: "/images/block/placeholder-dark-1.svg",
+  },
+  {
+    id: "item-3",
+    title: "Machine Learning Automation",
+    summary:
+      "Self-improving algorithms that learn from data patterns to automate complex tasks and make intelligent decisions with minimal human intervention.",
+    url: "#",
+    image: "/images/block/placeholder-dark-1.svg",
+  },
+  {
+    id: "item-4",
+    title: "Predictive Analytics",
+    summary:
+      "Advanced forecasting capabilities that analyze historical data to predict future trends and outcomes, helping businesses make data-driven decisions.",
+    url: "#",
+    image: "/images/block/placeholder-dark-1.svg",
+  },
+  {
+    id: "item-5",
+    title: "Neural Network Architecture",
+    summary:
+      "Sophisticated AI models inspired by human brain structure, capable of solving complex problems through deep learning and pattern recognition.",
+    url: "#",
+    image: "/images/block/placeholder-dark-1.svg",
+  },
+];
+
 const Actualites = ({
   heading = "Galerie",
   demoUrl = "#",
-  items = [
-    {
-      id: "item-1",
-      title: "Build Modern UIs",
-      summary:
-        "Create stunning user interfaces with our comprehensive design system.",
-      url: "#",
-      image: "/images/block/placeholder-dark-1.svg",
-    },
-    {
-      id: "item-2",
-      title: "Computer Vision Technology",
-      summary:
-        "Powerful image recognition and processing capabilities that allow AI systems to analyze, understand, and interpret visual information from the world.",
-      url: "#",
-      image: "/images/block/placeholder-dark-1.svg",
-    },
-    {
-      id: "item-3",
-      title: "Machine Learning Automation",
-      summary:
-        "Self-improving algorithms that learn from data patterns to automate complex tasks and make intelligent decisions with minimal human intervention.",
-      url: "#",
-      image: "/images/block/placeholder-dark-1.svg",
-    },
-    {
-      id: "item-4",
-      title: "Predictive Analytics",
-      summary:
-        "Advanced forecasting capabilities that analyze historical data to predict future trends and outcomes, helping businesses make data-driven decisions.",
-      url: "#",
-      image: "/images/block/placeholder-dark-1.svg",
-    },
-    {
-      id: "item-5",
-      title: "Neural Network Architecture",
-      summary:
-        "Sophisticated AI models inspired by human brain structure, capable of solving complex problems through deep learning and pattern recognition.",
-      url: "#",
-      image: "/images/block/placeholder-dark-1.svg",
-    },
-  ],
+  items,
 }: ActualitesProps) => {
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
+  const [remoteItems, setRemoteItems] = useState<GalleryItem[]>([]);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
+  useEffect(() => {
+    if (items?.length || !supabase) return;
+    const fetchNews = async () => {
+      setIsLoadingItems(true);
+      const { data } = await supabase
+        .from("news")
+        .select("id,title,slug,excerpt,cover_image,published_at,created_at")
+        .eq("status", "published")
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false });
+
+      const mapped = (data ?? []).map((row) => ({
+        id: row.id,
+        title: row.title,
+        summary: row.excerpt ?? "",
+        url: `/actus/${row.slug}`,
+        image: row.cover_image ?? "/images/block/placeholder-dark-1.svg",
+      }));
+      setRemoteItems(mapped);
+      setIsLoadingItems(false);
+    };
+
+    fetchNews();
+  }, [items]);
+
   useEffect(() => {
     if (!carouselApi) {
       return;
@@ -160,7 +198,7 @@ const Actualites = ({
           className="relative left-[-1rem]"
         >
           <CarouselContent className="-mr-4 ml-8 2xl:ml-[max(8rem,calc(50vw-700px+1rem))] 2xl:mr-[max(0rem,calc(50vw-700px-1rem))]">
-            {items.map((item, idx) => (
+            {(items && items.length ? items : remoteItems.length ? remoteItems : fallbackItems).map((item, idx) => (
               <CarouselItem key={item.id} className="pl-4 md:max-w-[452px]">
                 <motion.a
                   href={item.url}

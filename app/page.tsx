@@ -64,81 +64,6 @@ export default function Home() {
 
 
 
-  const newsItems = [
-
-    {
-
-      id: "news-1",
-
-      title: "Support 24/7 et ouverture du SOC Jarvis",
-
-      summary:
-
-        "Nouvelle équipe dédiée à la supervision et à la réponse aux incidents pour renforcer la sécurité de nos clients.",
-
-      url: "#",
-
-      image:
-
-        "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
-
-    },
-
-    {
-
-      id: "news-2",
-
-      title: "Lancement d'un centre de compétence Cloud",
-
-      summary:
-
-        "Accompagnement sur Azure et AWS pour la modernisation des infrastructures et l'industrialisation des déploiements.",
-
-      url: "#",
-
-      image:
-
-        "https://images.unsplash.com/photo-1753715613382-dc3e8456dbc9?q=80&w=1082&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-
-    },
-
-    {
-
-      id: "news-3",
-
-      title: "Nouveau programme d'innovation applicative",
-
-      summary:
-
-        "Ateliers design et MVP pour accélérer la livraison de produits digitaux en moins de 12 semaines.",
-
-      url: "#",
-
-      image:
-
-        "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80",
-
-    },
-
-    {
-
-      id: "news-4",
-
-      title: "Partenariat stratégique cybersécurité",
-
-      summary:
-
-        "Renforcement de notre offre SOC, pentest et sensibilisation des équipes avec un partenaire spécialisé.",
-
-      url: "#",
-
-      image:
-
-        "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80",
-
-    },
-
-  ];
 
 
 
@@ -544,7 +469,7 @@ export default function Home() {
 
         <section id="actualites" className="bg-[#F4F7FA] text-[#1E1E1E]">
 
-          <Actualites heading="Actualités de Jarvis Connect" demoUrl="/actus" items={newsItems} />
+          <Actualites heading="Actualités de Jarvis Connect" demoUrl="/actus" />
 
         </section>
 
