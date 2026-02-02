@@ -64,7 +64,7 @@ export default function ActusPage() {
       <main className="particle-readability">
         <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
           <div className="mb-8 space-y-3">
-            <p className="text-sm uppercase tracking-[0.2em] text-[#000080]">Actualit?s</p>
+            <p className="text-sm uppercase tracking-[0.2em] text-[#000080]">Actualités</p>
             <h1 className="text-3xl font-semibold md:text-4xl">Toutes les actus</h1>
             <p className="max-w-2xl text-sm text-slate-600">
               Analyses, projets, annonces et points de vue de Jarvis Connect.
@@ -73,12 +73,12 @@ export default function ActusPage() {
 
           {!isConfigured && (
             <div className="rounded-none border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              Configuration Supabase manquante (URL ou cl? publique).
+              Configuration Supabase manquante (URL ou clé publique).
             </div>
           )}
 
           {loading && (
-            <div className="text-sm text-slate-500">Chargement des actualit?s...</div>
+            <div className="text-sm text-slate-500">Chargement des actualités...</div>
           )}
 
           {!loading && error && (
@@ -89,7 +89,7 @@ export default function ActusPage() {
 
           {!loading && !error && items.length === 0 && (
             <div className="rounded-none border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
-              Aucune actualit? publi?e pour le moment.
+              Aucune actualité publiée pour le moment.
             </div>
           )}
 
@@ -109,7 +109,7 @@ export default function ActusPage() {
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
-                      Image ? venir
+                      Image à venir
                     </div>
                   )}
                 </div>

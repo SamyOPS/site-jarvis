@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowLeft } from "lucide-react";
 
@@ -23,10 +24,12 @@ type NewsItem = {
   content: string | null;
   cover_image: string | null;
   published_at: string | null;
+  status: string | null;
   created_at: string;
 };
 
-export default function ActuDetailPage({ params }: { params: { slug: string } }) {
+export default function ActuDetailPage() {
+  const params = useParams();
   const [item, setItem] = useState<NewsItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +38,13 @@ export default function ActuDetailPage({ params }: { params: { slug: string } })
 
   useEffect(() => {
     const fetchItem = async () => {
+      const slugParam = Array.isArray(params?.slug) ? params.slug[0] : (params?.slug ?? "");
+      const decodedSlug = decodeURIComponent(String(slugParam)).trim();
+      if (!decodedSlug) {
+        setError("Slug invalide.");
+        setLoading(false);
+        return;
+      }
       if (!supabase) {
         setError("Configuration Supabase manquante.");
         setLoading(false);
@@ -43,15 +53,33 @@ export default function ActuDetailPage({ params }: { params: { slug: string } })
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from("news")
-        .select("id,title,slug,excerpt,content,cover_image,published_at,created_at")
-        .eq("slug", params.slug)
+        .select("id,title,slug,excerpt,content,cover_image,published_at,created_at,status")
+        .eq("slug", decodedSlug)
         .eq("status", "published")
         .maybeSingle();
 
       if (fetchError) {
         setError(fetchError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!data) {
+        const { data: draftData, error: draftError } = await supabase
+          .from("news")
+          .select("id,title,slug,excerpt,content,cover_image,published_at,created_at,status")
+          .eq("slug", decodedSlug)
+          .maybeSingle();
+
+        if (draftError) {
+          setError(draftError.message);
+        } else if (draftData?.status && draftData.status !== "published") {
+          setError("Article en brouillon.");
+        } else {
+          setItem(draftData ?? null);
+        }
       } else {
-        setItem(data ?? null);
+        setItem(data);
       }
       setLoading(false);
     };
@@ -71,7 +99,7 @@ export default function ActuDetailPage({ params }: { params: { slug: string } })
 
           {!isConfigured && (
             <div className="mt-6 rounded-none border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              Configuration Supabase manquante (URL ou cl? publique).
+              Configuration Supabase manquante (URL ou clé publique).
             </div>
           )}
 
