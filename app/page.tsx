@@ -431,6 +431,7 @@ export default function Home() {
             scrollIconLabel="Scroll vers les expertises"
 
             scrollText="Découvrir notre expertise"
+            scrollTargetId="expertises"
 
             colors={["#0A1A2F", "#0d1f35", "#11345f", "#1f4f7d", "#2aa0dd", "#7ce0ff"]}
 
@@ -456,7 +457,7 @@ export default function Home() {
 
 
 
-        <section>
+        <section id="about">
 
           <About
 

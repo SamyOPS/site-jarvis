@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 interface TextStaggerHoverProps {
   text: string
   index: number
+  trigger?: "hover" | "click" | "both"
 }
 interface HoverSliderImageProps {
   index: number
@@ -30,7 +31,7 @@ function splitText(text: string) {
 const HoverSliderContext = React.createContext<
   HoverSliderContextValue | undefined
 >(undefined)
-function useHoverSliderContext() {
+export function useHoverSliderContext() {
   const context = React.useContext(HoverSliderContext)
   if (context === undefined) {
     throw new Error(
@@ -79,16 +80,27 @@ export const TextStaggerHover = React.forwardRef<
   const { activeSlide, changeSlide } = useHoverSliderContext()
   const { characters } = splitText(text)
   const isActive = activeSlide === index
-  const handleMouse = () => changeSlide(index)
+  const { trigger = "hover", onClick, onMouseEnter, ...rest } = props
+  const shouldHover = trigger === "hover" || trigger === "both"
+  const shouldClick = trigger === "click" || trigger === "both"
+  const handleMouse = (event: React.MouseEvent<HTMLElement>) => {
+    onMouseEnter?.(event)
+    if (shouldHover) changeSlide(index)
+  }
+  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+    onClick?.(event)
+    if (shouldClick) changeSlide(index)
+  }
   return (
     <span
       className={cn(
         "relative inline-block origin-bottom overflow-hidden",
         className
       )}
-      {...props}
+      {...rest}
       ref={ref}
       onMouseEnter={handleMouse}
+      onClick={handleClick}
     >
       {characters.map((char, index) => (
         <span

@@ -10,6 +10,7 @@ interface HeroProps {
   showScrollIcon?: boolean;
   scrollText?: string;
   scrollIconLabel?: string;
+  scrollTargetId?: string;
   colors?: string[];
   distortion?: number;
   swirl?: number;
@@ -36,6 +37,7 @@ export function Hero(props: HeroProps) {
     showScrollIcon = false,
     scrollText = "Decouvrir notre expertise",
     scrollIconLabel = "Scroll",
+    scrollTargetId,
     className = "",
     titleClassName = "",
     descriptionClassName = "",
@@ -52,6 +54,14 @@ export function Hero(props: HeroProps) {
     fontFamily || fontWeight
       ? { fontFamily, fontWeight }
       : undefined;
+  const handleScrollClick = () => {
+    if (!scrollTargetId) return;
+    const target = document.getElementById(scrollTargetId);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.history.pushState(null, "", `#${scrollTargetId}`);
+    }
+  };
 
   return (
     <div className={`relative w-full overflow-hidden ${className}`}>
@@ -102,11 +112,13 @@ export function Hero(props: HeroProps) {
             ) : null}
 
             {showScrollIcon ? (
-              <div className="flex flex-col items-center gap-2 text-sm">
-                <span
-                  aria-label={scrollIconLabel}
-                  className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/30 animate-bounce"
-                >
+              <button
+                type="button"
+                onClick={handleScrollClick}
+                className="flex flex-col items-center gap-2 text-sm"
+                aria-label={scrollIconLabel}
+              >
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/30 animate-bounce">
                   <svg
                     aria-hidden="true"
                     viewBox="0 0 24 24"
@@ -121,8 +133,8 @@ export function Hero(props: HeroProps) {
                     <path d="m19 12-7 7-7-7" />
                   </svg>
                 </span>
-                {scrollText ? <span>{scrollText}</span> : null}
-              </div>
+                {scrollText ? <span className="cursor-pointer">{scrollText}</span> : null}
+              </button>
             ) : null}
           </div>
         </div>
