@@ -500,6 +500,12 @@ export default function DashboardPage() {
             Visualise ton profil admin, les comptes utilisateurs, leur statut de
             verification et ta session active.
           </p>
+          <a
+            href="/dashboard/actus"
+            className="inline-flex items-center text-sm font-medium text-[#000080]"
+          >
+            Gérer les actus
+          </a>
         </div>
 
         {error && (

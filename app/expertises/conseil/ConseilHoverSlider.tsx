@@ -9,14 +9,14 @@ import {
 } from "@/components/animated-slideshow";
 import { AnimatePresence, motion } from "motion/react";
 
-interface SupportSlide {
+interface ConseilSlide {
   title: string;
   image: string;
   summary: string;
   bullets: string[];
 }
 
-function HoverSliderDetails({ slides }: { slides: SupportSlide[] }) {
+function HoverSliderDetails({ slides }: { slides: ConseilSlide[] }) {
   const { activeSlide } = useHoverSliderContext();
   const slide = slides[activeSlide] ?? slides[0];
 
@@ -24,9 +24,11 @@ function HoverSliderDetails({ slides }: { slides: SupportSlide[] }) {
     <section className="mt-10 border border-slate-200 bg-slate-50/70 px-6 py-4">
       <div className="flex items-center gap-3">
         <span className="h-5 w-1 bg-[#000080]" />
-        <p className="text-xs uppercase tracking-[0.3em] text-[#000080]">Focus du service</p>
+        <p className="text-xs uppercase tracking-[0.3em] text-[#000080]">
+          Focus du service
+        </p>
       </div>
-      <div className="mt-3 min-h-[64px]">
+      <div className="mt-3 min-h-[96px]">
         <AnimatePresence mode="wait">
           <motion.div
             key={slide.title}
@@ -62,7 +64,7 @@ function HoverSliderDetails({ slides }: { slides: SupportSlide[] }) {
   );
 }
 
-export function SupportHoverSlider({ slides }: { slides: SupportSlide[] }) {
+export function ConseilHoverSlider({ slides }: { slides: ConseilSlide[] }) {
   return (
     <HoverSlider className="space-y-10">
       <div className="grid gap-8 lg:grid-cols-[1fr_1.1fr] lg:items-start">

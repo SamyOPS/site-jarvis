@@ -212,7 +212,7 @@ export default function SupportPage() {
 
                 ].map((item) => (
 
-                  <div key={item} className="rounded-lg border border-slate-200 bg-white/70 px-4 py-3 shadow-sm">
+                  <div key={item} className="rounded-none border border-slate-200 bg-white/70 px-4 py-3 shadow-sm">
 
                     <p className="text-sm font-semibold text-[#0A1A2F]">{item}</p>
 
@@ -226,7 +226,7 @@ export default function SupportPage() {
 
 
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+            <div className="rounded-none border border-slate-200 bg-slate-50 p-6">
 
               <p className="text-sm uppercase tracking-[0.2em] text-[#000080]">Notre approche</p>
 
@@ -258,7 +258,7 @@ export default function SupportPage() {
 
               </ul>
 
-              <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+              <div className="mt-6 rounded-none border border-slate-200 bg-white p-4">
 
                 <p className="text-sm font-semibold text-[#0A1A2F]">Indicateurs suivis</p>
 
@@ -332,7 +332,7 @@ export default function SupportPage() {
 
             ].map((block) => (
 
-              <div key={block.title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div key={block.title} className="rounded-none border border-slate-200 bg-white p-6 shadow-sm">
 
                 <p className="text-sm uppercase tracking-[0.2em] text-[#000080]">{block.title}</p>
 
@@ -342,7 +342,7 @@ export default function SupportPage() {
 
                     <li key={item} className="flex items-start gap-2">
 
-                      <span className="mt-1 size-1.5 rounded-full bg-[#000080]" />
+                      <span className="mt-1 size-1.5 rounded-none bg-[#000080]" />
 
                       <span>{item}</span>
 
@@ -360,7 +360,7 @@ export default function SupportPage() {
 
 
 
-          <section className="mt-14 rounded-2xl border border-[#0A1A2F]/10 bg-[#0A1A2F] p-8 text-white">
+          <section className="mt-14 rounded-none border border-[#0A1A2F]/10 bg-[#0A1A2F] p-8 text-white">
 
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
@@ -378,7 +378,7 @@ export default function SupportPage() {
 
                 href="/contact"
 
-                className="inline-flex items-center justify-center rounded-full border border-white/50 px-6 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+                className="inline-flex items-center justify-center rounded-none border border-white/50 px-6 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
 
               >
 
