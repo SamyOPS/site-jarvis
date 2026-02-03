@@ -227,15 +227,6 @@ export default function ActuDetailPage() {
                   />
                 </div>
               )}
-              {item.video_url && (
-                <div className="mb-6 border border-slate-200 bg-slate-100">
-                  <video
-                    src={item.video_url}
-                    controls
-                    className="w-full"
-                  />
-                </div>
-              )}
               <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                 {item.published_at
                   ? new Date(item.published_at).toLocaleDateString("fr-FR")
@@ -244,6 +235,15 @@ export default function ActuDetailPage() {
               <h1 className="mt-2 text-3xl font-semibold md:text-4xl">{item.title}</h1>
               {item.excerpt && (
                 <p className="mt-4 text-base text-slate-600">{item.excerpt}</p>
+              )}
+              {item.video_url && (
+                <div className="mt-6 border border-slate-200 bg-slate-100">
+                  <video
+                    src={item.video_url}
+                    controls
+                    className="w-full"
+                  />
+                </div>
               )}
               {item.content && (
                 <div className="mt-6">{renderMarkdown(item.content)}</div>
