@@ -32,6 +32,7 @@ type NewsRow = {
   content: string | null;
   cover_image: string | null;
   video_url: string | null;
+  pdf_url: string | null;
   status: "draft" | "published" | string;
   published_at: string | null;
   created_at: string;
@@ -63,6 +64,9 @@ export default function DashboardActusPage() {
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [uploadVideoMessage, setUploadVideoMessage] = useState<string | null>(null);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadPdfMessage, setUploadPdfMessage] = useState<string | null>(null);
+  const [contentMode, setContentMode] = useState<"article" | "pdf">("article");
   const [form, setForm] = useState({
     title: "",
     slug: "",
@@ -70,6 +74,7 @@ export default function DashboardActusPage() {
     content: "",
     cover_image: "",
     video_url: "",
+    pdf_url: "",
     status: "draft",
   });
 
@@ -119,7 +124,7 @@ export default function DashboardActusPage() {
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from("news")
-        .select("id,title,slug,excerpt,content,cover_image,video_url,status,published_at,created_at")
+        .select("id,title,slug,excerpt,content,cover_image,video_url,pdf_url,status,published_at,created_at")
         .order("created_at", { ascending: false });
       if (fetchError) {
         setError(fetchError.message);
@@ -139,8 +144,11 @@ export default function DashboardActusPage() {
       excerpt: "",
       content: "",
       cover_image: "",
+      video_url: "",
+      pdf_url: "",
       status: "draft",
     });
+    setContentMode("article");
     setEditingId(null);
   };
 
@@ -202,6 +210,35 @@ export default function DashboardActusPage() {
     setUploadingVideo(false);
   };
 
+  const handlePdfChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !supabase || !adminProfile) return;
+
+    setUploadPdfMessage(null);
+    setUploadingPdf(true);
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "pdf";
+    const safeName = file.name.replace(/\.[^/.]+$/, "");
+    const baseName = slugify(safeName) || "document";
+    const filePath = `${adminProfile.id}/${Date.now()}-${baseName}.${ext}`;
+
+    const { error: uploadError } = await supabase
+      .storage
+      .from("news-pdfs")
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      setUploadPdfMessage(uploadError.message);
+      setUploadingPdf(false);
+      return;
+    }
+
+    const { data } = supabase.storage.from("news-pdfs").getPublicUrl(filePath);
+    if (data?.publicUrl) {
+      setForm((prev) => ({ ...prev, pdf_url: data.publicUrl }));
+    }
+    setUploadingPdf(false);
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!supabase || !adminProfile) return;
@@ -219,9 +256,10 @@ export default function DashboardActusPage() {
       title: form.title,
       slug,
       excerpt: form.excerpt || null,
-      content: form.content || null,
+      content: contentMode === "pdf" ? null : form.content || null,
       cover_image: form.cover_image || null,
       video_url: form.video_url || null,
+      pdf_url: contentMode === "pdf" ? form.pdf_url || null : form.pdf_url || null,
       status: form.status,
       published_at:
         form.status === "published" ? new Date().toISOString() : null,
@@ -245,7 +283,7 @@ export default function DashboardActusPage() {
 
     const { data } = await supabase
       .from("news")
-      .select("id,title,slug,excerpt,content,cover_image,video_url,status,published_at,created_at")
+      .select("id,title,slug,excerpt,content,cover_image,video_url,pdf_url,status,published_at,created_at")
       .order("created_at", { ascending: false });
 
     setNewsItems(data ?? []);
@@ -261,8 +299,10 @@ export default function DashboardActusPage() {
       content: item.content ?? "",
       cover_image: item.cover_image ?? "",
       video_url: item.video_url ?? "",
+      pdf_url: item.pdf_url ?? "",
       status: item.status ?? "draft",
     });
+    setContentMode(item.pdf_url ? "pdf" : "article");
   };
 
   const handleDelete = async (id: string) => {
@@ -323,6 +363,35 @@ export default function DashboardActusPage() {
           </CardHeader>
           <CardContent>
             <form className="grid gap-4" onSubmit={handleSubmit}>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setContentMode("article")}
+                  className={`rounded-none border px-3 py-1.5 text-xs font-medium ${
+                    contentMode === "article"
+                      ? "border-[#000080] bg-[#000080] text-white"
+                      : "border-slate-200 text-slate-600"
+                  }`}
+                >
+                  Article
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContentMode("pdf")}
+                  className={`rounded-none border px-3 py-1.5 text-xs font-medium ${
+                    contentMode === "pdf"
+                      ? "border-[#000080] bg-[#000080] text-white"
+                      : "border-slate-200 text-slate-600"
+                  }`}
+                >
+                  PDF
+                </button>
+                <span className="text-xs text-slate-500">
+                  {contentMode === "article"
+                    ? "Redigez l'article directement."
+                    : "Joignez un PDF comme contenu principal."}
+                </span>
+              </div>
               <div className="grid gap-2">
                 <Label htmlFor="title">Titre</Label>
                 <Input
@@ -360,17 +429,19 @@ export default function DashboardActusPage() {
                   rows={3}
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="content">Contenu (Markdown)</Label>
-                <Textarea
-                  id="content"
-                  value={form.content}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, content: event.target.value }))
-                  }
-                  rows={10}
-                />
-              </div>
+              {contentMode === "article" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="content">Contenu (Markdown)</Label>
+                  <Textarea
+                    id="content"
+                    value={form.content}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, content: event.target.value }))
+                    }
+                    rows={10}
+                  />
+                </div>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor="cover_image_upload">Image de couverture (upload)</Label>
                 <input
@@ -394,7 +465,8 @@ export default function DashboardActusPage() {
                   />
                 )}
               </div>
-              <div className="grid gap-2">
+              {contentMode === "article" && (
+                <div className="grid gap-2">
                 <Label htmlFor="video_upload">Vidéo (MP4)</Label>
                 <input
                   id="video_upload"
@@ -417,6 +489,35 @@ export default function DashboardActusPage() {
                   />
                 )}
               </div>
+              )}
+              {contentMode === "pdf" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="pdf_upload">PDF (upload)</Label>
+                  <input
+                    id="pdf_upload"
+                    type="file"
+                    accept="application/pdf"
+                    onChange={handlePdfChange}
+                    className="h-10 border border-slate-200 px-3 text-sm"
+                  />
+                  {uploadingPdf && (
+                    <p className="text-xs text-slate-500">Upload PDF en cours...</p>
+                  )}
+                  {uploadPdfMessage && (
+                    <p className="text-xs text-red-600">{uploadPdfMessage}</p>
+                  )}
+                  {form.pdf_url && (
+                    <a
+                      href={form.pdf_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-[#000080] underline"
+                    >
+                      Voir le PDF upload?
+                    </a>
+                  )}
+                </div>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor="cover_image">URL image de couverture</Label>
                 <Input
@@ -428,7 +529,8 @@ export default function DashboardActusPage() {
                   placeholder="URL auto-remplie après upload"
                 />
               </div>
-              <div className="grid gap-2">
+              {contentMode === "article" && (
+                <div className="grid gap-2">
                 <Label htmlFor="video_url">URL vidéo (MP4)</Label>
                 <Input
                   id="video_url"
@@ -439,6 +541,20 @@ export default function DashboardActusPage() {
                   placeholder="URL auto-remplie après upload"
                 />
               </div>
+              )}
+              {contentMode === "pdf" && (
+                <div className="grid gap-2">
+                <Label htmlFor="pdf_url">URL PDF</Label>
+                <Input
+                  id="pdf_url"
+                  value={form.pdf_url}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, pdf_url: event.target.value }))
+                  }
+                  placeholder="URL auto-remplie apr?s upload"
+                />
+              </div>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor="status">Statut</Label>
                 <select

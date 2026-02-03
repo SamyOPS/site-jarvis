@@ -120,6 +120,7 @@ type NewsItem = {
   content: string | null;
   cover_image: string | null;
   video_url: string | null;
+  pdf_url: string | null;
   published_at: string | null;
   status: string | null;
   created_at: string;
@@ -150,7 +151,7 @@ export default function ActuDetailPage() {
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from("news")
-        .select("id,title,slug,excerpt,content,cover_image,video_url,published_at,created_at,status")
+        .select("id,title,slug,excerpt,content,cover_image,video_url,pdf_url,published_at,created_at,status")
         .eq("slug", decodedSlug)
         .eq("status", "published")
         .maybeSingle();
@@ -164,7 +165,7 @@ export default function ActuDetailPage() {
       if (!data) {
         const { data: draftData, error: draftError } = await supabase
           .from("news")
-          .select("id,title,slug,excerpt,content,cover_image,video_url,published_at,created_at,status")
+          .select("id,title,slug,excerpt,content,cover_image,video_url,pdf_url,published_at,created_at,status")
           .eq("slug", decodedSlug)
           .maybeSingle();
 
@@ -243,6 +244,25 @@ export default function ActuDetailPage() {
                     controls
                     className="w-full"
                   />
+                </div>
+              )}
+              {item.pdf_url && (
+                <div className="mt-6">
+                  <div className="border border-slate-200 bg-slate-50">
+                    <iframe
+                      title="PDF"
+                      src={item.pdf_url}
+                      className="h-[70vh] w-full"
+                    />
+                  </div>
+                  <a
+                    href={item.pdf_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex text-sm font-medium text-[#000080] underline"
+                  >
+                    Ouvrir le PDF dans un nouvel onglet
+                  </a>
                 </div>
               )}
               {item.content && (
