@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ChangeEvent } from "react";
 import { createClient, type Session, type User } from "@supabase/supabase-js";
 import { ArrowLeft, CheckCircle2, Loader2, Pencil, Trash2 } from "lucide-react";
 
@@ -31,6 +31,7 @@ type NewsRow = {
   excerpt: string | null;
   content: string | null;
   cover_image: string | null;
+  video_url: string | null;
   status: "draft" | "published" | string;
   published_at: string | null;
   created_at: string;
@@ -58,12 +59,17 @@ export default function DashboardActusPage() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>({ type: "idle" });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadVideoMessage, setUploadVideoMessage] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "",
     slug: "",
     excerpt: "",
     content: "",
     cover_image: "",
+    video_url: "",
     status: "draft",
   });
 
@@ -113,7 +119,7 @@ export default function DashboardActusPage() {
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from("news")
-        .select("id,title,slug,excerpt,content,cover_image,status,published_at,created_at")
+        .select("id,title,slug,excerpt,content,cover_image,video_url,status,published_at,created_at")
         .order("created_at", { ascending: false });
       if (fetchError) {
         setError(fetchError.message);
@@ -138,6 +144,64 @@ export default function DashboardActusPage() {
     setEditingId(null);
   };
 
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !supabase || !adminProfile) return;
+
+    setUploadMessage(null);
+    setUploading(true);
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const safeName = file.name.replace(/\.[^/.]+$/, "");
+    const baseName = slugify(safeName) || "image";
+    const filePath = `${adminProfile.id}/${Date.now()}-${baseName}.${ext}`;
+
+    const { error: uploadError } = await supabase
+      .storage
+      .from("news-images")
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      setUploadMessage(uploadError.message);
+      setUploading(false);
+      return;
+    }
+
+    const { data } = supabase.storage.from("news-images").getPublicUrl(filePath);
+    if (data?.publicUrl) {
+      setForm((prev) => ({ ...prev, cover_image: data.publicUrl }));
+    }
+    setUploading(false);
+  };
+
+  const handleVideoChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !supabase || !adminProfile) return;
+
+    setUploadVideoMessage(null);
+    setUploadingVideo(true);
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "mp4";
+    const safeName = file.name.replace(/\.[^/.]+$/, "");
+    const baseName = slugify(safeName) || "video";
+    const filePath = `${adminProfile.id}/${Date.now()}-${baseName}.${ext}`;
+
+    const { error: uploadError } = await supabase
+      .storage
+      .from("news-videos")
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      setUploadVideoMessage(uploadError.message);
+      setUploadingVideo(false);
+      return;
+    }
+
+    const { data } = supabase.storage.from("news-videos").getPublicUrl(filePath);
+    if (data?.publicUrl) {
+      setForm((prev) => ({ ...prev, video_url: data.publicUrl }));
+    }
+    setUploadingVideo(false);
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!supabase || !adminProfile) return;
@@ -157,6 +221,7 @@ export default function DashboardActusPage() {
       excerpt: form.excerpt || null,
       content: form.content || null,
       cover_image: form.cover_image || null,
+      video_url: form.video_url || null,
       status: form.status,
       published_at:
         form.status === "published" ? new Date().toISOString() : null,
@@ -180,7 +245,7 @@ export default function DashboardActusPage() {
 
     const { data } = await supabase
       .from("news")
-      .select("id,title,slug,excerpt,content,cover_image,status,published_at,created_at")
+      .select("id,title,slug,excerpt,content,cover_image,video_url,status,published_at,created_at")
       .order("created_at", { ascending: false });
 
     setNewsItems(data ?? []);
@@ -195,6 +260,7 @@ export default function DashboardActusPage() {
       excerpt: item.excerpt ?? "",
       content: item.content ?? "",
       cover_image: item.cover_image ?? "",
+      video_url: item.video_url ?? "",
       status: item.status ?? "draft",
     });
   };
@@ -306,6 +372,52 @@ export default function DashboardActusPage() {
                 />
               </div>
               <div className="grid gap-2">
+                <Label htmlFor="cover_image_upload">Image de couverture (upload)</Label>
+                <input
+                  id="cover_image_upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="h-10 border border-slate-200 px-3 text-sm"
+                />
+                {uploading && (
+                  <p className="text-xs text-slate-500">Upload en cours...</p>
+                )}
+                {uploadMessage && (
+                  <p className="text-xs text-red-600">{uploadMessage}</p>
+                )}
+                {form.cover_image && (
+                  <img
+                    src={form.cover_image}
+                    alt="Aperçu"
+                    className="mt-2 h-24 w-full max-w-sm border border-slate-200 object-cover"
+                  />
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="video_upload">Vidéo (MP4)</Label>
+                <input
+                  id="video_upload"
+                  type="file"
+                  accept="video/mp4"
+                  onChange={handleVideoChange}
+                  className="h-10 border border-slate-200 px-3 text-sm"
+                />
+                {uploadingVideo && (
+                  <p className="text-xs text-slate-500">Upload vidéo en cours...</p>
+                )}
+                {uploadVideoMessage && (
+                  <p className="text-xs text-red-600">{uploadVideoMessage}</p>
+                )}
+                {form.video_url && (
+                  <video
+                    src={form.video_url}
+                    controls
+                    className="mt-2 h-32 w-full max-w-sm border border-slate-200 object-cover"
+                  />
+                )}
+              </div>
+              <div className="grid gap-2">
                 <Label htmlFor="cover_image">URL image de couverture</Label>
                 <Input
                   id="cover_image"
@@ -313,6 +425,18 @@ export default function DashboardActusPage() {
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, cover_image: event.target.value }))
                   }
+                  placeholder="URL auto-remplie après upload"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="video_url">URL vidéo (MP4)</Label>
+                <Input
+                  id="video_url"
+                  value={form.video_url}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, video_url: event.target.value }))
+                  }
+                  placeholder="URL auto-remplie après upload"
                 />
               </div>
               <div className="grid gap-2">

@@ -119,6 +119,7 @@ type NewsItem = {
   excerpt: string | null;
   content: string | null;
   cover_image: string | null;
+  video_url: string | null;
   published_at: string | null;
   status: string | null;
   created_at: string;
@@ -149,7 +150,7 @@ export default function ActuDetailPage() {
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from("news")
-        .select("id,title,slug,excerpt,content,cover_image,published_at,created_at,status")
+        .select("id,title,slug,excerpt,content,cover_image,video_url,published_at,created_at,status")
         .eq("slug", decodedSlug)
         .eq("status", "published")
         .maybeSingle();
@@ -163,7 +164,7 @@ export default function ActuDetailPage() {
       if (!data) {
         const { data: draftData, error: draftError } = await supabase
           .from("news")
-          .select("id,title,slug,excerpt,content,cover_image,published_at,created_at,status")
+          .select("id,title,slug,excerpt,content,cover_image,video_url,published_at,created_at,status")
           .eq("slug", decodedSlug)
           .maybeSingle();
 
@@ -223,6 +224,15 @@ export default function ActuDetailPage() {
                     src={item.cover_image}
                     alt={item.title}
                     className="h-full w-full object-cover"
+                  />
+                </div>
+              )}
+              {item.video_url && (
+                <div className="mb-6 border border-slate-200 bg-slate-100">
+                  <video
+                    src={item.video_url}
+                    controls
+                    className="w-full"
                   />
                 </div>
               )}
