@@ -56,6 +56,19 @@ function renderMarkdown(content: string) {
       flushList();
       continue;
     }
+    const imageMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
+    if (imageMatch) {
+      flushList();
+      blocks.push(
+        <img
+          key={`img-${blocks.length}`}
+          src={imageMatch[2]}
+          alt={imageMatch[1] || "Image"}
+          className="my-5 w-full border border-slate-200 object-cover"
+        />
+      );
+      continue;
+    }
     if (trimmed === "---") {
       flushList();
       blocks.push(<hr key={`hr-${blocks.length}`} className="my-6 border-slate-200" />);
