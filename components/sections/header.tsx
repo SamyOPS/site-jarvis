@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ChevronDown, LogIn, Menu, UserPlus, X } from "lucide-react";
@@ -15,141 +15,39 @@ const navLinks = [
   { label: "Contact", href: "/contact" },
 ];
 
-type MegaMenuColumn = { title: string; links: { label: string; href: string }[] };
+const expertisesMenu = {
+  title: "Expertises",
+  links: [
+    { label: "Support & infogérance", href: "/expertises/support" },
+    { label: "Développement applicatif", href: "/expertises/developpement" },
+    { label: "Conseil & transformation", href: "/expertises/conseil" },
+  ],
+};
 
-type MegaMenuFeatured = {
+const formationsMenu = {
+  title: "Formations",
+  links: [
+    { label: "Support & ITSM", href: "/formations" },
+    { label: "Cybersécurité", href: "/formations" },
+    { label: "Cloud", href: "/formations" },
+  ],
+};
+
+type NewsItem = {
+  id: string;
   title: string;
-  description: string;
-  href: string;
-  image: string;
+  slug: string;
+  excerpt: string | null;
+  cover_image: string | null;
+  published_at: string | null;
+  created_at: string;
 };
 
-type MegaMenuConfig = Record<
-  string,
-  {
-    columns: MegaMenuColumn[];
-    featured?: MegaMenuFeatured;
-  }
->;
-
-const megaMenuConfig: MegaMenuConfig = {
-  Expertises: {
-    columns: [
-      {
-        title: "Support & infogérance",
-        links: [          { label: "Service Desk", href: "/expertises/support#service-desk" },
-          { label: "Supervision & MCO", href: "/expertises/support#supervision-mco" },
-          { label: "Infogérance", href: "/expertises/support" },
-          { label: "Cybersécurité", href: "/expertises/support" },
-        ],
-      },
-      {
-        title: "Développement applicatif",
-        links: [
-          { label: "Applications métiers", href: "/expertises/developpement" },
-          { label: "Modernisation", href: "/expertises/developpement" },
-          { label: "Intégrations", href: "/expertises/developpement" },
-          { label: "MVP & Delivery", href: "/expertises/developpement" },
-        ],
-      },
-      {
-        title: "Conseil & transformation",
-        links: [
-          { label: "Roadmap digitale", href: "/expertises/conseil" },
-          { label: "Architecture", href: "/expertises/conseil" },
-          { label: "Gouvernance", href: "/expertises/conseil" },
-          { label: "Change & adoption", href: "/expertises/conseil" },
-        ],
-      },
-    ],
-    featured: {
-      title: "À la une",
-      description:
-        "Accélérez la performance IT avec un partenaire unique support, apps et transformation.",
-      href: "/expertises",
-      image: "/images/block/placeholder-dark-1.svg",
-    },
-  },
-  "Actualités": {
-    columns: [
-      {
-        title: "Dernières actus",
-        links: [          { label: "Cybersécurité", href: "/actus" },
-          { label: "Innovation", href: "/actus" },
-        ],
-      },
-      {
-        title: "Ressources",
-        links: [
-          { label: "Livres blancs", href: "/actus" },
-          { label: "Études", href: "/actus" },
-        ],
-      },
-    ],
-    featured: {
-      title: "À la une",
-      description: "Découvrez nos dernières annonces et analyses sectorielles.",
-      href: "/actus",
-      image: "/images/block/placeholder-dark-1.svg",
-    },
-  },
-  Formations: {
-    columns: [
-      {
-        title: "Parcours",
-        links: [
-          { label: "Support & ITSM", href: "/formations" },
-          { label: "Cybersécurité", href: "/formations" },
-          { label: "Cloud", href: "/formations" },
-        ],
-      },
-      {
-        title: "Modalités",
-        links: [
-          { label: "Inter-entreprises", href: "/formations" },
-          { label: "Sur-mesure", href: "/formations" },
-        ],
-      },
-    ],
-    featured: {
-      title: "À la une",
-      description: "Des formations opérationnelles pour accélérer les équipes.",
-      href: "/formations",
-      image: "/images/block/placeholder-dark-1.svg",
-    },
-  },
-  Offres: {
-    columns: [
-      {
-        title: "Recrutement",
-        links: [
-          { label: "Toutes les offres", href: "/offres" },
-          { label: "Profils IT", href: "/offres" },
-          { label: "Alternance", href: "/offres" },
-        ],
-      },
-      {
-        title: "Candidats",
-        links: [
-          { label: "Notre approche", href: "/offres" },
-          { label: "Process", href: "/offres" },
-        ],
-      },
-    ],
-    featured: {
-      title: "À la une",
-      description: "Rejoignez nos équipes et construisez l’IT de demain.",
-      href: "/offres",
-      image: "/images/block/placeholder-dark-1.svg",
-    },
-  },
+type JobOffer = {
+  id: string;
+  title: string;
+  published_at: string | null;
 };
-
-const expertiseLinks = [
-  { label: "Support & Infogérance", href: "/expertises/support" },
-  { label: "Développement applicatif", href: "/expertises/developpement" },
-  { label: "Conseil & Transformation", href: "/expertises/conseil" },
-];
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -165,10 +63,11 @@ export function Header() {
   const [userLabel, setUserLabel] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [megaMenuOpen, setMegaMenuOpen] = useState<string | null>(null);
-  const [megaMenuContent, setMegaMenuContent] = useState<string | null>(null);
+  const [megaMenuOpen, setMegaMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [hideHeader, setHideHeader] = useState(false);
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [offers, setOffers] = useState<JobOffer[]>([]);
   const megaMenuRef = useRef<HTMLDivElement | null>(null);
   const lastScrollYRef = useRef(0);
 
@@ -210,11 +109,42 @@ export function Header() {
   }, []);
 
   useEffect(() => {
+    if (!supabase) return;
+
+    const loadMenuData = async () => {
+      const { data: newsData } = await supabase
+        .from("news")
+        .select("id,title,slug,excerpt,cover_image,published_at,created_at")
+        .eq("status", "published")
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      setNewsItems(newsData ?? []);
+
+      const { data: offersData } = await supabase
+        .from("job_offers")
+        .select("id,title,published_at")
+        .eq("status", "published")
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .limit(10);
+
+      setOffers(offersData ?? []);
+    };
+
+    void loadMenuData();
+  }, []);
+
+  useEffect(() => {
     lastScrollYRef.current = window.scrollY;
     const onScroll = () => {
       const currentY = window.scrollY;
       const lastY = lastScrollYRef.current;
       const delta = currentY - lastY;
+
+      if (megaMenuOpen) {
+        setMegaMenuOpen(false);
+      }
 
       if (mobileNavOpen) {
         setHideHeader(false);
@@ -235,7 +165,7 @@ export function Header() {
 
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [mobileNavOpen]);
+  }, [mobileNavOpen, megaMenuOpen]);
 
   const handleAnchorClick = (
     event: React.MouseEvent<HTMLAnchorElement>,
@@ -264,7 +194,7 @@ export function Header() {
         megaMenuRef.current &&
         !megaMenuRef.current.contains(event.target as Node)
       ) {
-        setMegaMenuOpen(null);
+        setMegaMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -272,17 +202,6 @@ export function Header() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
-  useEffect(() => {
-    if (megaMenuOpen) {
-      setMegaMenuContent(megaMenuOpen);
-    }
-  }, [megaMenuOpen]);
-
-  const activeMegaMenu = megaMenuContent
-    ? megaMenuConfig[megaMenuContent]
-    : null;
-  const isMegaMenuOpen = Boolean(megaMenuOpen);
 
   const getDashboardPath = (role?: string | null) => {
     if (role === "admin") return "/dashboard";
@@ -297,6 +216,46 @@ export function Header() {
     window.location.href = "/";
   };
 
+  const actusLinks = useMemo(
+    () =>
+      newsItems.slice(0, 10).map((item) => ({
+        label: item.title,
+        href: `/actus/${item.slug}`,
+      })),
+    [newsItems]
+  );
+
+  const offersLinks = useMemo(
+    () =>
+      offers.slice(0, 10).map((offer) => ({
+        label: offer.title,
+        href: `/offres/${offer.id}`,
+      })),
+    [offers]
+  );
+
+  const latestNews = newsItems[0] ?? null;
+
+  const menuColumns = useMemo(
+    () => [
+      expertisesMenu,
+      {
+        title: "Actualités",
+        links: actusLinks.length
+          ? actusLinks
+          : [{ label: "Voir toutes les actus", href: "/actus" }],
+      },
+      formationsMenu,
+      {
+        title: "Offres",
+        links: offersLinks.length
+          ? offersLinks
+          : [{ label: "Voir toutes les offres", href: "/offres" }],
+      },
+    ],
+    [actusLinks, offersLinks]
+  );
+
   return (
     <header
       className={`sticky top-0 z-50 bg-[#f5f5f5] text-black border-b border-black/10 transition-transform duration-300 will-change-transform ${
@@ -306,6 +265,7 @@ export function Header() {
       <div
         className="relative max-w-6xl mx-auto px-4 lg:px-6 overflow-visible"
         ref={megaMenuRef}
+        onMouseLeave={() => setMegaMenuOpen(false)}
       >
         <div className="flex items-center justify-between gap-4 py-2">
           <a
@@ -328,11 +288,9 @@ export function Header() {
                 <div key={link.label} className="relative">
                   <button
                     type="button"
-                    onClick={() =>
-                      setMegaMenuOpen((current) =>
-                        current === link.label ? null : link.label
-                      )
-                    }
+                    onMouseEnter={() => setMegaMenuOpen(true)}
+                    onFocus={() => setMegaMenuOpen(true)}
+                    onClick={() => setMegaMenuOpen(true)}
                     className="inline-flex items-center gap-1 hover:text-black transition-all duration-200"
                   >
                     {link.label}
@@ -353,81 +311,88 @@ export function Header() {
           </nav>
 
           <div
+            onMouseEnter={() => setMegaMenuOpen(true)}
             className={`absolute left-0 top-full w-full bg-white shadow-xl transition-[max-height,opacity,transform] duration-300 ease-out origin-top overflow-hidden ${
-              isMegaMenuOpen
+              megaMenuOpen
                 ? "max-h-[700px] opacity-100 translate-y-0 pointer-events-auto border-t border-black/10"
                 : "max-h-0 opacity-0 -translate-y-2 pointer-events-none border-t border-transparent"
             }`}
           >
-            {activeMegaMenu ? (
-              <div className="mx-auto max-w-6xl px-6 py-8">
-
-                <div className="grid gap-8 lg:grid-cols-[2.5fr_1fr]">
-                  <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-                    {activeMegaMenu.columns.map((column) => (
-                      <div key={column.title} className="space-y-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/50">
-                          {column.title}
-                        </p>
-                        <div className="flex flex-col gap-2">
-                          {column.links.map((item) => (
-                            <a
-                              key={item.href + item.label}
-                              href={item.href}
-                              className="text-sm text-black/80 hover:text-black"
-                              onClick={() => {
-                                setMegaMenuOpen(null);
-                                if (item.href.startsWith("/#")) {
-                                  window.location.href = item.href;
-                                  return;
-                                }
-                                router.push(item.href);
-                              }}
-                            >
-                              {item.label}
-                            </a>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {activeMegaMenu.featured ? (
-                    <a
-                      href={activeMegaMenu.featured.href}
-                      className="group block overflow-hidden border border-black/10"
-                      onClick={() => {
-                        setMegaMenuOpen(null);
-                        const target = activeMegaMenu.featured?.href ?? "/";
-                        if (target.startsWith("/#")) {
-                          window.location.href = target;
-                          return;
-                        }
-                        router.push(target);
-                      }}
+            <div className="mx-auto max-w-6xl px-6 py-8">
+              <div className={`space-y-8 transition-opacity duration-300 ${megaMenuOpen ? "opacity-100" : "opacity-0"}`}
+              style={{ transitionDelay: megaMenuOpen ? "120ms" : "0ms" }}>
+                <div className="grid gap-8 border-b border-black/10 pb-8 md:grid-cols-2 lg:grid-cols-4">
+                  {menuColumns.map((column, columnIndex) => (
+                    <div
+                      key={column.title}
+                      className={`space-y-4 border-l border-black/10 pl-6 first:border-l-0 first:pl-0 transition-all duration-500 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
+                      style={{ transitionDelay: `${200 + columnIndex * 120}ms` }}
                     >
-                      <div className="aspect-[4/3] overflow-hidden bg-slate-100">
-                        <img
-                          src={activeMegaMenu.featured.image}
-                          alt={activeMegaMenu.featured.title}
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-black/45">
+                        {column.title}
+                      </p>
+                      <div className="flex flex-col gap-3 text-base leading-7 text-black/85">
+                        {column.links.map((item, itemIndex) => (
+                          <a
+                            key={item.href + item.label}
+                            href={item.href}
+                            className={`transition-all duration-500 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"} hover:text-black`}
+                            style={{ transitionDelay: `${320 + columnIndex * 120 + itemIndex * 60}ms` }}
+                            onClick={() => {
+                              setMegaMenuOpen(false);
+                              if (item.href.startsWith("/#")) {
+                                window.location.href = item.href;
+                                return;
+                              }
+                              router.push(item.href);
+                            }}
+                          >
+                            {item.label}
+                          </a>
+                        ))}
                       </div>
-                      <div className="p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-black/40">
-                          À la une
-                        </p>
-                        <p className="mt-2 text-base font-semibold text-black">
-                          {activeMegaMenu.featured.title}
-                        </p>
-                        <p className="mt-2 text-sm text-black/70">
-                          {activeMegaMenu.featured.description}
-                        </p>
-                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid items-center gap-6 md:grid-cols-[1.4fr_1fr]">
+                  <div className={`space-y-3 transition-all duration-500 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}
+                    style={{ transitionDelay: "520ms" }}>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-black/45">{"À la une"}</p>
+                    <h3 className="text-xl font-semibold text-black">
+                      {latestNews?.title ?? "Dernière actualité"}
+                    </h3>
+                    <p className="text-base leading-7 text-black/70">
+                      {latestNews?.excerpt ??
+                        "Découvrez la dernière actualité publiée sur le site."}
+                    </p>
+                    <a
+                      href={latestNews ? `/actus/${latestNews.slug}` : "/actus"}
+                      className="inline-flex text-base font-medium text-[#000080]"
+                    >
+                      Lire l'article
                     </a>
-                  ) : null}
+                  </div>
+                  <div className={`hidden md:block transition-all duration-500 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}
+                    style={{ transitionDelay: "680ms" }}>
+                    <div className="border border-black/10 bg-white">
+                      <div className="aspect-[4/3] overflow-hidden bg-slate-100">
+                        {latestNews?.cover_image ? (
+                          <img
+                            src={latestNews.cover_image}
+                            alt={latestNews.title}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-sm text-black/50">
+                            {"Image à venir"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            ) : null}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
