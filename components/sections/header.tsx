@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
@@ -287,33 +288,37 @@ export function Header() {
           </a>
 
           <nav className="hidden md:flex items-center gap-6 text-sm text-black/70">
-            {navLinks.map((link) =>
-              ["Expertises", "Actualités", "Formations", "Offres"].includes(
-                link.label
-              ) ? (
-                <div key={link.label} className="relative">
-                  <button
-                    type="button"
-                    onMouseEnter={() => setMegaMenuOpen(true)}
-                    onFocus={() => setMegaMenuOpen(true)}
-                    onClick={() => setMegaMenuOpen(true)}
+            {navLinks.map((link) => (
+              <React.Fragment key={link.label}>
+                {["Expertises", "Contact"].includes(link.label) && (
+                  <span className="h-4 w-px bg-black/15" aria-hidden="true" />
+                )}
+                {["/expertises", "/actus", "/formations", "/offres"].includes(
+                  link.href
+                ) ? (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onMouseEnter={() => setMegaMenuOpen(true)}
+                      onFocus={() => setMegaMenuOpen(true)}
+                      onClick={() => setMegaMenuOpen(true)}
+                      className="relative inline-flex items-center text-sm text-black/70 hover:text-black transition-all duration-200 after:absolute after:-bottom-2 after:left-1/2 after:h-[2px] after:w-0 after:-translate-x-1/2 after:bg-[#2F5BFF] after:transition-all after:duration-300 hover:after:w-full"
+                    >
+                      {link.label}
+                    </button>
+                  </div>
+                ) : (
+                  <a
+                    href={link.href}
                     className="relative inline-flex items-center text-sm text-black/70 hover:text-black transition-all duration-200 after:absolute after:-bottom-2 after:left-1/2 after:h-[2px] after:w-0 after:-translate-x-1/2 after:bg-[#2F5BFF] after:transition-all after:duration-300 hover:after:w-full"
+                    onMouseEnter={() => setMegaMenuOpen(false)}
+                    onClick={(event) => handleAnchorClick(event, link.href)}
                   >
                     {link.label}
-                  </button>
-                </div>
-              ) : (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  className="relative inline-flex items-center text-sm text-black/70 hover:text-black transition-all duration-200 after:absolute after:-bottom-2 after:left-1/2 after:h-[2px] after:w-0 after:-translate-x-1/2 after:bg-[#2F5BFF] after:transition-all after:duration-300 hover:after:w-full"
-                  onMouseEnter={() => setMegaMenuOpen(false)}
-                  onClick={(event) => handleAnchorClick(event, link.href)}
-                >
-                  {link.label}
-                </a>
-              )
-            )}
+                  </a>
+                )}
+              </React.Fragment>
+            ))}
           </nav>
 
           <div
