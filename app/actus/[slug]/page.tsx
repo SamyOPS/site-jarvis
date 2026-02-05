@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowLeft } from "lucide-react";
@@ -11,7 +11,7 @@ import { Footer } from "@/components/sections/footer";
 
 function renderMarkdown(content: string) {
   const lines = content.split(/\r?\n/);
-  const blocks: Array<JSX.Element> = [];
+  const blocks: Array<React.ReactNode> = [];
   let listItems: string[] = [];
 
   const flushList = () => {
@@ -29,7 +29,7 @@ function renderMarkdown(content: string) {
   };
 
   const renderInline = (text: string) => {
-    const parts: Array<string | JSX.Element> = [];
+    const parts: Array<string | React.ReactNode> = [];
     const regex = /\*\*(.+?)\*\*/g;
     let lastIndex = 0;
     let match;

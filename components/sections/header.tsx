@@ -49,6 +49,12 @@ type JobOffer = {
   published_at: string | null;
 };
 
+const expertiseLinks = [
+  { label: "Support & Infogérance", href: "/expertises/support" },
+  { label: "Développement applicatif", href: "/expertises/developpement" },
+  { label: "Conseil & Transformation", href: "/expertises/conseil" },
+];
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
