@@ -291,10 +291,9 @@ export function Header() {
                     onMouseEnter={() => setMegaMenuOpen(true)}
                     onFocus={() => setMegaMenuOpen(true)}
                     onClick={() => setMegaMenuOpen(true)}
-                    className="inline-flex items-center gap-1 hover:text-black transition-all duration-200"
+                    className="relative inline-flex items-center text-sm text-black/70 hover:text-black transition-all duration-200 after:absolute after:-bottom-2 after:left-1/2 after:h-[2px] after:w-0 after:-translate-x-1/2 after:bg-[#2F5BFF] after:transition-all after:duration-300 hover:after:w-full"
                   >
                     {link.label}
-                    <ChevronDown className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
