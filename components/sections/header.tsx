@@ -306,7 +306,8 @@ export function Header() {
                 <a
                   key={link.label}
                   href={link.href}
-                  className="hover:text-black transition-all duration-200"
+                  className="relative inline-flex items-center text-sm text-black/70 hover:text-black transition-all duration-200 after:absolute after:-bottom-2 after:left-1/2 after:h-[2px] after:w-0 after:-translate-x-1/2 after:bg-[#2F5BFF] after:transition-all after:duration-300 hover:after:w-full"
+                  onMouseEnter={() => setMegaMenuOpen(false)}
                   onClick={(event) => handleAnchorClick(event, link.href)}
                 >
                   {link.label}
