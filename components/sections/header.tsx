@@ -323,23 +323,23 @@ export function Header() {
 
           <div
             onMouseEnter={() => setMegaMenuOpen(true)}
-            className={`absolute left-0 top-full w-full bg-white shadow-xl transition-[max-height,opacity,transform] duration-300 ease-out origin-top overflow-hidden ${
+            className={`absolute left-0 top-full w-full bg-white shadow-xl transition-[max-height,opacity,transform] duration-650 ease-out origin-top overflow-hidden ${
               megaMenuOpen
                 ? "max-h-[700px] opacity-100 translate-y-0 pointer-events-auto border-t border-black/10"
                 : "max-h-0 opacity-0 -translate-y-2 pointer-events-none border-t border-transparent"
             }`}
           >
             <div className="mx-auto max-w-6xl px-6 py-8">
-              <div className={`space-y-8 transition-opacity duration-300 ${megaMenuOpen ? "opacity-100" : "opacity-0"}`}
+              <div className={`space-y-8 transition-opacity duration-600 ${megaMenuOpen ? "opacity-100" : "opacity-0"}`}
               style={{ transitionDelay: megaMenuOpen ? "120ms" : "0ms" }}>
                 <div className="grid gap-8 border-b border-black/10 pb-8 md:grid-cols-2 lg:grid-cols-4">
                   {menuColumns.map((column, columnIndex) => (
                     <div
                       key={column.title}
-                      className={`space-y-4 border-l border-black/10 pl-6 first:border-l-0 first:pl-0 transition-all duration-500 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
+                      className={`space-y-4 border-l border-black/10 pl-6 first:border-l-0 first:pl-0 transition-all duration-850 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
                       style={{ transitionDelay: `${200 + columnIndex * 120}ms` }}
                     >
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-black/45">
+                      <p className="text-sm font-semibold uppercase tracking-[0.22em] text-black/55">
                         {column.title}
                       </p>
                       <div className="flex flex-col gap-3 text-base leading-7 text-black/85">
@@ -347,7 +347,7 @@ export function Header() {
                           <a
                             key={item.href + item.label}
                             href={item.href}
-                            className={`transition-all duration-500 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"} hover:text-black`}
+                            className={`transition-all duration-850 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"} hover:text-black`}
                             style={{ transitionDelay: `${320 + columnIndex * 120 + itemIndex * 60}ms` }}
                             onClick={() => {
                               setMegaMenuOpen(false);
@@ -366,9 +366,9 @@ export function Header() {
                   ))}
                 </div>
                 <div className="grid items-center gap-6 md:grid-cols-[1.4fr_1fr]">
-                  <div className={`space-y-3 transition-all duration-500 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}
+                  <div className={`space-y-3 transition-all duration-850 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}
                     style={{ transitionDelay: "520ms" }}>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-black/45">{"À la une"}</p>
+                    <p className="text-sm font-semibold uppercase tracking-[0.22em] text-black/55">{"À la une"}</p>
                     <h3 className="text-xl font-semibold text-black">
                       {latestNews?.title ?? "Dernière actualité"}
                     </h3>
@@ -383,10 +383,10 @@ export function Header() {
                       Lire l'article
                     </a>
                   </div>
-                  <div className={`hidden md:block transition-all duration-500 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}
+                  <div className={`hidden md:block transition-all duration-850 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}
                     style={{ transitionDelay: "680ms" }}>
                     <div className="border border-black/10 bg-white">
-                      <div className="aspect-[4/3] overflow-hidden bg-slate-100">
+                      <div className={`aspect-[4/3] overflow-hidden bg-slate-100 transition-[clip-path] duration-[1200ms] ease-out ${megaMenuOpen ? "[clip-path:inset(0_0_0_0)]" : "[clip-path:inset(0_0_100%_0)]"}`}>
                         {latestNews?.cover_image ? (
                           <img
                             src={latestNews.cover_image}
