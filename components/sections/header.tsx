@@ -301,7 +301,7 @@ export function Header() {
                       onMouseEnter={() => setMegaMenuOpen(true)}
                       onFocus={() => setMegaMenuOpen(true)}
                       onClick={() => setMegaMenuOpen(true)}
-                      className="relative inline-flex items-center text-sm text-black/70 hover:text-black transition-all duration-200 after:absolute after:-bottom-2 after:left-1/2 after:h-[2px] after:w-0 after:-translate-x-1/2 after:bg-[#2F5BFF] after:transition-all after:duration-300 hover:after:w-full"
+                      className="relative inline-flex items-center text-sm text-black/70 hover:text-[#2F5BFF] transition-colors duration-200 transition-all duration-200 after:absolute after:-bottom-2 after:left-1/2 after:h-[2px] after:w-0 after:-translate-x-1/2 after:bg-[#2F5BFF] after:transition-all after:duration-300 hover:after:w-full"
                     >
                       {link.label}
                     </button>
@@ -309,7 +309,7 @@ export function Header() {
                 ) : (
                   <a
                     href={link.href}
-                    className="relative inline-flex items-center text-sm text-black/70 hover:text-black transition-all duration-200 after:absolute after:-bottom-2 after:left-1/2 after:h-[2px] after:w-0 after:-translate-x-1/2 after:bg-[#2F5BFF] after:transition-all after:duration-300 hover:after:w-full"
+                    className="relative inline-flex items-center text-sm text-black/70 hover:text-[#2F5BFF] transition-all duration-200 after:absolute after:-bottom-2 after:left-1/2 after:h-[2px] after:w-0 after:-translate-x-1/2 after:bg-[#2F5BFF] after:transition-all after:duration-300 hover:after:w-full"
                     onMouseEnter={() => setMegaMenuOpen(false)}
                     onClick={(event) => handleAnchorClick(event, link.href)}
                   >
@@ -346,8 +346,8 @@ export function Header() {
                           <a
                             key={item.href + item.label}
                             href={item.href}
-                            className={`transition-all duration-850 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"} hover:text-black`}
-                            style={{ transitionDelay: `${320 + columnIndex * 120 + itemIndex * 60}ms` }}
+                            className={`transition-all duration-850 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"} hover:text-[#2F5BFF]`}
+                            style={{ transitionDelay: `${320 + columnIndex * 120 + itemIndex * 60}ms`, transitionProperty: "opacity, transform" }}
                             onClick={() => {
                               setMegaMenuOpen(false);
                               if (item.href.startsWith("/#")) {
@@ -412,7 +412,7 @@ export function Header() {
                   type="button"
                   onClick={() => setMenuOpen((open) => !open)}
                   onBlur={() => setTimeout(() => setMenuOpen(false), 120)}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-black/70 hover:text-black hover:bg-black/5 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-black/70 hover:text-[#2F5BFF] hover:bg-black/5 transition-colors"
                 >
                   <span className="max-w-[180px] truncate">{userLabel}</span>
                   <ChevronDown className="h-4 w-4" />
@@ -421,7 +421,7 @@ export function Header() {
                   <div className="absolute right-0 mt-2 w-48 bg-white p-2 shadow-lg border border-black/10">
                     <a
                       href={getDashboardPath(userRole)}
-                      className="block px-3 py-2 text-sm text-black/80 hover:bg-black/5 hover:text-black transition-colors"
+                      className="block px-3 py-2 text-sm text-black/80 hover:bg-black/5 hover:text-[#2F5BFF] transition-colors"
                     >
                       Mon espace
                     </a>
@@ -439,7 +439,7 @@ export function Header() {
                 <a
                   href="/auth"
                   aria-label="Connexion"
-                  className="p-2 text-black/70 hover:text-black hover:bg-black/5 transition-colors"
+                  className="p-2 text-black/70 hover:text-[#2F5BFF] hover:bg-black/5 transition-colors"
                 >
                   <LogIn className="h-5 w-5" />
                 </a>
@@ -447,7 +447,7 @@ export function Header() {
                 <a
                   href="/auth"
                   aria-label="Inscription"
-                  className="p-2 text-black/70 hover:text-black hover:bg-black/5 transition-colors"
+                  className="p-2 text-black/70 hover:text-[#2F5BFF] hover:bg-black/5 transition-colors"
                 >
                   <UserPlus className="h-5 w-5" />
                 </a>
@@ -455,7 +455,7 @@ export function Header() {
             )}
             <button
               type="button"
-              className="md:hidden p-2 text-black/70 hover:text-black hover:bg-black/5 transition-colors"
+              className="md:hidden p-2 text-black/70 hover:text-[#2F5BFF] hover:bg-black/5 transition-colors"
               aria-label={mobileNavOpen ? "Fermer le menu" : "Ouvrir le menu"}
               onClick={() => setMobileNavOpen((open) => !open)}
             >
@@ -477,7 +477,7 @@ export function Header() {
                       <a
                         key={item.href}
                         href={item.href}
-                        className="rounded-lg px-3 py-2 hover:bg-black/5 hover:text-black transition-colors"
+                        className="rounded-lg px-3 py-2 hover:bg-black/5 hover:text-[#2F5BFF] transition-colors"
                         onClick={() => setMobileNavOpen(false)}
                       >
                         {item.label}
@@ -488,7 +488,7 @@ export function Header() {
                   <a
                     key={link.label}
                     href={link.href}
-                    className="rounded-lg px-3 py-2 hover:bg-black/5 hover:text-black transition-colors"
+                    className="rounded-lg px-3 py-2 hover:bg-black/5 hover:text-[#2F5BFF] transition-colors"
                     onClick={(event) => {
                       handleAnchorClick(event, link.href);
                       setMobileNavOpen(false);
