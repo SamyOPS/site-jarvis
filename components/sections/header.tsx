@@ -377,7 +377,7 @@ export function Header() {
                     </p>
                     <a
                       href={latestNews ? `/actus/${latestNews.slug}` : "/actus"}
-                      className="inline-flex text-base font-medium text-[#000080]"
+                      className="inline-flex text-base font-medium text-[#000080] hover:underline"
                     >
                       Lire l'article
                     </a>
