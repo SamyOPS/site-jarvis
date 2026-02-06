@@ -16,6 +16,7 @@ const navLinks = [
 ];
 
 const expertisesMenu = {
+  key: "/expertises",
   title: "Expertises",
   links: [
     { label: "Support & infogérance", href: "/expertises/support" },
@@ -25,6 +26,7 @@ const expertisesMenu = {
 };
 
 const formationsMenu = {
+  key: "/formations",
   title: "Formations",
   links: [
     { label: "Support & ITSM", href: "/formations" },
@@ -70,6 +72,7 @@ export function Header() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [megaMenuOpen, setMegaMenuOpen] = useState(false);
+  const [activeMegaMenu, setActiveMegaMenu] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [hideHeader, setHideHeader] = useState(false);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
@@ -246,6 +249,7 @@ export function Header() {
     () => [
       expertisesMenu,
       {
+        key: "/actus",
         title: "Actualités",
         links: actusLinks.length
           ? actusLinks
@@ -253,6 +257,7 @@ export function Header() {
       },
       formationsMenu,
       {
+        key: "/offres",
         title: "Offres",
         links: offersLinks.length
           ? offersLinks
@@ -271,7 +276,7 @@ export function Header() {
       <div
         className="relative max-w-6xl mx-auto px-4 lg:px-6 overflow-visible"
         ref={megaMenuRef}
-        onMouseLeave={() => setMegaMenuOpen(false)}
+        onMouseLeave={() => { setMegaMenuOpen(false); setActiveMegaMenu(null); }}
       >
         <div className="flex items-center justify-between gap-4 py-2">
           <a
@@ -298,9 +303,9 @@ export function Header() {
                   <div className="relative">
                     <button
                       type="button"
-                      onMouseEnter={() => setMegaMenuOpen(true)}
-                      onFocus={() => setMegaMenuOpen(true)}
-                      onClick={() => setMegaMenuOpen(true)}
+                      onMouseEnter={() => { setMegaMenuOpen(true); setActiveMegaMenu(link.href); }}
+                      onFocus={() => { setMegaMenuOpen(true); setActiveMegaMenu(link.href); }}
+                      onClick={() => { setMegaMenuOpen(true); setActiveMegaMenu(link.href); }}
                       className="relative inline-flex items-center text-sm text-black/70 hover:text-[#2F5BFF] transition-colors duration-200 transition-all duration-200 after:absolute after:-bottom-2 after:left-1/2 after:h-[2px] after:w-0 after:-translate-x-1/2 after:bg-[#2F5BFF] after:transition-all after:duration-300 hover:after:w-full"
                     >
                       {link.label}
@@ -310,7 +315,7 @@ export function Header() {
                   <a
                     href={link.href}
                     className="relative inline-flex items-center text-sm text-black/70 hover:text-[#2F5BFF] transition-all duration-200 after:absolute after:-bottom-2 after:left-1/2 after:h-[2px] after:w-0 after:-translate-x-1/2 after:bg-[#2F5BFF] after:transition-all after:duration-300 hover:after:w-full"
-                    onMouseEnter={() => setMegaMenuOpen(false)}
+                    onMouseEnter={() => { setMegaMenuOpen(false); setActiveMegaMenu(null); }}
                     onClick={(event) => handleAnchorClick(event, link.href)}
                   >
                     {link.label}
@@ -332,21 +337,23 @@ export function Header() {
               <div className={`space-y-8 transition-opacity duration-600 ${megaMenuOpen ? "opacity-100" : "opacity-0"}`}
               style={{ transitionDelay: megaMenuOpen ? "120ms" : "0ms" }}>
                 <div className="grid gap-8 border-b border-black/10 pb-8 md:grid-cols-2 lg:grid-cols-4">
-                  {menuColumns.map((column, columnIndex) => (
+                  {menuColumns.map((column, columnIndex) => {
+                    const isActive = activeMegaMenu ? column.key === activeMegaMenu : false;
+                    return (
                     <div
                       key={column.title}
-                      className={`space-y-4 border-l border-black/10 pl-6 first:border-l-0 first:pl-0 transition-all duration-850 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
+                      className={`space-y-4 border-l border-black/10 pl-6 first:border-l-0 first:pl-0 transition-all duration-850 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"} ${isActive ? "bg-black/5 rounded-lg px-4 py-3 text-black" : "text-black/60"}`}
                       style={{ transitionDelay: `${200 + columnIndex * 120}ms` }}
                     >
                       <p className="text-sm font-semibold uppercase tracking-[0.22em] text-black/55">
                         {column.title}
                       </p>
-                      <div className="flex flex-col gap-3 text-base leading-7 text-black/85">
+                      <div className="flex flex-col gap-3 text-base leading-7">
                         {column.links.map((item, itemIndex) => (
                           <a
                             key={item.href + item.label}
                             href={item.href}
-                            className={`transition-all duration-850 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"} hover:text-[#2F5BFF]`}
+                            className={`transition-all duration-850 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"} hover:text-[#2F5BFF] transition-colors duration-200 ${isActive ? "text-black/90" : "text-black/60"}`}
                             style={{ transitionDelay: `${320 + columnIndex * 120 + itemIndex * 60}ms`, transitionProperty: "opacity, transform" }}
                             onClick={() => {
                               setMegaMenuOpen(false);
@@ -362,7 +369,8 @@ export function Header() {
                         ))}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="grid items-center gap-6 md:grid-cols-[1.4fr_1fr]">
                   <div className={`space-y-3 transition-all duration-850 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}
