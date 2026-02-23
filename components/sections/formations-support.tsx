@@ -8,6 +8,7 @@ interface FeatureItem {
   title: string;
   description: string;
   image: string;
+  moduleUrl?: string;
 }
 
 interface FormationsSupportProps {
@@ -30,12 +31,14 @@ export const FormationsSupport = ({
       title: "Parcours support et supervision",
       description:
         "Modules pratiques sur la gestion des incidents, l'escalade, la supervision, la communication et les standards ITIL.",
+      moduleUrl: "/formations/parcours-support",
       image:
         "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=1200&auto=format&fit=crop",
     },
     {
       id: "feature-2",
       title: "Ateliers outillage",
+      moduleUrl: "/formations#ateliers-outillage",
       description:
         "Prise en main des outils de ticketing, supervision, MDM et automatisation pour gagner en efficacité.",
       image:
@@ -44,6 +47,7 @@ export const FormationsSupport = ({
     {
       id: "feature-3",
       title: "Coaching gestes techniques",
+      moduleUrl: "/formations#coaching-gestes-techniques",
       description:
         "Bonnes pratiques de diagnostic, sécurisation poste, scripts d'intervention et relation utilisateur.",
       image:
@@ -123,7 +127,7 @@ export const FormationsSupport = ({
             <h3 className="text-2xl font-semibold md:text-3xl">{primary.title}</h3>
             <p className="text-muted-foreground md:text-lg">{primary.description}</p>
             <a
-              href="/formations/parcours-support"
+              href={primary.moduleUrl ?? "/formations/parcours-support"}
               className="inline-flex items-center gap-2 text-sm font-medium text-[#0A1A2F] transition hover:text-[#000080]"
             >
               Découvrir le module
@@ -157,6 +161,13 @@ export const FormationsSupport = ({
                 <div className="flex flex-col gap-3 text-left px-2 md:px-0">
                   <h4 className="text-xl font-semibold md:text-2xl">{feature.title}</h4>
                   <p className="text-muted-foreground md:text-lg">{feature.description}</p>
+                  <a
+                    href={feature.moduleUrl ?? "/formations"}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-[#0A1A2F] transition hover:text-[#000080]"
+                  >
+                    Découvrir le module
+                    <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
+                  </a>
                 </div>
               </motion.div>
             ))}

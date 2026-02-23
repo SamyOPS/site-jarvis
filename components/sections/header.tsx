@@ -245,27 +245,110 @@ export function Header() {
 
   const latestNews = newsItems[0] ?? null;
 
-  const menuColumns = useMemo(
-    () => [
-      expertisesMenu,
-      {
-        key: "/actus",
-        title: "Actualités",
-        links: actusLinks.length
-          ? actusLinks
-          : [{ label: "Voir toutes les actus", href: "/actus" }],
-      },
-      formationsMenu,
-      {
-        key: "/offres",
-        title: "Offres",
-        links: offersLinks.length
-          ? offersLinks
-          : [{ label: "Voir toutes les offres", href: "/offres" }],
-      },
-    ],
-    [actusLinks, offersLinks]
+  const actusItems = useMemo(
+    () =>
+      newsItems.slice(0, 6).map((item) => ({
+        label: item.title,
+        description: item.excerpt ?? "Actualité publiée récemment.",
+        href: `/actus/${item.slug}`,
+      })),
+    [newsItems]
   );
+
+  const offersItems = useMemo(
+    () =>
+      offers.slice(0, 6).map((offer) => ({
+        label: offer.title,
+        description: "Poste à pourvoir — rejoignez-nous.",
+        href: `/offres/${offer.id}`,
+      })),
+    [offers]
+  );
+
+  const megaPanels = useMemo(
+    () => ({
+      "/expertises": {
+        title: "Expertises",
+        intro:
+          "Un accompagnement complet pour vos projets IT & digital, de l’architecture au run.",
+        items: [
+          {
+            label: "Support & infogérance",
+            description:
+              "Service desk, supervision, MCO et pilotage SLA pour une disponibilité maximale.",
+            href: "/expertises/support",
+          },
+          {
+            label: "Développement applicatif",
+            description:
+              "Conception, delivery, modernisation et intégrations sur mesure.",
+            href: "/expertises/developpement",
+          },
+          {
+            label: "Conseil & transformation",
+            description:
+              "Roadmap digitale, architecture et conduite du changement.",
+            href: "/expertises/conseil",
+          },
+        ],
+      },
+      "/actus": {
+        title: "Actualités",
+        intro:
+          "Nos dernières annonces, partenariats et initiatives pour rester au plus près de vos enjeux.",
+        items: actusItems.length
+          ? actusItems
+          : [
+              {
+                label: "Voir toutes les actus",
+                description: "Retrouvez toutes nos actualités publiées.",
+                href: "/actus",
+              },
+            ],
+      },
+      "/formations": {
+        title: "Formations",
+        intro:
+          "Des parcours courts et opérationnels pour faire monter vos équipes en compétence.",
+        items: [
+          {
+            label: "Support & ITSM",
+            description: "Process ITIL, outils et bonnes pratiques de run.",
+            href: "/formations",
+          },
+          {
+            label: "Cybersécurité",
+            description: "Sensibilisation, fondamentaux et réflexes opérationnels.",
+            href: "/formations",
+          },
+          {
+            label: "Cloud",
+            description: "Architecture, migrations et exploitation cloud.",
+            href: "/formations",
+          },
+        ],
+      },
+      "/offres": {
+        title: "Offres",
+        intro:
+          "Rejoignez une équipe engagée sur des missions variées et à fort impact.",
+        items: offersItems.length
+          ? offersItems
+          : [
+              {
+                label: "Voir toutes les offres",
+                description: "Découvrez les postes actuellement ouverts.",
+                href: "/offres",
+              },
+            ],
+      },
+    }),
+    [actusItems, offersItems]
+  );
+
+  const activePanelKey =
+    activeMegaMenu && megaPanels[activeMegaMenu] ? activeMegaMenu : "/expertises";
+  const activePanel = megaPanels[activePanelKey];
 
   return (
     <header
@@ -336,42 +419,48 @@ export function Header() {
             <div className="mx-auto max-w-6xl px-6 py-8">
               <div className={`space-y-8 transition-opacity duration-600 ${megaMenuOpen ? "opacity-100" : "opacity-0"}`}
               style={{ transitionDelay: megaMenuOpen ? "120ms" : "0ms" }}>
-                <div className="grid gap-8 border-b border-black/10 pb-8 md:grid-cols-2 lg:grid-cols-4">
-                  {menuColumns.map((column, columnIndex) => {
-                    const isActive = activeMegaMenu ? column.key === activeMegaMenu : false;
-                    return (
-                    <div
-                      key={column.title}
-                      className={`space-y-4 border-l border-black/10 pl-6 first:border-l-0 first:pl-0 transition-all duration-850 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"} ${isActive ? "bg-black/5 rounded-lg px-4 py-3 text-black" : "text-black/60"}`}
-                      style={{ transitionDelay: `${200 + columnIndex * 120}ms` }}
-                    >
-                      <p className="text-sm font-semibold uppercase tracking-[0.22em] text-black/55">
-                        {column.title}
-                      </p>
-                      <div className="flex flex-col gap-3 text-base leading-7">
-                        {column.links.map((item, itemIndex) => (
-                          <a
-                            key={item.href + item.label}
-                            href={item.href}
-                            className={`transition-all duration-850 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"} hover:text-[#2F5BFF] transition-colors duration-200 ${isActive ? "text-black/90" : "text-black/60"}`}
-                            style={{ transitionDelay: `${320 + columnIndex * 120 + itemIndex * 60}ms`, transitionProperty: "opacity, transform" }}
-                            onClick={() => {
-                              setMegaMenuOpen(false);
-                              if (item.href.startsWith("/#")) {
-                                window.location.href = item.href;
-                                return;
-                              }
-                              router.push(item.href);
-                            }}
-                          >
-                            {item.label}
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                    );
-                  })}
+                
+                <div className="grid gap-8 border-b border-black/10 pb-8 md:grid-cols-[1.1fr_1.9fr]">
+                  <div
+                    className={"space-y-3 transition-all duration-850 "+
+                      (megaMenuOpen
+                        ? "opacity-100 translate-y-0"
+                        : "opacity-0 translate-y-2")}
+                    style={{ transitionDelay: "200ms" }}
+                  >
+                    <p className="text-sm font-semibold uppercase tracking-[0.22em] text-black/55">
+                      {activePanel.title}
+                    </p>
+                    <p className="text-base leading-7 text-black/70">{activePanel.intro}</p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {activePanel.items.map((item, itemIndex) => (
+                      <a
+                        key={item.href + item.label}
+                        href={item.href}
+                        className={
+                          "rounded-xl border border-black/10 bg-white px-4 py-3 text-black/85 transition-all duration-850 hover:border-[#2F5BFF]/30 hover:text-[#2F5BFF] hover:shadow-md " +
+                          (megaMenuOpen
+                            ? "opacity-100 translate-y-0"
+                            : "opacity-0 translate-y-2")
+                        }
+                        style={{ transitionDelay: `${320 + itemIndex * 70}ms` }}
+                        onClick={() => {
+                          setMegaMenuOpen(false);
+                          if (item.href.startsWith("/#")) {
+                            window.location.href = item.href;
+                            return;
+                          }
+                          router.push(item.href);
+                        }}
+                      >
+                        <p className="text-base font-semibold text-black">{item.label}</p>
+                        <p className="text-sm text-black/60">{item.description}</p>
+                      </a>
+                    ))}
+                  </div>
                 </div>
+
                 <div className="grid items-center gap-6 md:grid-cols-[1.4fr_1fr]">
                   <div className={`space-y-3 transition-all duration-850 ${megaMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}
                     style={{ transitionDelay: "520ms" }}>
