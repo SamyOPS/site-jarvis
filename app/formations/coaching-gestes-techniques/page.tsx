@@ -8,6 +8,7 @@ export default function CoachingGestesTechniquesPage() {
       title="Coaching gestes techniques"
       subtitle="Renforcement terrain des bons gestes de diagnostic, de securisation et de communication utilisateur pour des interventions plus fiables et mieux documentees."
       heroImage="https://images.unsplash.com/photo-1503428593586-e225b39bddfe?q=80&w=1400&auto=format&fit=crop"
+      objectivesImage="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1400&auto=format&fit=crop"
       formatLabel="Coaching terrain / cas reels"
       durationLabel="Sessions courtes recurrentes"
       audienceLabel="Techniciens support et proximite"

@@ -15,6 +15,7 @@ interface FormationModulePageProps {
   title: string;
   subtitle: string;
   heroImage: string;
+  objectivesImage?: string;
   formatLabel: string;
   durationLabel: string;
   audienceLabel: string;
@@ -26,6 +27,7 @@ export function FormationModulePage({
   title,
   subtitle,
   heroImage,
+  objectivesImage,
   formatLabel,
   durationLabel,
   audienceLabel,
@@ -90,21 +92,31 @@ export function FormationModulePage({
           </section>
 
           <section className="mt-10 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="border border-[#d5d9dc] bg-white p-6 shadow-sm lg:p-8">
+            <div className="flex h-full flex-col border border-[#d5d9dc] bg-white p-6 shadow-sm lg:p-8">
               <p className="text-sm uppercase tracking-[0.2em] text-[#3c4e58]/70">
                 Objectifs
               </p>
               <h2 className="mt-2 text-2xl font-semibold text-[#2f3b42]">
                 Ce que vos equipes vont maitriser
               </h2>
-              <ul className="mt-5 space-y-3">
+              <ul className="mt-6 space-y-4">
                 {objectives.map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-[#4f5e66] leading-6">
+                  <li key={item} className="flex items-start gap-3.5 text-[15px] text-[#4f5e66] leading-7">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#2F5BFF]" />
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
+
+              {objectivesImage ? (
+                <div className="mt-8 overflow-hidden border border-[#d5d9dc] bg-[#f4f6f8]">
+                  <img
+                    src={objectivesImage}
+                    alt={`Illustration ${title}`}
+                    className="h-64 w-full object-cover lg:h-full lg:min-h-[260px]"
+                  />
+                </div>
+              ) : null}
             </div>
 
             <div className="border border-[#d5d9dc] bg-white p-6 shadow-sm lg:p-8">

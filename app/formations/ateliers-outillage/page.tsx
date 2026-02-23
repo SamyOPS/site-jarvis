@@ -8,6 +8,7 @@ export default function AteliersOutillagePage() {
       title="Ateliers outillage"
       subtitle="Prise en main des outils de ticketing, supervision, MDM et automatisation pour standardiser les gestes d'exploitation et gagner en efficacite."
       heroImage="https://images.unsplash.com/photo-1573496774379-b930dba17d8b?q=80&w=1400&auto=format&fit=crop"
+      objectivesImage="https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1400&auto=format&fit=crop"
       formatLabel="Ateliers pratiques sur outils"
       durationLabel="0.5 a 2 jours"
       audienceLabel="Support N1/N2, admins, team leads"

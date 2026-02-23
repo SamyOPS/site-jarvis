@@ -8,6 +8,7 @@ export default function ParcoursSupportPage() {
       title="Parcours support et supervision"
       subtitle="Modules pratiques sur la gestion des incidents, l'escalade, la supervision, la communication et les standards ITIL pour structurer un support N1/N2 solide."
       heroImage="https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=1400&auto=format&fit=crop"
+      objectivesImage="https://images.unsplash.com/photo-1517048676732-d65bc937f952?q=80&w=1400&auto=format&fit=crop"
       formatLabel="Atelier + mise en situation"
       durationLabel="1 a 2 jours"
       audienceLabel="Equipes support / supervision"

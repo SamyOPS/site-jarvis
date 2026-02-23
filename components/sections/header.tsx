@@ -29,9 +29,9 @@ const formationsMenu = {
   key: "/formations",
   title: "Formations",
   links: [
-    { label: "Support & ITSM", href: "/formations" },
-    { label: "Cybersécurité", href: "/formations" },
-    { label: "Cloud", href: "/formations" },
+    { label: "Parcours support et supervision", href: "/formations/parcours-support" },
+    { label: "Ateliers outillage", href: "/formations/ateliers-outillage" },
+    { label: "Coaching gestes techniques", href: "/formations/coaching-gestes-techniques" },
   ],
 };
 
@@ -327,19 +327,19 @@ export function Header() {
           "Des parcours courts et opérationnels pour faire monter vos équipes en compétence.",
         items: [
           {
-            label: "Support & ITSM",
-            description: "Process ITIL, outils et bonnes pratiques de run.",
-            href: "/formations",
+            label: "Parcours support et supervision",
+            description: "Gestion des incidents, supervision, escalade et standards ITIL.",
+            href: "/formations/parcours-support",
           },
           {
-            label: "Cybersécurité",
-            description: "Sensibilisation, fondamentaux et réflexes opérationnels.",
-            href: "/formations",
+            label: "Ateliers outillage",
+            description: "Ticketing, supervision, automatisation et runbooks pratiques.",
+            href: "/formations/ateliers-outillage",
           },
           {
-            label: "Cloud",
-            description: "Architecture, migrations et exploitation cloud.",
-            href: "/formations",
+            label: "Coaching gestes techniques",
+            description: "Diagnostic, sécurisation et posture utilisateur sur le terrain.",
+            href: "/formations/coaching-gestes-techniques",
           },
         ],
       },
