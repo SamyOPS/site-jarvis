@@ -51,6 +51,21 @@ type JobOffer = {
   published_at: string | null;
 };
 
+type MegaPanelItem = {
+  label: string;
+  description: string;
+  href: string;
+};
+
+type MegaPanel = {
+  title: string;
+  intro: string;
+  items: MegaPanelItem[];
+};
+
+const megaPanelKeys = ["/expertises", "/actus", "/formations", "/offres"] as const;
+type MegaPanelKey = (typeof megaPanelKeys)[number];
+
 const expertiseLinks = [
   { label: "Support & Infogérance", href: "/expertises/support" },
   { label: "Développement applicatif", href: "/expertises/developpement" },
@@ -265,7 +280,7 @@ export function Header() {
     [offers]
   );
 
-  const megaPanels = useMemo(
+  const megaPanels = useMemo<Record<MegaPanelKey, MegaPanel>>(
     () => ({
       "/expertises": {
         title: "Expertises",
@@ -346,8 +361,11 @@ export function Header() {
     [actusItems, offersItems]
   );
 
-  const activePanelKey =
-    activeMegaMenu && megaPanels[activeMegaMenu] ? activeMegaMenu : "/expertises";
+  const isMegaPanelKey = (value: string): value is MegaPanelKey =>
+    (megaPanelKeys as readonly string[]).includes(value);
+
+  const activePanelKey: MegaPanelKey =
+    activeMegaMenu && isMegaPanelKey(activeMegaMenu) ? activeMegaMenu : "/expertises";
   const activePanel = megaPanels[activePanelKey];
 
   return (
