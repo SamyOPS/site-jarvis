@@ -87,9 +87,8 @@ export function Clients({
         <div className="flex-1 space-y-6">
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-3">
             {clients.map((client) => (
-              <motion.a
+              <motion.div
                 key={client.name}
-                href={client.url || "#"}
                 className="flex h-32 items-center justify-center border border-white/15 bg-white text-[#0A1A2F] transition hover:translate-y-[-4px] hover:border-white/40"
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -105,7 +104,7 @@ export function Clients({
                   viewport={{ once: true, amount: 0.2 }}
                   transition={{ duration: 0.45, ease: "easeOut", delay: 0.05 }}
                 />
-              </motion.a>
+              </motion.div>
             ))}
           </div>
         </div>
