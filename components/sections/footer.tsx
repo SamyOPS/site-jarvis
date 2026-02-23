@@ -27,8 +27,8 @@ const solutionLinks = [
 ];
 
 const socialLinks = [
-  { label: "LinkedIn", href: "#", icon: LinkedinIcon },
-  { label: "Instagram", href: "#", icon: InstagramIcon },
+  { label: "LinkedIn", href: "https://www.linkedin.com/company/jarvis-connect/posts/?feedView=all", icon: LinkedinIcon },
+  { label: "Instagram", href: "https://www.instagram.com/jarvisconnect/", icon: InstagramIcon },
 ];
 
 export function Footer() {
