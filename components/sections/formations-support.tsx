@@ -38,7 +38,7 @@ export const FormationsSupport = ({
     {
       id: "feature-2",
       title: "Ateliers outillage",
-      moduleUrl: "/formations#ateliers-outillage",
+      moduleUrl: "/formations/ateliers-outillage",
       description:
         "Prise en main des outils de ticketing, supervision, MDM et automatisation pour gagner en efficacité.",
       image:
@@ -47,7 +47,7 @@ export const FormationsSupport = ({
     {
       id: "feature-3",
       title: "Coaching gestes techniques",
-      moduleUrl: "/formations#coaching-gestes-techniques",
+      moduleUrl: "/formations/coaching-gestes-techniques",
       description:
         "Bonnes pratiques de diagnostic, sécurisation poste, scripts d'intervention et relation utilisateur.",
       image:

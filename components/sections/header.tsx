@@ -388,7 +388,17 @@ export function Header() {
                       type="button"
                       onMouseEnter={() => { setMegaMenuOpen(true); setActiveMegaMenu(link.href); }}
                       onFocus={() => { setMegaMenuOpen(true); setActiveMegaMenu(link.href); }}
-                      onClick={() => { setMegaMenuOpen(true); setActiveMegaMenu(link.href); }}
+                      onClick={() => {
+                        setMegaMenuOpen(false);
+                        setActiveMegaMenu(link.href);
+                        const sectionTargets: Record<string, string> = {
+                          "/expertises": "/#expertises",
+                          "/actus": "/#actualites",
+                          "/formations": "/#formations",
+                          "/offres": "/#offres",
+                        };
+                        router.push(sectionTargets[link.href] ?? link.href);
+                      }}
                       className="relative inline-flex items-center text-sm text-black/70 hover:text-[#2F5BFF] transition-colors duration-200 transition-all duration-200 after:absolute after:-bottom-2 after:left-1/2 after:h-[2px] after:w-0 after:-translate-x-1/2 after:bg-[#2F5BFF] after:transition-all after:duration-300 hover:after:w-full"
                     >
                       {link.label}
