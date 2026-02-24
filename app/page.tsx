@@ -143,74 +143,31 @@ export default function Home() {
 
   ];
 
-
-
   const clients = [
-
-    {
-
-      name: "Sisley",
-
-      logo: "/client/sisley.png",
-
-    },
-
-    {
-
-      name: "BPCE",
-
-      logo: "/client/bpce.png",
-
-    },
-
-    {
-
-      name: "Burberry",
-
-      logo: "/client/burberry.png",
-
-    },
-
-    {
-
-      name: "Etypharm",
-
-      logo: "/client/etypharm.png",
-
-    },
-
-    {
-
-      name: "Foncia",
-
-      logo: "/client/Foncia.png",
-
-    },
-
-    {
-
-      name: "RSA",
-
-      logo: "/client/rsa.png",
-
-    },
-
-    {
-
-      name: "ALD Automotive",
-
-      logo: "/client/ald.png",
-
-    },
-
-    {
-
-      name: "BNP Paribas",
-
-      logo: "/client/bnp.png",
-
-    },
-
+    { name: "ALD Automotive", logo: "/client/ald.png" },
+    { name: "Aramis", logo: "/client/aramisa.svg" },
+    { name: "Barrire", logo: "/client/Barriere.png" },
+    { name: "BNP Paribas", logo: "/client/bnp.png" },
+    { name: "BPCE", logo: "/client/bpce.png" },
+    { name: "Burberry", logo: "/client/burberry.png" },
+    { name: "CGI", logo: "/client/CGI.png" },
+    { name: "Curie", logo: "/client/Curie.png" },
+    { name: "Engie", logo: "/client/engie.png" },
+    { name: "Erasteel", logo: "/client/Erasteel.png" },
+    { name: "Essilor", logo: "/client/Essilor.png" },
+    { name: "Etypharm", logo: "/client/etypharm.png" },
+    { name: "Foncia", logo: "/client/Foncia.png" },
+    { name: "HP", logo: "/client/HP.png" },
+    { name: "TP ICAP", logo: "/client/icap.png" },
+    { name: "Les Mousquetaires", logo: "/client/lesmousquetaires.png" },
+    { name: "Linxens", logo: "/client/LINXENS.png" },
+    { name: "LVMH", logo: "/client/LVMH.png" },
+    { name: "Ministere de la Justice", logo: "/client/Ministere.png" },
+    { name: "Ricco", logo: "/client/Ricco.png" },
+    { name: "RSA", logo: "/client/rsa.png" },
+    { name: "Sisley", logo: "/client/sisley.png" },
+    { name: "SNCF", logo: "/client/SNCF.png" },
+    { name: "Sogeprom", logo: "/client/SOGEPROM.png" },
   ];
 
 

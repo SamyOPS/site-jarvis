@@ -11,12 +11,12 @@ export default function ParcoursSupportPage() {
       objectivesImage="https://images.unsplash.com/photo-1517048676732-d65bc937f952?q=80&w=1400&auto=format&fit=crop"
       formatLabel="Atelier + mise en situation"
       durationLabel="1 a 2 jours"
-      audienceLabel="Equipes support / supervision"
+      audienceLabel="Techniciens support N1 / N2"
       objectives={[
-        "Qualifier et prioriser les demandes selon impact et urgence",
-        "Mettre en place une logique d'escalade claire entre N1, N2 et N3",
-        "Piloter la supervision et le MCO avec des alertes utiles",
-        "Ameliorer la communication utilisateur pendant le traitement",
+        "Diagnostiquer et résoudre les incidents postes, systèmes et réseau en environnement entreprise",
+        "Appliquer une méthodologie support professionnelle (priorisation, escalade, documentation, SLA)",
+        "Utiliser les outils du support : GLPI/ServiceNow, Microsoft 365, AD, SCCM/Intune, PowerShell",
+        "Documenter les interventions et respecter les standards de qualit? de service et de sécurité",
       ]}
       program={[
         {
