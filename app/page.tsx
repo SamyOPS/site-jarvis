@@ -30,7 +30,7 @@ export default function Home() {
 
       description:
 
-        "Assistance utilisateurs et supervision 24/7, maintenance proactive, securite renforcee et pilotage complet du parc informatique. Nous prenons en charge N1 a N3, mettons en place des SLA mesurables, un reporting clair et un plan d'amelioration continue pour une disponibilite maximale.",
+        "Assistance utilisateurs et supervision 24/7, maintenance proactive, sécurité renforcée et pilotage complet du parc informatique. Nous prenons en charge N1 à N3, mettons en place des SLA mesurables, un reporting clair et un plan d'amélioration continue pour une disponibilité maximale.",
 
       href: "/expertises/support",
 
@@ -150,11 +150,11 @@ export default function Home() {
     { name: "BNP Paribas", logo: "/client/bnp.png" },
     { name: "BPCE", logo: "/client/bpce.png" },
     { name: "Burberry", logo: "/client/burberry.png" },
-    { name: "CGI", logo: "/client/CGI.png" },
+    { name: "CGI", logo: "/client/CGI.png", logoScale: 0.86 },
     { name: "Curie", logo: "/client/Curie.png" },
     { name: "Engie", logo: "/client/engie.png" },
     { name: "Erasteel", logo: "/client/Erasteel.png", logoScale: 1.18 },
-    { name: "Essilor", logo: "/client/Essilor.png", logoScale: 1.35 },
+    { name: "Essilor", logo: "/client/Essilor.png", logoScale: 1.45 },
     { name: "Etypharm", logo: "/client/etypharm.png" },
     { name: "Foncia", logo: "/client/Foncia.png" },
     { name: "HP", logo: "/client/HP.png" },
@@ -166,7 +166,7 @@ export default function Home() {
     { name: "Ricco", logo: "/client/Ricco.png", logoScale: 1.2 },
     { name: "RSA", logo: "/client/rsa.png" },
     { name: "Sisley", logo: "/client/sisley.png" },
-    { name: "SNCF", logo: "/client/SNCF.png" },
+    { name: "SNCF", logo: "/client/SNCF.png", logoScale: 0.86 },
     { name: "Sogeprom", logo: "/client/SOGEPROM.png", logoScale: 1.6 },
   ];
 

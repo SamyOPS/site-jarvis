@@ -31,6 +31,7 @@ interface GalleryItem {
 
 interface ActualitesProps {
   heading?: string;
+  description?: string;
   demoUrl?: string;
   items?: GalleryItem[];
 }
@@ -80,6 +81,7 @@ const fallbackItems: GalleryItem[] = [
 
 const Actualites = ({
   heading = "Galerie",
+  description = "Retrouvez nos actualités, annonces et retours d'expérience autour des projets, expertises et initiatives Jarvis Connect.",
   demoUrl = "#",
   items,
 }: ActualitesProps) => {
@@ -135,11 +137,11 @@ const Actualites = ({
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1] }}
     >
-      <div className="container px-6 lg:px-10">
-        <div className="mb-8 flex flex-col justify-between md:mb-10 md:flex-row md:items-end lg:mb-12">
-          <div>
+      <div className="mx-auto max-w-6xl px-6 lg:px-10">
+        <div className="mb-8 flex flex-col items-center text-center md:mb-10 lg:mb-12">
+          <div className="max-w-3xl">
             <motion.h2
-              className="mb-3 text-3xl font-semibold md:mb-4 md:text-4xl lg:mb-6"
+              className="mb-3 text-3xl font-semibold md:mb-4 md:text-4xl lg:mb-5 lg:text-5xl"
               initial={{ opacity: 0, y: 14 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
@@ -147,9 +149,18 @@ const Actualites = ({
             >
               {heading}
             </motion.h2>
+            <motion.p
+              className="mx-auto mb-5 max-w-2xl text-sm text-muted-foreground md:text-base lg:text-lg"
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={{ duration: 0.4, ease: [0.33, 1, 0.68, 1], delay: 0.04 }}
+            >
+              {description}
+            </motion.p>
             <motion.a
               href={demoUrl}
-              className="group flex items-center gap-1 text-sm font-medium md:text-base lg:text-lg"
+              className="group inline-flex items-center gap-1 text-sm font-medium md:text-base lg:text-lg"
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
@@ -159,7 +170,7 @@ const Actualites = ({
               <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-1" />
             </motion.a>
           </div>
-          <div className="mt-6 flex shrink-0 items-center justify-start gap-2">
+          <div className="mt-6 flex shrink-0 items-center justify-center gap-2">
             <Button
               size="icon"
               variant="outline"
