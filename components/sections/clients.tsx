@@ -114,7 +114,7 @@ export function Clients({
       </div>
 
 
-      <div className="mx-auto max-w-6xl px-6 pb-16 lg:px-10 lg:pb-20">
+      <div className="mx-auto max-w-[96rem] px-6 pb-16 lg:px-10 xl:px-20 lg:pb-20">
         <motion.div
           className="relative overflow-hidden p-1 sm:p-2"
           initial={{ opacity: 0, y: 12 }}
