@@ -145,7 +145,7 @@ export default function Home() {
 
   const clients = [
     { name: "ALD Automotive", logo: "/client/ald.png" },
-    { name: "Aramis", logo: "/client/aramisa.svg" },
+    { name: "Aramis", logo: "/client/aramisa.svg", logoScale: 1.6 },
     { name: "Barrire", logo: "/client/Barriere.png" },
     { name: "BNP Paribas", logo: "/client/bnp.png" },
     { name: "BPCE", logo: "/client/bpce.png" },
@@ -153,21 +153,21 @@ export default function Home() {
     { name: "CGI", logo: "/client/CGI.png" },
     { name: "Curie", logo: "/client/Curie.png" },
     { name: "Engie", logo: "/client/engie.png" },
-    { name: "Erasteel", logo: "/client/Erasteel.png" },
-    { name: "Essilor", logo: "/client/Essilor.png" },
+    { name: "Erasteel", logo: "/client/Erasteel.png", logoScale: 1.18 },
+    { name: "Essilor", logo: "/client/Essilor.png", logoScale: 1.35 },
     { name: "Etypharm", logo: "/client/etypharm.png" },
     { name: "Foncia", logo: "/client/Foncia.png" },
     { name: "HP", logo: "/client/HP.png" },
-    { name: "TP ICAP", logo: "/client/icap.png" },
+    { name: "TP ICAP", logo: "/client/icap.png", logoScale: 1.16 },
     { name: "Les Mousquetaires", logo: "/client/lesmousquetaires.png" },
-    { name: "Linxens", logo: "/client/LINXENS.png" },
+    { name: "Linxens", logo: "/client/LINXENS.png", logoScale: 1.18 },
     { name: "LVMH", logo: "/client/LVMH.png" },
-    { name: "Ministere de la Justice", logo: "/client/Ministere.png" },
-    { name: "Ricco", logo: "/client/Ricco.png" },
+    { name: "Ministere de la Justice", logo: "/client/Ministere.png", logoScale: 1.45 },
+    { name: "Ricco", logo: "/client/Ricco.png", logoScale: 1.2 },
     { name: "RSA", logo: "/client/rsa.png" },
     { name: "Sisley", logo: "/client/sisley.png" },
     { name: "SNCF", logo: "/client/SNCF.png" },
-    { name: "Sogeprom", logo: "/client/SOGEPROM.png" },
+    { name: "Sogeprom", logo: "/client/SOGEPROM.png", logoScale: 1.6 },
   ];
 
 
