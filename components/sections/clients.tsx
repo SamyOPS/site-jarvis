@@ -92,7 +92,7 @@ export function Clients({
 
             {highlightLogo && (
               <motion.div
-                className="w-full max-w-sm border border-white/20 bg-white p-6 text-center lg:mt-28 lg:w-[320px]"
+                className="w-full max-w-[15rem] border border-white/20 bg-white p-4 text-center sm:max-w-sm sm:p-6 lg:mt-28 lg:w-[320px]"
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
@@ -101,7 +101,7 @@ export function Clients({
                 <motion.img
                   src={highlightLogo}
                   alt="Client principal"
-                  className="mx-auto h-40 w-40 object-contain"
+                  className="mx-auto h-28 w-28 object-contain sm:h-40 sm:w-40"
                   initial={{ opacity: 0, y: 8 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.2 }}
@@ -122,7 +122,7 @@ export function Clients({
           viewport={{ once: true, amount: 0.2 }}
           transition={{ duration: 0.55, ease: "easeOut", delay: 0.08 }}
         >
-          <div className="relative group space-y-4">
+          <div className="relative group space-y-2 sm:space-y-4">
             {([
               { items: topRowClients, animationClass: "clients-row-left", row: "top" },
               { items: bottomRowClients.length ? bottomRowClients : topRowClients, animationClass: "clients-row-right", row: "bottom" },
@@ -130,18 +130,14 @@ export function Clients({
               <div key={row} className="overflow-hidden">
                 <div className={`flex w-max gap-2 sm:gap-4 ${animationClass}`}>
                   {[...items, ...items].map((client, index) => (
-                    <motion.div
+                    <div
                       key={`${row}-${client.name}-${index}`}
-                      className="flex h-20 w-[7.5rem] shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white p-2 text-[#0A1A2F] shadow-[0_8px_24px_rgba(0,0,0,0.12)] transition hover:-translate-y-1 hover:border-white/30 sm:h-28 sm:w-40"
-                      initial={{ opacity: 0, y: 10 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true, amount: 0.2 }}
-                      transition={{ duration: 0.45, ease: "easeOut", delay: 0.05 }}
+                      className="flex h-16 w-[6.25rem] shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white p-1.5 text-[#0A1A2F] shadow-[0_8px_24px_rgba(0,0,0,0.12)] transition hover:-translate-y-1 hover:border-white/30 sm:h-28 sm:w-40"
                     >
-                      <motion.img
+                      <img
                         src={client.logo}
                         alt={client.name}
-                        className="max-h-10 max-w-[76%] object-contain sm:max-h-16"
+                        className="max-h-8 max-w-[72%] object-contain sm:max-h-16"
                         style={{
                           ...(client.logoScale ? { maxWidth: `${80 * client.logoScale}%`, maxHeight: `${56 * client.logoScale}px` } : {}),
                           filter:
@@ -149,12 +145,8 @@ export function Clients({
                               ? "drop-shadow(0 1px 1px rgba(0,0,0,0.45)) drop-shadow(0 0 6px rgba(0,0,0,0.22))"
                               : "drop-shadow(0 1px 1px rgba(0,0,0,0.35))",
                         }}
-                        initial={{ opacity: 0, y: 6 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true, amount: 0.2 }}
-                        transition={{ duration: 0.4, ease: "easeOut", delay: 0.04 }}
                       />
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
               </div>
