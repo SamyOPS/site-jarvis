@@ -116,7 +116,7 @@ export function Clients({
 
       <div className="mx-auto max-w-[96rem] px-6 pb-16 lg:px-10 xl:px-20 lg:pb-20">
         <motion.div
-          className="relative overflow-hidden p-1 sm:p-2"
+          className="relative overflow-hidden p-0 sm:p-2"
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.2 }}
@@ -128,11 +128,11 @@ export function Clients({
               { items: bottomRowClients.length ? bottomRowClients : topRowClients, animationClass: "clients-row-right", row: "bottom" },
             ] as const).map(({ items, animationClass, row }) => (
               <div key={row} className="overflow-hidden">
-                <div className={`flex w-max gap-4 ${animationClass}`}>
+                <div className={`flex w-max gap-2 sm:gap-4 ${animationClass}`}>
                   {[...items, ...items].map((client, index) => (
                     <motion.div
                       key={`${row}-${client.name}-${index}`}
-                      className="flex h-24 w-36 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white p-3 text-[#0A1A2F] shadow-[0_8px_24px_rgba(0,0,0,0.12)] transition hover:-translate-y-1 hover:border-white/30 sm:h-28 sm:w-40"
+                      className="flex h-20 w-[7.5rem] shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white p-2 text-[#0A1A2F] shadow-[0_8px_24px_rgba(0,0,0,0.12)] transition hover:-translate-y-1 hover:border-white/30 sm:h-28 sm:w-40"
                       initial={{ opacity: 0, y: 10 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true, amount: 0.2 }}
@@ -141,7 +141,7 @@ export function Clients({
                       <motion.img
                         src={client.logo}
                         alt={client.name}
-                        className="max-h-14 max-w-[80%] object-contain sm:max-h-16"
+                        className="max-h-10 max-w-[76%] object-contain sm:max-h-16"
                         style={{
                           ...(client.logoScale ? { maxWidth: `${80 * client.logoScale}%`, maxHeight: `${56 * client.logoScale}px` } : {}),
                           filter:
@@ -161,8 +161,8 @@ export function Clients({
             ))}
           </div>
 
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-[#050B14] via-[#050B14]/70 to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-[#050B14] via-[#050B14]/70 to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-4 sm:w-8 bg-gradient-to-r from-[#050B14] via-[#050B14]/50 to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-4 sm:w-8 bg-gradient-to-l from-[#050B14] via-[#050B14]/50 to-transparent" />
         </motion.div>
       </div>
       <style jsx>{`
