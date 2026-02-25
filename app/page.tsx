@@ -145,7 +145,7 @@ export default function Home() {
 
   const clients = [
     { name: "ALD Automotive", logo: "/client/ald.png" },
-    { name: "Aramis", logo: "/client/aramisa.svg", logoScale: 1.6 },
+    { name: "Aramis", logo: "/client/aramisa.svg", logoScale: 1.4 },
     { name: "Barrire", logo: "/client/Barriere.png" },
     { name: "BNP Paribas", logo: "/client/bnp.png" },
     { name: "BPCE", logo: "/client/bpce.png" },
@@ -153,8 +153,8 @@ export default function Home() {
     { name: "CGI", logo: "/client/CGI.png", logoScale: 0.86 },
     { name: "Curie", logo: "/client/Curie.png" },
     { name: "Engie", logo: "/client/engie.png" },
-    { name: "Erasteel", logo: "/client/Erasteel.png", logoScale: 1.18 },
-    { name: "Essilor", logo: "/client/Essilor.png", logoScale: 1.45 },
+    { name: "Erasteel", logo: "/client/Erasteel.png", logoScale: 1.08 },
+    { name: "Essilor", logo: "/client/Essilor.png", logoScale: 1.25 },
     { name: "Etypharm", logo: "/client/etypharm.png" },
     { name: "Foncia", logo: "/client/Foncia.png" },
     { name: "HP", logo: "/client/HP.png" },
@@ -162,12 +162,12 @@ export default function Home() {
     { name: "Les Mousquetaires", logo: "/client/lesmousquetaires.png" },
     { name: "Linxens", logo: "/client/LINXENS.png", logoScale: 1.18 },
     { name: "LVMH", logo: "/client/LVMH.png" },
-    { name: "Ministere de la Justice", logo: "/client/Ministere.png", logoScale: 1.45 },
+    { name: "Ministere de la Justice", logo: "/client/Ministere.png", logoScale: 1.25 },
     { name: "Ricco", logo: "/client/Ricco.png", logoScale: 1.2 },
     { name: "RSA", logo: "/client/rsa.png" },
     { name: "Sisley", logo: "/client/sisley.png" },
     { name: "SNCF", logo: "/client/SNCF.png", logoScale: 0.86 },
-    { name: "Sogeprom", logo: "/client/SOGEPROM.png", logoScale: 1.6 },
+    { name: "Sogeprom", logo: "/client/SOGEPROM.png", logoScale: 1.3 },
   ];
 
 
