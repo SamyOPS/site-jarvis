@@ -388,7 +388,7 @@ export function Header() {
             <img
               src="/logonoir.png"
               alt="Jarvis Connect"
-              className="h-14 w-auto transition-transform duration-200 ease-out group-hover:-translate-y-0.5"
+              className="h-16 w-auto transition-transform duration-200 ease-out group-hover:-translate-y-0.5"
             />
           </a>
 
