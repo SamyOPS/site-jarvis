@@ -10,6 +10,7 @@ import {
   Ban,
   Loader2,
   LogOut,
+  Trash2,
   Upload,
   Users,
 } from "lucide-react";
@@ -71,6 +72,11 @@ export default function RhDashboardPage() {
     type: "idle",
     message: "",
   });
+  const [deleteStatus, setDeleteStatus] = useState<{ type: "idle" | "error" | "success"; message: string }>({
+    type: "idle",
+    message: "",
+  });
+  const [deletingPath, setDeletingPath] = useState<string | null>(null);
   const configError = !supabase ? "Configuration Supabase manquante (URL / cle publique)." : null;
 
   const listFiles = useCallback(async (bucket: string, employeeId: string) => {
@@ -266,6 +272,46 @@ export default function RhDashboardPage() {
     link.click();
   };
 
+  const handleDeleteFile = async (bucket: string, employeeId: string, path: string) => {
+    if (!supabase) return;
+
+    const confirmDelete = window.confirm("Supprimer ce fichier ?");
+    if (!confirmDelete) return;
+
+    setDeleteStatus({ type: "idle", message: "" });
+    setDeletingPath(path);
+
+    const { data: removedItems, error: deleteError } = await supabase.storage.from(bucket).remove([path]);
+
+    if (deleteError) {
+      setDeleteStatus({ type: "error", message: deleteError.message });
+      setDeletingPath(null);
+      return;
+    }
+
+    if (!removedItems?.length) {
+      setDeleteStatus({
+        type: "error",
+        message: "Suppression non confirmee (fichier introuvable ou droits insuffisants).",
+      });
+      setDeletingPath(null);
+      return;
+    }
+
+    const [employeeDocuments, paySlips] = await Promise.all([
+      listFiles(EMPLOYEE_DOCS_BUCKET, employeeId),
+      listFiles(PAY_SLIPS_BUCKET, employeeId),
+    ]);
+
+    setFilesByEmployee((prev) => ({
+      ...prev,
+      [employeeId]: { employeeDocuments, paySlips },
+    }));
+
+    setDeleteStatus({ type: "success", message: "Fichier supprime." });
+    setDeletingPath(null);
+  };
+
   const handleSignOut = async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
@@ -411,6 +457,11 @@ export default function RhDashboardPage() {
                       {uploadStatus.message}
                     </p>
                   )}
+                  {deleteStatus.type !== "idle" && (
+                    <p className={`text-sm ${deleteStatus.type === "error" ? "text-red-700" : "text-emerald-700"}`}>
+                      {deleteStatus.message}
+                    </p>
+                  )}
 
                   <div className="space-y-2">
                     <p className="text-sm font-medium">
@@ -431,15 +482,27 @@ export default function RhDashboardPage() {
                                 {file.createdAt ? new Date(file.createdAt).toLocaleDateString() : "-"} | {formatBytes(file.size)}
                               </p>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-slate-300 text-[#0A1A2F]"
-                              onClick={() => handleDownload(PAY_SLIPS_BUCKET, file.path, file.name)}
-                            >
-                              <ArrowDownToLine className="mr-2 h-4 w-4" />
-                              Telecharger
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-slate-300 text-[#0A1A2F]"
+                                onClick={() => handleDownload(PAY_SLIPS_BUCKET, file.path, file.name)}
+                              >
+                                <ArrowDownToLine className="mr-2 h-4 w-4" />
+                                Telecharger
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-red-300 text-red-700 hover:bg-red-50"
+                                disabled={deletingPath === file.path}
+                                onClick={() => void handleDeleteFile(PAY_SLIPS_BUCKET, selectedEmployeeId, file.path)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Supprimer
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -477,15 +540,27 @@ export default function RhDashboardPage() {
                             {file.createdAt ? new Date(file.createdAt).toLocaleDateString() : "-"} | {formatBytes(file.size)}
                           </p>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-slate-300 text-[#0A1A2F]"
-                          onClick={() => handleDownload(EMPLOYEE_DOCS_BUCKET, file.path, file.name)}
-                        >
-                          <ArrowDownToLine className="mr-2 h-4 w-4" />
-                          Telecharger
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-slate-300 text-[#0A1A2F]"
+                            onClick={() => handleDownload(EMPLOYEE_DOCS_BUCKET, file.path, file.name)}
+                          >
+                            <ArrowDownToLine className="mr-2 h-4 w-4" />
+                            Telecharger
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-red-300 text-red-700 hover:bg-red-50"
+                            disabled={deletingPath === file.path}
+                            onClick={() => void handleDeleteFile(EMPLOYEE_DOCS_BUCKET, employee.id, file.path)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Supprimer
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>

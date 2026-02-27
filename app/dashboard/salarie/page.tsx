@@ -11,6 +11,7 @@ import {
   Loader2,
   LogOut,
   Shield,
+  Trash2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +62,11 @@ export default function SalarieDashboardPage() {
     type: "idle",
     message: "",
   });
+  const [deleteStatus, setDeleteStatus] = useState<{ type: "idle" | "error" | "success"; message: string }>({
+    type: "idle",
+    message: "",
+  });
+  const [deletingPath, setDeletingPath] = useState<string | null>(null);
   const [documents, setDocuments] = useState<StoredFile[]>([]);
   const [paySlips, setPaySlips] = useState<StoredFile[]>([]);
   const [filesLoading, setFilesLoading] = useState(false);
@@ -207,6 +213,39 @@ export default function SalarieDashboardPage() {
     link.click();
   };
 
+  const handleDeleteDocument = async (path: string) => {
+    if (!supabase || !profile?.id) return;
+
+    const confirmDelete = window.confirm("Supprimer ce document ?");
+    if (!confirmDelete) return;
+
+    setDeletingPath(path);
+    setDeleteStatus({ type: "idle", message: "" });
+
+    const { data: removedItems, error: deleteError } = await supabase.storage
+      .from(EMPLOYEE_DOCS_BUCKET)
+      .remove([path]);
+
+    if (deleteError) {
+      setDeleteStatus({ type: "error", message: deleteError.message });
+      setDeletingPath(null);
+      return;
+    }
+
+    if (!removedItems?.length) {
+      setDeleteStatus({
+        type: "error",
+        message: "Suppression non confirmee (fichier introuvable ou droits insuffisants).",
+      });
+      setDeletingPath(null);
+      return;
+    }
+
+    await refreshFiles(profile.id);
+    setDeleteStatus({ type: "success", message: "Document supprime." });
+    setDeletingPath(null);
+  };
+
   const handleSignOut = async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
@@ -327,6 +366,11 @@ export default function SalarieDashboardPage() {
                       {uploadStatus.message}
                     </p>
                   )}
+                  {deleteStatus.type !== "idle" && (
+                    <p className={`text-sm ${deleteStatus.type === "error" ? "text-red-700" : "text-emerald-700"}`}>
+                      {deleteStatus.message}
+                    </p>
+                  )}
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Documents deposes</p>
                     {filesLoading ? (
@@ -344,15 +388,27 @@ export default function SalarieDashboardPage() {
                                 {file.createdAt ? new Date(file.createdAt).toLocaleDateString() : "-"} | {formatBytes(file.size)}
                               </p>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-slate-300 text-[#0A1A2F]"
-                              onClick={() => handleDownload(EMPLOYEE_DOCS_BUCKET, file.path, file.name)}
-                            >
-                              <ArrowDownToLine className="mr-2 h-4 w-4" />
-                              Telecharger
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-slate-300 text-[#0A1A2F]"
+                                onClick={() => handleDownload(EMPLOYEE_DOCS_BUCKET, file.path, file.name)}
+                              >
+                                <ArrowDownToLine className="mr-2 h-4 w-4" />
+                                Telecharger
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-red-300 text-red-700 hover:bg-red-50"
+                                disabled={deletingPath === file.path}
+                                onClick={() => void handleDeleteDocument(file.path)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Supprimer
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
