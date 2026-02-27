@@ -38,7 +38,7 @@ type Status =
   | { type: "error"; message: string }
   | { type: "success"; message: string };
 
-type RoleChoice = "candidate" | "professional" | "salarie";
+type RoleChoice = "candidate" | "professional" | "salarie" | "rh";
 type AuthMode = "login" | "register";
 
 type AuthPageProps = {
@@ -66,11 +66,14 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
       ? "professional"
       : roleChoice === "salarie"
         ? "salarie"
+        : roleChoice === "rh"
+          ? "rh"
         : "candidate";
   const mappedStatus =
-    roleChoice === "professional" || roleChoice === "salarie" ? "pending" : "none";
+    roleChoice === "professional" || roleChoice === "salarie" || roleChoice === "rh"
+      ? "pending"
+      : "none";
   const isPro = roleChoice === "professional";
-  const isSalarie = roleChoice === "salarie";
 
   const handleModeChange = (nextMode: AuthMode) => {
     setMode(nextMode);
@@ -220,7 +223,7 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
                 {mode === "login" ? "Connexion" : "Inscription"}
               </CardTitle>
               <CardDescription className="text-[#4f5e66]">
-                Un seul ecran pour se connecter ou creer un compte (candidat, salarie ou pro).
+                Un seul ecran pour se connecter ou creer un compte (candidat, salarie, RH ou pro).
               </CardDescription>
               <div className="grid grid-cols-2 gap-2 pt-2">
                 <Button
@@ -330,11 +333,12 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
                     <SelectContent className="border-[#d5d9dc] bg-white text-[#2f3b42]">
                       <SelectItem value="candidate">Candidat</SelectItem>
                       <SelectItem value="salarie">Salarie</SelectItem>
+                      <SelectItem value="rh">RH</SelectItem>
                       <SelectItem value="professional">Entreprise / Pro</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-[#4f5e66]">
-                    Pro = role professional (statut pending). Salarie = role salarie (statut pending). Candidat = role candidate (statut none).
+                    Pro = role professional (pending). Salarie = role salarie (pending). RH = role rh (pending). Candidat = role candidate (none).
                   </p>
                 </div>
 
@@ -437,7 +441,7 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
                   <ul className="list-disc space-y-1 pl-4">
                     <li>
                       Role envoye : <code>{mappedRole}</code> | Statut pro : <code>{mappedStatus}</code>
-                      {" "} (pending pour salarie/pro).
+                      {" "} (pending pour salarie/pro/rh).
                     </li>
                     <li>
                       Verifie les policies RLS d&apos;insert sur <code>profiles</code> (auth.uid() = id) ou garde le trigger cote base.

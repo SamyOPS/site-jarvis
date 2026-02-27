@@ -231,6 +231,7 @@ export function Header() {
     if (role === "admin") return "/dashboard";
     if (role === "professional") return "/dashboard/pro";
     if (role === "salarie") return "/dashboard/salarie";
+    if (role === "rh") return "/dashboard/rh";
     return "/dashboard/candidat";
   };
 
@@ -388,7 +389,7 @@ export function Header() {
             <img
               src="/logonoir.png"
               alt="Jarvis Connect"
-              className="h-16 w-auto transition-transform duration-200 ease-out group-hover:-translate-y-0.5"
+              className="h-[72px] w-auto transition-transform duration-200 ease-out group-hover:-translate-y-0.5"
             />
           </a>
 
