@@ -1,13 +1,15 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type Session, type User } from "@supabase/supabase-js";
 import {
   AlertCircle,
   ArrowDownToLine,
   ArrowLeft,
   Ban,
+  CheckCircle2,
+  Clock3,
   Loader2,
   LogOut,
   Shield,
@@ -54,6 +56,8 @@ const formatBytes = (value: number | null) => {
 
 export default function SalarieDashboardPage() {
   const router = useRouter();
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,10 +128,14 @@ export default function SalarieDashboardPage() {
         return;
       }
 
+      const currentSession = sessionData.session;
+      setSession(currentSession);
+      setUser(currentSession.user);
+
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("id,email,full_name,role,professional_status,company_name")
-        .eq("id", sessionData.session.user.id)
+        .eq("id", currentSession.user.id)
         .single();
 
       if (profileError) {
@@ -254,10 +262,14 @@ export default function SalarieDashboardPage() {
 
   const isPending = profile?.professional_status === "pending";
   const isRejected = profile?.professional_status === "rejected";
+  const sessionExpiry = useMemo(() => {
+    if (!session?.expires_at) return null;
+    return new Date(session.expires_at * 1000).toLocaleString();
+  }, [session]);
 
   return (
     <div className="min-h-screen bg-white text-[#0A1A2F]">
-      <div className="mx-auto max-w-5xl space-y-4 px-4 py-10">
+      <div className="mx-auto max-w-5xl px-4 py-10 space-y-4">
         <div className="flex items-center gap-3 text-sm uppercase tracking-wide text-[#0A1A2F]/70">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0A1A2F]/5 text-[#0A1A2F]">
             <Shield className="h-4 w-4" />
@@ -348,6 +360,49 @@ export default function SalarieDashboardPage() {
 
               <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm">
                 <CardHeader className="space-y-1">
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Clock3 className="h-5 w-5" />
+                    Session actuelle
+                  </CardTitle>
+                  <CardDescription className="text-[#0A1A2F]/70">
+                    Infos supabase.auth.getSession().
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#0A1A2F]/70">Etat</span>
+                    <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Connecte
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#0A1A2F]/70">Expire</span>
+                    <span className="font-medium">{sessionExpiry ?? "Inconnu"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#0A1A2F]/70">User ID</span>
+                    <span className="font-mono text-xs">{user?.id ?? "N/A"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#0A1A2F]/70">Email confirme</span>
+                    <span className="font-medium">
+                      {user?.email_confirmed_at ? "Oui" : "Non / inconnu"}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleSignOut}
+                    className="border-slate-300 text-[#0A1A2F] hover:bg-white"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Se deconnecter
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm md:col-span-2">
+                <CardHeader className="space-y-1">
                   <CardTitle className="text-xl">Mes documents</CardTitle>
                   <CardDescription className="text-[#0A1A2F]/70">Depose tes documents RH.</CardDescription>
                 </CardHeader>
@@ -358,9 +413,7 @@ export default function SalarieDashboardPage() {
                     className="h-10 w-full border border-slate-300 px-3 text-sm"
                     disabled={uploadingDoc || isPending}
                   />
-                  {uploadingDoc && (
-                    <p className="text-sm text-[#0A1A2F]/70">Upload en cours...</p>
-                  )}
+                  {uploadingDoc && <p className="text-sm text-[#0A1A2F]/70">Upload en cours...</p>}
                   {uploadStatus.type !== "idle" && (
                     <p className={`text-sm ${uploadStatus.type === "error" ? "text-red-700" : "text-emerald-700"}`}>
                       {uploadStatus.message}
@@ -380,7 +433,7 @@ export default function SalarieDashboardPage() {
                         {documents.map((file) => (
                           <div
                             key={file.path}
-                            className="flex items-center justify-between rounded border border-slate-200 p-2 text-sm"
+                            className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
                           >
                             <div>
                               <p className="font-medium">{file.name}</p>
@@ -432,7 +485,7 @@ export default function SalarieDashboardPage() {
                       {paySlips.map((file) => (
                         <div
                           key={file.path}
-                          className="flex items-center justify-between rounded border border-slate-200 p-2 text-sm"
+                          className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
                         >
                           <div>
                             <p className="font-medium">{file.name}</p>
