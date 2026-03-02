@@ -3,8 +3,104 @@
 import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 import { motion } from "motion/react";
+import { createClient } from "@supabase/supabase-js";
+import { FormEvent, useMemo, useState } from "react";
 
 export default function ContactPage() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabase = useMemo(
+    () => (supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null),
+    [supabaseUrl, supabaseAnonKey]
+  );
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitState, setSubmitState] = useState<"idle" | "success" | "error">("idle");
+  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitState("idle");
+    setSubmitMessage(null);
+
+    if (!supabase) {
+      setSubmitState("error");
+      setSubmitMessage("Configuration Supabase manquante.");
+      return;
+    }
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    const email = String(formData.get("email") ?? "").trim();
+    const firstName = String(formData.get("firstName") ?? "").trim();
+    const lastName = String(formData.get("lastName") ?? "").trim();
+    const subject = String(formData.get("subject") ?? "").trim();
+    const message = String(formData.get("message") ?? "").trim();
+
+    if (!email || !firstName || !lastName || !subject || !message) {
+      setSubmitState("error");
+      setSubmitMessage("Merci de remplir tous les champs.");
+      return;
+    }
+
+    const emailIsValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!emailIsValid) {
+      setSubmitState("error");
+      setSubmitMessage("Merci de saisir une adresse email valide.");
+      return;
+    }
+
+    const firstNameIsValid = /^[A-Za-z\u00C0-\u024F' -]{2,50}$/.test(firstName);
+    const lastNameIsValid = /^[A-Za-z\u00C0-\u024F' -]{2,50}$/.test(lastName);
+    if (!firstNameIsValid || !lastNameIsValid) {
+      setSubmitState("error");
+      setSubmitMessage("Le prénom et le nom doivent contenir uniquement des lettres.");
+      return;
+    }
+
+    if (subject.length < 3 || subject.length > 120) {
+      setSubmitState("error");
+      setSubmitMessage("Merci de saisir un objet entre 3 et 120 caracteres.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const emailResponse = await fetch("/api/contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, firstName, lastName, subject, message }),
+    });
+
+    if (!emailResponse.ok) {
+      setIsSubmitting(false);
+      setSubmitState("error");
+      setSubmitMessage("Impossible d'envoyer l'email pour le moment.");
+      return;
+    }
+
+    const { error } = await supabase.from("contact_messages").insert({
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      subject,
+      message,
+      source: "contact-page",
+    });
+
+    setIsSubmitting(false);
+
+    if (error) {
+      setSubmitState("error");
+      setSubmitMessage("Impossible d'envoyer le message pour le moment.");
+      return;
+    }
+
+    form.reset();
+    setSubmitState("success");
+    setSubmitMessage("Message envoye et email transmis. Notre equipe vous recontacte rapidement.");
+  };
   const cardVariants = {
     hidden: { opacity: 0, y: 12 },
     visible: (i: number) => ({
@@ -62,8 +158,8 @@ export default function ContactPage() {
           </p>
         </div>
 
-        <form className="mt-16 grid items-stretch gap-4 lg:grid-cols-2" action="#" method="POST">
-          <div className="grid h-full grid-rows-3 gap-3">
+        <form className="mt-16 grid items-stretch gap-4 lg:grid-cols-2" onSubmit={handleSubmit} noValidate>
+          <div className="grid h-full grid-rows-4 gap-3">
             <motion.label
               className="block h-full border border-[#d5d9dc] bg-white p-5 shadow-sm"
               variants={cardVariants}
@@ -76,6 +172,8 @@ export default function ContactPage() {
               <input
                 type="email"
                 name="email"
+                inputMode="email"
+                pattern="[^\s@]+@[^\s@]+\.[^\s@]+"
                 placeholder="Tapez votre mail"
                 className="w-full border-0 bg-transparent text-2xl text-[#8a8f94] placeholder:text-[#8a8f94] focus:outline-none"
                 required
@@ -94,6 +192,8 @@ export default function ContactPage() {
               <input
                 type="text"
                 name="firstName"
+                minLength={2}
+                maxLength={50}
                 placeholder="Et votre prenom"
                 className="w-full border-0 bg-transparent text-2xl text-[#8a8f94] placeholder:text-[#8a8f94] focus:outline-none"
                 required
@@ -112,7 +212,29 @@ export default function ContactPage() {
               <input
                 type="text"
                 name="lastName"
+                minLength={2}
+                maxLength={50}
                 placeholder="Puis votre nom"
+                className="w-full border-0 bg-transparent text-2xl text-[#8a8f94] placeholder:text-[#8a8f94] focus:outline-none"
+                required
+              />
+            </motion.label>
+
+            <motion.label
+              className="block h-full border border-[#d5d9dc] bg-white p-5 shadow-sm"
+              variants={cardVariants}
+              initial="hidden"
+              whileInView="visible"
+              custom={0.25}
+              viewport={{ once: true, amount: 0.2 }}
+            >
+              <div className="mb-2 text-sm font-semibold text-[#2f3b42]">-&gt; Objet</div>
+              <input
+                type="text"
+                name="subject"
+                minLength={3}
+                maxLength={120}
+                placeholder="Objet de votre demande"
                 className="w-full border-0 bg-transparent text-2xl text-[#8a8f94] placeholder:text-[#8a8f94] focus:outline-none"
                 required
               />
@@ -124,7 +246,7 @@ export default function ContactPage() {
             variants={cardVariants}
             initial="hidden"
             whileInView="visible"
-            custom={0.3}
+            custom={0.35}
             viewport={{ once: true, amount: 0.2 }}
           >
             <div className="mb-2 text-sm font-semibold text-[#2f3b42]">-&gt; Message</div>
@@ -135,15 +257,32 @@ export default function ContactPage() {
               required
             />
 
-            <div className="mt-4">
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center border border-[#2f3b42] px-6 py-2 text-lg font-medium text-[#2f3b42] transition hover:bg-[#2f3b42] hover:text-white"
-              >
-                Envoyer
-              </button>
-            </div>
           </motion.div>
+          <div className="lg:col-span-2 mt-2 flex flex-col items-start gap-3">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex items-center justify-center border border-[#2f3b42] bg-white px-6 py-2 text-lg font-medium text-[#2f3b42] transition hover:bg-[#2f3b42] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting ? "Envoi..." : "Envoyer"}
+            </button>
+
+            <div className="min-h-[3.25rem] w-full max-w-xl">
+              {submitMessage && (
+                <div
+                  className={`px-1 py-1 text-sm leading-relaxed ${
+                    submitState === "success"
+                      ? "text-emerald-700"
+                      : "text-red-600"
+                  }`}
+                  role="status"
+                  aria-live="polite"
+                >
+                  {submitMessage}
+                </div>
+              )}
+            </div>
+          </div>
         </form>
       </main>
     </div>

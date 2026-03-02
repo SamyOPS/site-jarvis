@@ -12,8 +12,9 @@ import {
   Clock3,
   Loader2,
   LogOut,
-  Shield,
   Trash2,
+  Upload,
+  Users,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,11 @@ type StoredFile = {
   size: number | null;
 };
 
+type EmployeeFiles = {
+  employeeDocuments: StoredFile[];
+  paySlips: StoredFile[];
+};
+
 const EMPLOYEE_DOCS_BUCKET = "employee-documents";
 const PAY_SLIPS_BUCKET = "pay-slips";
 
@@ -54,14 +60,18 @@ const formatBytes = (value: number | null) => {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-export default function SalarieDashboardPage() {
+export default function RhDashboardPage() {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [employees, setEmployees] = useState<ProfileRow[]>([]);
+  const [filesByEmployee, setFilesByEmployee] = useState<Record<string, EmployeeFiles>>({});
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [filesLoading, setFilesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [uploadingPaySlip, setUploadingPaySlip] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<{ type: "idle" | "error" | "success"; message: string }>({
     type: "idle",
     message: "",
@@ -71,9 +81,6 @@ export default function SalarieDashboardPage() {
     message: "",
   });
   const [deletingPath, setDeletingPath] = useState<string | null>(null);
-  const [documents, setDocuments] = useState<StoredFile[]>([]);
-  const [paySlips, setPaySlips] = useState<StoredFile[]>([]);
-  const [filesLoading, setFilesLoading] = useState(false);
   const configError = !supabase ? "Configuration Supabase manquante (URL / cle publique)." : null;
 
   const listFiles = useCallback(async (bucket: string, employeeId: string) => {
@@ -95,16 +102,25 @@ export default function SalarieDashboardPage() {
       }));
   }, []);
 
-  const refreshFiles = useCallback(async (employeeId: string) => {
-    if (!supabase) return;
+  const loadEmployeeFiles = useCallback(async (employeeRows: ProfileRow[]) => {
+    if (!supabase || !employeeRows.length) {
+      setFilesByEmployee({});
+      return;
+    }
 
     setFilesLoading(true);
-    const [employeeDocuments, employeePaySlips] = await Promise.all([
-      listFiles(EMPLOYEE_DOCS_BUCKET, employeeId),
-      listFiles(PAY_SLIPS_BUCKET, employeeId),
-    ]);
-    setDocuments(employeeDocuments);
-    setPaySlips(employeePaySlips);
+    const entries = await Promise.all(
+      employeeRows.map(async (employee) => {
+        const [employeeDocuments, paySlips] = await Promise.all([
+          listFiles(EMPLOYEE_DOCS_BUCKET, employee.id),
+          listFiles(PAY_SLIPS_BUCKET, employee.id),
+        ]);
+
+        return [employee.id, { employeeDocuments, paySlips }] as const;
+      })
+    );
+
+    setFilesByEmployee(Object.fromEntries(entries));
     setFilesLoading(false);
   }, [listFiles]);
 
@@ -144,14 +160,34 @@ export default function SalarieDashboardPage() {
         return;
       }
 
-      if (profileData?.role !== "salarie") {
-        setError("Acces reserve aux comptes salarie.");
+      if (profileData?.role !== "rh") {
+        setError("Acces reserve aux comptes RH.");
         setLoading(false);
         return;
       }
 
       setProfile(profileData);
-      await refreshFiles(profileData.id);
+
+      const { data: employeesData, error: employeesError } = await supabase
+        .from("profiles")
+        .select("id,email,full_name,role,professional_status,company_name")
+        .eq("role", "salarie")
+        .order("email", { ascending: true });
+
+      if (employeesError) {
+        setError(employeesError.message);
+        setLoading(false);
+        return;
+      }
+
+      const employeeRows = employeesData ?? [];
+      setEmployees(employeeRows);
+
+      if (employeeRows.length) {
+        setSelectedEmployeeId((prev) => prev || employeeRows[0].id);
+      }
+
+      await loadEmployeeFiles(employeeRows);
       setLoading(false);
     };
 
@@ -164,16 +200,30 @@ export default function SalarieDashboardPage() {
     });
 
     return () => subscription.unsubscribe();
-  }, [refreshFiles, router]);
+  }, [loadEmployeeFiles, router]);
 
-  const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const selectedEmployee = useMemo(
+    () => employees.find((employee) => employee.id === selectedEmployeeId) ?? null,
+    [employees, selectedEmployeeId]
+  );
+
+  const selectedEmployeeFiles = selectedEmployeeId
+    ? filesByEmployee[selectedEmployeeId] ?? { employeeDocuments: [], paySlips: [] }
+    : { employeeDocuments: [], paySlips: [] };
+
+  const allEmployeeDocuments = employees.flatMap((employee) => {
+    const files = filesByEmployee[employee.id]?.employeeDocuments ?? [];
+    return files.map((file) => ({ employee, file }));
+  });
+
+  const handlePaySlipUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !supabase || !profile?.id) return;
+    if (!file || !supabase || !selectedEmployeeId) return;
 
     setUploadStatus({ type: "idle", message: "" });
-    setUploadingDoc(true);
+    setUploadingPaySlip(true);
 
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "dat";
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "pdf";
     const rawName = file.name.replace(/\.[^/.]+$/, "");
     const safeBaseName =
       rawName
@@ -181,23 +231,32 @@ export default function SalarieDashboardPage() {
         .trim()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "")
-        .slice(0, 80) || "document";
+        .slice(0, 80) || "fiche-paie";
 
-    const filePath = `${profile.id}/${Date.now()}-${safeBaseName}.${ext}`;
+    const filePath = `${selectedEmployeeId}/${Date.now()}-${safeBaseName}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
-      .from(EMPLOYEE_DOCS_BUCKET)
+      .from(PAY_SLIPS_BUCKET)
       .upload(filePath, file, { upsert: true });
 
     if (uploadError) {
       setUploadStatus({ type: "error", message: uploadError.message });
-      setUploadingDoc(false);
+      setUploadingPaySlip(false);
       return;
     }
 
-    setUploadStatus({ type: "success", message: "Document depose avec succes." });
-    await refreshFiles(profile.id);
-    setUploadingDoc(false);
+    const [employeeDocuments, paySlips] = await Promise.all([
+      listFiles(EMPLOYEE_DOCS_BUCKET, selectedEmployeeId),
+      listFiles(PAY_SLIPS_BUCKET, selectedEmployeeId),
+    ]);
+
+    setFilesByEmployee((prev) => ({
+      ...prev,
+      [selectedEmployeeId]: { employeeDocuments, paySlips },
+    }));
+
+    setUploadStatus({ type: "success", message: "Fiche de paie deposee avec succes." });
+    setUploadingPaySlip(false);
     event.currentTarget.value = "";
   };
 
@@ -221,18 +280,16 @@ export default function SalarieDashboardPage() {
     link.click();
   };
 
-  const handleDeleteDocument = async (path: string) => {
-    if (!supabase || !profile?.id) return;
+  const handleDeleteFile = async (bucket: string, employeeId: string, path: string) => {
+    if (!supabase) return;
 
-    const confirmDelete = window.confirm("Supprimer ce document ?");
+    const confirmDelete = window.confirm("Supprimer ce fichier ?");
     if (!confirmDelete) return;
 
-    setDeletingPath(path);
     setDeleteStatus({ type: "idle", message: "" });
+    setDeletingPath(path);
 
-    const { data: removedItems, error: deleteError } = await supabase.storage
-      .from(EMPLOYEE_DOCS_BUCKET)
-      .remove([path]);
+    const { data: removedItems, error: deleteError } = await supabase.storage.from(bucket).remove([path]);
 
     if (deleteError) {
       setDeleteStatus({ type: "error", message: deleteError.message });
@@ -249,8 +306,17 @@ export default function SalarieDashboardPage() {
       return;
     }
 
-    await refreshFiles(profile.id);
-    setDeleteStatus({ type: "success", message: "Document supprime." });
+    const [employeeDocuments, paySlips] = await Promise.all([
+      listFiles(EMPLOYEE_DOCS_BUCKET, employeeId),
+      listFiles(PAY_SLIPS_BUCKET, employeeId),
+    ]);
+
+    setFilesByEmployee((prev) => ({
+      ...prev,
+      [employeeId]: { employeeDocuments, paySlips },
+    }));
+
+    setDeleteStatus({ type: "success", message: "Fichier supprime." });
     setDeletingPath(null);
   };
 
@@ -260,7 +326,6 @@ export default function SalarieDashboardPage() {
     router.push("/auth");
   };
 
-  const isPending = profile?.professional_status === "pending";
   const isRejected = profile?.professional_status === "rejected";
   const sessionExpiry = useMemo(() => {
     if (!session?.expires_at) return null;
@@ -269,15 +334,17 @@ export default function SalarieDashboardPage() {
 
   return (
     <div className="min-h-screen bg-white text-[#0A1A2F]">
-      <div className="mx-auto max-w-5xl px-4 py-10 space-y-4">
+      <div className="mx-auto max-w-6xl px-4 py-10 space-y-4">
         <div className="flex items-center gap-3 text-sm uppercase tracking-wide text-[#0A1A2F]/70">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0A1A2F]/5 text-[#0A1A2F]">
-            <Shield className="h-4 w-4" />
+            <Users className="h-4 w-4" />
           </span>
-          <span>Espace salarie</span>
+          <span>Espace RH</span>
         </div>
-        <h1 className="text-3xl font-semibold">Dashboard Salarie</h1>
-        <p className="text-[#0A1A2F]/70">Acces interne RH pour les documents et fiches de paie.</p>
+        <h1 className="text-3xl font-semibold">Dashboard RH</h1>
+        <p className="text-[#0A1A2F]/70">
+          Consultation des documents salaries et depot des fiches de paie par employe.
+        </p>
 
         <div className="flex flex-wrap items-center gap-3">
           <Button
@@ -318,27 +385,19 @@ export default function SalarieDashboardPage() {
                 Compte refuse
               </CardTitle>
               <CardDescription className="text-red-800/80">
-                Ton compte n&apos;a pas ete valide. Acces au dashboard bloque.
+                Ton compte RH n&apos;a pas ete valide. Acces au dashboard bloque.
               </CardDescription>
             </CardHeader>
           </Card>
         ) : (
           <>
-            {isPending && (
-              <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-                <div>
-                  <p className="font-semibold text-amber-900">Statut en attente</p>
-                  <p>Certaines actions peuvent etre restreintes tant que le compte n&apos;est pas valide.</p>
-                </div>
-              </div>
-            )}
-
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm">
                 <CardHeader className="space-y-1">
                   <CardTitle className="text-xl">Profil</CardTitle>
-                  <CardDescription className="text-[#0A1A2F]/70">Donnees issues de la table profiles.</CardDescription>
+                  <CardDescription className="text-[#0A1A2F]/70">
+                    Donnees issues de la table profiles.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex items-center justify-between">
@@ -348,6 +407,12 @@ export default function SalarieDashboardPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-[#0A1A2F]/70">Nom</span>
                     <span className="font-medium">{profile?.full_name ?? "Non renseigne"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#0A1A2F]/70">Role</span>
+                    <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]">
+                      {profile?.role ?? "rh"}
+                    </Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-[#0A1A2F]/70">Statut</span>
@@ -400,20 +465,81 @@ export default function SalarieDashboardPage() {
                   </Button>
                 </CardContent>
               </Card>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm md:col-span-1">
+                <CardHeader className="space-y-1">
+                  <CardTitle className="text-xl">Comptes salaries</CardTitle>
+                  <CardDescription className="text-[#0A1A2F]/70">
+                    Liste complete des salaries ({employees.length}).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {employees.length ? (
+                    <div className="space-y-2">
+                      {employees.map((employee) => (
+                        <button
+                          key={employee.id}
+                          type="button"
+                          className={`w-full rounded border p-2 text-left ${
+                            selectedEmployeeId === employee.id
+                              ? "border-[#0A1A2F] bg-[#0A1A2F]/5"
+                              : "border-slate-200 bg-slate-50"
+                          }`}
+                          onClick={() => setSelectedEmployeeId(employee.id)}
+                        >
+                          <p className="font-medium">{employee.full_name ?? employee.email}</p>
+                          <p className="text-xs text-[#0A1A2F]/60">{employee.email}</p>
+                          <div className="mt-1">
+                            <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]">
+                              {employee.professional_status ?? "inconnu"}
+                            </Badge>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[#0A1A2F]/70">Aucun compte salarie trouve.</p>
+                  )}
+                </CardContent>
+              </Card>
 
               <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm md:col-span-2">
                 <CardHeader className="space-y-1">
-                  <CardTitle className="text-xl">Mes documents</CardTitle>
-                  <CardDescription className="text-[#0A1A2F]/70">Depose tes documents RH.</CardDescription>
+                  <CardTitle className="text-xl">Fiches de paie</CardTitle>
+                  <CardDescription className="text-[#0A1A2F]/70">
+                    Deposer une fiche de paie pour le salarie selectionne.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <input
-                    type="file"
-                    onChange={handleDocumentUpload}
-                    className="h-10 w-full border border-slate-300 px-3 text-sm"
-                    disabled={uploadingDoc || isPending}
-                  />
-                  {uploadingDoc && <p className="text-sm text-[#0A1A2F]/70">Upload en cours...</p>}
+                  <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+                    <select
+                      value={selectedEmployeeId}
+                      onChange={(event) => setSelectedEmployeeId(event.target.value)}
+                      className="h-10 border border-slate-300 px-3 text-sm"
+                    >
+                      {employees.map((employee) => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.full_name ?? employee.email} ({employee.email})
+                        </option>
+                      ))}
+                    </select>
+                    <label className="inline-flex h-10 cursor-pointer items-center justify-center border border-slate-300 px-3 text-sm">
+                      <Upload className="mr-2 h-4 w-4" />
+                      Deposer une fiche
+                      <input
+                        type="file"
+                        accept="application/pdf,image/*"
+                        className="hidden"
+                        onChange={handlePaySlipUpload}
+                        disabled={!selectedEmployeeId || uploadingPaySlip}
+                      />
+                    </label>
+                  </div>
+
+                  {uploadingPaySlip && <p className="text-sm text-[#0A1A2F]/70">Upload en cours...</p>}
+
                   {uploadStatus.type !== "idle" && (
                     <p className={`text-sm ${uploadStatus.type === "error" ? "text-red-700" : "text-emerald-700"}`}>
                       {uploadStatus.message}
@@ -424,13 +550,16 @@ export default function SalarieDashboardPage() {
                       {deleteStatus.message}
                     </p>
                   )}
+
                   <div className="space-y-2">
-                    <p className="text-sm font-medium">Documents deposes</p>
+                    <p className="text-sm font-medium">
+                      Fiches de paie de {selectedEmployee?.full_name ?? selectedEmployee?.email ?? "-"}
+                    </p>
                     {filesLoading ? (
                       <p className="text-sm text-[#0A1A2F]/70">Chargement...</p>
-                    ) : documents.length ? (
+                    ) : selectedEmployeeFiles.paySlips.length ? (
                       <div className="space-y-2">
-                        {documents.map((file) => (
+                        {selectedEmployeeFiles.paySlips.map((file) => (
                           <div
                             key={file.path}
                             className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
@@ -446,7 +575,7 @@ export default function SalarieDashboardPage() {
                                 size="sm"
                                 variant="outline"
                                 className="border-slate-300 text-[#0A1A2F]"
-                                onClick={() => handleDownload(EMPLOYEE_DOCS_BUCKET, file.path, file.name)}
+                                onClick={() => handleDownload(PAY_SLIPS_BUCKET, file.path, file.name)}
                               >
                                 <ArrowDownToLine className="mr-2 h-4 w-4" />
                                 Telecharger
@@ -456,7 +585,7 @@ export default function SalarieDashboardPage() {
                                 variant="outline"
                                 className="border-red-300 text-red-700 hover:bg-red-50"
                                 disabled={deletingPath === file.path}
-                                onClick={() => void handleDeleteDocument(file.path)}
+                                onClick={() => void handleDeleteFile(PAY_SLIPS_BUCKET, selectedEmployeeId, file.path)}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Supprimer
@@ -466,51 +595,68 @@ export default function SalarieDashboardPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-[#0A1A2F]/70">Aucun document depose.</p>
+                      <p className="text-sm text-[#0A1A2F]/70">Aucune fiche de paie pour ce salarie.</p>
                     )}
                   </div>
                 </CardContent>
               </Card>
+            </div>
 
-              <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm md:col-span-2">
-                <CardHeader className="space-y-1">
-                  <CardTitle className="text-xl">Fiches de paie RH</CardTitle>
-                  <CardDescription className="text-[#0A1A2F]/70">Documents de paie deposes pour ton compte.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {filesLoading ? (
-                    <p className="text-sm text-[#0A1A2F]/70">Chargement...</p>
-                  ) : paySlips.length ? (
-                    <div className="space-y-2">
-                      {paySlips.map((file) => (
-                        <div
-                          key={file.path}
-                          className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-                        >
-                          <div>
-                            <p className="font-medium">{file.name}</p>
-                            <p className="text-xs text-[#0A1A2F]/60">
-                              {file.createdAt ? new Date(file.createdAt).toLocaleDateString() : "-"} | {formatBytes(file.size)}
-                            </p>
-                          </div>
+            <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm">
+              <CardHeader className="space-y-1">
+                <CardTitle className="text-xl">Tous les documents deposes par les salaries</CardTitle>
+                <CardDescription className="text-[#0A1A2F]/70">
+                  Vue globale sur les documents RH de tous les comptes salaries.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {filesLoading ? (
+                  <p className="text-sm text-[#0A1A2F]/70">Chargement...</p>
+                ) : allEmployeeDocuments.length ? (
+                  <div className="space-y-2">
+                    {allEmployeeDocuments.map(({ employee, file }) => (
+                      <div
+                        key={`${employee.id}-${file.path}`}
+                        className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                      >
+                        <div>
+                          <p className="font-medium">{file.name}</p>
+                          <p className="text-xs text-[#0A1A2F]/60">
+                            {employee.full_name ?? employee.email} | {employee.email}
+                          </p>
+                          <p className="text-xs text-[#0A1A2F]/60">
+                            {file.createdAt ? new Date(file.createdAt).toLocaleDateString() : "-"} | {formatBytes(file.size)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
                           <Button
                             size="sm"
                             variant="outline"
                             className="border-slate-300 text-[#0A1A2F]"
-                            onClick={() => handleDownload(PAY_SLIPS_BUCKET, file.path, file.name)}
+                            onClick={() => handleDownload(EMPLOYEE_DOCS_BUCKET, file.path, file.name)}
                           >
                             <ArrowDownToLine className="mr-2 h-4 w-4" />
                             Telecharger
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-red-300 text-red-700 hover:bg-red-50"
+                            disabled={deletingPath === file.path}
+                            onClick={() => void handleDeleteFile(EMPLOYEE_DOCS_BUCKET, employee.id, file.path)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Supprimer
+                          </Button>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-[#0A1A2F]/70">Aucune fiche de paie disponible.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[#0A1A2F]/70">Aucun document salarie trouve.</p>
+                )}
+              </CardContent>
+            </Card>
           </>
         )}
 

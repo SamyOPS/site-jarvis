@@ -235,7 +235,7 @@ export default function DashboardPage() {
   };
 
   const isProfileActionable = (role: string | null) =>
-    role === "professional" || role === "salarie";
+    role === "professional" || role === "salarie" || role === "rh";
 
   const slugify = (value: string) =>
     value
