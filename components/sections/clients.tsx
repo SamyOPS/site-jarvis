@@ -30,7 +30,7 @@ interface ClientsRowProps {
 function ClientCard({ client }: { client: ClientLogo }) {
   return (
     <div
-      className="relative z-0 flex h-16 w-[6.25rem] shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white p-1.5 text-[#0A1A2F] shadow-[0_8px_24px_rgba(0,0,0,0.12)] transition duration-300 hover:z-10 hover:scale-[1.03] hover:border-white/30 hover:shadow-[0_14px_34px_rgba(0,0,0,0.18)] sm:h-28 sm:w-40"
+      className="relative z-0 flex h-16 w-[6.25rem] shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white p-1.5 text-[#0A1A2F] shadow-[0_6px_18px_rgba(0,0,0,0.10)] transition-[transform,box-shadow,border-color] duration-300 will-change-transform hover:z-10 hover:scale-[1.03] hover:border-white/30 hover:shadow-[0_10px_26px_rgba(0,0,0,0.14)] sm:h-28 sm:w-40"
     >
       <img
         src={client.logo}
@@ -46,8 +46,8 @@ function ClientCard({ client }: { client: ClientLogo }) {
             : {}),
           filter:
             client.name === "Aramis" || client.name === "Ricco"
-              ? "drop-shadow(0 1px 1px rgba(0,0,0,0.45)) drop-shadow(0 0 6px rgba(0,0,0,0.22))"
-              : "drop-shadow(0 1px 1px rgba(0,0,0,0.35))",
+              ? "drop-shadow(0 1px 1px rgba(0,0,0,0.28)) drop-shadow(0 0 4px rgba(0,0,0,0.14))"
+              : "drop-shadow(0 1px 1px rgba(0,0,0,0.22))",
         }}
       />
     </div>
@@ -171,7 +171,7 @@ function ClientsRow({ items, rowKey, direction, speed }: ClientsRowProps) {
       >
         <div
           ref={trackRef}
-          className="flex w-max gap-2 sm:gap-4 select-none touch-pan-y"
+          className="flex w-max gap-2 select-none touch-pan-y [backface-visibility:hidden] [transform:translateZ(0)] [will-change:transform] sm:gap-4"
         >
           {duplicatedItems.map((client, index) => (
             <ClientCard key={`${rowKey}-${client.name}-${index}`} client={client} />
