@@ -1,8 +1,7 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-
 
 interface ClientLogo {
   name: string;
@@ -21,6 +20,168 @@ interface ClientsProps {
   author?: string;
 }
 
+interface ClientsRowProps {
+  items: ClientLogo[];
+  rowKey: string;
+  direction: "left" | "right";
+  speed: number;
+}
+
+function ClientCard({ client }: { client: ClientLogo }) {
+  return (
+    <div
+      className="relative z-0 flex h-16 w-[6.25rem] shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white p-1.5 text-[#0A1A2F] shadow-[0_8px_24px_rgba(0,0,0,0.12)] transition duration-300 hover:z-10 hover:scale-[1.03] hover:border-white/30 hover:shadow-[0_14px_34px_rgba(0,0,0,0.18)] sm:h-28 sm:w-40"
+    >
+      <img
+        src={client.logo}
+        alt={client.name}
+        className="pointer-events-none max-h-8 max-w-[72%] object-contain select-none sm:max-h-16"
+        draggable={false}
+        style={{
+          ...(client.logoScale
+            ? {
+                maxWidth: `${80 * client.logoScale}%`,
+                maxHeight: `${56 * client.logoScale}px`,
+              }
+            : {}),
+          filter:
+            client.name === "Aramis" || client.name === "Ricco"
+              ? "drop-shadow(0 1px 1px rgba(0,0,0,0.45)) drop-shadow(0 0 6px rgba(0,0,0,0.22))"
+              : "drop-shadow(0 1px 1px rgba(0,0,0,0.35))",
+        }}
+      />
+    </div>
+  );
+}
+
+function normalizeOffset(offset: number, loopWidth: number) {
+  if (loopWidth <= 0) return offset;
+
+  let nextOffset = offset;
+
+  while (nextOffset <= -loopWidth) {
+    nextOffset += loopWidth;
+  }
+
+  while (nextOffset > 0) {
+    nextOffset -= loopWidth;
+  }
+
+  return nextOffset;
+}
+
+function ClientsRow({ items, rowKey, direction, speed }: ClientsRowProps) {
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const frameRef = useRef<number | null>(null);
+  const lastTimeRef = useRef<number | null>(null);
+  const offsetRef = useRef(direction === "right" ? -1 : 0);
+  const loopWidthRef = useRef(0);
+  const draggingRef = useRef(false);
+  const lastPointerXRef = useRef(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const duplicatedItems = [...items, ...items];
+
+  const applyOffset = useCallback((value: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+    track.style.transform = `translate3d(${value}px, 0, 0)`;
+  }, []);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const updateLoopWidth = () => {
+      loopWidthRef.current = track.scrollWidth / 2;
+      const baseOffset = direction === "right" ? -loopWidthRef.current : 0;
+      offsetRef.current =
+        offsetRef.current === -1 ? baseOffset : normalizeOffset(offsetRef.current, loopWidthRef.current);
+      applyOffset(offsetRef.current);
+    };
+
+    updateLoopWidth();
+
+    const resizeObserver = new ResizeObserver(updateLoopWidth);
+    resizeObserver.observe(track);
+
+    return () => resizeObserver.disconnect();
+  }, [applyOffset, direction, duplicatedItems.length]);
+
+  useEffect(() => {
+    const step = (time: number) => {
+      if (lastTimeRef.current === null) {
+        lastTimeRef.current = time;
+      }
+
+      const delta = (time - lastTimeRef.current) / 1000;
+      lastTimeRef.current = time;
+
+      if (!draggingRef.current && loopWidthRef.current > 0) {
+        const distance = speed * delta * (direction === "left" ? -1 : 1);
+        offsetRef.current = normalizeOffset(offsetRef.current + distance, loopWidthRef.current);
+        applyOffset(offsetRef.current);
+      }
+
+      frameRef.current = requestAnimationFrame(step);
+    };
+
+    frameRef.current = requestAnimationFrame(step);
+
+    return () => {
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+      }
+    };
+  }, [applyOffset, direction, speed]);
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    draggingRef.current = true;
+    setIsDragging(true);
+    lastPointerXRef.current = event.clientX;
+    target.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current || loopWidthRef.current <= 0) return;
+
+    const deltaX = event.clientX - lastPointerXRef.current;
+    lastPointerXRef.current = event.clientX;
+    offsetRef.current = normalizeOffset(offsetRef.current + deltaX, loopWidthRef.current);
+    applyOffset(offsetRef.current);
+  };
+
+  const stopDragging = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (draggingRef.current && event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    draggingRef.current = false;
+    setIsDragging(false);
+  };
+
+  return (
+    <div className="overflow-x-hidden overflow-y-visible py-1 sm:py-1.5">
+      <div
+        className={`cursor-grab overflow-y-visible ${isDragging ? "cursor-grabbing" : ""}`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={stopDragging}
+        onPointerCancel={stopDragging}
+      >
+        <div
+          ref={trackRef}
+          className="flex w-max gap-2 sm:gap-4 select-none touch-pan-y"
+        >
+          {duplicatedItems.map((client, index) => (
+            <ClientCard key={`${rowKey}-${client.name}-${index}`} client={client} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Clients({
   tag = "Nos Références clients",
   title = "Ils nous font confiance",
@@ -28,7 +189,7 @@ export function Clients({
   clients = [],
   highlightLogo,
   quote,
-  author
+  author,
 }: ClientsProps) {
   const splitIndex = Math.ceil(clients.length / 2);
   const topRowClients = clients.slice(0, splitIndex);
@@ -113,71 +274,28 @@ export function Clients({
         </div>
       </div>
 
-
       <div className="mx-auto max-w-[96rem] px-6 pb-16 lg:px-10 xl:px-20 lg:pb-20">
         <motion.div
-          className="relative overflow-hidden p-0 sm:p-2"
+          className="relative overflow-x-hidden overflow-y-visible px-0 py-3 sm:px-2 sm:py-5"
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.2 }}
           transition={{ duration: 0.55, ease: "easeOut", delay: 0.08 }}
         >
-          <div className="relative group space-y-2 sm:space-y-4">
-            {([
-              { items: topRowClients, animationClass: "clients-row-left", row: "top" },
-              { items: bottomRowClients.length ? bottomRowClients : topRowClients, animationClass: "clients-row-right", row: "bottom" },
-            ] as const).map(({ items, animationClass, row }) => (
-              <div key={row} className="overflow-hidden">
-                <div className={`flex w-max gap-2 sm:gap-4 ${animationClass}`}>
-                  {[...items, ...items].map((client, index) => (
-                    <div
-                      key={`${row}-${client.name}-${index}`}
-                      className="flex h-16 w-[6.25rem] shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white p-1.5 text-[#0A1A2F] shadow-[0_8px_24px_rgba(0,0,0,0.12)] transition hover:-translate-y-1 hover:border-white/30 sm:h-28 sm:w-40"
-                    >
-                      <img
-                        src={client.logo}
-                        alt={client.name}
-                        className="max-h-8 max-w-[72%] object-contain sm:max-h-16"
-                        style={{
-                          ...(client.logoScale ? { maxWidth: `${80 * client.logoScale}%`, maxHeight: `${56 * client.logoScale}px` } : {}),
-                          filter:
-                            client.name === "Aramis" || client.name === "Ricco"
-                              ? "drop-shadow(0 1px 1px rgba(0,0,0,0.45)) drop-shadow(0 0 6px rgba(0,0,0,0.22))"
-                              : "drop-shadow(0 1px 1px rgba(0,0,0,0.35))",
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="relative space-y-0.5 sm:space-y-1">
+            <ClientsRow items={topRowClients} rowKey="top" direction="left" speed={18} />
+            <ClientsRow
+              items={bottomRowClients.length ? bottomRowClients : topRowClients}
+              rowKey="bottom"
+              direction="right"
+              speed={16}
+            />
           </div>
 
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-4 sm:w-8 bg-gradient-to-r from-[#050B14] via-[#050B14]/50 to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-4 sm:w-8 bg-gradient-to-l from-[#050B14] via-[#050B14]/50 to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-[#050B14] via-[#050B14]/50 to-transparent sm:w-8" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-[#050B14] via-[#050B14]/50 to-transparent sm:w-8" />
         </motion.div>
       </div>
-      <style jsx>{`
-        @keyframes clientsMarqueeLeft {
-          from { transform: translateX(0); }
-          to { transform: translateX(calc(-50% - 0.5rem)); }
-        }
-
-        @keyframes clientsMarqueeRight {
-          from { transform: translateX(calc(-50% - 0.5rem)); }
-          to { transform: translateX(0); }
-        }
-
-        .clients-row-left {
-          animation: clientsMarqueeLeft 42s linear infinite;
-          will-change: transform;
-        }
-
-        .clients-row-right {
-          animation: clientsMarqueeRight 46s linear infinite;
-          will-change: transform;
-        }
-      `}</style>
     </section>
   );
 }
