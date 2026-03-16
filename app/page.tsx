@@ -216,6 +216,12 @@ export default function Home() {
 
     { src: "/partenaire/iris.png", alt: "IRIS" },
 
+    { src: "/partenaire/inops.png", alt: "INOPS" },
+
+    { src: "/partenaire/tds.png", alt: "TDS" },
+
+    { src: "/partenaire/spie.png", alt: "SPIE" },
+
   ];
 
 
