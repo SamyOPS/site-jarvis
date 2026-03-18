@@ -56,6 +56,12 @@ const formatMonth = (value: string | null) => {
   return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 };
 
+const normalizeDocumentLabel = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
 export default function SalarieWorkspace() {
   const router = useRouter();
   const pathname = usePathname();
@@ -72,6 +78,7 @@ export default function SalarieWorkspace() {
   const [uploadingRequestId, setUploadingRequestId] = useState<string | null>(null);
   const [downloadingDocumentId, setDownloadingDocumentId] = useState<string | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadDialogMode, setUploadDialogMode] = useState<"default" | "cra_facture">("default");
   const [selectedRequestId, setSelectedRequestId] = useState("");
   const [uploadDocumentTypeId, setUploadDocumentTypeId] = useState("");
   const [uploadPeriodMonth, setUploadPeriodMonth] = useState("");
@@ -294,6 +301,7 @@ export default function SalarieWorkspace() {
   }, [loadDashboardData, profile, user]);
 
   const resetUploadDialog = useCallback(() => {
+    setUploadDialogMode("default");
     setSelectedRequestId("");
     setUploadDocumentTypeId("");
     setUploadPeriodMonth("");
@@ -317,6 +325,7 @@ export default function SalarieWorkspace() {
 
   const openUploadDialog = useCallback((requestId?: string) => {
     const request = requestId ? requests.find((item) => item.id === requestId) ?? null : null;
+    setUploadDialogMode("default");
     setSelectedRequestId(request?.id ?? "");
     setUploadDocumentTypeId(request?.documentTypeId ?? "");
     setUploadPeriodMonth(request?.periodMonth ? request.periodMonth.slice(0, 7) : "");
@@ -324,6 +333,16 @@ export default function SalarieWorkspace() {
     setActionMessage(null);
     setUploadDialogOpen(true);
   }, [requests]);
+
+  const openCraFactureDialog = useCallback(() => {
+    setUploadDialogMode("cra_facture");
+    setSelectedRequestId("");
+    setUploadDocumentTypeId("");
+    setUploadPeriodMonth("");
+    setUploadFile(null);
+    setActionMessage(null);
+    setUploadDialogOpen(true);
+  }, []);
 
   const openEditDialog = useCallback((document: DocumentRow) => {
     if (document.status === "validated") {
@@ -591,6 +610,8 @@ export default function SalarieWorkspace() {
   const currentSubSection =
     pathname.startsWith("/dashboard/salarie/documents/a-deposer")
       ? "docs_a_deposer"
+      : pathname.startsWith("/dashboard/salarie/documents/cra-facture")
+        ? "docs_cra_facture"
       : pathname.startsWith("/dashboard/salarie/documents")
         ? "docs_tous"
         : pathname.startsWith("/dashboard/salarie/candidatures")
@@ -611,6 +632,30 @@ export default function SalarieWorkspace() {
     () => requests.find((request) => request.id === selectedRequestId) ?? null,
     [requests, selectedRequestId],
   );
+  const craFactureDocumentTypes = useMemo(
+    () =>
+      documentTypes.filter((documentType) => {
+        const normalizedLabel = normalizeDocumentLabel(documentType.label);
+        return normalizedLabel.includes("cra") || normalizedLabel.includes("facture");
+      }),
+    [documentTypes],
+  );
+  const availableUploadDocumentTypes = uploadDialogMode === "cra_facture" ? craFactureDocumentTypes : documentTypes;
+  const filteredDocuments = useMemo(() => {
+    if (currentSubSection === "docs_cra_facture") {
+      return documents.filter((document) => {
+        const normalizedLabel = normalizeDocumentLabel(document.typeLabel);
+        return normalizedLabel.includes("cra") || normalizedLabel.includes("facture");
+      });
+    }
+    return documents;
+  }, [currentSubSection, documents]);
+  const documentsCardTitle =
+    currentSubSection === "docs_a_deposer"
+      ? "Documents a deposer"
+      : currentSubSection === "docs_cra_facture"
+        ? "CRA & Facture"
+          : "Mes documents";
   const displayName = useMemo(() => {
     const meta = (user?.user_metadata ?? {}) as { full_name?: string; name?: string; display_name?: string };
     return meta.full_name ?? meta.name ?? meta.display_name ?? profile?.full_name ?? profile?.email ?? "utilisateur";
@@ -629,6 +674,7 @@ export default function SalarieWorkspace() {
                 <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
                   <Link href="/dashboard/salarie/documents/a-deposer" className={`block py-1 ${currentSubSection === "docs_a_deposer" ? "font-semibold" : ""}`}>A deposer</Link>
                   <Link href="/dashboard/salarie/documents" className={`block py-1 ${currentSubSection === "docs_tous" ? "font-semibold" : ""}`}>Tous mes documents</Link>
+                  <Link href="/dashboard/salarie/documents/cra-facture" className={`block py-1 ${currentSubSection === "docs_cra_facture" ? "font-semibold" : ""}`}>CRA & Facture</Link>
                 </div>
               )}
               <Link href="/dashboard/salarie/offres" className={`block px-1 py-2 hover:underline ${currentSection === "offres" ? "font-semibold" : ""}`}>Offres d&apos;emploi</Link>
@@ -698,10 +744,17 @@ export default function SalarieWorkspace() {
           {currentSection === "documents" && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>{currentSubSection === "docs_a_deposer" ? "Documents a deposer" : "Mes documents"}</CardTitle>
-                <Button type="button" variant="outline" size="sm" onClick={() => openUploadDialog()}>
-                  Deposer un document
-                </Button>
+                <CardTitle>{documentsCardTitle}</CardTitle>
+                <div className="flex flex-wrap items-center gap-2">
+                  {currentSubSection === "docs_cra_facture" && (
+                    <Button type="button" size="sm" onClick={() => openCraFactureDialog()}>
+                      Creer mon CRA/Facture
+                    </Button>
+                  )}
+                  <Button type="button" variant="outline" size="sm" onClick={() => openUploadDialog()}>
+                    Deposer un document
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {currentSubSection === "docs_a_deposer" ? (
@@ -731,14 +784,14 @@ export default function SalarieWorkspace() {
                       )) : <p className="text-sm text-[#0A1A2F]/70">Aucune demande RH ouverte pour le moment.</p>}
                     </div>
                   </div>
-                ) : documents.length ? (
+                ) : filteredDocuments.length ? (
                   <div className="overflow-x-auto rounded-lg border border-slate-200">
                     <table className="min-w-full text-sm">
                       <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70">
                         <tr><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Depose le</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 bg-white">
-                        {documents.map((document) => (
+                        {filteredDocuments.map((document) => (
                           <tr key={document.id}>
                             <td className="px-3 py-2">{document.typeLabel}</td>
                             <td className="px-3 py-2">{document.fileName}</td>
@@ -779,7 +832,7 @@ export default function SalarieWorkspace() {
                       </tbody>
                     </table>
                   </div>
-                ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document depose pour le moment.</p>}
+                ) : <p className="text-sm text-[#0A1A2F]/70">{currentSubSection === "docs_cra_facture" ? "Aucun CRA ou facture depose pour le moment." : "Aucun document depose pour le moment."}</p>}
               </CardContent>
             </Card>
           )}
@@ -823,9 +876,11 @@ export default function SalarieWorkspace() {
       >
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Deposer un document</DialogTitle>
+            <DialogTitle>{uploadDialogMode === "cra_facture" ? "Creer mon CRA/Facture" : "Deposer un document"}</DialogTitle>
             <DialogDescription>
-              Le depot peut etre libre ou rattache a une demande RH ouverte.
+              {uploadDialogMode === "cra_facture"
+                ? "Choisis un type CRA ou Facture puis ajoute le fichier a deposer."
+                : "Le depot peut etre libre ou rattache a une demande RH ouverte."}
             </DialogDescription>
           </DialogHeader>
 
@@ -856,7 +911,7 @@ export default function SalarieWorkspace() {
                   className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm disabled:bg-slate-100"
                 >
                   <option value="">Choisir un type</option>
-                  {documentTypes.map((documentType) => (
+                  {availableUploadDocumentTypes.map((documentType) => (
                     <option key={documentType.id} value={documentType.id}>{documentType.label}</option>
                   ))}
                 </select>

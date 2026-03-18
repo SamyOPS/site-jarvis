@@ -689,10 +689,11 @@ export default function RhWorkspace() {
                 {currentSubSection === "collab_detail" && selectedEmployee && activeDraft ? (
                   <div className="space-y-4 text-sm">
                     <Button asChild variant="outline" size="sm"><Link href="/dashboard/rh/collaborateurs">Retour</Link></Button>
-                    <div className="grid gap-3 md:grid-cols-2">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                       <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">Nom</p><input value={activeDraft.full_name} onChange={(event) => setEmployeeDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeDraft, full_name: event.target.value } }))} className="mt-1 h-9 w-full border border-slate-300 px-2 text-sm" /></div>
                       <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">Email</p><p className="font-medium">{selectedEmployee.email}</p></div>
                       <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">Telephone</p><input value={activeDraft.phone} onChange={(event) => setEmployeeDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeDraft, phone: event.target.value } }))} className="mt-1 h-9 w-full border border-slate-300 px-2 text-sm" /></div>
+                      <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">Entreprise</p><input value={activeDraft.company_name} onChange={(event) => setEmployeeDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeDraft, company_name: event.target.value } }))} className="mt-1 h-9 w-full border border-slate-300 px-2 text-sm" placeholder="Nom de l'entreprise" /></div>
                       <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">Statut</p><select value={activeDraft.employment_status} onChange={(event) => setEmployeeDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeDraft, employment_status: event.target.value } }))} className="mt-1 h-9 w-full border border-slate-300 px-2 text-sm"><option value="active">active</option><option value="inactive">inactive</option><option value="exited">exited</option></select></div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -722,9 +723,9 @@ export default function RhWorkspace() {
                   </div>
                 ) : (
                   <div className="overflow-x-auto rounded-lg border border-slate-200">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Nom</th><th className="px-3 py-2">Email</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Demandes ouvertes</th></tr></thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">{collaborateursRows.map((employee) => <tr key={employee.id}><td className="px-3 py-2"><Link href={`/dashboard/rh/collaborateurs/${employee.id}`} className="hover:underline">{employee.full_name ?? "-"}</Link></td><td className="px-3 py-2">{employee.email}</td><td className="px-3 py-2">{employee.employment_status ?? "-"}</td><td className="px-3 py-2">{requests.filter((request) => request.employeeId === employee.id && ["pending", "uploaded", "rejected", "expired"].includes(request.status)).length}</td></tr>)}</tbody>
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Nom</th><th className="px-3 py-2">Entreprise</th><th className="px-3 py-2">Email</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Demandes ouvertes</th></tr></thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">{collaborateursRows.map((employee) => <tr key={employee.id}><td className="px-3 py-2"><Link href={`/dashboard/rh/collaborateurs/${employee.id}`} className="hover:underline">{employee.full_name ?? "-"}</Link></td><td className="px-3 py-2">{employee.company_name ?? "-"}</td><td className="px-3 py-2">{employee.email}</td><td className="px-3 py-2">{employee.employment_status ?? "-"}</td><td className="px-3 py-2">{requests.filter((request) => request.employeeId === employee.id && ["pending", "uploaded", "rejected", "expired"].includes(request.status)).length}</td></tr>)}</tbody>
                     </table>
                   </div>
                 )}
