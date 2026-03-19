@@ -1334,7 +1334,7 @@ export default function SalarieWorkspace() {
                       </tbody>
                     </table>
                   </div>
-                ) : <p className="text-sm text-[#0A1A2F]/70">{currentSubSection === "docs_cra_facture" ? "Aucun CRA ou facture depose pour le moment." : "Aucun document depose pour le moment."}</p>}
+                ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document depose pour le moment.</p>}
               </CardContent>
             </Card>
           )}
