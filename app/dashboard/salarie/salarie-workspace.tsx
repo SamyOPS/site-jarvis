@@ -39,6 +39,41 @@ type DocumentRow = {
   storagePath: string;
 };
 
+type BillingProfileFormState = {
+  firstName: string;
+  lastName: string;
+  companyName: string;
+  esnPartenaire: string;
+  addressLine1: string;
+  addressLine2: string;
+  postalCode: string;
+  city: string;
+  country: string;
+  phone: string;
+  email: string;
+  siret: string;
+  iban: string;
+  bic: string;
+  dailyRate: string;
+};
+
+type CraSummaryRow = {
+  id: string;
+  period_month: string;
+  status: string;
+  worked_days_count: number;
+  pdf_version: number;
+  employee_document_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type CraEntryDraft = {
+  workDate: string;
+  dayQuantity: string;
+  label: string;
+};
+
 const normalizeJoinOne = <T,>(value: T | T[] | null | undefined): T | null => {
   if (!value) return null;
   return Array.isArray(value) ? (value[0] ?? null) : value;
@@ -56,6 +91,38 @@ const formatMonth = (value: string | null) => {
   return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 };
 
+const normalizeDocumentLabel = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const emptyBillingProfileForm = (): BillingProfileFormState => ({
+  firstName: "",
+  lastName: "",
+  companyName: "",
+  esnPartenaire: "",
+  addressLine1: "",
+  addressLine2: "",
+  postalCode: "",
+  city: "",
+  country: "France",
+  phone: "",
+  email: "",
+  siret: "",
+  iban: "",
+  bic: "",
+  dailyRate: "",
+});
+
+const emptyCraEntry = (): CraEntryDraft => ({
+  workDate: "",
+  dayQuantity: "1",
+  label: "",
+});
+
+const currentMonthInputValue = () => new Date().toISOString().slice(0, 7);
+
 export default function SalarieWorkspace() {
   const router = useRouter();
   const pathname = usePathname();
@@ -72,6 +139,7 @@ export default function SalarieWorkspace() {
   const [uploadingRequestId, setUploadingRequestId] = useState<string | null>(null);
   const [downloadingDocumentId, setDownloadingDocumentId] = useState<string | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadDialogMode, setUploadDialogMode] = useState<"default" | "cra_facture">("default");
   const [selectedRequestId, setSelectedRequestId] = useState("");
   const [uploadDocumentTypeId, setUploadDocumentTypeId] = useState("");
   const [uploadPeriodMonth, setUploadPeriodMonth] = useState("");
@@ -85,6 +153,19 @@ export default function SalarieWorkspace() {
   const [savingDocumentId, setSavingDocumentId] = useState<string | null>(null);
   const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [billingProfileForm, setBillingProfileForm] = useState<BillingProfileFormState>(emptyBillingProfileForm);
+  const [billingProfileReady, setBillingProfileReady] = useState(false);
+  const [billingProfileLoading, setBillingProfileLoading] = useState(false);
+  const [billingProfileSaving, setBillingProfileSaving] = useState(false);
+  const [craItems, setCraItems] = useState<CraSummaryRow[]>([]);
+  const [craLoading, setCraLoading] = useState(false);
+  const [selectedCraId, setSelectedCraId] = useState<string | null>(null);
+  const [craPeriodMonth, setCraPeriodMonth] = useState(currentMonthInputValue);
+  const [craNotes, setCraNotes] = useState("");
+  const [craEntries, setCraEntries] = useState<CraEntryDraft[]>([emptyCraEntry()]);
+  const [craSaving, setCraSaving] = useState(false);
+  const [craGenerating, setCraGenerating] = useState(false);
+  const [craDeleting, setCraDeleting] = useState(false);
 
   const loadDashboardData = useCallback(async (profileId: string) => {
     if (!supabase) return;
@@ -216,6 +297,124 @@ export default function SalarieWorkspace() {
     void load();
   }, [loadDashboardData, router]);
 
+  const callSalarieApi = useCallback(async (path: string, init?: RequestInit) => {
+    if (!supabase) {
+      throw new Error("Configuration Supabase manquante.");
+    }
+
+    const { data, error } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (error || !accessToken) {
+      throw new Error(error?.message ?? "Session salarie manquante.");
+    }
+
+    const response = await fetch(path, {
+      ...init,
+      headers: {
+        ...(init?.headers ?? {}),
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (!response.ok) {
+      throw new Error(payload?.error ?? "Requete salarie impossible.");
+    }
+    return payload;
+  }, []);
+
+  const loadBillingProfile = useCallback(async () => {
+    setBillingProfileLoading(true);
+    try {
+      const payload = (await callSalarieApi("/api/salarie/billing-profile")) as {
+        profile?: {
+          first_name: string;
+          last_name: string;
+          company_name: string;
+          esn_partenaire: string | null;
+          address_line_1: string;
+          address_line_2: string | null;
+          postal_code: string;
+          city: string;
+          country: string;
+          phone: string;
+          email: string;
+          siret: string;
+          iban: string;
+          bic: string;
+          daily_rate: number;
+        } | null;
+      };
+
+      if (!payload.profile) {
+        setBillingProfileReady(false);
+        setBillingProfileForm((prev) => ({
+          ...prev,
+          firstName: prev.firstName || "",
+          lastName: prev.lastName || "",
+          companyName: prev.companyName || "",
+          esnPartenaire: prev.esnPartenaire || "",
+          phone: prev.phone || "",
+          email: prev.email || profile?.email || "",
+        }));
+        return;
+      }
+
+      setBillingProfileForm({
+        firstName: payload.profile.first_name,
+        lastName: payload.profile.last_name,
+        companyName: payload.profile.company_name,
+        esnPartenaire: payload.profile.esn_partenaire ?? "",
+        addressLine1: payload.profile.address_line_1,
+        addressLine2: payload.profile.address_line_2 ?? "",
+        postalCode: payload.profile.postal_code,
+        city: payload.profile.city,
+        country: payload.profile.country,
+        phone: payload.profile.phone,
+        email: payload.profile.email,
+        siret: payload.profile.siret,
+        iban: payload.profile.iban,
+        bic: payload.profile.bic,
+        dailyRate: String(payload.profile.daily_rate ?? ""),
+      });
+      setBillingProfileReady(true);
+    } finally {
+      setBillingProfileLoading(false);
+    }
+  }, [callSalarieApi, profile?.email]);
+
+  const loadCraItems = useCallback(async () => {
+    setCraLoading(true);
+    try {
+      const payload = (await callSalarieApi("/api/salarie/cra")) as { items?: CraSummaryRow[] };
+      setCraItems(payload.items ?? []);
+    } finally {
+      setCraLoading(false);
+    }
+  }, [callSalarieApi]);
+
+  const loadCraDetail = useCallback(async (craId: string) => {
+    const payload = (await callSalarieApi(`/api/salarie/cra/${craId}`)) as {
+      cra?: { id: string; period_month: string; notes: string | null };
+      entries?: { work_date: string; day_quantity: number; label: string | null }[];
+    };
+    if (!payload.cra) {
+      throw new Error("CRA introuvable.");
+    }
+
+    setSelectedCraId(payload.cra.id);
+    setCraPeriodMonth(payload.cra.period_month.slice(0, 7));
+    setCraNotes(payload.cra.notes ?? "");
+    setCraEntries(
+      payload.entries?.length
+        ? payload.entries.map((entry) => ({
+            workDate: entry.work_date,
+            dayQuantity: String(entry.day_quantity),
+            label: entry.label ?? "",
+          }))
+        : [emptyCraEntry()],
+    );
+  }, [callSalarieApi]);
+
   const uploadDocument = useCallback(async (args: {
     file: File;
     documentTypeId: string;
@@ -294,6 +493,7 @@ export default function SalarieWorkspace() {
   }, [loadDashboardData, profile, user]);
 
   const resetUploadDialog = useCallback(() => {
+    setUploadDialogMode("default");
     setSelectedRequestId("");
     setUploadDocumentTypeId("");
     setUploadPeriodMonth("");
@@ -317,6 +517,7 @@ export default function SalarieWorkspace() {
 
   const openUploadDialog = useCallback((requestId?: string) => {
     const request = requestId ? requests.find((item) => item.id === requestId) ?? null : null;
+    setUploadDialogMode("default");
     setSelectedRequestId(request?.id ?? "");
     setUploadDocumentTypeId(request?.documentTypeId ?? "");
     setUploadPeriodMonth(request?.periodMonth ? request.periodMonth.slice(0, 7) : "");
@@ -578,6 +779,118 @@ export default function SalarieWorkspace() {
     setDownloadingDocumentId(null);
   }, []);
 
+  const resetCraEditor = useCallback(() => {
+    setSelectedCraId(null);
+    setCraPeriodMonth(currentMonthInputValue());
+    setCraNotes("");
+    setCraEntries([emptyCraEntry()]);
+  }, []);
+
+  const handleBillingProfileSave = useCallback(async () => {
+    try {
+      setBillingProfileSaving(true);
+      setActionMessage(null);
+      await callSalarieApi("/api/salarie/billing-profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(billingProfileForm),
+      });
+      setBillingProfileReady(true);
+      setActionMessage("Profil de facturation enregistre.");
+      await loadBillingProfile();
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Enregistrement du profil impossible.");
+    } finally {
+      setBillingProfileSaving(false);
+    }
+  }, [billingProfileForm, callSalarieApi, loadBillingProfile]);
+
+  const handleSaveCra = useCallback(async () => {
+    if (!billingProfileReady) {
+      setActionMessage("Renseigne d'abord ton profil de facturation.");
+      return;
+    }
+
+    try {
+      setCraSaving(true);
+      setActionMessage(null);
+      const payload = {
+        periodMonth: craPeriodMonth,
+        notes: craNotes,
+        entries: craEntries.filter((entry) => entry.workDate.trim()).map((entry) => ({
+          workDate: entry.workDate,
+          dayQuantity: Number(entry.dayQuantity || 0),
+          label: entry.label,
+        })),
+      };
+      const response = (await callSalarieApi(
+        selectedCraId ? `/api/salarie/cra/${selectedCraId}` : "/api/salarie/cra",
+        {
+          method: selectedCraId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      )) as { cra?: { id: string } };
+
+      await loadCraItems();
+      if (response.cra?.id) {
+        await loadCraDetail(response.cra.id);
+      }
+      setActionMessage(selectedCraId ? "CRA mis a jour." : "CRA cree.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Enregistrement du CRA impossible.");
+    } finally {
+      setCraSaving(false);
+    }
+  }, [billingProfileReady, callSalarieApi, craEntries, craNotes, craPeriodMonth, loadCraDetail, loadCraItems, selectedCraId]);
+
+  const handleGenerateCraPdf = useCallback(async () => {
+    if (!selectedCraId) {
+      setActionMessage("Enregistre d'abord ton CRA avant de generer le PDF.");
+      return;
+    }
+
+    try {
+      setCraGenerating(true);
+      setActionMessage(null);
+      await callSalarieApi(`/api/salarie/cra/${selectedCraId}/generate-pdf`, {
+        method: "POST",
+      });
+      await Promise.all([loadCraItems(), profile ? loadDashboardData(profile.id) : Promise.resolve()]);
+      setActionMessage("PDF CRA genere et ajoute aux documents.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Generation du PDF CRA impossible.");
+    } finally {
+      setCraGenerating(false);
+    }
+  }, [callSalarieApi, loadCraItems, loadDashboardData, profile, selectedCraId]);
+
+  const handleDeleteCra = useCallback(async () => {
+    if (!selectedCraId) {
+      setActionMessage("Selectionne un CRA a supprimer.");
+      return;
+    }
+
+    if (!window.confirm("Supprimer ce CRA et son PDF lie s'il existe ?")) {
+      return;
+    }
+
+    try {
+      setCraDeleting(true);
+      setActionMessage(null);
+      await callSalarieApi(`/api/salarie/cra/${selectedCraId}`, {
+        method: "DELETE",
+      });
+      resetCraEditor();
+      await Promise.all([loadCraItems(), profile ? loadDashboardData(profile.id) : Promise.resolve()]);
+      setActionMessage("CRA supprime.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Suppression du CRA impossible.");
+    } finally {
+      setCraDeleting(false);
+    }
+  }, [callSalarieApi, loadCraItems, loadDashboardData, profile, resetCraEditor, selectedCraId]);
+
   const currentSection =
     pathname.startsWith("/dashboard/salarie/documents")
       ? "documents"
@@ -591,6 +904,8 @@ export default function SalarieWorkspace() {
   const currentSubSection =
     pathname.startsWith("/dashboard/salarie/documents/a-deposer")
       ? "docs_a_deposer"
+      : pathname.startsWith("/dashboard/salarie/documents/cra-facture")
+        ? "docs_cra_facture"
       : pathname.startsWith("/dashboard/salarie/documents")
         ? "docs_tous"
         : pathname.startsWith("/dashboard/salarie/candidatures")
@@ -611,10 +926,52 @@ export default function SalarieWorkspace() {
     () => requests.find((request) => request.id === selectedRequestId) ?? null,
     [requests, selectedRequestId],
   );
+  const craFactureDocumentTypes = useMemo(
+    () =>
+      documentTypes.filter((documentType) => {
+        const normalizedLabel = normalizeDocumentLabel(documentType.label);
+        return normalizedLabel.includes("cra") || normalizedLabel.includes("facture");
+      }),
+    [documentTypes],
+  );
+  const availableUploadDocumentTypes = uploadDialogMode === "cra_facture" ? craFactureDocumentTypes : documentTypes;
+  const filteredDocuments = useMemo(() => {
+    if (currentSubSection === "docs_cra_facture") {
+      return documents.filter((document) => {
+        const normalizedLabel = normalizeDocumentLabel(document.typeLabel);
+        return normalizedLabel.includes("cra") || normalizedLabel.includes("facture");
+      });
+    }
+    return documents;
+  }, [currentSubSection, documents]);
+  const documentsCardTitle =
+    currentSubSection === "docs_a_deposer"
+      ? "Documents a deposer"
+      : currentSubSection === "docs_cra_facture"
+        ? "CRA & Facture"
+          : "Mes documents";
+  const selectedCraSummary = useMemo(
+    () => craItems.find((item) => item.id === selectedCraId) ?? null,
+    [craItems, selectedCraId],
+  );
+  const craDraftTotalDays = useMemo(
+    () => craEntries.reduce((total, entry) => total + (Number(entry.dayQuantity) || 0), 0),
+    [craEntries],
+  );
   const displayName = useMemo(() => {
     const meta = (user?.user_metadata ?? {}) as { full_name?: string; name?: string; display_name?: string };
     return meta.full_name ?? meta.name ?? meta.display_name ?? profile?.full_name ?? profile?.email ?? "utilisateur";
   }, [profile?.email, profile?.full_name, user?.user_metadata]);
+
+  useEffect(() => {
+    if (currentSubSection !== "docs_cra_facture" || !profile) return;
+    void loadBillingProfile().catch((error) => {
+      setActionMessage(error instanceof Error ? error.message : "Chargement du profil de facturation impossible.");
+    });
+    void loadCraItems().catch((error) => {
+      setActionMessage(error instanceof Error ? error.message : "Chargement des CRA impossible.");
+    });
+  }, [currentSubSection, loadBillingProfile, loadCraItems, profile]);
 
   return (
     <div className="min-h-screen bg-white text-[#0A1A2F]">
@@ -629,6 +986,7 @@ export default function SalarieWorkspace() {
                 <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
                   <Link href="/dashboard/salarie/documents/a-deposer" className={`block py-1 ${currentSubSection === "docs_a_deposer" ? "font-semibold" : ""}`}>A deposer</Link>
                   <Link href="/dashboard/salarie/documents" className={`block py-1 ${currentSubSection === "docs_tous" ? "font-semibold" : ""}`}>Tous mes documents</Link>
+                  <Link href="/dashboard/salarie/documents/cra-facture" className={`block py-1 ${currentSubSection === "docs_cra_facture" ? "font-semibold" : ""}`}>CRA & Facture</Link>
                 </div>
               )}
               <Link href="/dashboard/salarie/offres" className={`block px-1 py-2 hover:underline ${currentSection === "offres" ? "font-semibold" : ""}`}>Offres d&apos;emploi</Link>
@@ -698,13 +1056,210 @@ export default function SalarieWorkspace() {
           {currentSection === "documents" && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>{currentSubSection === "docs_a_deposer" ? "Documents a deposer" : "Mes documents"}</CardTitle>
-                <Button type="button" variant="outline" size="sm" onClick={() => openUploadDialog()}>
-                  Deposer un document
-                </Button>
+                <CardTitle>{documentsCardTitle}</CardTitle>
+                <div className="flex flex-wrap items-center gap-2">
+                  {currentSubSection === "docs_cra_facture" && (
+                    <Button type="button" size="sm" onClick={resetCraEditor}>
+                      Creer mon CRA/Facture
+                    </Button>
+                  )}
+                  <Button type="button" variant="outline" size="sm" onClick={() => openUploadDialog()}>
+                    Deposer un document
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
-                {currentSubSection === "docs_a_deposer" ? (
+                {currentSubSection === "docs_cra_facture" ? (
+                  <div className="space-y-6">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-[#0A1A2F]/80">
+                      La creation guidee du CRA est disponible dans cette page. Le flux facture sera branche ensuite sur la meme base.
+                    </div>
+
+                    <div className="grid gap-6 xl:grid-cols-[1.1fr_1.4fr]">
+                      <div className="space-y-6">
+                        <Card className="border-slate-200 shadow-none">
+                          <CardHeader className="flex flex-row items-center justify-between gap-3">
+                            <CardTitle className="text-base">Profil de facturation</CardTitle>
+                            <Button type="button" size="sm" onClick={() => void handleBillingProfileSave()} disabled={billingProfileSaving || billingProfileLoading}>
+                              {billingProfileSaving ? "Enregistrement..." : "Enregistrer"}
+                            </Button>
+                          </CardHeader>
+                          <CardContent className="grid gap-3 md:grid-cols-2">
+                            <div className="space-y-1"><label className="text-sm font-medium">Prenom</label><input value={billingProfileForm.firstName} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, firstName: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                            <div className="space-y-1"><label className="text-sm font-medium">Nom</label><input value={billingProfileForm.lastName} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, lastName: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                            <div className="space-y-1 md:col-span-2"><label className="text-sm font-medium">Societe</label><input value={billingProfileForm.companyName} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, companyName: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                            <div className="space-y-1 md:col-span-2"><label className="text-sm font-medium">ESN partenaire</label><input value={billingProfileForm.esnPartenaire} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, esnPartenaire: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                            <div className="space-y-1 md:col-span-2"><label className="text-sm font-medium">Adresse</label><input value={billingProfileForm.addressLine1} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, addressLine1: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                            <div className="space-y-1 md:col-span-2"><label className="text-sm font-medium">Complement d&apos;adresse</label><input value={billingProfileForm.addressLine2} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, addressLine2: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                            <div className="space-y-1"><label className="text-sm font-medium">Code postal</label><input value={billingProfileForm.postalCode} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, postalCode: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                            <div className="space-y-1"><label className="text-sm font-medium">Ville</label><input value={billingProfileForm.city} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, city: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                            <div className="space-y-1"><label className="text-sm font-medium">Pays</label><input value={billingProfileForm.country} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, country: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                            <div className="space-y-1"><label className="text-sm font-medium">Telephone</label><input value={billingProfileForm.phone} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, phone: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                            <div className="space-y-1 md:col-span-2"><label className="text-sm font-medium">Email</label><input value={billingProfileForm.email} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, email: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                            <div className="space-y-1"><label className="text-sm font-medium">SIRET</label><input value={billingProfileForm.siret} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, siret: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                            <div className="space-y-1"><label className="text-sm font-medium">Tarif journalier</label><input type="number" min="0" step="0.01" value={billingProfileForm.dailyRate} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, dailyRate: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                            <div className="space-y-1"><label className="text-sm font-medium">IBAN</label><input value={billingProfileForm.iban} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, iban: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                            <div className="space-y-1"><label className="text-sm font-medium">BIC</label><input value={billingProfileForm.bic} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, bic: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-slate-200 shadow-none">
+                          <CardHeader className="flex flex-row items-center justify-between gap-3">
+                            <CardTitle className="text-base">Mes CRA</CardTitle>
+                            <Badge variant="outline">{craItems.length}</Badge>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            {craLoading ? (
+                              <p className="text-sm text-[#0A1A2F]/70">Chargement des CRA...</p>
+                            ) : craItems.length ? (
+                              craItems.map((item) => (
+                                <button key={item.id} type="button" onClick={() => void loadCraDetail(item.id)} className={`block w-full rounded-lg border px-3 py-3 text-left text-sm ${selectedCraId === item.id ? "border-[#2aa0dd] bg-[#2aa0dd]/5" : "border-slate-200 bg-white"}`}>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="font-medium">{formatMonth(item.period_month)}</p>
+                                    <Badge variant="outline">{item.status}</Badge>
+                                  </div>
+                                  <p className="mt-1 text-[#0A1A2F]/70">{item.worked_days_count} jour(s) | PDF v{item.pdf_version}</p>
+                                </button>
+                              ))
+                            ) : (
+                              <p className="text-sm text-[#0A1A2F]/70">Aucun CRA pour le moment.</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <Card className="border-slate-200 shadow-none">
+                        <CardHeader className="flex flex-row items-center justify-between gap-3">
+                          <div>
+                            <CardTitle className="text-base">{selectedCraId ? "Modifier le CRA" : "Nouveau CRA"}</CardTitle>
+                            <p className="mt-1 text-sm text-[#0A1A2F]/70">
+                              {selectedCraSummary ? `Statut actuel: ${selectedCraSummary.status} | PDF v${selectedCraSummary.pdf_version}` : "Cree un brouillon puis genere le PDF depuis la plateforme."}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button type="button" variant="outline" size="sm" onClick={resetCraEditor}>
+                              Nouveau brouillon
+                            </Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => void handleDeleteCra()} disabled={craDeleting || !selectedCraId || craSaving || craGenerating}>
+                              {craDeleting ? "Suppression..." : "Supprimer le CRA"}
+                            </Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => void handleSaveCra()} disabled={craSaving || craDeleting}>
+                              {craSaving ? "Enregistrement..." : "Enregistrer"}
+                            </Button>
+                            <Button type="button" size="sm" onClick={() => void handleGenerateCraPdf()} disabled={craGenerating || craDeleting || !selectedCraId}>
+                              {craGenerating ? "Generation..." : "Generer le PDF"}
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-5">
+                          {!billingProfileReady && (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                              Enregistre d&apos;abord ton profil de facturation pour pouvoir creer un CRA.
+                            </div>
+                          )}
+
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-1">
+                              <label className="text-sm font-medium">Periode</label>
+                              <input type="month" value={craPeriodMonth} onChange={(event) => setCraPeriodMonth(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-sm font-medium">Total saisi</label>
+                              <div className="flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm">{craDraftTotalDays.toFixed(2)} jour(s)</div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-sm font-medium">Notes</label>
+                            <textarea value={craNotes} onChange={(event) => setCraNotes(event.target.value)} rows={4} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Commentaire interne, precision de mission, etc." />
+                          </div>
+
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="font-medium">Journees travaillees</p>
+                              <Button type="button" variant="outline" size="sm" onClick={() => setCraEntries((prev) => [...prev, emptyCraEntry()])}>
+                                Ajouter une ligne
+                              </Button>
+                            </div>
+                            <div className="space-y-3">
+                              {craEntries.map((entry, index) => (
+                                <div key={`${index}-${entry.workDate}-${entry.label}`} className="grid gap-3 rounded-lg border border-slate-200 p-3 md:grid-cols-[1fr_120px_1.3fr_auto]">
+                                  <div className="space-y-1">
+                                    <label className="text-xs font-medium text-[#0A1A2F]/70">Date</label>
+                                    <input type="date" value={entry.workDate} onChange={(event) => setCraEntries((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, workDate: event.target.value } : item))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-xs font-medium text-[#0A1A2F]/70">Jours</label>
+                                    <input type="number" min="0.25" max="1" step="0.25" value={entry.dayQuantity} onChange={(event) => setCraEntries((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, dayQuantity: event.target.value } : item))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-xs font-medium text-[#0A1A2F]/70">Libelle</label>
+                                    <input value={entry.label} onChange={(event) => setCraEntries((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" placeholder="Mission client, support, intervention..." />
+                                  </div>
+                                  <div className="flex items-end">
+                                    <Button type="button" variant="destructive" size="sm" onClick={() => setCraEntries((prev) => prev.length > 1 ? prev.filter((_, itemIndex) => itemIndex !== index) : [emptyCraEntry()])}>
+                                      Supprimer
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium">Documents CRA & Facture generes ou deposes</p>
+                        <Badge variant="outline">{filteredDocuments.length}</Badge>
+                      </div>
+                      {filteredDocuments.length ? (
+                        <div className="overflow-x-auto rounded-lg border border-slate-200">
+                          <table className="min-w-full text-sm">
+                            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70">
+                              <tr><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Depose le</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200 bg-white">
+                              {filteredDocuments.map((document) => (
+                                <tr key={document.id}>
+                                  <td className="px-3 py-2">{document.typeLabel}</td>
+                                  <td className="px-3 py-2">{document.fileName}</td>
+                                  <td className="px-3 py-2">{formatMonth(document.periodMonth)}</td>
+                                  <td className="px-3 py-2">{formatDate(document.createdAt)}</td>
+                                  <td className="px-3 py-2"><Badge variant="outline">{document.status}</Badge></td>
+                                  <td className="px-3 py-2 text-[#0A1A2F]/70">{document.reviewComment ?? "-"}</td>
+                                  <td className="px-3 py-2">
+                                    <div className="flex items-center gap-2">
+                                      <Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id}>
+                                        {downloadingDocumentId === document.id ? "Ouverture..." : "Telecharger"}
+                                      </Button>
+                                      {document.status !== "validated" ? (
+                                        <Button
+                                          type="button"
+                                          variant="destructive"
+                                          size="sm"
+                                          onClick={() => void handleDeleteDocument(document)}
+                                          disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
+                                        >
+                                          {deletingDocumentId === document.id ? "Suppression..." : "Supprimer"}
+                                        </Button>
+                                      ) : (
+                                        <Badge variant="outline">Verrouille</Badge>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-[#0A1A2F]/70">Aucun CRA ou facture depose pour le moment.</p>
+                      )}
+                    </div>
+                  </div>
+                ) : currentSubSection === "docs_a_deposer" ? (
                   <div className="space-y-6">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-3">
@@ -731,14 +1286,14 @@ export default function SalarieWorkspace() {
                       )) : <p className="text-sm text-[#0A1A2F]/70">Aucune demande RH ouverte pour le moment.</p>}
                     </div>
                   </div>
-                ) : documents.length ? (
+                ) : filteredDocuments.length ? (
                   <div className="overflow-x-auto rounded-lg border border-slate-200">
                     <table className="min-w-full text-sm">
                       <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70">
                         <tr><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Depose le</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 bg-white">
-                        {documents.map((document) => (
+                        {filteredDocuments.map((document) => (
                           <tr key={document.id}>
                             <td className="px-3 py-2">{document.typeLabel}</td>
                             <td className="px-3 py-2">{document.fileName}</td>
@@ -823,9 +1378,11 @@ export default function SalarieWorkspace() {
       >
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Deposer un document</DialogTitle>
+            <DialogTitle>{uploadDialogMode === "cra_facture" ? "Creer mon CRA/Facture" : "Deposer un document"}</DialogTitle>
             <DialogDescription>
-              Le depot peut etre libre ou rattache a une demande RH ouverte.
+              {uploadDialogMode === "cra_facture"
+                ? "Choisis un type CRA ou Facture puis ajoute le fichier a deposer."
+                : "Le depot peut etre libre ou rattache a une demande RH ouverte."}
             </DialogDescription>
           </DialogHeader>
 
@@ -856,7 +1413,7 @@ export default function SalarieWorkspace() {
                   className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm disabled:bg-slate-100"
                 >
                   <option value="">Choisir un type</option>
-                  {documentTypes.map((documentType) => (
+                  {availableUploadDocumentTypes.map((documentType) => (
                     <option key={documentType.id} value={documentType.id}>{documentType.label}</option>
                   ))}
                 </select>
