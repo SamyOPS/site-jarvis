@@ -145,7 +145,7 @@ export default function Home() {
 
   const clients = [
     { name: "ALD Automotive", logo: "/client/ald.png" },
-    { name: "Aramis", logo: "/client/aramisa.svg", logoScale: 1.6 },
+    { name: "Aramis", logo: "/client/aramisauto.png", logoScale: 1.1 },
     { name: "Barrire", logo: "/client/Barriere.png" },
     { name: "BNP Paribas", logo: "/client/bnp.png" },
     { name: "BPCE", logo: "/client/bpce.png" },
@@ -166,7 +166,7 @@ export default function Home() {
     { name: "Ricco", logo: "/client/Ricco.png", logoScale: 1.2 },
     { name: "RSA", logo: "/client/rsa.png" },
     { name: "Sisley", logo: "/client/sisley.png" },
-    { name: "SNCF", logo: "/client/SNCF.png", logoScale: 0.86 },
+    { name: "SNCF", logo: "/client/SNCF.png", logoScale: 0.85 },
     { name: "Sogeprom", logo: "/client/SOGEPROM.png", logoScale: 1.6 },
   ];
 
