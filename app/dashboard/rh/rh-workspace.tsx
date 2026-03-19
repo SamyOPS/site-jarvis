@@ -41,6 +41,7 @@ type RHDocumentRow = {
   employeeId: string;
   employeeRole: string | null;
   documentTypeId: string;
+  documentTypeCode: string;
   uploaderRole: string;
   employeeName: string;
   fileName: string;
@@ -51,6 +52,7 @@ type RHDocumentRow = {
   typeLabel: string;
   storageBucket: string;
   storagePath: string;
+  sourceKind: string;
 };
 
 type RequestRow = {
@@ -140,7 +142,7 @@ export default function RhWorkspace() {
     const [employeesRes, documentTypesRes, docsRes, requestsRes, offersRes, appsRes, cvsRes] = await Promise.all([
       supabase.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("role", "salarie").order("email", { ascending: true }),
       supabase.from("document_types").select("id,label,requires_period,allowed_uploader_roles").eq("active", true).order("label", { ascending: true }),
-      supabase.from("employee_documents").select("id,status,file_name,period_month,created_at,review_comment,uploader_role,storage_bucket,storage_path,document_type:document_types(id,label),employee:profiles!employee_documents_employee_id_fkey(id,full_name,email,role)").order("created_at", { ascending: false }),
+      supabase.from("employee_documents").select("id,status,file_name,period_month,created_at,review_comment,uploader_role,storage_bucket,storage_path,source_kind,document_type:document_types(id,label,code),employee:profiles!employee_documents_employee_id_fkey(id,full_name,email,role)").order("created_at", { ascending: false }),
       supabase.from("document_requests").select("id,status,due_at,period_month,note,document_type:document_types(id,label),employee:profiles!document_requests_employee_id_fkey(id,full_name,email)").order("created_at", { ascending: false }),
       supabase.from("job_offers").select("id,title,status,location").order("created_at", { ascending: false }),
       supabase.from("applications").select("id,candidate_id,status,job:job_offers(title),candidate:profiles!applications_candidate_id_fkey(full_name,email)").order("created_at", { ascending: false }),
@@ -167,7 +169,7 @@ export default function RhWorkspace() {
       })),
     );
 
-    const mappedDocuments = (docsRes.data ?? []).map((row: { id: string; status: DocumentStatus; file_name: string; period_month: string | null; created_at: string | null; review_comment: string | null; uploader_role: string | null; storage_bucket: string | null; storage_path: string | null; document_type: { id: string; label: string } | { id: string; label: string }[] | null; employee: { id: string; full_name: string | null; email: string; role: string | null } | { id: string; full_name: string | null; email: string; role: string | null }[] | null }) => {
+    const mappedDocuments = (docsRes.data ?? []).map((row: { id: string; status: DocumentStatus; file_name: string; period_month: string | null; created_at: string | null; review_comment: string | null; uploader_role: string | null; storage_bucket: string | null; storage_path: string | null; source_kind: string | null; document_type: { id: string; label: string; code: string | null } | { id: string; label: string; code: string | null }[] | null; employee: { id: string; full_name: string | null; email: string; role: string | null } | { id: string; full_name: string | null; email: string; role: string | null }[] | null }) => {
       const employee = normalizeJoinOne(row.employee);
       const type = normalizeJoinOne(row.document_type);
       const employeeName =
@@ -179,6 +181,7 @@ export default function RhWorkspace() {
         employeeId: employee?.id ?? "",
         employeeRole: employee?.role ?? null,
         documentTypeId: type?.id ?? "",
+        documentTypeCode: type?.code ?? "",
         uploaderRole: row.uploader_role ?? "",
         employeeName,
         fileName: row.file_name,
@@ -189,6 +192,7 @@ export default function RhWorkspace() {
         typeLabel: type?.label ?? "Document",
         storageBucket: row.storage_bucket ?? "employee-documents",
         storagePath: row.storage_path ?? "",
+        sourceKind: row.source_kind ?? "uploaded",
       } satisfies RHDocumentRow;
     });
     setDocuments(mappedDocuments);
@@ -399,7 +403,7 @@ export default function RhWorkspace() {
     resetRequestDialog();
     setSaveMessage("Demande documentaire creee.");
     await loadDashboardData();
-  }, [loadDashboardData, requestDocumentTypeId, requestDueAt, requestEmployeeId, requestNote, requestPeriodMonth, resetRequestDialog, selectedRequestType?.requiresPeriod, supabase, user]);
+  }, [loadDashboardData, requestDocumentTypeId, requestDueAt, requestEmployeeId, requestNote, requestPeriodMonth, resetRequestDialog, selectedRequestType?.requiresPeriod, user]);
 
   const handleCancelRequest = useCallback(async (request: RequestRow) => {
     if (!supabase) return;
@@ -425,7 +429,7 @@ export default function RhWorkspace() {
     setCancellingRequestId(null);
     setSaveMessage("Demande documentaire annulee.");
     await loadDashboardData();
-  }, [loadDashboardData, supabase]);
+  }, [loadDashboardData]);
 
   const handleRhUpload = useCallback(async () => {
     if (!session?.access_token) {
@@ -474,7 +478,7 @@ export default function RhWorkspace() {
     resetRhUploadDialog();
     setSaveMessage("Document RH depose.");
     await loadDashboardData();
-  }, [loadDashboardData, resetRhUploadDialog, rhUploadDocumentTypeId, rhUploadEmployeeId, rhUploadFile, rhUploadPeriodMonth, selectedRhUploadType?.requiresPeriod, session?.access_token]);
+  }, [loadDashboardData, resetRhUploadDialog, rhUploadDocumentTypeId, rhUploadEmployeeId, rhUploadFile, rhUploadPeriodMonth, selectedRhUploadType?.requiresPeriod, session]);
 
   const handleDeleteRhDocument = useCallback(async (document: RHDocumentRow) => {
     if (!session?.access_token) {
@@ -507,7 +511,7 @@ export default function RhWorkspace() {
     setDeletingRhDocumentId(null);
     setSaveMessage("Document RH supprime.");
     await loadDashboardData();
-  }, [loadDashboardData, session?.access_token]);
+  }, [loadDashboardData, session]);
 
   const handleDownloadDocument = useCallback(async (document: RHDocumentRow) => {
     if (!supabase || !document.storagePath) return;
@@ -564,10 +568,36 @@ export default function RhWorkspace() {
     }
 
     const matchingRequest = findMatchingRequest(document.employeeId, document.documentTypeId, document.periodMonth);
+    const generatedRecordStatus = nextStatus === "pending" ? "submitted" : nextStatus;
 
     const requestPromise = matchingRequest
       ? supabase.from("document_requests").update({ status: nextStatus, updated_at: reviewedAt }).eq("id", matchingRequest.id)
       : Promise.resolve({ error: null });
+
+    const generatedRecordPromise =
+      document.sourceKind === "generated" && document.documentTypeCode === "cra"
+        ? supabase
+            .from("cra_records")
+            .update({
+              status: generatedRecordStatus,
+              updated_at: reviewedAt,
+              submitted_at: nextStatus === "pending" ? reviewedAt : undefined,
+              validated_at: nextStatus === "validated" ? reviewedAt : null,
+              rejected_at: nextStatus === "rejected" ? reviewedAt : null,
+            })
+            .eq("employee_document_id", document.id)
+        : document.sourceKind === "generated" && document.documentTypeCode === "facture"
+          ? supabase
+              .from("invoice_records")
+              .update({
+                status: generatedRecordStatus,
+                updated_at: reviewedAt,
+                submitted_at: nextStatus === "pending" ? reviewedAt : undefined,
+                validated_at: nextStatus === "validated" ? reviewedAt : null,
+                rejected_at: nextStatus === "rejected" ? reviewedAt : null,
+              })
+              .eq("employee_document_id", document.id)
+          : Promise.resolve({ error: null });
 
     const eventPromise = supabase.from("document_events").insert({
       document_id: document.id,
@@ -580,10 +610,10 @@ export default function RhWorkspace() {
       },
     });
 
-    const [{ error: requestError }, { error: eventError }] = await Promise.all([requestPromise, eventPromise]);
+    const [{ error: requestError }, { error: generatedRecordError }, { error: eventError }] = await Promise.all([requestPromise, generatedRecordPromise, eventPromise]);
 
-    if (requestError || eventError) {
-      setSaveMessage(requestError?.message ?? eventError?.message ?? "Le statut du document a ete mis a jour, mais le suivi n'est pas complet.");
+    if (requestError || generatedRecordError || eventError) {
+      setSaveMessage(requestError?.message ?? generatedRecordError?.message ?? eventError?.message ?? "Le statut du document a ete mis a jour, mais le suivi n'est pas complet.");
       setReviewingDocumentId(null);
       await loadDashboardData();
       return;
@@ -694,6 +724,7 @@ export default function RhWorkspace() {
                       <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">Email</p><p className="font-medium">{selectedEmployee.email}</p></div>
                       <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">Telephone</p><input value={activeDraft.phone} onChange={(event) => setEmployeeDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeDraft, phone: event.target.value } }))} className="mt-1 h-9 w-full border border-slate-300 px-2 text-sm" /></div>
                       <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">Entreprise</p><input value={activeDraft.company_name} onChange={(event) => setEmployeeDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeDraft, company_name: event.target.value } }))} className="mt-1 h-9 w-full border border-slate-300 px-2 text-sm" placeholder="Nom de l'entreprise" /></div>
+                      <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">ESN partenaire</p><input value={activeDraft.esn_partenaire} onChange={(event) => setEmployeeDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeDraft, esn_partenaire: event.target.value } }))} className="mt-1 h-9 w-full border border-slate-300 px-2 text-sm" placeholder="Nom de l'ESN partenaire" /></div>
                       <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">Statut</p><select value={activeDraft.employment_status} onChange={(event) => setEmployeeDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeDraft, employment_status: event.target.value } }))} className="mt-1 h-9 w-full border border-slate-300 px-2 text-sm"><option value="active">active</option><option value="inactive">inactive</option><option value="exited">exited</option></select></div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -724,8 +755,8 @@ export default function RhWorkspace() {
                 ) : (
                   <div className="overflow-x-auto rounded-lg border border-slate-200">
                       <table className="min-w-full text-sm">
-                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Nom</th><th className="px-3 py-2">Entreprise</th><th className="px-3 py-2">Email</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Demandes ouvertes</th></tr></thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">{collaborateursRows.map((employee) => <tr key={employee.id}><td className="px-3 py-2"><Link href={`/dashboard/rh/collaborateurs/${employee.id}`} className="hover:underline">{employee.full_name ?? "-"}</Link></td><td className="px-3 py-2">{employee.company_name ?? "-"}</td><td className="px-3 py-2">{employee.email}</td><td className="px-3 py-2">{employee.employment_status ?? "-"}</td><td className="px-3 py-2">{requests.filter((request) => request.employeeId === employee.id && ["pending", "uploaded", "rejected", "expired"].includes(request.status)).length}</td></tr>)}</tbody>
+                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Nom</th><th className="px-3 py-2">Entreprise</th><th className="px-3 py-2">ESN partenaire</th><th className="px-3 py-2">Email</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Demandes ouvertes</th></tr></thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">{collaborateursRows.map((employee) => <tr key={employee.id}><td className="px-3 py-2"><Link href={`/dashboard/rh/collaborateurs/${employee.id}`} className="hover:underline">{employee.full_name ?? "-"}</Link></td><td className="px-3 py-2">{employee.company_name ?? "-"}</td><td className="px-3 py-2">{employee.esn_partenaire ?? "-"}</td><td className="px-3 py-2">{employee.email}</td><td className="px-3 py-2">{employee.employment_status ?? "-"}</td><td className="px-3 py-2">{requests.filter((request) => request.employeeId === employee.id && ["pending", "uploaded", "rejected", "expired"].includes(request.status)).length}</td></tr>)}</tbody>
                     </table>
                   </div>
                 )}
