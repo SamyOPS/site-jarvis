@@ -30,7 +30,7 @@ interface ClientsRowProps {
 function ClientCard({ client }: { client: ClientLogo }) {
   return (
     <div
-      className="relative z-0 flex h-16 w-[6.25rem] shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white p-1.5 text-[#0A1A2F] shadow-[0_6px_18px_rgba(0,0,0,0.10)] transition-[transform,box-shadow,border-color] duration-300 will-change-transform hover:z-10 hover:scale-[1.03] hover:border-white/30 hover:shadow-[0_10px_26px_rgba(0,0,0,0.14)] sm:h-28 sm:w-40"
+      className="relative z-0 flex h-16 w-[6.25rem] shrink-0 items-center justify-center rounded-none border border-slate-200 bg-white p-1.5 text-[#0A1A2F] shadow-[0_8px_20px_rgba(15,23,42,0.08)] transition-[transform,box-shadow,border-color] duration-300 will-change-transform hover:z-10 hover:scale-[1.02] hover:border-slate-300 hover:shadow-[0_12px_28px_rgba(15,23,42,0.12)] sm:h-28 sm:w-40"
     >
       <img
         src={client.logo}
@@ -44,10 +44,6 @@ function ClientCard({ client }: { client: ClientLogo }) {
                 maxHeight: `${56 * client.logoScale}px`,
               }
             : {}),
-          filter:
-            client.name === "Aramis" || client.name === "Ricco"
-              ? "drop-shadow(0 1px 1px rgba(0,0,0,0.28)) drop-shadow(0 0 4px rgba(0,0,0,0.14))"
-              : "drop-shadow(0 1px 1px rgba(0,0,0,0.22))",
         }}
       />
     </div>
@@ -191,10 +187,6 @@ export function Clients({
   quote,
   author,
 }: ClientsProps) {
-  const splitIndex = Math.ceil(clients.length / 2);
-  const topRowClients = clients.slice(0, splitIndex);
-  const bottomRowClients = clients.slice(splitIndex);
-
   return (
     <section className="bg-[#050B14] text-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-10 px-6 py-16 lg:flex-row lg:items-start lg:gap-12 lg:px-10 lg:py-20">
@@ -282,14 +274,8 @@ export function Clients({
           viewport={{ once: true, amount: 0.2 }}
           transition={{ duration: 0.55, ease: "easeOut", delay: 0.08 }}
         >
-          <div className="relative space-y-0.5 sm:space-y-1">
-            <ClientsRow items={topRowClients} rowKey="top" direction="left" speed={18} />
-            <ClientsRow
-              items={bottomRowClients.length ? bottomRowClients : topRowClients}
-              rowKey="bottom"
-              direction="right"
-              speed={16}
-            />
+          <div className="relative">
+            <ClientsRow items={clients} rowKey="all" direction="left" speed={18} />
           </div>
 
           <div className="pointer-events-none absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-[#050B14] via-[#050B14]/50 to-transparent sm:w-8" />
