@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, Sparkles } from "lucide-react";
 
-import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -369,7 +368,6 @@ export const getMetadata = (key: ExpertiseKey): Metadata => {
 export const ExpertisePageView = ({ expertise }: { expertise: ExpertiseContent }) => {
   return (
     <div className="bg-white text-[#0A1A2F]">
-      <Header />
       <main className="min-h-screen">
         <section className="bg-white text-[#0A1A2F]">
           <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-16 lg:px-8 lg:py-20">

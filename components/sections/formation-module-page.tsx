@@ -2,7 +2,6 @@
 
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Users, Wrench } from "lucide-react";
 
-import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 import { Button } from "@/components/ui/button";
 
@@ -37,8 +36,6 @@ export function FormationModulePage({
   return (
     <>
       <div className="min-h-screen bg-[#eaedf0] text-[#2f3b42]">
-        <Header />
-
         <main className="particle-readability mx-auto max-w-6xl px-6 pt-16 pb-24 lg:pt-24 lg:pb-32">
           <section className="grid gap-8 border border-[#d5d9dc] bg-white p-6 shadow-sm lg:grid-cols-[1.1fr_0.9fr] lg:p-8">
             <div className="space-y-4">

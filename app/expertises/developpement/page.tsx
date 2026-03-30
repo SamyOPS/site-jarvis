@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 import { DeveloppementHoverSlider } from "./DeveloppementHoverSlider";
 
@@ -86,7 +85,6 @@ export default function DeveloppementPage() {
   return (
     <>
     <div className="min-h-screen bg-white text-[#0A1A2F]">
-      <Header />
       <main className="particle-readability">
         <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
           <div className="mb-8 space-y-2">

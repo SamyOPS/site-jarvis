@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowRight } from "lucide-react";
 
-import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -60,7 +59,6 @@ export default function ActusPage() {
 
   return (
     <div className="min-h-screen bg-white text-[#0A1A2F]">
-      <Header />
       <main className="particle-readability">
         <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
           <div className="mb-8 space-y-3">

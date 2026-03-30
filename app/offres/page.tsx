@@ -14,7 +14,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -96,8 +95,6 @@ export default function OffresPage() {
   return (
     <>
     <div className="min-h-screen bg-white text-[#0A1A2F]">
-      <Header />
-
       <main className="particle-readability container mx-auto px-6 py-14 lg:px-10 xl:px-16">
         <div className="mb-6 flex items-center">
           <Button variant="link" className="p-0 text-[#0A1A2F]" asChild>

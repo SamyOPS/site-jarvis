@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { AlertCircle, CheckCircle2, LogIn, UserPlus } from "lucide-react";
 
-import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +44,14 @@ type AuthPageProps = {
   defaultMode?: AuthMode;
 };
 
+const getDashboardPath = (role?: string | null) => {
+  if (role === "admin") return "/dashboard";
+  if (role === "professional") return "/dashboard/pro";
+  if (role === "salarie") return "/dashboard/salarie";
+  if (role === "rh") return "/dashboard/rh";
+  return "/dashboard/candidat";
+};
+
 export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>(defaultMode);
@@ -74,6 +81,44 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
       ? "pending"
       : "none";
   const isPro = roleChoice === "professional";
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    let isMounted = true;
+
+    const redirectIfAuthenticated = async () => {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error || !data.session?.user || !isMounted) {
+        return;
+      }
+
+      let resolvedRole = (
+        data.session.user.user_metadata as { role?: string } | undefined
+      )?.role;
+
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.session.user.id)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      if (profileRow?.role) {
+        resolvedRole = profileRow.role;
+      }
+
+      router.replace(getDashboardPath(resolvedRole));
+    };
+
+    void redirectIfAuthenticated();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
 
   const handleModeChange = (nextMode: AuthMode) => {
     setMode(nextMode);
@@ -138,7 +183,7 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
       message: `Connecte en tant que ${data.user?.email ?? "utilisateur"}`,
     });
     setLoading(false);
-    router.push("/");
+    router.replace(getDashboardPath(resolvedRole));
   };
 
   const handleRegisterSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -205,7 +250,6 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
   return (
     <>
       <div className="min-h-screen bg-[#eaedf0] text-[#2f3b42]">
-        <Header />
         <div className="mx-auto flex min-h-[calc(100vh-120px)] max-w-5xl items-center justify-center px-4 py-16">
           <Card className="w-full max-w-2xl border border-[#d5d9dc] bg-white text-[#2f3b42] shadow-xl">
             <CardHeader className="space-y-3">

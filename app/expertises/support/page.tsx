@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 
-import { Header } from "@/components/sections/header";
-
 import { Footer } from "@/components/sections/footer";
 
 import { SupportHoverSlider } from "./SupportHoverSlider";
@@ -149,8 +147,6 @@ export default function SupportPage() {
     <>
 
     <div className="min-h-screen bg-white text-[#0A1A2F]">
-
-      <Header />
 
       <main className="particle-readability">
 

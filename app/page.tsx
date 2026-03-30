@@ -10,11 +10,11 @@ import { Clients } from "@/components/sections/clients";
 
 import { About } from "@/components/sections/about";
 
-import { Header } from "@/components/sections/header";
 
 import { Footer } from "@/components/sections/footer";
 
 import { FormationsSupport } from "@/components/sections/formations-support";
+import { HomeHeader } from "@/components/sections/home-header";
 
 import { Shield, Code2, Sparkles } from "lucide-react";
 
@@ -290,10 +290,10 @@ export default function Home() {
 
     <>
 
-    <div className="min-h-screen bg-white">
+    <div className="relative min-h-screen bg-white">
       <div className="text-white">
 
-      <Header />
+      <HomeHeader />
 
       <main className="particle-readability">
         <div id="top" />

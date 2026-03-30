@@ -1,6 +1,5 @@
 "use client";
 
-import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
 import { motion } from "motion/react";
 import { createClient } from "@supabase/supabase-js";
@@ -119,8 +118,6 @@ export default function ContactPage() {
   return (
     <>
     <div className="min-h-screen bg-[#eaedf0] text-[#2f3b42]">
-      <Header />
-
       <main className="particle-readability max-w-6xl mx-auto px-6 pt-16 pb-24 lg:pt-24 lg:pb-32">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <motion.h1
