@@ -222,6 +222,7 @@ export default function SalarieWorkspace() {
   const [craNotes, setCraNotes] = useState("");
   const [craEntries, setCraEntries] = useState<CraEntryDraft[]>([]);
   const [craGenerating, setCraGenerating] = useState(false);
+  const [invoiceGenerating, setInvoiceGenerating] = useState(false);
 
   const loadDashboardData = useCallback(async (profileId: string) => {
     if (!supabase) return;
@@ -986,8 +987,35 @@ export default function SalarieWorkspace() {
   }, [callSalarieApi, loadCraItems, loadDashboardData, profile, upsertCraRecord]);
 
   const handleGenerateInvoicePdf = useCallback(() => {
-    setActionMessage("La generation PDF de facture sera branchee ici.");
-  }, []);
+    const payload = {
+      periodMonth: craPeriodMonth,
+      entries: craEntries.filter((entry) => entry.workDate.trim()).map((entry) => ({
+        workDate: entry.workDate,
+        dayQuantity: Number(entry.dayQuantity || 0),
+        label: entry.label,
+      })),
+    };
+
+    const run = async () => {
+      try {
+        setInvoiceGenerating(true);
+        setActionMessage(null);
+        await callSalarieApi("/api/salarie/factures/generate-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        await (profile ? loadDashboardData(profile.id) : Promise.resolve());
+        setActionMessage("Facture PDF generee et ajoutee aux documents.");
+      } catch (error) {
+        setActionMessage(error instanceof Error ? error.message : "Generation de la facture impossible.");
+      } finally {
+        setInvoiceGenerating(false);
+      }
+    };
+
+    void run();
+  }, [callSalarieApi, craEntries, craPeriodMonth, loadDashboardData, profile]);
 
   const currentSection =
     pathname.startsWith("/dashboard/salarie/documents")
@@ -1171,7 +1199,7 @@ export default function SalarieWorkspace() {
                 {currentSubSection === "docs_cra_facture" ? (
                   <div className="space-y-6">
                     <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-[#0A1A2F]/80">
-                      La creation guidee du CRA est disponible dans cette page. Le flux facture sera branche ensuite sur la meme base.
+                      Cette page permet de generer un CRA et une facture PDF a partir de la meme periode de travail.
                     </div>
 
                     <div className="max-w-5xl">
@@ -1187,11 +1215,11 @@ export default function SalarieWorkspace() {
                             <Button type="button" variant="outline" size="sm" onClick={resetCraEditor}>
                               Remettre a 0
                             </Button>
-                            <Button type="button" size="sm" onClick={() => void handleGenerateCraPdf()} disabled={craGenerating}>
+                            <Button type="button" size="sm" onClick={() => void handleGenerateCraPdf()} disabled={craGenerating || invoiceGenerating}>
                               {craGenerating ? "Generation..." : "Generer un CRA"}
                             </Button>
-                            <Button type="button" variant="outline" size="sm" onClick={handleGenerateInvoicePdf} disabled={craGenerating}>
-                              Generer une facture
+                            <Button type="button" variant="outline" size="sm" onClick={handleGenerateInvoicePdf} disabled={invoiceGenerating || craGenerating}>
+                              {invoiceGenerating ? "Generation..." : "Generer une facture"}
                             </Button>
                           </div>
                         </CardHeader>
