@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient, type User } from "@supabase/supabase-js";
-import { AlertCircle, ChevronLeft, ChevronRight, Loader2, LogOut, Search, Settings, SlidersHorizontal } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, Grip, Loader2, LogOut, Search, Settings, SlidersHorizontal } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -228,6 +228,8 @@ export default function SalarieWorkspace() {
   const [craEntries, setCraEntries] = useState<CraEntryDraft[]>([]);
   const [craGenerating, setCraGenerating] = useState(false);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const loadDashboardData = useCallback(async (profileId: string) => {
     if (!supabase) return;
@@ -1126,6 +1128,39 @@ export default function SalarieWorkspace() {
   }, [profile?.email, profile?.full_name, user?.user_metadata]);
 
   useEffect(() => {
+    setProfileMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [profileMenuOpen]);
+
+  const handleSignOut = useCallback(async () => {
+    if (!supabase) return;
+    setProfileMenuOpen(false);
+    await supabase.auth.signOut();
+    router.push("/auth");
+  }, [router]);
+
+  useEffect(() => {
     if (!profile) return;
 
     if (currentSubSection === "docs_cra_facture" || currentSection === "parametres") {
@@ -1169,7 +1204,7 @@ export default function SalarieWorkspace() {
               )}
             </nav>
             <div className="mt-auto space-y-1">
-              <button type="button" className="flex items-center px-1 py-2 text-sm hover:underline" onClick={async () => { if (!supabase) return; await supabase.auth.signOut(); router.push("/auth"); }}>
+              <button type="button" className="flex items-center px-1 py-2 text-sm hover:underline" onClick={() => void handleSignOut()}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Deconnexion
               </button>
@@ -1177,11 +1212,11 @@ export default function SalarieWorkspace() {
           </div>
         </aside>
 
-        <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[86px]">
+        <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[64px]">
           <div className="flex h-full items-stretch justify-center px-2 py-5" />
         </aside>
 
-        <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[86px] lg:px-3 lg:py-3">
+        <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[64px] lg:px-3 lg:py-3">
           <div className="hidden lg:flex items-center rounded-[30px] px-2 py-1.5">
             <div className="flex min-w-0 flex-1 items-center">
               <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 shadow-[0_8px_24px_rgba(148,163,184,0.14)] backdrop-blur">
@@ -1191,17 +1226,62 @@ export default function SalarieWorkspace() {
               </div>
             </div>
           </div>
-          <div className="hidden lg:fixed lg:right-4 lg:top-[18px] lg:flex lg:items-center lg:gap-2">
-            <Link
-              href="/dashboard/salarie/parametres"
-              aria-label="Parametres"
-              className={`flex h-9 w-9 items-center justify-center text-[#0A1A2F]/75 transition hover:text-[#0A1A2F] ${currentSection === "parametres" ? "text-[#0A1A2F]" : ""}`}
-            >
-              <Settings className="h-4 w-4" />
-            </Link>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0A1A2F] text-sm font-semibold text-white shadow-sm">
-              {displayName.charAt(0).toUpperCase()}
+          <div ref={profileMenuRef} className="hidden lg:fixed lg:right-4 lg:top-[18px] lg:block">
+            <div className="flex items-center gap-0.5">
+              <Link
+                href="/dashboard/salarie/parametres"
+                aria-label="Parametres"
+                className={`flex h-9 w-9 items-center justify-center text-[#0A1A2F]/75 transition hover:text-[#0A1A2F] ${currentSection === "parametres" ? "text-[#0A1A2F]" : ""}`}
+              >
+                <Settings className="h-4 w-4" />
+              </Link>
+              <button
+                type="button"
+                aria-label="Applications"
+                className="flex h-9 w-9 items-center justify-center text-[#0A1A2F]/75 transition hover:text-[#0A1A2F]"
+              >
+                <Grip className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Ouvrir le menu profil"
+                aria-expanded={profileMenuOpen}
+                onClick={() => setProfileMenuOpen((open) => !open)}
+                className="ml-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#0A1A2F] text-sm font-semibold text-white shadow-sm"
+              >
+                {displayName.charAt(0).toUpperCase()}
+              </button>
             </div>
+            {profileMenuOpen && (
+              <div className="absolute right-0 top-full mt-3 w-[320px] rounded-[28px] border border-slate-200 bg-[#eef3fb] p-4 shadow-[0_24px_48px_rgba(15,23,42,0.18)]">
+                <div className="rounded-[24px] bg-white px-5 py-6 text-center">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#0EA5B7] text-2xl font-semibold text-white">
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                  <p className="mt-4 text-sm text-[#0A1A2F]/60">{profile?.email ?? user?.email ?? "-"}</p>
+                  <p className="mt-2 text-2xl font-semibold tracking-tight text-[#0A1A2F]">{displayName}</p>
+                  <p className="mt-1 text-sm text-[#0A1A2F]/65">Espace salarie</p>
+                </div>
+                <div className="mt-3 space-y-2 rounded-[24px] bg-white p-3">
+                  <Link
+                    href="/dashboard/salarie/parametres"
+                    onClick={() => setProfileMenuOpen(false)}
+                    className="flex items-center justify-between rounded-2xl px-4 py-3 text-sm text-[#0A1A2F] transition hover:bg-slate-50"
+                  >
+                    <span>Gerer mon compte</span>
+                    <Settings className="h-4 w-4 text-[#0A1A2F]/55" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => void handleSignOut()}
+                    className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm text-[#0A1A2F] transition hover:bg-slate-50"
+                  >
+                    <span>Se deconnecter</span>
+                    <LogOut className="h-4 w-4 text-[#0A1A2F]/55" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-[30px] border border-white/70 bg-white px-4 py-6 overscroll-contain lg:px-8 lg:py-8">
