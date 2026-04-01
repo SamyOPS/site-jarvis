@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient, type User } from "@supabase/supabase-js";
-import { AlertCircle, ChevronLeft, ChevronRight, Loader2, LogOut, Search, SlidersHorizontal } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, Loader2, LogOut, Search, Settings, SlidersHorizontal } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1070,7 +1070,6 @@ export default function SalarieWorkspace() {
         : pathname.startsWith("/dashboard/salarie/cv")
             ? "cvs"
             : "offres_toutes";
-  const shellTitle = currentSection === "documents" ? "Documents" : currentSection === "offres" ? "Opportunites" : currentSection === "parametres" ? "Parametres" : "Espace salarie";
   const pendingRequests = useMemo(() => requests.filter((request) => ["pending", "rejected", "expired"].includes(request.status)), [requests]);
   const selectedUploadType = useMemo(
     () => documentTypes.find((documentType) => documentType.id === uploadDocumentTypeId) ?? null,
@@ -1143,12 +1142,14 @@ export default function SalarieWorkspace() {
   }, [currentSection, currentSubSection, loadBillingProfile, loadCraItems, profile]);
 
   return (
-    <div className="min-h-screen bg-[#eaf0fb] text-[#0A1A2F]">
-      <div className="relative min-h-screen">
-        <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[260px]">
+    <div className="h-screen overflow-hidden bg-[#eaf0fb] text-[#0A1A2F]">
+      <div className="relative h-full">
+        <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[232px]">
           <div className="flex h-full flex-col gap-4 px-4 py-5">
-            <div><p className="text-sm font-medium">Bonjour, {displayName}</p><p className="text-xs text-[#0A1A2F]/60">Espace documentaire</p></div>
-            <nav className="space-y-1 text-sm">
+            <Link href="/" className="block rounded-2xl px-2 py-1 transition hover:bg-white/60">
+              <p className="text-lg font-semibold tracking-tight text-[#0A1A2F]">Jarvis Connect</p>
+            </Link>
+            <nav className="mt-5 space-y-1 text-sm">
               <Link href="/dashboard/salarie" className={`block px-1 py-2 hover:underline ${currentSection === "overview" ? "font-semibold" : ""}`}>Vue d&apos;ensemble</Link>
               <Link href="/dashboard/salarie/documents" className={`block px-1 py-2 hover:underline ${currentSection === "documents" ? "font-semibold" : ""}`}>Mes documents</Link>
               {currentSection === "documents" && (
@@ -1168,7 +1169,6 @@ export default function SalarieWorkspace() {
               )}
             </nav>
             <div className="mt-auto space-y-1">
-              <Link href="/dashboard/salarie/parametres" className={`block px-1 py-2 text-sm hover:underline ${currentSection === "parametres" ? "font-semibold" : ""}`}>Parametres</Link>
               <button type="button" className="flex items-center px-1 py-2 text-sm hover:underline" onClick={async () => { if (!supabase) return; await supabase.auth.signOut(); router.push("/auth"); }}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Deconnexion
@@ -1177,25 +1177,35 @@ export default function SalarieWorkspace() {
           </div>
         </aside>
 
-        <main className="px-3 py-3 lg:ml-[260px] lg:px-5 lg:py-5">
-          <div className="hidden lg:flex items-center justify-between gap-4 rounded-[30px] px-5 py-3">
-            <div>
-              <p className="text-lg font-semibold text-[#0A1A2F]">{shellTitle}</p>
-              <p className="text-sm text-[#0A1A2F]/60">Espace de travail unifie</p>
-            </div>
-            <div className="flex flex-1 items-center justify-center px-4">
-              <div className="flex w-full max-w-2xl items-center gap-3 rounded-full border border-white/70 bg-white/70 px-4 py-3 shadow-[0_8px_24px_rgba(148,163,184,0.14)] backdrop-blur">
-                <Search className="h-4 w-4 text-[#0A1A2F]/55" />
-                <span className="text-sm text-[#0A1A2F]/55">Rechercher dans l&apos;espace salarie</span>
-                <SlidersHorizontal className="ml-auto h-4 w-4 text-[#0A1A2F]/45" />
+        <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[86px]">
+          <div className="flex h-full items-stretch justify-center px-2 py-5" />
+        </aside>
+
+        <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[86px] lg:px-3 lg:py-3">
+          <div className="hidden lg:flex items-center rounded-[30px] px-2 py-1.5">
+            <div className="flex min-w-0 flex-1 items-center">
+              <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 shadow-[0_8px_24px_rgba(148,163,184,0.14)] backdrop-blur">
+                  <Search className="h-4 w-4 text-[#0A1A2F]/55" />
+                  <span className="text-sm text-[#0A1A2F]/55">Rechercher dans l&apos;espace salarie</span>
+                  <SlidersHorizontal className="ml-auto h-4 w-4 text-[#0A1A2F]/45" />
               </div>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#0A1A2F] text-sm font-semibold text-white shadow-sm">
+          </div>
+          <div className="hidden lg:fixed lg:right-4 lg:top-[18px] lg:flex lg:items-center lg:gap-2">
+            <Link
+              href="/dashboard/salarie/parametres"
+              aria-label="Parametres"
+              className={`flex h-9 w-9 items-center justify-center text-[#0A1A2F]/75 transition hover:text-[#0A1A2F] ${currentSection === "parametres" ? "text-[#0A1A2F]" : ""}`}
+            >
+              <Settings className="h-4 w-4" />
+            </Link>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0A1A2F] text-sm font-semibold text-white shadow-sm">
               {displayName.charAt(0).toUpperCase()}
             </div>
           </div>
 
-          <div className="space-y-4 rounded-[30px] border border-white/70 bg-white px-4 py-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] lg:px-8 lg:py-8">
+          <div className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-[30px] border border-white/70 bg-white px-4 py-6 overscroll-contain lg:px-8 lg:py-8">
+          <div className="space-y-4">
           {(!supabase || error) && (
             <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -1651,6 +1661,7 @@ export default function SalarieWorkspace() {
               </Card>
             </div>
           )}
+          </div>
           </div>
         </main>
       </div>
