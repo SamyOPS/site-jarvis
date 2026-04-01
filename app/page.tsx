@@ -398,6 +398,7 @@ export default function Home() {
 
               <>
 
+                {/* eslint-disable-next-line react/no-unescaped-entities */}
                 "Nous travaillons depuis quelques mois avec la société <em>Jarvis Connect</em> et j'en suis pleinement satisfait.
 
                 <br />
@@ -410,7 +411,7 @@ export default function Home() {
 
                 <br />
 
-                Je ne peux que recommander !"
+                Je ne peux que recommander !&rdquo;
 
               </>
 

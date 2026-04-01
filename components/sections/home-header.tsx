@@ -4,37 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { ChevronDown, LogIn, Menu } from "lucide-react";
-
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-
-type MenuLink = {
-  label: string;
-  href: string;
-  children?: { label: string; href: string }[];
-};
-
-const menuLinks: MenuLink[] = [
-  { label: "Accueil", href: "/#top" },
-  {
-    label: "Expertises",
-    href: "/#expertises",
-    children: [
-      { label: "Support & infogerance", href: "/expertises/support" },
-      { label: "Developpement d'applications", href: "/expertises/developpement" },
-      { label: "Conseil & transformation digital", href: "/expertises/conseil" },
-    ],
-  },
-  { label: "Actualites", href: "/#actualites" },
-  { label: "Formations", href: "/#formations" },
-  { label: "Offres", href: "/#offres" },
-  { label: "Contact", href: "/contact" },
-];
+import { ChevronDown, LogIn } from "lucide-react";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -68,8 +38,6 @@ export function HomeHeader() {
   const [dashboardPath, setDashboardPath] = useState("/auth");
   const [settingsPath, setSettingsPath] = useState("/auth");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [menuLinksVisible, setMenuLinksVisible] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -150,21 +118,6 @@ export function HomeHeader() {
     };
   }, [menuOpen]);
 
-  useEffect(() => {
-    if (!sheetOpen) {
-      setMenuLinksVisible(false);
-      return;
-    }
-
-    const frame = window.requestAnimationFrame(() => {
-      setMenuLinksVisible(true);
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-    };
-  }, [sheetOpen]);
-
   const handleSignOut = async () => {
     if (!supabase) {
       window.location.href = "/";
@@ -179,69 +132,10 @@ export function HomeHeader() {
   return (
     <header className="absolute inset-x-0 top-0 z-50">
       <div className="w-full px-4 pt-4 sm:px-6 lg:px-8">
-        <div className="grid w-full grid-cols-[auto_1fr_auto] items-center px-0 py-2 text-white">
-          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-            <SheetTrigger asChild>
-              <button
-                type="button"
-                aria-label="Ouvrir le menu"
-                className="inline-flex h-11 w-11 items-center justify-center text-white transition hover:opacity-75"
-              >
-                <Menu className="h-5 w-5" />
-              </button>
-            </SheetTrigger>
-
-            <SheetContent
-              side="left"
-              className="left-4 top-4 bottom-4 h-[calc(100vh-2rem)] w-[calc(50vw-1rem)] max-w-none rounded-xl border border-[#0A1A2F]/10 bg-white px-6 py-6 text-[#0A1A2F] data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-left-0 data-[state=closed]:zoom-out-95 data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-left-0 data-[state=open]:zoom-in-95 sm:left-6 sm:top-6 sm:bottom-6 sm:h-[calc(100vh-3rem)] sm:w-[calc(50vw-1.5rem)] sm:max-w-none"
-            >
-              <nav className="mt-8 flex flex-col gap-2">
-                {menuLinks.map((item, index) => (
-                  <div
-                    key={item.href}
-                    className={`transition duration-500 ${
-                      menuLinksVisible
-                        ? "translate-x-0 opacity-100"
-                        : "translate-x-4 opacity-0"
-                    }`}
-                    style={{
-                      transitionDelay: menuLinksVisible ? `${index * 70}ms` : "0ms",
-                    }}
-                  >
-                    <SheetClose asChild>
-                      <a
-                        href={item.href}
-                        className={`rounded-2xl px-4 py-3 text-base font-medium transition hover:text-[#0A1A2F] ${
-                          index === 0 ? "text-[#0A1A2F]" : "text-[#6b7280]"
-                        }`}
-                      >
-                        {item.label}
-                      </a>
-                    </SheetClose>
-
-                    {item.children ? (
-                      <div className="mt-1 flex flex-col gap-1 pl-8">
-                        {item.children.map((child) => (
-                          <SheetClose asChild key={child.href}>
-                            <a
-                              href={child.href}
-                              className="rounded-2xl px-4 py-2 text-sm font-medium text-[#8b94a3] transition hover:text-[#0A1A2F]"
-                            >
-                              {child.label}
-                            </a>
-                          </SheetClose>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-              </nav>
-            </SheetContent>
-          </Sheet>
-
+        <div className="relative grid w-full grid-cols-[1fr_auto] items-center px-0 py-2 text-white">
           <Link
             href="/"
-            className="justify-self-center text-center text-sm font-semibold uppercase tracking-[0.28em] text-white sm:text-base"
+            className="absolute left-1/2 -translate-x-1/2 text-center text-sm font-semibold uppercase tracking-[0.28em] text-white sm:text-base"
           >
             Jarvis Connect
           </Link>

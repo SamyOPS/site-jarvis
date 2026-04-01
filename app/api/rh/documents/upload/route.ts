@@ -33,12 +33,16 @@ async function getAuthorizedActor(accessToken: string) {
 
   const { data: actorProfile, error: actorError } = await adminClient
     .from("profiles")
-    .select("id,role")
+    .select("id,role,professional_status")
     .eq("id", user.id)
     .single();
 
   if (actorError || !actorProfile || !["rh", "admin"].includes(actorProfile.role ?? "")) {
     return { error: "Acces refuse.", status: 403 as const };
+  }
+
+  if (actorProfile.role !== "admin" && actorProfile.professional_status !== "verified") {
+    return { error: "Compte non verifie.", status: 403 as const };
   }
 
   return { adminClient, user, actorProfile };

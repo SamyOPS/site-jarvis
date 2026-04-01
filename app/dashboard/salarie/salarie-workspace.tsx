@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient, type User } from "@supabase/supabase-js";
-import { AlertCircle, ChevronLeft, ChevronRight, Loader2, LogOut } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, Loader2, LogOut, Search, SlidersHorizontal } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
-type ProfileRow = { id: string; email: string; full_name: string | null; role: string | null };
+type ProfileRow = { id: string; email: string; full_name: string | null; role: string | null; professional_status: string | null };
 type RequestStatus = "pending" | "uploaded" | "validated" | "rejected" | "expired" | "cancelled";
 type DocumentStatus = "pending" | "validated" | "rejected";
 type DocumentTypeRow = {
@@ -116,7 +116,10 @@ const emptyBillingProfileForm = (): BillingProfileFormState => ({
   dailyRate: "",
 });
 
-const currentMonthInputValue = () => new Date().toISOString().slice(0, 7);
+const currentMonthInputValue = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+};
 
 const weekdayLabels = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
@@ -211,12 +214,14 @@ export default function SalarieWorkspace() {
   const [savingDocumentId, setSavingDocumentId] = useState<string | null>(null);
   const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ newPassword: "", confirmPassword: "" });
   const [billingProfileForm, setBillingProfileForm] = useState<BillingProfileFormState>(emptyBillingProfileForm);
   const [billingProfileReady, setBillingProfileReady] = useState(false);
   const [billingProfileLoading, setBillingProfileLoading] = useState(false);
   const [billingProfileSaving, setBillingProfileSaving] = useState(false);
   const [craItems, setCraItems] = useState<CraSummaryRow[]>([]);
-  const [craLoading, setCraLoading] = useState(false);
   const [selectedCraId, setSelectedCraId] = useState<string | null>(null);
   const [craPeriodMonth, setCraPeriodMonth] = useState(currentMonthInputValue);
   const [craNotes, setCraNotes] = useState("");
@@ -336,10 +341,10 @@ export default function SalarieWorkspace() {
         return;
       }
       setUser(sessionData.session.user);
-      const { data: profileData, error: profileError } = await supabase.from("profiles").select("id,email,full_name,role").eq("id", sessionData.session.user.id).single();
-      if (profileError || !profileData || profileData.role !== "salarie") {
+      const { data: profileData, error: profileError } = await supabase.from("profiles").select("id,email,full_name,role,professional_status").eq("id", sessionData.session.user.id).single();
+      if (profileError || !profileData || profileData.role !== "salarie" || profileData.professional_status !== "verified") {
         setLoading(false);
-        router.push("/dashboard");
+        router.push("/auth");
         return;
       }
       setProfile(profileData);
@@ -440,13 +445,8 @@ export default function SalarieWorkspace() {
   }, [callSalarieApi, profile?.email]);
 
   const loadCraItems = useCallback(async () => {
-    setCraLoading(true);
-    try {
-      const payload = (await callSalarieApi("/api/salarie/cra")) as { items?: CraSummaryRow[] };
-      setCraItems(payload.items ?? []);
-    } finally {
-      setCraLoading(false);
-    }
+    const payload = (await callSalarieApi("/api/salarie/cra")) as { items?: CraSummaryRow[] };
+    setCraItems(payload.items ?? []);
   }, [callSalarieApi]);
 
   const loadCraDetail = useCallback(async (craId: string) => {
@@ -769,7 +769,7 @@ export default function SalarieWorkspace() {
     setEditDialogOpen(false);
     resetEditDialog();
     await loadDashboardData(profile.id);
-  }, [documents, documentTypes, editDocumentTypeId, editFile, editFileName, editPeriodMonth, editingDocumentId, findMatchingRequest, loadDashboardData, profile, resetEditDialog, supabase, user]);
+  }, [documents, documentTypes, editDocumentTypeId, editFile, editFileName, editPeriodMonth, editingDocumentId, findMatchingRequest, loadDashboardData, profile, resetEditDialog, user]);
 
   const handleDeleteDocument = useCallback(async (document: DocumentRow) => {
     if (!supabase || !profile) return;
@@ -820,7 +820,7 @@ export default function SalarieWorkspace() {
     setActionMessage("Document supprime.");
     setDeletingDocumentId(null);
     await loadDashboardData(profile.id);
-  }, [findMatchingRequest, loadDashboardData, profile, supabase]);
+  }, [findMatchingRequest, loadDashboardData, profile]);
 
   const getSignedDocumentUrl = useCallback(async (document: DocumentRow) => {
     if (!supabase || !document.storagePath) return;
@@ -1017,6 +1017,37 @@ export default function SalarieWorkspace() {
     void run();
   }, [callSalarieApi, craEntries, craPeriodMonth, loadDashboardData, profile]);
 
+  const handlePasswordUpdate = useCallback(async () => {
+    if (!supabase) return;
+
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordMessage("Le nouveau mot de passe doit contenir au moins 8 caracteres.");
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordMessage("La confirmation du mot de passe ne correspond pas.");
+      return;
+    }
+
+    setPasswordSaving(true);
+    setPasswordMessage(null);
+
+    const { error: passwordError } = await supabase.auth.updateUser({
+      password: passwordForm.newPassword,
+    });
+
+    if (passwordError) {
+      setPasswordMessage(passwordError.message);
+      setPasswordSaving(false);
+      return;
+    }
+
+    setPasswordForm({ newPassword: "", confirmPassword: "" });
+    setPasswordMessage("Mot de passe mis a jour.");
+    setPasswordSaving(false);
+  }, [passwordForm]);
+
   const currentSection =
     pathname.startsWith("/dashboard/salarie/documents")
       ? "documents"
@@ -1036,9 +1067,10 @@ export default function SalarieWorkspace() {
         ? "docs_tous"
         : pathname.startsWith("/dashboard/salarie/candidatures")
           ? "candidatures"
-          : pathname.startsWith("/dashboard/salarie/cv")
+        : pathname.startsWith("/dashboard/salarie/cv")
             ? "cvs"
             : "offres_toutes";
+  const shellTitle = currentSection === "documents" ? "Documents" : currentSection === "offres" ? "Opportunites" : currentSection === "parametres" ? "Parametres" : "Espace salarie";
   const pendingRequests = useMemo(() => requests.filter((request) => ["pending", "rejected", "expired"].includes(request.status)), [requests]);
   const selectedUploadType = useMemo(
     () => documentTypes.find((documentType) => documentType.id === uploadDocumentTypeId) ?? null,
@@ -1111,10 +1143,10 @@ export default function SalarieWorkspace() {
   }, [currentSection, currentSubSection, loadBillingProfile, loadCraItems, profile]);
 
   return (
-    <div className="min-h-screen bg-white text-[#0A1A2F]">
-      <div className="relative">
-        <aside className="hidden border-r border-slate-200 bg-slate-50 lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[300px]">
-          <div className="flex h-full flex-col gap-4 p-4">
+    <div className="min-h-screen bg-[#eaf0fb] text-[#0A1A2F]">
+      <div className="relative min-h-screen">
+        <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[260px]">
+          <div className="flex h-full flex-col gap-4 px-4 py-5">
             <div><p className="text-sm font-medium">Bonjour, {displayName}</p><p className="text-xs text-[#0A1A2F]/60">Espace documentaire</p></div>
             <nav className="space-y-1 text-sm">
               <Link href="/dashboard/salarie" className={`block px-1 py-2 hover:underline ${currentSection === "overview" ? "font-semibold" : ""}`}>Vue d&apos;ensemble</Link>
@@ -1134,16 +1166,36 @@ export default function SalarieWorkspace() {
                   <Link href="/dashboard/salarie/cv" className={`block py-1 ${currentSubSection === "cvs" ? "font-semibold" : ""}`}>Mes CVs</Link>
                 </div>
               )}
-              <Link href="/dashboard/salarie/parametres" className={`block px-1 py-2 hover:underline ${currentSection === "parametres" ? "font-semibold" : ""}`}>Parametres</Link>
             </nav>
-            <button type="button" className="mt-auto flex items-center px-1 py-2 text-sm hover:underline" onClick={async () => { if (!supabase) return; await supabase.auth.signOut(); router.push("/auth"); }}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Deconnexion
-            </button>
+            <div className="mt-auto space-y-1">
+              <Link href="/dashboard/salarie/parametres" className={`block px-1 py-2 text-sm hover:underline ${currentSection === "parametres" ? "font-semibold" : ""}`}>Parametres</Link>
+              <button type="button" className="flex items-center px-1 py-2 text-sm hover:underline" onClick={async () => { if (!supabase) return; await supabase.auth.signOut(); router.push("/auth"); }}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Deconnexion
+              </button>
+            </div>
           </div>
         </aside>
 
-        <main className="space-y-4 px-4 py-6 lg:ml-[300px] lg:px-8 lg:py-8">
+        <main className="px-3 py-3 lg:ml-[260px] lg:px-5 lg:py-5">
+          <div className="hidden lg:flex items-center justify-between gap-4 rounded-[30px] px-5 py-3">
+            <div>
+              <p className="text-lg font-semibold text-[#0A1A2F]">{shellTitle}</p>
+              <p className="text-sm text-[#0A1A2F]/60">Espace de travail unifie</p>
+            </div>
+            <div className="flex flex-1 items-center justify-center px-4">
+              <div className="flex w-full max-w-2xl items-center gap-3 rounded-full border border-white/70 bg-white/70 px-4 py-3 shadow-[0_8px_24px_rgba(148,163,184,0.14)] backdrop-blur">
+                <Search className="h-4 w-4 text-[#0A1A2F]/55" />
+                <span className="text-sm text-[#0A1A2F]/55">Rechercher dans l&apos;espace salarie</span>
+                <SlidersHorizontal className="ml-auto h-4 w-4 text-[#0A1A2F]/45" />
+              </div>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#0A1A2F] text-sm font-semibold text-white shadow-sm">
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-[30px] border border-white/70 bg-white px-4 py-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] lg:px-8 lg:py-8">
           {(!supabase || error) && (
             <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -1489,6 +1541,15 @@ export default function SalarieWorkspace() {
                                   <>
                                     <Button
                                       type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => openEditDialog(document)}
+                                      disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
+                                    >
+                                      Modifier
+                                    </Button>
+                                    <Button
+                                      type="button"
                                       variant="destructive"
                                       size="sm"
                                       onClick={() => void handleDeleteDocument(document)}
@@ -1561,8 +1622,36 @@ export default function SalarieWorkspace() {
                   <div className="space-y-1"><label className="text-sm font-medium">BIC</label><input value={billingProfileForm.bic} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, bic: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
                 </CardContent>
               </Card>
+
+              <Card className="xl:col-span-2">
+                <CardHeader className="flex flex-row items-center justify-between gap-3">
+                  <div>
+                    <CardTitle>Mot de passe</CardTitle>
+                    <p className="mt-1 text-sm text-[#0A1A2F]/70">
+                      Modifie le mot de passe utilise pour te connecter.
+                    </p>
+                  </div>
+                  <Button type="button" size="sm" onClick={() => void handlePasswordUpdate()} disabled={passwordSaving}>
+                    {passwordSaving ? "Enregistrement..." : "Mettre a jour"}
+                  </Button>
+                </CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Nouveau mot de passe</label>
+                    <input type="password" value={passwordForm.newPassword} onChange={(event) => setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" autoComplete="new-password" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Confirmer le mot de passe</label>
+                    <input type="password" value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirmPassword: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" autoComplete="new-password" />
+                  </div>
+                  {passwordMessage && (
+                    <p className="md:col-span-2 text-sm text-[#0A1A2F]/70">{passwordMessage}</p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
+          </div>
         </main>
       </div>
 
