@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient, type Session, type User } from "@supabase/supabase-js";
-import { AlertCircle, Loader2, LogOut } from "lucide-react";
+import { AlertCircle, Loader2, LogOut, Search, SlidersHorizontal } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -116,8 +116,12 @@ export default function RhWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [savingEmployee, setSavingEmployee] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ newPassword: "", confirmPassword: "" });
   const [employeeDrafts, setEmployeeDrafts] = useState<Record<string, { full_name: string; phone: string; company_name: string; esn_partenaire: string; employment_status: string }>>({});
   const [downloadingDocumentId, setDownloadingDocumentId] = useState<string | null>(null);
+  const [viewingDocumentId, setViewingDocumentId] = useState<string | null>(null);
   const [reviewingDocumentId, setReviewingDocumentId] = useState<string | null>(null);
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({});
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
@@ -269,7 +273,7 @@ export default function RhWorkspace() {
       setSession(sessionData.session);
       setUser(sessionData.session.user);
       const { data: profileData, error: profileError } = await supabase.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("id", sessionData.session.user.id).single();
-      if (profileError || !profileData || profileData.role !== "rh") {
+      if (profileError || !profileData || profileData.role !== "rh" || profileData.professional_status !== "verified") {
         setLoading(false);
         router.push("/auth");
         return;
@@ -288,6 +292,7 @@ export default function RhWorkspace() {
 
   const currentSection = pathname.startsWith("/dashboard/rh/collaborateurs") ? "collaborateurs" : pathname.startsWith("/dashboard/rh/documents") ? "documents" : pathname.startsWith("/dashboard/rh/offres") ? "offres" : pathname.startsWith("/dashboard/rh/parametres") ? "parametres" : "overview";
   const currentSubSection = /^\/dashboard\/rh\/collaborateurs\/[a-f0-9-]+$/i.test(pathname) ? "collab_detail" : pathname.startsWith("/dashboard/rh/collaborateurs/actifs") ? "collab_actifs" : pathname.startsWith("/dashboard/rh/collaborateurs/inactifs") ? "collab_inactifs" : pathname.startsWith("/dashboard/rh/documents/a-valider") ? "docs_a_valider" : pathname.startsWith("/dashboard/rh/documents/mes-demandes") ? "docs_mes_demandes" : pathname.startsWith("/dashboard/rh/documents/salaries") ? "docs_salaries" : pathname.startsWith("/dashboard/rh/offres/candidatures") ? "offres_candidatures" : pathname.startsWith("/dashboard/rh/offres/archives") ? "offres_archives" : pathname.startsWith("/dashboard/rh/offres/creer") ? "offres_creer" : pathname.startsWith("/dashboard/rh/offres") ? "offres_actives" : pathname.startsWith("/dashboard/rh/documents") ? "docs_tous" : pathname.startsWith("/dashboard/rh/collaborateurs") ? "collab_tous" : "overview";
+  const shellTitle = currentSection === "collaborateurs" ? "Collaborateurs" : currentSection === "documents" ? "Documents" : currentSection === "offres" ? "Offres" : currentSection === "parametres" ? "Parametres" : "Espace RH";
 
   const selectedEmployeeId = useMemo(() => pathname.match(/^\/dashboard\/rh\/collaborateurs\/([a-f0-9-]+)$/i)?.[1] ?? null, [pathname]);
   const selectedEmployee = useMemo(() => employees.find((employee) => employee.id === selectedEmployeeId) ?? null, [employees, selectedEmployeeId]);
@@ -303,7 +308,14 @@ export default function RhWorkspace() {
   const rhDocuments = useMemo(() => documents.filter((document) => document.uploaderRole === "rh"), [documents]);
   const pendingDocuments = useMemo(() => salarieDocuments.filter((document) => document.status === "pending"), [salarieDocuments]);
   const openRequests = useMemo(() => requests.filter((request) => ["pending", "uploaded", "rejected", "expired"].includes(request.status)), [requests]);
-  const currentMonthDocuments = useMemo(() => documents.filter((document) => document.createdAt && new Date(document.createdAt).getMonth() === new Date().getMonth()), [documents]);
+  const currentMonthDocuments = useMemo(() => {
+    const now = new Date();
+    return documents.filter((document) => {
+      if (!document.createdAt) return false;
+      const createdAt = new Date(document.createdAt);
+      return !Number.isNaN(createdAt.getTime()) && createdAt.getMonth() === now.getMonth() && createdAt.getFullYear() === now.getFullYear();
+    });
+  }, [documents]);
   const collaborateursRows = useMemo(() => currentSubSection === "collab_actifs" ? employees.filter((employee) => employee.employment_status === "active") : currentSubSection === "collab_inactifs" ? employees.filter((employee) => ["inactive", "exited"].includes(employee.employment_status ?? "")) : employees, [currentSubSection, employees]);
   const salarieUploadableTypes = useMemo(() => documentTypes.filter((documentType) => documentType.allowedUploaderRoles.length === 0 || documentType.allowedUploaderRoles.includes("salarie")), [documentTypes]);
   const rhUploadableTypes = useMemo(() => documentTypes.filter((documentType) => documentType.allowedUploaderRoles.length === 0 || documentType.allowedUploaderRoles.includes("rh")), [documentTypes]);
@@ -513,19 +525,59 @@ export default function RhWorkspace() {
     await loadDashboardData();
   }, [loadDashboardData, session]);
 
-  const handleDownloadDocument = useCallback(async (document: RHDocumentRow) => {
+  const getSignedDocumentUrl = useCallback(async (document: RHDocumentRow) => {
     if (!supabase || !document.storagePath) return;
-    setDownloadingDocumentId(document.id);
-    setSaveMessage(null);
     const { data, error: downloadError } = await supabase.storage.from(document.storageBucket).createSignedUrl(document.storagePath, 60);
     if (downloadError || !data?.signedUrl) {
-      setSaveMessage(downloadError?.message ?? "Impossible de generer le lien de telechargement.");
-      setDownloadingDocumentId(null);
-      return;
+      throw new Error(downloadError?.message ?? "Impossible de generer le lien de telechargement.");
     }
-    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-    setDownloadingDocumentId(null);
+
+    return data.signedUrl;
   }, []);
+
+  const handleViewDocument = useCallback(async (document: RHDocumentRow) => {
+    if (!document.storagePath) return;
+
+    try {
+      setViewingDocumentId(document.id);
+      setSaveMessage(null);
+      const signedUrl = await getSignedDocumentUrl(document);
+      if (!signedUrl) {
+        return;
+      }
+
+      window.open(signedUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "Impossible d'ouvrir le document.");
+    } finally {
+      setViewingDocumentId(null);
+    }
+  }, [getSignedDocumentUrl]);
+
+  const handleDownloadDocument = useCallback(async (document: RHDocumentRow) => {
+    if (!document.storagePath) return;
+
+    try {
+      setDownloadingDocumentId(document.id);
+      setSaveMessage(null);
+      const signedUrl = await getSignedDocumentUrl(document);
+      if (!signedUrl) {
+        return;
+      }
+
+      const link = window.document.createElement("a");
+      link.href = signedUrl;
+      link.download = document.fileName;
+      link.rel = "noopener noreferrer";
+      window.document.body.appendChild(link);
+      link.click();
+      window.document.body.removeChild(link);
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "Impossible de telecharger le document.");
+    } finally {
+      setDownloadingDocumentId(null);
+    }
+  }, [getSignedDocumentUrl]);
 
   const handleReviewDocument = useCallback(async (document: RHDocumentRow, nextStatus: "pending" | "validated" | "rejected") => {
     if (!supabase || !user) return;
@@ -625,11 +677,42 @@ export default function RhWorkspace() {
     await loadDashboardData();
   }, [findMatchingRequest, loadDashboardData, reviewDrafts, user]);
 
+  const handlePasswordUpdate = useCallback(async () => {
+    if (!supabase) return;
+
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordMessage("Le nouveau mot de passe doit contenir au moins 8 caracteres.");
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordMessage("La confirmation du mot de passe ne correspond pas.");
+      return;
+    }
+
+    setPasswordSaving(true);
+    setPasswordMessage(null);
+
+    const { error: passwordError } = await supabase.auth.updateUser({
+      password: passwordForm.newPassword,
+    });
+
+    if (passwordError) {
+      setPasswordMessage(passwordError.message);
+      setPasswordSaving(false);
+      return;
+    }
+
+    setPasswordForm({ newPassword: "", confirmPassword: "" });
+    setPasswordMessage("Mot de passe mis a jour.");
+    setPasswordSaving(false);
+  }, [passwordForm]);
+
   return (
-    <div className="min-h-screen bg-white text-[#0A1A2F]">
-      <div className="relative">
-        <aside className="hidden border-r border-slate-200 bg-slate-50 lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[300px]">
-          <div className="flex h-full flex-col gap-4 p-4">
+    <div className="min-h-screen bg-[#eaf0fb] text-[#0A1A2F]">
+      <div className="relative min-h-screen">
+        <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[260px]">
+          <div className="flex h-full flex-col gap-4 px-4 py-5">
             <div><p className="text-sm font-medium">Bonjour, {displayName}</p><p className="text-xs text-[#0A1A2F]/60">Pilotage documentaire RH</p></div>
             <nav className="space-y-1 text-sm">
               <Link href="/dashboard/rh" className={`block px-1 py-2 hover:underline ${currentSection === "overview" ? "font-semibold" : ""}`}>Vue d&apos;ensemble</Link>
@@ -660,16 +743,36 @@ export default function RhWorkspace() {
                   <Link href="/dashboard/rh/offres/creer" className={`block py-1 ${currentSubSection === "offres_creer" ? "font-semibold" : ""}`}>Creer une offre</Link>
                 </div>
               )}
-              <Link href="/dashboard/rh/parametres" className={`block px-1 py-2 hover:underline ${currentSection === "parametres" ? "font-semibold" : ""}`}>Parametres</Link>
             </nav>
-            <button type="button" className="mt-auto flex items-center px-1 py-2 text-sm hover:underline" onClick={async () => { if (!supabase) return; await supabase.auth.signOut(); router.push("/auth"); }}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Deconnexion
-            </button>
+            <div className="mt-auto space-y-1">
+              <Link href="/dashboard/rh/parametres" className={`block px-1 py-2 text-sm hover:underline ${currentSection === "parametres" ? "font-semibold" : ""}`}>Parametres</Link>
+              <button type="button" className="flex items-center px-1 py-2 text-sm hover:underline" onClick={async () => { if (!supabase) return; await supabase.auth.signOut(); router.push("/auth"); }}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Deconnexion
+              </button>
+            </div>
           </div>
         </aside>
 
-        <main className="space-y-4 px-4 py-6 lg:ml-[300px] lg:px-8 lg:py-8">
+        <main className="px-3 py-3 lg:ml-[260px] lg:px-5 lg:py-5">
+          <div className="hidden lg:flex items-center justify-between gap-4 rounded-[30px] px-5 py-3">
+            <div>
+              <p className="text-lg font-semibold text-[#0A1A2F]">{shellTitle}</p>
+              <p className="text-sm text-[#0A1A2F]/60">Espace de travail unifie</p>
+            </div>
+            <div className="flex flex-1 items-center justify-center px-4">
+              <div className="flex w-full max-w-2xl items-center gap-3 rounded-full border border-white/70 bg-white/70 px-4 py-3 shadow-[0_8px_24px_rgba(148,163,184,0.14)] backdrop-blur">
+                <Search className="h-4 w-4 text-[#0A1A2F]/55" />
+                <span className="text-sm text-[#0A1A2F]/55">Rechercher dans l&apos;espace RH</span>
+                <SlidersHorizontal className="ml-auto h-4 w-4 text-[#0A1A2F]/45" />
+              </div>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#0A1A2F] text-sm font-semibold text-white shadow-sm">
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-[30px] border border-white/70 bg-white px-4 py-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] lg:px-8 lg:py-8">
           {(!supabase || error) && (
             <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -743,9 +846,16 @@ export default function RhWorkspace() {
                       {selectedEmployeeDocuments.length ? selectedEmployeeDocuments.map((document) => (
                         <div key={document.id} className="mb-2 flex items-center justify-between gap-2 text-[#0A1A2F]/80 last:mb-0">
                           <p>{document.typeLabel} - {document.fileName} ({document.status})</p>
-                          <Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id}>
-                            {downloadingDocumentId === document.id ? "Ouverture..." : "Telecharger"}
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            {document.fileName.toLowerCase().endsWith(".pdf") && (
+                              <Button type="button" variant="outline" size="sm" onClick={() => void handleViewDocument(document)} disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}>
+                                {viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}
+                              </Button>
+                            )}
+                            <Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}>
+                              {downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}
+                            </Button>
+                          </div>
                         </div>
                       )) : <p className="text-[#0A1A2F]/70">Aucun document.</p>}
                     </div>
@@ -796,7 +906,7 @@ export default function RhWorkspace() {
                     <div className="overflow-x-auto rounded-lg border border-slate-200">
                       <table className="min-w-full text-sm">
                         <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Salarie</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr></thead>
-                        <tbody className="divide-y divide-slate-200 bg-white">{salarieDocuments.map((document) => <tr key={document.id}><td className="px-3 py-2">{document.employeeName}</td><td className="px-3 py-2">{document.typeLabel}</td><td className="px-3 py-2">{document.fileName}</td><td className="px-3 py-2">{formatMonth(document.periodMonth)}</td><td className="px-3 py-2"><Badge variant="outline">{document.status}</Badge></td><td className="px-3 py-2 text-[#0A1A2F]/70">{document.reviewComment ?? "-"}</td><td className="px-3 py-2"><div className="flex items-center gap-2"><Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id}>{downloadingDocumentId === document.id ? "Ouverture..." : "Telecharger"}</Button>{document.status === "validated" && <Button type="button" variant="outline" size="sm" onClick={() => void handleReviewDocument(document, "pending")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Remettre en attente"}</Button>}</div></td></tr>)}</tbody>
+                        <tbody className="divide-y divide-slate-200 bg-white">{salarieDocuments.map((document) => <tr key={document.id}><td className="px-3 py-2">{document.employeeName}</td><td className="px-3 py-2">{document.typeLabel}</td><td className="px-3 py-2">{document.fileName}</td><td className="px-3 py-2">{formatMonth(document.periodMonth)}</td><td className="px-3 py-2"><Badge variant="outline">{document.status}</Badge></td><td className="px-3 py-2 text-[#0A1A2F]/70">{document.reviewComment ?? "-"}</td><td className="px-3 py-2"><div className="flex items-center gap-2">{document.fileName.toLowerCase().endsWith(".pdf") && <Button type="button" variant="outline" size="sm" onClick={() => void handleViewDocument(document)} disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}>{viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}</Button>}<Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}>{downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}</Button>{document.status === "validated" && <Button type="button" variant="outline" size="sm" onClick={() => void handleReviewDocument(document, "pending")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Remettre en attente"}</Button>}</div></td></tr>)}</tbody>
                       </table>
                     </div>
                   ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document salarie pour le moment.</p>
@@ -805,7 +915,7 @@ export default function RhWorkspace() {
                     <div className="overflow-x-auto rounded-lg border border-slate-200">
                       <table className="min-w-full text-sm">
                         <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Salarie</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr></thead>
-                        <tbody className="divide-y divide-slate-200 bg-white">{pendingDocuments.map((document) => <tr key={document.id}><td className="px-3 py-2">{document.typeLabel}</td><td className="px-3 py-2">{document.fileName}</td><td className="px-3 py-2">{document.employeeName}</td><td className="px-3 py-2">{formatMonth(document.periodMonth)}</td><td className="px-3 py-2"><input value={reviewDrafts[document.id] ?? document.reviewComment ?? ""} onChange={(event) => setReviewDrafts((prev) => ({ ...prev, [document.id]: event.target.value }))} placeholder="Commentaire de validation ou de refus" className="h-9 w-full min-w-[240px] rounded-md border border-slate-300 px-3 text-sm" /></td><td className="px-3 py-2"><div className="flex items-center gap-2"><Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id}>{downloadingDocumentId === document.id ? "Ouverture..." : "Telecharger"}</Button><Button type="button" size="sm" onClick={() => void handleReviewDocument(document, "validated")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Valider"}</Button><Button type="button" variant="destructive" size="sm" onClick={() => void handleReviewDocument(document, "rejected")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Refuser"}</Button></div></td></tr>)}</tbody>
+                        <tbody className="divide-y divide-slate-200 bg-white">{pendingDocuments.map((document) => <tr key={document.id}><td className="px-3 py-2">{document.typeLabel}</td><td className="px-3 py-2">{document.fileName}</td><td className="px-3 py-2">{document.employeeName}</td><td className="px-3 py-2">{formatMonth(document.periodMonth)}</td><td className="px-3 py-2"><input value={reviewDrafts[document.id] ?? document.reviewComment ?? ""} onChange={(event) => setReviewDrafts((prev) => ({ ...prev, [document.id]: event.target.value }))} placeholder="Commentaire de validation ou de refus" className="h-9 w-full min-w-[240px] rounded-md border border-slate-300 px-3 text-sm" /></td><td className="px-3 py-2"><div className="flex items-center gap-2">{document.fileName.toLowerCase().endsWith(".pdf") && <Button type="button" variant="outline" size="sm" onClick={() => void handleViewDocument(document)} disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}>{viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}</Button>}<Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}>{downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}</Button><Button type="button" size="sm" onClick={() => void handleReviewDocument(document, "validated")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Valider"}</Button><Button type="button" variant="destructive" size="sm" onClick={() => void handleReviewDocument(document, "rejected")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Refuser"}</Button></div></td></tr>)}</tbody>
                       </table>
                     </div>
                   ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document en attente de validation.</p>
@@ -814,7 +924,7 @@ export default function RhWorkspace() {
                     <div className="overflow-x-auto rounded-lg border border-slate-200">
                       <table className="min-w-full text-sm">
                         <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Collaborateur</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr></thead>
-                        <tbody className="divide-y divide-slate-200 bg-white">{rhDocuments.map((document) => <tr key={document.id}><td className="px-3 py-2">{document.typeLabel}</td><td className="px-3 py-2">{document.fileName}</td><td className="px-3 py-2">{document.employeeName}</td><td className="px-3 py-2">{formatMonth(document.periodMonth)}</td><td className="px-3 py-2"><Badge variant="outline">{document.status}</Badge></td><td className="px-3 py-2 text-[#0A1A2F]/70">{document.reviewComment ?? "-"}</td><td className="px-3 py-2"><div className="flex items-center gap-2"><Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id}>{downloadingDocumentId === document.id ? "Ouverture..." : "Telecharger"}</Button><Button type="button" variant="destructive" size="sm" onClick={() => void handleDeleteRhDocument(document)} disabled={deletingRhDocumentId === document.id}>{deletingRhDocumentId === document.id ? "Suppression..." : "Supprimer"}</Button></div></td></tr>)}</tbody>
+                        <tbody className="divide-y divide-slate-200 bg-white">{rhDocuments.map((document) => <tr key={document.id}><td className="px-3 py-2">{document.typeLabel}</td><td className="px-3 py-2">{document.fileName}</td><td className="px-3 py-2">{document.employeeName}</td><td className="px-3 py-2">{formatMonth(document.periodMonth)}</td><td className="px-3 py-2"><Badge variant="outline">{document.status}</Badge></td><td className="px-3 py-2 text-[#0A1A2F]/70">{document.reviewComment ?? "-"}</td><td className="px-3 py-2"><div className="flex items-center gap-2">{document.fileName.toLowerCase().endsWith(".pdf") && <Button type="button" variant="outline" size="sm" onClick={() => void handleViewDocument(document)} disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}>{viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}</Button>}<Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}>{downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}</Button><Button type="button" variant="destructive" size="sm" onClick={() => void handleDeleteRhDocument(document)} disabled={deletingRhDocumentId === document.id}>{deletingRhDocumentId === document.id ? "Suppression..." : "Supprimer"}</Button></div></td></tr>)}</tbody>
                       </table>
                     </div>
                   ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document RH pour le moment.</p>
@@ -846,16 +956,46 @@ export default function RhWorkspace() {
           )}
 
           {currentSection === "parametres" && (
-            <Card>
-              <CardHeader><CardTitle>Session</CardTitle></CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex items-center justify-between"><span>Email</span><span>{profile?.email ?? "-"}</span></div>
-                <div className="flex items-center justify-between"><span>Nom</span><span>{profile?.full_name ?? "-"}</span></div>
-                <div className="flex items-center justify-between"><span>User ID</span><span className="font-mono text-xs">{user?.id ?? "N/A"}</span></div>
-                <div className="flex items-center justify-between"><span>Expire</span><span>{session?.expires_at ? new Date(session.expires_at * 1000).toLocaleString() : "-"}</span></div>
-              </CardContent>
-            </Card>
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+              <Card>
+                <CardHeader><CardTitle>Session</CardTitle></CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between"><span>Email</span><span>{profile?.email ?? "-"}</span></div>
+                  <div className="flex items-center justify-between"><span>Nom</span><span>{profile?.full_name ?? "-"}</span></div>
+                  <div className="flex items-center justify-between"><span>User ID</span><span className="font-mono text-xs">{user?.id ?? "N/A"}</span></div>
+                  <div className="flex items-center justify-between"><span>Expire</span><span>{session?.expires_at ? new Date(session.expires_at * 1000).toLocaleString() : "-"}</span></div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-3">
+                  <div>
+                    <CardTitle>Mot de passe</CardTitle>
+                    <p className="mt-1 text-sm text-[#0A1A2F]/70">
+                      Modifie le mot de passe utilise pour te connecter.
+                    </p>
+                  </div>
+                  <Button type="button" size="sm" onClick={() => void handlePasswordUpdate()} disabled={passwordSaving}>
+                    {passwordSaving ? "Enregistrement..." : "Mettre a jour"}
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Nouveau mot de passe</label>
+                    <input type="password" value={passwordForm.newPassword} onChange={(event) => setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" autoComplete="new-password" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Confirmer le mot de passe</label>
+                    <input type="password" value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirmPassword: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" autoComplete="new-password" />
+                  </div>
+                  {passwordMessage && (
+                    <p className="text-sm text-[#0A1A2F]/70">{passwordMessage}</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           )}
+          </div>
         </main>
       </div>
 

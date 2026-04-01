@@ -14,6 +14,8 @@ type CraCreatePayload = {
   entries?: CraEntryInput[];
 };
 
+const craSelectFields = "id,period_month,status,worked_days_count,pdf_version,employee_document_id,created_at,updated_at";
+
 function parseEntries(entries: CraEntryInput[] | undefined) {
   return (entries ?? []).map((entry, index) => {
     const workDate = String(entry.workDate ?? "").trim();
@@ -100,6 +102,60 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: billingError?.message ?? "Profil de facturation introuvable." }, { status: 400 });
     }
 
+    const { data: existingRecord, error: existingError } = await adminClient
+      .from("cra_records")
+      .select("id,status")
+      .eq("employee_id", profile.id)
+      .eq("period_month", periodMonth)
+      .maybeSingle();
+
+    if (existingError) {
+      return NextResponse.json({ error: existingError.message }, { status: 400 });
+    }
+
+    if (existingRecord?.status === "validated") {
+      return NextResponse.json({ error: "Un CRA valide existe deja pour cette periode." }, { status: 400 });
+    }
+
+    if (existingRecord) {
+      const { data: updatedRecord, error: updateError } = await adminClient
+        .from("cra_records")
+        .update({
+          status: "draft",
+          ...billingProfile,
+          worked_days_count: workedDaysCount,
+          notes: getNotes(body.notes),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingRecord.id)
+        .select(craSelectFields)
+        .single();
+
+      if (updateError || !updatedRecord) {
+        return NextResponse.json({ error: updateError?.message ?? "Mise a jour du CRA impossible." }, { status: 400 });
+      }
+
+      const { error: deleteEntriesError } = await adminClient.from("cra_entries").delete().eq("cra_id", existingRecord.id);
+      if (deleteEntriesError) {
+        return NextResponse.json({ error: deleteEntriesError.message }, { status: 400 });
+      }
+
+      if (entries.length) {
+        const { error: entriesError } = await adminClient.from("cra_entries").insert(
+          entries.map((entry) => ({
+            cra_id: existingRecord.id,
+            ...entry,
+          })),
+        );
+
+        if (entriesError) {
+          return NextResponse.json({ error: entriesError.message }, { status: 400 });
+        }
+      }
+
+      return NextResponse.json({ success: true, cra: updatedRecord });
+    }
+
     const { data: craRecord, error: insertError } = await adminClient
       .from("cra_records")
       .insert({
@@ -110,7 +166,7 @@ export async function POST(request: Request) {
         worked_days_count: workedDaysCount,
         notes: getNotes(body.notes),
       })
-      .select("id,period_month,status,worked_days_count,pdf_version,employee_document_id,created_at,updated_at")
+      .select(craSelectFields)
       .single();
 
     if (insertError || !craRecord) {

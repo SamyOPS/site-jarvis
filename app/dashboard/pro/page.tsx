@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { createClient, type Session, type User } from "@supabase/supabase-js";
 import {
   AlertCircle,
@@ -64,7 +65,9 @@ export default function ProDashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    supabase ? null : "Configuration Supabase manquante (URL / clé publique).",
+  );
   const [jobOffers, setJobOffers] = useState<JobOffer[]>([]);
   const [offersLoading, setOffersLoading] = useState(false);
   const [offersError, setOffersError] = useState<string | null>(null);
@@ -102,10 +105,7 @@ export default function ProDashboardPage() {
   });
 
   useEffect(() => {
-    if (!supabase) {
-      setError("Configuration Supabase manquante (URL / clé publique).");
-      return;
-    }
+    if (!supabase) return;
 
     const load = async () => {
       setLoading(true);
@@ -140,9 +140,10 @@ export default function ProDashboardPage() {
         return;
       }
 
-      if (profileData?.role !== "professional") {
-        setError("Accès réservé aux comptes professional.");
+      if (profileData?.role !== "professional" || profileData.professional_status !== "verified") {
+        setError("Accès réservé aux comptes professional vérifiés.");
         setLoading(false);
+        window.location.href = "/auth";
         return;
       }
 
@@ -381,10 +382,10 @@ export default function ProDashboardPage() {
     <div className="min-h-screen bg-white text-[#0A1A2F]">
       <div className="mx-auto max-w-5xl px-4 py-10 space-y-4">
         <Button variant="link" className="w-fit self-start p-0 text-[#0A1A2F]" asChild>
-          <a href="/" className="inline-flex items-center gap-2">
+          <Link href="/" className="inline-flex items-center gap-2">
             <ArrowLeft className="h-4 w-4" />
-            Retour à l'accueil
-          </a>
+            Retour à l&apos;accueil
+          </Link>
         </Button>
         <div className="flex items-center gap-3 text-sm uppercase tracking-wide text-[#0A1A2F]/70">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0A1A2F]/5 text-[#0A1A2F]">
@@ -537,7 +538,7 @@ export default function ProDashboardPage() {
                         className="border-slate-300 text-[#0A1A2F]"
                         onClick={() => (window.location.href = "/contact")}
                       >
-                        Contacter l'administration
+                        Contacter l&apos;administration
                       </Button>
                     </div>
                   </CardContent>
@@ -915,7 +916,7 @@ export default function ProDashboardPage() {
                         </div>
                         <div className="grid gap-3 md:grid-cols-2">
                           <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Niveau d'experience</Label>
+                            <Label className="text-[#0A1A2F]/80">Niveau d&apos;experience</Label>
                             <Input
                               value={offerEditForm.experience_level}
                               onChange={(e) =>
@@ -978,7 +979,7 @@ export default function ProDashboardPage() {
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-[#0A1A2F]/80">Nom de l'entreprise</Label>
+                          <Label className="text-[#0A1A2F]/80">Nom de l&apos;entreprise</Label>
                           <Input
                             value={offerEditForm.company_name}
                             onChange={(e) =>

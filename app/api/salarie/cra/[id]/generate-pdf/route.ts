@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 
 import { buildCraPdfBuffer } from "@/lib/cra-pdf";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
@@ -6,6 +8,11 @@ import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, 
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const logoRgbBase64 = await readFile(
+      path.join(process.cwd(), "public", "logonoir-rgb120.b64"),
+      "utf8",
+    );
+
     const accessToken = getAccessTokenFromRequest(request);
     if (!accessToken) {
       return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
@@ -72,31 +79,34 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       fileName,
     });
 
-    const pdfBuffer = buildCraPdfBuffer({
-      firstName: craRecord.first_name,
-      lastName: craRecord.last_name,
-      companyName: craRecord.company_name,
-      esnPartenaire: craRecord.esn_partenaire,
-      addressLine1: craRecord.address_line_1,
-      addressLine2: craRecord.address_line_2,
-      postalCode: craRecord.postal_code,
-      city: craRecord.city,
-      country: craRecord.country,
-      phone: craRecord.phone,
-      email: craRecord.email,
-      siret: craRecord.siret,
-      iban: craRecord.iban,
-      bic: craRecord.bic,
-      dailyRate: Number(craRecord.daily_rate),
-      workedDaysCount: Number(craRecord.worked_days_count),
-      periodMonth: craRecord.period_month,
-      notes: craRecord.notes,
-      entries: (entries ?? []).map((entry) => ({
-        workDate: entry.work_date,
-        dayQuantity: Number(entry.day_quantity),
-        label: entry.label,
-      })),
-    });
+    const pdfBuffer = buildCraPdfBuffer(
+      {
+        firstName: craRecord.first_name,
+        lastName: craRecord.last_name,
+        companyName: craRecord.company_name,
+        esnPartenaire: craRecord.esn_partenaire,
+        addressLine1: craRecord.address_line_1,
+        addressLine2: craRecord.address_line_2,
+        postalCode: craRecord.postal_code,
+        city: craRecord.city,
+        country: craRecord.country,
+        phone: craRecord.phone,
+        email: craRecord.email,
+        siret: craRecord.siret,
+        iban: craRecord.iban,
+        bic: craRecord.bic,
+        dailyRate: Number(craRecord.daily_rate),
+        workedDaysCount: Number(craRecord.worked_days_count),
+        periodMonth: craRecord.period_month,
+        notes: craRecord.notes,
+        entries: (entries ?? []).map((entry) => ({
+          workDate: entry.work_date,
+          dayQuantity: Number(entry.day_quantity),
+          label: entry.label,
+        })),
+      },
+      logoRgbBase64.trim(),
+    );
 
     const { error: uploadError } = await adminClient.storage.from(storageBucket).upload(storagePath, pdfBuffer, {
       contentType: "application/pdf",

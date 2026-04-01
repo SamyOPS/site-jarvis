@@ -9,6 +9,7 @@ export type AuthorizedProfile = {
   email: string;
   full_name: string | null;
   role: string | null;
+  professional_status: string | null;
   phone: string | null;
   company_name: string | null;
   esn_partenaire: string | null;
@@ -45,12 +46,16 @@ export async function getAuthorizedActor(accessToken: string, allowedRoles: stri
 
   const { data: profile, error: profileError } = await adminClient
     .from("profiles")
-    .select("id,email,full_name,role,phone,company_name,esn_partenaire")
+    .select("id,email,full_name,role,professional_status,phone,company_name,esn_partenaire")
     .eq("id", user.id)
     .single();
 
   if (profileError || !profile || !allowedRoles.includes(profile.role ?? "")) {
     return { error: "Acces refuse.", status: 403 as const };
+  }
+
+  if (profile.role !== "admin" && profile.professional_status !== "verified") {
+    return { error: "Compte non verifie.", status: 403 as const };
   }
 
   return {
