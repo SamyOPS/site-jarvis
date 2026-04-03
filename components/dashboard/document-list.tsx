@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   File,
   FileAudio2,
@@ -169,7 +169,6 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(defaultVisibleColumns);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const actionMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setVisibleColumns(getInitialVisibleColumns(storageKey));
@@ -189,9 +188,6 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
     const handlePointerDown = (event: MouseEvent) => {
       if (!menuRef.current?.contains(event.target as Node)) {
         setMenuOpen(false);
-      }
-      if (!actionMenuRef.current?.contains(event.target as Node)) {
-        setActionMenuId(null);
       }
     };
 
@@ -285,7 +281,8 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
           </thead>
           <tbody className="divide-y divide-slate-200">
             {items.map((item) => (
-              <tr key={item.id} className="transition-colors hover:bg-slate-50/60">
+              <Fragment key={item.id}>
+                <tr className="transition-colors hover:bg-slate-50/60">
                 <td className="px-4 py-3 align-middle">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 shrink-0">{getFileIcon(item.fileName)}</div>
@@ -356,10 +353,7 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
                 ) : null}
 
                 <td className="px-4 py-3 align-middle">
-                  <div
-                    className="relative flex justify-end"
-                    ref={actionMenuId === item.id ? actionMenuRef : null}
-                  >
+                  <div className="flex justify-end">
                     <Button
                       type="button"
                       variant="ghost"
@@ -370,14 +364,19 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
                     >
                       <MoreVertical className="h-4 w-4" />
                     </Button>
-                    {actionMenuId === item.id ? (
-                      <div className="absolute right-0 top-full z-20 mt-2 min-w-48 rounded-xl border border-slate-200 bg-white p-2 shadow-[0_12px_30px_rgba(15,23,42,0.12)]">
-                        {renderActions ? renderActions(item, () => setActionMenuId(null)) : null}
-                      </div>
-                    ) : null}
                   </div>
                 </td>
               </tr>
+              {actionMenuId === item.id ? (
+                <tr className="bg-slate-50/70">
+                  <td colSpan={activeColumns.length + 2} className="px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {renderActions ? renderActions(item, () => setActionMenuId(null)) : null}
+                    </div>
+                  </td>
+                </tr>
+              ) : null}
+              </Fragment>
             ))}
           </tbody>
         </table>

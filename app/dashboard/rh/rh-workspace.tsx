@@ -4,13 +4,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient, type Session, type User } from "@supabase/supabase-js";
-import { AlertCircle, Download, Eye, Grip, Loader2, LogOut, RotateCcw, Search, Settings, SlidersHorizontal, Trash2, User as UserIcon } from "lucide-react";
+import { ChevronDown, Download, Eye, LogOut, RotateCcw, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
+import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
+import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
+import { RhOffersSection } from "@/components/dashboard/rh-offers-section";
+import { RhDocumentsSection } from "@/components/dashboard/rh-documents-section";
+import { DashboardProfileMenu } from "@/components/dashboard/profile-menu";
+import { RhOverviewSection } from "@/components/dashboard/rh-overview-section";
+import { RhSettingsSection } from "@/components/dashboard/rh-settings-section";
+import { StatusNotice } from "@/components/dashboard/status-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { formatDate, formatMonth } from "@/lib/dashboard-formatters";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -28,7 +37,6 @@ type ProfileRow = {
   esn_partenaire: string | null;
 };
 
-type DocumentStatus = "pending" | "validated" | "rejected";
 type RequestStatus = "pending" | "uploaded" | "validated" | "rejected" | "expired" | "cancelled";
 type DocumentTypeRow = {
   id: string;
@@ -84,22 +92,21 @@ type JobOfferRow = { id: string; title: string; status: "draft" | "published" | 
 type ApplicationRow = { id: string; candidateId: string; status: "submitted" | "reviewed" | "rejected" | "accepted"; jobTitle: string; candidateName: string };
 type ProfileCvRow = { user_id: string; file_name: string | null };
 
-const formatDate = (value: string | null) => {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleDateString("fr-FR");
-};
-
-const formatMonth = (value: string | null) => {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
-};
-
 const formatDocumentStatus = (value: DocumentStatus) => {
   if (value === "validated") return "Validé";
   if (value === "rejected") return "Refusé";
   return "En attente";
+};
+
+const matchesDocumentFilters = (
+  document: Pick<RHDocumentRow, "typeLabel" | "periodMonth" | "status" | "uploadedByName">,
+  filters: { type: string; period: string; status: string; creator: string },
+) => {
+  if (filters.type !== "all" && document.typeLabel !== filters.type) return false;
+  if (filters.period !== "all" && (document.periodMonth ?? "__none__") !== filters.period) return false;
+  if (filters.status !== "all" && document.status !== filters.status) return false;
+  if (filters.creator !== "all" && document.uploadedByName !== filters.creator) return false;
+  return true;
 };
 
 const normalizeJoinOne = <T,>(value: T | T[] | null | undefined): T | null => {
@@ -119,6 +126,10 @@ export default function RhWorkspace() {
   const [documents, setDocuments] = useState<RHDocumentRow[]>([]);
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [documentTypeFilter, setDocumentTypeFilter] = useState("all");
+  const [documentPeriodFilter, setDocumentPeriodFilter] = useState("all");
+  const [documentStatusFilter, setDocumentStatusFilter] = useState("all");
+  const [documentCreatorFilter, setDocumentCreatorFilter] = useState("all");
   const [jobOffers, setJobOffers] = useState<JobOfferRow[]>([]);
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
   const [cvsByUser, setCvsByUser] = useState<Record<string, ProfileCvRow>>({});
@@ -352,6 +363,81 @@ export default function RhWorkspace() {
   const salarieDocuments = useMemo(() => documents.filter((document) => document.uploaderRole === "salarie"), [documents]);
   const rhDocuments = useMemo(() => documents.filter((document) => document.uploaderRole === "rh"), [documents]);
   const pendingDocuments = useMemo(() => salarieDocuments.filter((document) => document.status === "pending"), [salarieDocuments]);
+  const rhDocumentFilterSource = useMemo(
+    () =>
+      currentSubSection === "docs_salaries"
+        ? salarieDocuments
+        : currentSubSection === "docs_a_valider"
+          ? pendingDocuments
+          : currentSubSection === "docs_tous"
+            ? rhDocuments
+            : [],
+    [currentSubSection, pendingDocuments, rhDocuments, salarieDocuments],
+  );
+  const rhDocumentTypeOptions = useMemo(
+    () => Array.from(new Set(rhDocumentFilterSource.map((document) => document.typeLabel))).sort((left, right) => left.localeCompare(right, "fr")),
+    [rhDocumentFilterSource],
+  );
+  const rhDocumentPeriodOptions = useMemo(
+    () => Array.from(new Set(rhDocumentFilterSource.map((document) => document.periodMonth ?? "__none__"))).sort((left, right) => left.localeCompare(right)),
+    [rhDocumentFilterSource],
+  );
+  const rhDocumentCreatorOptions = useMemo(
+    () => Array.from(new Set(rhDocumentFilterSource.map((document) => document.uploadedByName))).sort((left, right) => left.localeCompare(right, "fr")),
+    [rhDocumentFilterSource],
+  );
+  const rhFilterOptions = useMemo(
+    () => ({
+      type: rhDocumentTypeOptions.map((value) => ({ value, label: value })),
+      period: rhDocumentPeriodOptions.map((value) => ({
+        value,
+        label: value === "__none__" ? "Sans periode" : formatMonth(value),
+      })),
+      status: [
+        { value: "pending", label: "En attente" },
+        { value: "validated", label: "Valide" },
+        { value: "rejected", label: "Refuse" },
+      ],
+      owner: rhDocumentCreatorOptions.map((value) => ({ value, label: value })),
+    }),
+    [rhDocumentCreatorOptions, rhDocumentPeriodOptions, rhDocumentTypeOptions],
+  );
+  const filteredSalarieDocuments = useMemo(
+    () =>
+      salarieDocuments.filter((document) =>
+        matchesDocumentFilters(document, {
+          type: documentTypeFilter,
+          period: documentPeriodFilter,
+          status: documentStatusFilter,
+          creator: documentCreatorFilter,
+        }),
+      ),
+    [documentCreatorFilter, documentPeriodFilter, documentStatusFilter, documentTypeFilter, salarieDocuments],
+  );
+  const filteredPendingDocuments = useMemo(
+    () =>
+      pendingDocuments.filter((document) =>
+        matchesDocumentFilters(document, {
+          type: documentTypeFilter,
+          period: documentPeriodFilter,
+          status: documentStatusFilter,
+          creator: documentCreatorFilter,
+        }),
+      ),
+    [documentCreatorFilter, documentPeriodFilter, documentStatusFilter, documentTypeFilter, pendingDocuments],
+  );
+  const filteredRhDocuments = useMemo(
+    () =>
+      rhDocuments.filter((document) =>
+        matchesDocumentFilters(document, {
+          type: documentTypeFilter,
+          period: documentPeriodFilter,
+          status: documentStatusFilter,
+          creator: documentCreatorFilter,
+        }),
+      ),
+    [documentCreatorFilter, documentPeriodFilter, documentStatusFilter, documentTypeFilter, rhDocuments],
+  );
   const openRequests = useMemo(() => requests.filter((request) => ["pending", "uploaded", "rejected", "expired"].includes(request.status)), [requests]);
   const currentMonthDocuments = useMemo(() => {
     const now = new Date();
@@ -777,7 +863,22 @@ export default function RhWorkspace() {
                   <Link href="/dashboard/rh/collaborateurs/actifs" className={`block py-1 ${currentSubSection === "collab_actifs" ? "font-semibold" : ""}`}>Actifs</Link>
                   <Link href="/dashboard/rh/collaborateurs/inactifs" className={`block py-1 ${currentSubSection === "collab_inactifs" ? "font-semibold" : ""}`}>Inactifs / Sortants</Link>
                   {currentSubSection === "collab_detail" && <span className="block py-1 font-semibold">Fiche collaborateur</span>}
-                </div>
+	                  <div className="relative">
+	                    <select
+	                      value={documentCreatorFilter}
+	                      onChange={(event) => setDocumentCreatorFilter(event.target.value)}
+	                      className="h-10 min-w-[150px] appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm font-medium text-[#0A1A2F] shadow-sm outline-none transition focus:border-slate-400"
+	                    >
+	                      <option value="all">Proprietaire</option>
+	                      {rhDocumentCreatorOptions.map((creatorName) => (
+	                        <option key={creatorName} value={creatorName}>
+	                          {creatorName}
+	                        </option>
+	                      ))}
+	                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#0A1A2F]/55" />
+	                  </div>
+	                </div>
               )}
               <Link href="/dashboard/rh/documents" className={`block px-1 py-2 hover:underline ${currentSection === "documents" ? "font-semibold" : ""}`}>Documents</Link>
               {currentSection === "documents" && (
@@ -821,104 +922,41 @@ export default function RhWorkspace() {
               </div>
             </div>
           </div>
-          <div ref={profileMenuRef} className="hidden lg:fixed lg:right-4 lg:top-[18px] lg:block">
-            <div className="flex items-center gap-0.5">
-              <Link
-                href="/dashboard/rh/parametres"
-                aria-label="Parametres"
-                className={`flex h-9 w-9 items-center justify-center text-[#0A1A2F]/75 transition hover:text-[#0A1A2F] ${currentSection === "parametres" ? "text-[#0A1A2F]" : ""}`}
-              >
-                <Settings className="h-4 w-4" />
-              </Link>
-              <button
-                type="button"
-                aria-label="Applications"
-                className="flex h-9 w-9 items-center justify-center text-[#0A1A2F]/75 transition hover:text-[#0A1A2F]"
-              >
-                <Grip className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                aria-label="Ouvrir le menu profil"
-                aria-expanded={profileMenuOpen}
-                onClick={() => setProfileMenuOpen((open) => !open)}
-                className="flex h-9 w-9 items-center justify-center text-[#0A1A2F]/75 transition hover:text-[#0A1A2F]"
-              >
-                <UserIcon className="h-4 w-4" />
-              </button>
-            </div>
-            {profileMenuOpen && (
-              <div className="absolute right-0 top-full mt-3 w-[320px] rounded-[28px] border border-slate-200 bg-[#eef3fb] p-4 shadow-[0_24px_48px_rgba(15,23,42,0.18)]">
-                <div className="rounded-[24px] bg-white px-5 py-6 text-center">
-                  <UserIcon className="mx-auto h-8 w-8 text-[#0EA5B7]" />
-                  <p className="mt-4 text-sm text-[#0A1A2F]/60">{profile?.email ?? user?.email ?? "-"}</p>
-                  <p className="mt-2 text-2xl font-semibold tracking-tight text-[#0A1A2F]">{displayName}</p>
-                  <p className="mt-1 text-sm text-[#0A1A2F]/65">Espace RH</p>
-                </div>
-                <div className="mt-3 space-y-2 rounded-[24px] bg-white p-3">
-                  <Link
-                    href="/dashboard/rh/parametres"
-                    onClick={() => setProfileMenuOpen(false)}
-                    className="flex items-center justify-between rounded-2xl px-4 py-3 text-sm text-[#0A1A2F] transition hover:bg-slate-50"
-                  >
-                    <span>Gerer mon compte</span>
-                    <Settings className="h-4 w-4 text-[#0A1A2F]/55" />
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => void handleSignOut()}
-                    className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm text-[#0A1A2F] transition hover:bg-slate-50"
-                  >
-                    <span>Se deconnecter</span>
-                    <LogOut className="h-4 w-4 text-[#0A1A2F]/55" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          <DashboardProfileMenu
+            menuRef={profileMenuRef}
+            isOpen={profileMenuOpen}
+            onToggle={() => setProfileMenuOpen((open) => !open)}
+            onClose={() => setProfileMenuOpen(false)}
+            onSignOut={handleSignOut}
+            email={profile?.email ?? user?.email ?? "-"}
+            displayName={displayName}
+            roleLabel="Espace RH"
+            settingsHref="/dashboard/rh/parametres"
+            settingsActive={currentSection === "parametres"}
+          />
 
           <div className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-[30px] border border-white/70 bg-white px-4 py-6 overscroll-contain lg:px-8 lg:py-8">
           <div className="space-y-4">
           {(!supabase || error) && (
-            <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <div><p className="font-semibold">Erreur</p><p>{error ?? "Configuration Supabase manquante."}</p></div>
-            </div>
+            <StatusNotice
+              tone="error"
+              title="Erreur"
+              message={error ?? "Configuration Supabase manquante."}
+            />
           )}
 
-          {saveMessage && !error && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-[#0A1A2F]">
-              {saveMessage}
-            </div>
-          )}
+          {saveMessage && !error && <StatusNotice message={saveMessage} />}
 
           {currentSection === "overview" && (
-            <>
-              <section className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-                <Card><CardContent className="pt-6"><p className="text-sm text-[#0A1A2F]/70">Docs en attente</p><p className="mt-1 text-2xl font-semibold">{pendingDocuments.length}</p></CardContent></Card>
-                <Card><CardContent className="pt-6"><p className="text-sm text-[#0A1A2F]/70">Demandes ouvertes</p><p className="mt-1 text-2xl font-semibold">{openRequests.length}</p></CardContent></Card>
-                <Card><CardContent className="pt-6"><p className="text-sm text-[#0A1A2F]/70">Salaries suivis</p><p className="mt-1 text-2xl font-semibold">{employees.length}</p></CardContent></Card>
-                <Card><CardContent className="pt-6"><p className="text-sm text-[#0A1A2F]/70">Docs ce mois</p><p className="mt-1 text-2xl font-semibold">{currentMonthDocuments.length}</p></CardContent></Card>
-              </section>
-
-              <Card>
-                <CardHeader><CardTitle>Priorites</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
-                  {openRequests.slice(0, 8).map((request) => (
-                    <div key={request.id} className="rounded-lg border border-slate-200 p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <p className="font-medium">{request.employeeName} - {request.typeLabel}</p>
-                          <p className="text-sm text-[#0A1A2F]/70">Echeance: {formatDate(request.dueAt)} | Periode: {formatMonth(request.periodMonth)}</p>
-                        </div>
-                        <Badge variant="outline">{request.status}</Badge>
-                      </div>
-                    </div>
-                  ))}
-                  {!openRequests.length && <p className="text-sm text-[#0A1A2F]/70">Aucune priorite documentaire.</p>}
-                </CardContent>
-              </Card>
-            </>
+            <RhOverviewSection
+              pendingDocumentsCount={pendingDocuments.length}
+              openRequestsCount={openRequests.length}
+              employeesCount={employees.length}
+              currentMonthDocumentsCount={currentMonthDocuments.length}
+              openRequests={openRequests}
+              formatDate={formatDate}
+              formatMonth={formatMonth}
+            />
           )}
 
           {currentSection === "collaborateurs" && (
@@ -981,7 +1019,44 @@ export default function RhWorkspace() {
           )}
 
           {currentSection === "documents" && (
-            <section className="space-y-4">
+            <>
+              <RhDocumentsSection
+                currentSubSection={currentSubSection}
+                documentTypeFilter={documentTypeFilter}
+                documentPeriodFilter={documentPeriodFilter}
+                documentStatusFilter={documentStatusFilter}
+                documentCreatorFilter={documentCreatorFilter}
+                rhFilterOptions={rhFilterOptions}
+                onDocumentTypeFilterChange={setDocumentTypeFilter}
+                onDocumentPeriodFilterChange={setDocumentPeriodFilter}
+                onDocumentStatusFilterChange={setDocumentStatusFilter}
+                onDocumentCreatorFilterChange={setDocumentCreatorFilter}
+                onOpenRhUploadDialog={() => {
+                  setSaveMessage(null);
+                  setRhUploadDialogOpen(true);
+                }}
+                requests={requests}
+                cancellingRequestId={cancellingRequestId}
+                onCancelRequest={handleCancelRequest}
+                filteredSalarieDocuments={filteredSalarieDocuments}
+                filteredPendingDocuments={filteredPendingDocuments}
+                filteredRhDocuments={filteredRhDocuments}
+                onViewDocument={handleViewDocument}
+                onDownloadDocument={handleDownloadDocument}
+                onReviewDocument={handleReviewDocument}
+                onDeleteRhDocument={handleDeleteRhDocument}
+                viewingDocumentId={viewingDocumentId}
+                downloadingDocumentId={downloadingDocumentId}
+                reviewingDocumentId={reviewingDocumentId}
+                deletingRhDocumentId={deletingRhDocumentId}
+                reviewDrafts={reviewDrafts}
+                onReviewDraftsChange={setReviewDrafts}
+                formatMonth={formatMonth}
+                formatDate={formatDate}
+                formatDocumentStatus={formatDocumentStatus}
+              />
+              {false && (
+                <section className="space-y-4">
               <div className="flex flex-row items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold text-[#0A1A2F]">Documents</h2>
                 <div className="flex items-center gap-2">
@@ -992,6 +1067,24 @@ export default function RhWorkspace() {
                   )}
                 </div>
               </div>
+              {["docs_tous", "docs_salaries", "docs_a_valider"].includes(currentSubSection) ? (
+                <DocumentFiltersBar
+                  fields={["type", "period", "status", "owner"]}
+                  values={{
+                    type: documentTypeFilter,
+                    period: documentPeriodFilter,
+                    status: documentStatusFilter,
+                    owner: documentCreatorFilter,
+                  }}
+                  options={rhFilterOptions}
+                  onChange={(field, value) => {
+                    if (field === "type") setDocumentTypeFilter(value);
+                    if (field === "period") setDocumentPeriodFilter(value);
+                    if (field === "status") setDocumentStatusFilter(value);
+                    if (field === "owner") setDocumentCreatorFilter(value);
+                  }}
+                />
+              ) : null}
               <div>
                 {currentSubSection === "docs_mes_demandes" ? (
                   requests.length ? (
@@ -1003,9 +1096,9 @@ export default function RhWorkspace() {
                     </div>
                   ) : <p className="text-sm text-[#0A1A2F]/70">Aucune demande documentaire pour le moment.</p>
                 ) : currentSubSection === "docs_salaries" ? (
-                  salarieDocuments.length ? (
+                  filteredSalarieDocuments.length ? (
                     <DashboardDocumentList
-                      items={salarieDocuments.map((document) => ({
+                      items={filteredSalarieDocuments.map((document) => ({
                         ...document,
                         ownerName: document.uploadedByName,
                         createdAt: document.createdAt,
@@ -1059,18 +1152,18 @@ export default function RhWorkspace() {
                     />
                   ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document salarie pour le moment.</p>
                 ) : currentSubSection === "docs_a_valider" ? (
-                  pendingDocuments.length ? (
+                  filteredPendingDocuments.length ? (
                     <div className="overflow-x-auto rounded-lg border border-slate-200">
                       <table className="min-w-full text-sm">
                         <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Salarie</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr></thead>
-                        <tbody className="divide-y divide-slate-200 bg-white">{pendingDocuments.map((document) => <tr key={document.id}><td className="px-3 py-2">{document.typeLabel}</td><td className="px-3 py-2">{document.fileName}</td><td className="px-3 py-2">{document.employeeName}</td><td className="px-3 py-2">{formatMonth(document.periodMonth)}</td><td className="px-3 py-2"><input value={reviewDrafts[document.id] ?? document.reviewComment ?? ""} onChange={(event) => setReviewDrafts((prev) => ({ ...prev, [document.id]: event.target.value }))} placeholder="Commentaire de validation ou de refus" className="h-9 w-full min-w-[240px] rounded-md border border-slate-300 px-3 text-sm" /></td><td className="px-3 py-2"><div className="flex items-center gap-2">{document.fileName.toLowerCase().endsWith(".pdf") && <Button type="button" variant="outline" size="sm" onClick={() => void handleViewDocument(document)} disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}>{viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}</Button>}<Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}>{downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}</Button><Button type="button" size="sm" onClick={() => void handleReviewDocument(document, "validated")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Valider"}</Button><Button type="button" variant="destructive" size="sm" onClick={() => void handleReviewDocument(document, "rejected")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Refuser"}</Button></div></td></tr>)}</tbody>
+                        <tbody className="divide-y divide-slate-200 bg-white">{filteredPendingDocuments.map((document) => <tr key={document.id}><td className="px-3 py-2">{document.typeLabel}</td><td className="px-3 py-2">{document.fileName}</td><td className="px-3 py-2">{document.employeeName}</td><td className="px-3 py-2">{formatMonth(document.periodMonth)}</td><td className="px-3 py-2"><input value={reviewDrafts[document.id] ?? document.reviewComment ?? ""} onChange={(event) => setReviewDrafts((prev) => ({ ...prev, [document.id]: event.target.value }))} placeholder="Commentaire de validation ou de refus" className="h-9 w-full min-w-[240px] rounded-md border border-slate-300 px-3 text-sm" /></td><td className="px-3 py-2"><div className="flex items-center gap-2">{document.fileName.toLowerCase().endsWith(".pdf") && <Button type="button" variant="outline" size="sm" onClick={() => void handleViewDocument(document)} disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}>{viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}</Button>}<Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}>{downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}</Button><Button type="button" size="sm" onClick={() => void handleReviewDocument(document, "validated")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Valider"}</Button><Button type="button" variant="destructive" size="sm" onClick={() => void handleReviewDocument(document, "rejected")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Refuser"}</Button></div></td></tr>)}</tbody>
                       </table>
                     </div>
                   ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document en attente de validation.</p>
                 ) : (
-                  rhDocuments.length ? (
+                  filteredRhDocuments.length ? (
                     <DashboardDocumentList
-                      items={rhDocuments.map((document) => ({
+                      items={filteredRhDocuments.map((document) => ({
                         ...document,
                         ownerName: document.uploadedByName,
                         createdAt: document.createdAt,
@@ -1126,70 +1219,31 @@ export default function RhWorkspace() {
                   ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document RH pour le moment.</p>
                 )}
               </div>
-            </section>
+                </section>
+              )}
+            </>
           )}
 
           {currentSection === "offres" && (
-            <Card>
-              <CardHeader><CardTitle>Offres</CardTitle></CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto rounded-lg border border-slate-200">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Titre</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Lieu</th></tr></thead>
-                    <tbody className="divide-y divide-slate-200 bg-white">{(currentSubSection === "offres_candidatures" ? [] : jobOffers).map((offer) => <tr key={offer.id}><td className="px-3 py-2">{offer.title}</td><td className="px-3 py-2">{offer.status}</td><td className="px-3 py-2">{offer.location ?? "-"}</td></tr>)}</tbody>
-                  </table>
-                </div>
-                {currentSubSection === "offres_candidatures" && (
-                  <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Offre</th><th className="px-3 py-2">Candidat</th><th className="px-3 py-2">Statut</th></tr></thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">{applications.map((application) => <tr key={application.id}><td className="px-3 py-2">{application.jobTitle}</td><td className="px-3 py-2">{application.candidateName}</td><td className="px-3 py-2">{application.status}</td></tr>)}</tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <RhOffersSection
+              currentSubSection={currentSubSection}
+              jobOffers={jobOffers}
+              applications={applications}
+            />
           )}
 
           {currentSection === "parametres" && (
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-              <Card>
-                <CardHeader><CardTitle>Session</CardTitle></CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between"><span>Email</span><span>{profile?.email ?? "-"}</span></div>
-                  <div className="flex items-center justify-between"><span>Nom</span><span>{profile?.full_name ?? "-"}</span></div>
-                  <div className="flex items-center justify-between"><span>User ID</span><span className="font-mono text-xs">{user?.id ?? "N/A"}</span></div>
-                  <div className="flex items-center justify-between"><span>Expire</span><span>{session?.expires_at ? new Date(session.expires_at * 1000).toLocaleString() : "-"}</span></div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between gap-3">
-                  <div>
-                    <CardTitle>Mot de passe</CardTitle>
-                    <p className="mt-1 text-sm text-[#0A1A2F]/70">
-                      Modifie le mot de passe utilise pour te connecter.
-                    </p>
-                  </div>
-                  <Button type="button" size="sm" onClick={() => void handlePasswordUpdate()} disabled={passwordSaving}>
-                    {passwordSaving ? "Enregistrement..." : "Mettre a jour"}
-                  </Button>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">Nouveau mot de passe</label>
-                    <input type="password" value={passwordForm.newPassword} onChange={(event) => setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" autoComplete="new-password" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">Confirmer le mot de passe</label>
-                    <input type="password" value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirmPassword: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" autoComplete="new-password" />
-                  </div>
-                  {passwordMessage && (
-                    <p className="text-sm text-[#0A1A2F]/70">{passwordMessage}</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+            <RhSettingsSection
+              email={profile?.email ?? "-"}
+              fullName={profile?.full_name ?? "-"}
+              userId={user?.id ?? "N/A"}
+              expiresAt={session?.expires_at ? new Date(session.expires_at * 1000).toLocaleString() : "-"}
+              passwordSaving={passwordSaving}
+              passwordMessage={passwordMessage}
+              passwordForm={passwordForm}
+              onPasswordFormChange={setPasswordForm}
+              onPasswordSubmit={handlePasswordUpdate}
+            />
           )}
           </div>
           </div>
@@ -1325,14 +1379,8 @@ export default function RhWorkspace() {
         </DialogContent>
       </Dialog>
 
-      {loading && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-          <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm text-[#0A1A2F] shadow">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Chargement des donnees...
-          </div>
-        </div>
-      )}
+      {loading && <DashboardLoadingOverlay message="Chargement des donnees..." />}
     </div>
   );
 }
+
