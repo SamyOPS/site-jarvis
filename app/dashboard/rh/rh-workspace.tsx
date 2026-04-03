@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient, type Session, type User } from "@supabase/supabase-js";
-import { AlertCircle, Grip, Loader2, LogOut, Search, Settings, SlidersHorizontal } from "lucide-react";
+import { AlertCircle, Download, Eye, Grip, Loader2, LogOut, RotateCcw, Search, Settings, SlidersHorizontal, Trash2, User as UserIcon } from "lucide-react";
 
+import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,11 +44,14 @@ type RHDocumentRow = {
   documentTypeId: string;
   documentTypeCode: string;
   uploaderRole: string;
+  uploadedByName: string;
   employeeName: string;
   fileName: string;
   status: DocumentStatus;
   periodMonth: string | null;
   createdAt: string | null;
+  updatedAt: string | null;
+  sizeBytes: number | null;
   reviewComment: string | null;
   typeLabel: string;
   storageBucket: string;
@@ -90,6 +94,12 @@ const formatMonth = (value: string | null) => {
   if (!value) return "-";
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+};
+
+const formatDocumentStatus = (value: DocumentStatus) => {
+  if (value === "validated") return "Validé";
+  if (value === "rejected") return "Refusé";
+  return "En attente";
 };
 
 const normalizeJoinOne = <T,>(value: T | T[] | null | undefined): T | null => {
@@ -148,7 +158,7 @@ export default function RhWorkspace() {
     const [employeesRes, documentTypesRes, docsRes, requestsRes, offersRes, appsRes, cvsRes] = await Promise.all([
       supabase.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("role", "salarie").order("email", { ascending: true }),
       supabase.from("document_types").select("id,label,requires_period,allowed_uploader_roles").eq("active", true).order("label", { ascending: true }),
-      supabase.from("employee_documents").select("id,status,file_name,period_month,created_at,review_comment,uploader_role,storage_bucket,storage_path,source_kind,document_type:document_types(id,label,code),employee:profiles!employee_documents_employee_id_fkey(id,full_name,email,role)").order("created_at", { ascending: false }),
+      supabase.from("employee_documents").select("id,status,file_name,period_month,created_at,updated_at,size_bytes,review_comment,uploader_role,storage_bucket,storage_path,source_kind,document_type:document_types(id,label,code),employee:profiles!employee_documents_employee_id_fkey(id,full_name,email,role),uploader:profiles!employee_documents_uploaded_by_fkey(full_name,email)").order("created_at", { ascending: false }),
       supabase.from("document_requests").select("id,status,due_at,period_month,note,document_type:document_types(id,label),employee:profiles!document_requests_employee_id_fkey(id,full_name,email)").order("created_at", { ascending: false }),
       supabase.from("job_offers").select("id,title,status,location").order("created_at", { ascending: false }),
       supabase.from("applications").select("id,candidate_id,status,job:job_offers(title),candidate:profiles!applications_candidate_id_fkey(full_name,email)").order("created_at", { ascending: false }),
@@ -175,13 +185,18 @@ export default function RhWorkspace() {
       })),
     );
 
-    const mappedDocuments = (docsRes.data ?? []).map((row: { id: string; status: DocumentStatus; file_name: string; period_month: string | null; created_at: string | null; review_comment: string | null; uploader_role: string | null; storage_bucket: string | null; storage_path: string | null; source_kind: string | null; document_type: { id: string; label: string; code: string | null } | { id: string; label: string; code: string | null }[] | null; employee: { id: string; full_name: string | null; email: string; role: string | null } | { id: string; full_name: string | null; email: string; role: string | null }[] | null }) => {
+    const mappedDocuments = (docsRes.data ?? []).map((row: { id: string; status: DocumentStatus; file_name: string; period_month: string | null; created_at: string | null; updated_at: string | null; size_bytes: number | null; review_comment: string | null; uploader_role: string | null; storage_bucket: string | null; storage_path: string | null; source_kind: string | null; document_type: { id: string; label: string; code: string | null } | { id: string; label: string; code: string | null }[] | null; employee: { id: string; full_name: string | null; email: string; role: string | null } | { id: string; full_name: string | null; email: string; role: string | null }[] | null; uploader: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null }) => {
       const employee = normalizeJoinOne(row.employee);
       const type = normalizeJoinOne(row.document_type);
+      const uploader = normalizeJoinOne(row.uploader);
       const employeeName =
         row.uploader_role === "rh" && employee?.role !== "salarie"
           ? "Aucun collaborateur"
           : employee?.full_name ?? employee?.email ?? "Utilisateur";
+      const uploadedByName =
+        uploader?.full_name ??
+        uploader?.email ??
+        (row.uploader_role === "salarie" ? employeeName : "Utilisateur");
       return {
         id: row.id,
         employeeId: employee?.id ?? "",
@@ -189,11 +204,14 @@ export default function RhWorkspace() {
         documentTypeId: type?.id ?? "",
         documentTypeCode: type?.code ?? "",
         uploaderRole: row.uploader_role ?? "",
+        uploadedByName,
         employeeName,
         fileName: row.file_name,
         status: row.status,
         periodMonth: row.period_month,
         createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        sizeBytes: row.size_bytes,
         reviewComment: row.review_comment,
         typeLabel: type?.label ?? "Document",
         storageBucket: row.storage_bucket ?? "employee-documents",
@@ -824,17 +842,15 @@ export default function RhWorkspace() {
                 aria-label="Ouvrir le menu profil"
                 aria-expanded={profileMenuOpen}
                 onClick={() => setProfileMenuOpen((open) => !open)}
-                className="ml-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#0A1A2F] text-sm font-semibold text-white shadow-sm"
+                className="flex h-9 w-9 items-center justify-center text-[#0A1A2F]/75 transition hover:text-[#0A1A2F]"
               >
-                {displayName.charAt(0).toUpperCase()}
+                <UserIcon className="h-4 w-4" />
               </button>
             </div>
             {profileMenuOpen && (
               <div className="absolute right-0 top-full mt-3 w-[320px] rounded-[28px] border border-slate-200 bg-[#eef3fb] p-4 shadow-[0_24px_48px_rgba(15,23,42,0.18)]">
                 <div className="rounded-[24px] bg-white px-5 py-6 text-center">
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#0EA5B7] text-2xl font-semibold text-white">
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
+                  <UserIcon className="mx-auto h-8 w-8 text-[#0EA5B7]" />
                   <p className="mt-4 text-sm text-[#0A1A2F]/60">{profile?.email ?? user?.email ?? "-"}</p>
                   <p className="mt-2 text-2xl font-semibold tracking-tight text-[#0A1A2F]">{displayName}</p>
                   <p className="mt-1 text-sm text-[#0A1A2F]/65">Espace RH</p>
@@ -965,23 +981,18 @@ export default function RhWorkspace() {
           )}
 
           {currentSection === "documents" && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>Documents</CardTitle>
+            <section className="space-y-4">
+              <div className="flex flex-row items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-[#0A1A2F]">Documents</h2>
                 <div className="flex items-center gap-2">
-                  {["docs_salaries", "docs_mes_demandes"].includes(currentSubSection) && (
-                    <Button type="button" variant="outline" size="sm" onClick={() => openRequestDialog()}>
-                      Nouvelle demande
-                    </Button>
-                  )}
                   {currentSubSection === "docs_tous" && (
                     <Button type="button" variant="outline" size="sm" onClick={() => { setSaveMessage(null); setRhUploadDialogOpen(true); }}>
                       Deposer un document RH
                     </Button>
                   )}
                 </div>
-              </CardHeader>
-              <CardContent>
+              </div>
+              <div>
                 {currentSubSection === "docs_mes_demandes" ? (
                   requests.length ? (
                     <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -993,12 +1004,59 @@ export default function RhWorkspace() {
                   ) : <p className="text-sm text-[#0A1A2F]/70">Aucune demande documentaire pour le moment.</p>
                 ) : currentSubSection === "docs_salaries" ? (
                   salarieDocuments.length ? (
-                    <div className="overflow-x-auto rounded-lg border border-slate-200">
-                      <table className="min-w-full text-sm">
-                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Salarie</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr></thead>
-                        <tbody className="divide-y divide-slate-200 bg-white">{salarieDocuments.map((document) => <tr key={document.id}><td className="px-3 py-2">{document.employeeName}</td><td className="px-3 py-2">{document.typeLabel}</td><td className="px-3 py-2">{document.fileName}</td><td className="px-3 py-2">{formatMonth(document.periodMonth)}</td><td className="px-3 py-2"><Badge variant="outline">{document.status}</Badge></td><td className="px-3 py-2 text-[#0A1A2F]/70">{document.reviewComment ?? "-"}</td><td className="px-3 py-2"><div className="flex items-center gap-2">{document.fileName.toLowerCase().endsWith(".pdf") && <Button type="button" variant="outline" size="sm" onClick={() => void handleViewDocument(document)} disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}>{viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}</Button>}<Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}>{downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}</Button>{document.status === "validated" && <Button type="button" variant="outline" size="sm" onClick={() => void handleReviewDocument(document, "pending")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Remettre en attente"}</Button>}</div></td></tr>)}</tbody>
-                      </table>
-                    </div>
+                    <DashboardDocumentList
+                      items={salarieDocuments.map((document) => ({
+                        ...document,
+                        ownerName: document.uploadedByName,
+                        createdAt: document.createdAt,
+                        statusLabel: formatDocumentStatus(document.status),
+                        periodLabel: formatMonth(document.periodMonth),
+                        subtitle: document.employeeName ? `Collaborateur : ${document.employeeName}` : null,
+                        details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
+                      }))}
+                      storageKey="rh-documents-salaries-columns"
+                      renderActions={(document, closeMenu) => (
+                        <>
+                          {document.fileName.toLowerCase().endsWith(".pdf") ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start"
+                              onClick={() => { closeMenu(); void handleViewDocument(document); }}
+                              disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              Visualiser
+                            </Button>
+                          ) : null}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start"
+                            onClick={() => { closeMenu(); void handleDownloadDocument(document); }}
+                            disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            Télécharger
+                          </Button>
+                          {document.status === "validated" ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start"
+                              onClick={() => { closeMenu(); void handleReviewDocument(document, "pending"); }}
+                              disabled={reviewingDocumentId === document.id}
+                            >
+                              <RotateCcw className="mr-2 h-4 w-4" />
+                              Remettre en attente
+                            </Button>
+                          ) : null}
+                        </>
+                      )}
+                    />
                   ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document salarie pour le moment.</p>
                 ) : currentSubSection === "docs_a_valider" ? (
                   pendingDocuments.length ? (
@@ -1011,16 +1069,64 @@ export default function RhWorkspace() {
                   ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document en attente de validation.</p>
                 ) : (
                   rhDocuments.length ? (
-                    <div className="overflow-x-auto rounded-lg border border-slate-200">
-                      <table className="min-w-full text-sm">
-                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Collaborateur</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr></thead>
-                        <tbody className="divide-y divide-slate-200 bg-white">{rhDocuments.map((document) => <tr key={document.id}><td className="px-3 py-2">{document.typeLabel}</td><td className="px-3 py-2">{document.fileName}</td><td className="px-3 py-2">{document.employeeName}</td><td className="px-3 py-2">{formatMonth(document.periodMonth)}</td><td className="px-3 py-2"><Badge variant="outline">{document.status}</Badge></td><td className="px-3 py-2 text-[#0A1A2F]/70">{document.reviewComment ?? "-"}</td><td className="px-3 py-2"><div className="flex items-center gap-2">{document.fileName.toLowerCase().endsWith(".pdf") && <Button type="button" variant="outline" size="sm" onClick={() => void handleViewDocument(document)} disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}>{viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}</Button>}<Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}>{downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}</Button><Button type="button" variant="destructive" size="sm" onClick={() => void handleDeleteRhDocument(document)} disabled={deletingRhDocumentId === document.id}>{deletingRhDocumentId === document.id ? "Suppression..." : "Supprimer"}</Button></div></td></tr>)}</tbody>
-                      </table>
-                    </div>
+                    <DashboardDocumentList
+                      items={rhDocuments.map((document) => ({
+                        ...document,
+                        ownerName: document.uploadedByName,
+                        createdAt: document.createdAt,
+                        statusLabel: formatDocumentStatus(document.status),
+                        periodLabel: formatMonth(document.periodMonth),
+                        subtitle:
+                          document.employeeName && document.employeeName !== "Aucun collaborateur"
+                            ? `Collaborateur : ${document.employeeName}`
+                            : null,
+                        details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
+                      }))}
+                      storageKey="rh-documents-rh-columns"
+                      renderActions={(document, closeMenu) => (
+                        <>
+                          {document.fileName.toLowerCase().endsWith(".pdf") ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start"
+                              onClick={() => { closeMenu(); void handleViewDocument(document); }}
+                              disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              Visualiser
+                            </Button>
+                          ) : null}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start"
+                            onClick={() => { closeMenu(); void handleDownloadDocument(document); }}
+                            disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            Télécharger
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start text-red-600 hover:text-red-700"
+                            onClick={() => { closeMenu(); void handleDeleteRhDocument(document); }}
+                            disabled={deletingRhDocumentId === document.id}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Supprimer
+                          </Button>
+                        </>
+                      )}
+                    />
                   ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document RH pour le moment.</p>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </section>
           )}
 
           {currentSection === "offres" && (

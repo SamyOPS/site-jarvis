@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient, type User } from "@supabase/supabase-js";
-import { AlertCircle, ChevronLeft, ChevronRight, Grip, Loader2, LogOut, Search, Settings, SlidersHorizontal } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, Download, Eye, Grip, Loader2, LogOut, Pencil, Search, Settings, SlidersHorizontal, Trash2, User as UserIcon } from "lucide-react";
 
+import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,9 +32,12 @@ type DocumentRow = {
   id: string;
   documentTypeId: string;
   status: DocumentStatus;
+  uploadedByName: string;
   fileName: string;
   createdAt: string | null;
+  updatedAt: string | null;
   periodMonth: string | null;
+  sizeBytes: number | null;
   reviewComment: string | null;
   typeLabel: string;
   storageBucket: string;
@@ -90,6 +94,12 @@ const formatMonth = (value: string | null) => {
   if (!value) return "-";
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+};
+
+const formatDocumentStatus = (value: DocumentStatus) => {
+  if (value === "validated") return "Validé";
+  if (value === "rejected") return "Refusé";
+  return "En attente";
 };
 
 const normalizeDocumentLabel = (value: string) =>
@@ -247,7 +257,7 @@ export default function SalarieWorkspace() {
         .order("created_at", { ascending: false }),
       supabase
         .from("employee_documents")
-        .select("id,status,file_name,created_at,period_month,review_comment,storage_bucket,storage_path,document_type:document_types(id,label)")
+        .select("id,status,file_name,created_at,updated_at,size_bytes,period_month,review_comment,storage_bucket,storage_path,document_type:document_types(id,label),uploader:profiles!employee_documents_uploaded_by_fkey(full_name,email)")
         .eq("employee_id", profileId)
         .order("created_at", { ascending: false }),
       supabase.from("applications").select("id", { count: "exact", head: true }).eq("candidate_id", profileId),
@@ -300,20 +310,27 @@ export default function SalarieWorkspace() {
       status: DocumentStatus;
       file_name: string;
       created_at: string | null;
+      updated_at: string | null;
+      size_bytes: number | null;
       period_month: string | null;
       review_comment: string | null;
       storage_bucket: string | null;
       storage_path: string | null;
       document_type: { id: string; label: string } | { id: string; label: string }[] | null;
+      uploader: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null;
     }) => {
       const documentType = normalizeJoinOne(row.document_type);
+      const uploader = normalizeJoinOne(row.uploader);
       return {
         id: row.id,
         documentTypeId: documentType?.id ?? "",
         status: row.status,
+        uploadedByName: uploader?.full_name ?? uploader?.email ?? "Utilisateur",
         fileName: row.file_name,
         createdAt: row.created_at,
+        updatedAt: row.updated_at,
         periodMonth: row.period_month,
+        sizeBytes: row.size_bytes,
         reviewComment: row.review_comment,
         typeLabel: documentType?.label ?? "Document",
         storageBucket: row.storage_bucket ?? "employee-documents",
@@ -1247,17 +1264,15 @@ export default function SalarieWorkspace() {
                 aria-label="Ouvrir le menu profil"
                 aria-expanded={profileMenuOpen}
                 onClick={() => setProfileMenuOpen((open) => !open)}
-                className="ml-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#0A1A2F] text-sm font-semibold text-white shadow-sm"
+                className="flex h-9 w-9 items-center justify-center text-[#0A1A2F]/75 transition hover:text-[#0A1A2F]"
               >
-                {displayName.charAt(0).toUpperCase()}
+                <UserIcon className="h-4 w-4" />
               </button>
             </div>
             {profileMenuOpen && (
               <div className="absolute right-0 top-full mt-3 w-[320px] rounded-[28px] border border-slate-200 bg-[#eef3fb] p-4 shadow-[0_24px_48px_rgba(15,23,42,0.18)]">
                 <div className="rounded-[24px] bg-white px-5 py-6 text-center">
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#0EA5B7] text-2xl font-semibold text-white">
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
+                  <UserIcon className="mx-auto h-8 w-8 text-[#0EA5B7]" />
                   <p className="mt-4 text-sm text-[#0A1A2F]/60">{profile?.email ?? user?.email ?? "-"}</p>
                   <p className="mt-2 text-2xl font-semibold tracking-tight text-[#0A1A2F]">{displayName}</p>
                   <p className="mt-1 text-sm text-[#0A1A2F]/65">Espace salarie</p>
@@ -1333,11 +1348,11 @@ export default function SalarieWorkspace() {
           )}
 
           {currentSection === "documents" && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>{documentsCardTitle}</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <section className="space-y-4">
+              <div className="flex flex-row items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-[#0A1A2F]">{documentsCardTitle}</h2>
+              </div>
+              <div>
                 {currentSubSection === "docs_cra_facture" ? (
                   <div className="space-y-6">
                     <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-[#0A1A2F]/80">
@@ -1502,62 +1517,60 @@ export default function SalarieWorkspace() {
                         <Badge variant="outline">{filteredDocuments.length}</Badge>
                       </div>
                       {filteredDocuments.length ? (
-                        <div className="overflow-x-auto rounded-lg">
-                          <table className="min-w-full text-sm">
-                            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70">
-                              <tr><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Depose le</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-200 bg-white">
-                              {filteredDocuments.map((document) => (
-                                <tr key={document.id}>
-                                  <td className="px-3 py-2">{document.typeLabel}</td>
-                                  <td className="px-3 py-2">{document.fileName}</td>
-                                  <td className="px-3 py-2">{formatMonth(document.periodMonth)}</td>
-                                  <td className="px-3 py-2">{formatDate(document.createdAt)}</td>
-                                  <td className="px-3 py-2"><Badge variant="outline">{document.status}</Badge></td>
-                                  <td className="px-3 py-2 text-[#0A1A2F]/70">{document.reviewComment ?? "-"}</td>
-                                  <td className="px-3 py-2">
-                                    <div className="flex items-center gap-2">
-                                      {document.fileName.toLowerCase().endsWith(".pdf") && (
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => void handleViewDocument(document)}
-                                          disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
-                                        >
-                                          {viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}
-                                        </Button>
-                                      )}
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => void handleDownloadDocument(document)}
-                                        disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
-                                      >
-                                        {downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}
-                                      </Button>
-                                      {document.status !== "validated" ? (
-                                        <Button
-                                          type="button"
-                                          variant="destructive"
-                                          size="sm"
-                                          onClick={() => void handleDeleteDocument(document)}
-                                          disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
-                                        >
-                                          {deletingDocumentId === document.id ? "Suppression..." : "Supprimer"}
-                                        </Button>
-                                      ) : (
-                                        <Badge variant="outline">Verrouille</Badge>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                        <DashboardDocumentList
+                          items={filteredDocuments.map((document) => ({
+                            ...document,
+                            ownerName: document.uploadedByName,
+                            createdAt: document.createdAt,
+                            statusLabel: formatDocumentStatus(document.status),
+                            periodLabel: formatMonth(document.periodMonth),
+                            details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
+                          }))}
+                          storageKey="salarie-documents-cra-facture-columns"
+                          renderActions={(document, closeMenu) => (
+                            <>
+                              {document.fileName.toLowerCase().endsWith(".pdf") ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full justify-start"
+                                  onClick={() => { closeMenu(); void handleViewDocument(document); }}
+                                  disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
+                                >
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Visualiser
+                                </Button>
+                              ) : null}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start"
+                                onClick={() => { closeMenu(); void handleDownloadDocument(document); }}
+                                disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
+                              >
+                                <Download className="mr-2 h-4 w-4" />
+                                Télécharger
+                              </Button>
+                              {document.status !== "validated" ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full justify-start text-red-600 hover:text-red-700"
+                                  onClick={() => { closeMenu(); void handleDeleteDocument(document); }}
+                                  disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Supprimer
+                                </Button>
+                              ) : (
+                                <Badge variant="outline">Verrouillé</Badge>
+                              )}
+                            </>
+                          )}
+                        />
                       ) : (
                         <p className="text-sm text-[#0A1A2F]/70">Aucun CRA ou facture depose pour le moment.</p>
                       )}
@@ -1591,76 +1604,76 @@ export default function SalarieWorkspace() {
                     </div>
                   </div>
                 ) : filteredDocuments.length ? (
-                  <div className="overflow-x-auto rounded-lg border border-slate-200">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70">
-                        <tr><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Depose le</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">
-                        {filteredDocuments.map((document) => (
-                          <tr key={document.id}>
-                            <td className="px-3 py-2">{document.typeLabel}</td>
-                            <td className="px-3 py-2">{document.fileName}</td>
-                            <td className="px-3 py-2">{formatMonth(document.periodMonth)}</td>
-                            <td className="px-3 py-2">{formatDate(document.createdAt)}</td>
-                            <td className="px-3 py-2"><Badge variant="outline">{document.status}</Badge></td>
-                            <td className="px-3 py-2 text-[#0A1A2F]/70">{document.reviewComment ?? "-"}</td>
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-2">
-                                {document.fileName.toLowerCase().endsWith(".pdf") && (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => void handleViewDocument(document)}
-                                    disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
-                                  >
-                                    {viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}
-                                  </Button>
-                                )}
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => void handleDownloadDocument(document)}
-                                  disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
-                                >
-                                  {downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}
-                                </Button>
-                                {document.status !== "validated" ? (
-                                  <>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => openEditDialog(document)}
-                                      disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
-                                    >
-                                      Modifier
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="destructive"
-                                      size="sm"
-                                      onClick={() => void handleDeleteDocument(document)}
-                                      disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
-                                    >
-                                      {deletingDocumentId === document.id ? "Suppression..." : "Supprimer"}
-                                    </Button>
-                                  </>
-                                ) : (
-                                  <Badge variant="outline">Verrouille</Badge>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <DashboardDocumentList
+                    items={filteredDocuments.map((document) => ({
+                      ...document,
+                      ownerName: document.uploadedByName,
+                      createdAt: document.createdAt,
+                      statusLabel: formatDocumentStatus(document.status),
+                      periodLabel: formatMonth(document.periodMonth),
+                      details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
+                    }))}
+                    storageKey="salarie-documents-columns"
+                    renderActions={(document, closeMenu) => (
+                      <>
+                        {document.fileName.toLowerCase().endsWith(".pdf") ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start"
+                            onClick={() => { closeMenu(); void handleViewDocument(document); }}
+                            disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            Visualiser
+                          </Button>
+                        ) : null}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => { closeMenu(); void handleDownloadDocument(document); }}
+                          disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Télécharger
+                        </Button>
+                        {document.status !== "validated" ? (
+                          <>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start"
+                              onClick={() => { closeMenu(); openEditDialog(document); }}
+                              disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Modifier
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start text-red-600 hover:text-red-700"
+                              onClick={() => { closeMenu(); void handleDeleteDocument(document); }}
+                              disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Supprimer
+                            </Button>
+                          </>
+                        ) : (
+                          <Badge variant="outline">Verrouillé</Badge>
+                        )}
+                      </>
+                    )}
+                  />
                 ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document depose pour le moment.</p>}
-              </CardContent>
-            </Card>
+              </div>
+            </section>
           )}
 
           {currentSection === "offres" && (
