@@ -34,14 +34,17 @@ type RequestRow = {
 
 type DocumentRow = {
   id: string;
+  documentTypeId: string;
   status: "pending" | "validated" | "rejected";
   uploadedByName: string;
   fileName: string;
   createdAt: string | null;
+  updatedAt: string | null;
   periodMonth: string | null;
   sizeBytes: number | null;
   reviewComment: string | null;
   typeLabel: string;
+  storageBucket: string;
   storagePath: string;
 };
 
@@ -69,7 +72,7 @@ type SalarieDocumentsSectionProps = {
   onCraNotesChange: (value: string) => void;
   weekdayLabels: string[];
   craCalendarCells: CraCalendarCell[];
-  craEntriesByDate: Set<string>;
+  craEntriesByDate: Map<string, CraEntryDraft>;
   craEntries: CraEntryDraft[];
   toggleCraWorkDate: (workDate: string) => void;
   formatCraEntryDateLabel: (value: string) => string;

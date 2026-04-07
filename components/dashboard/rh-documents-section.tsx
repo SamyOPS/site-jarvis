@@ -12,19 +12,30 @@ type FilterOption = {
 
 type RequestRow = {
   id: string;
+  employeeId: string;
+  documentTypeId: string;
   employeeName: string;
   typeLabel: string;
   periodMonth: string | null;
   dueAt: string | null;
-  status: string;
+  status: "pending" | "uploaded" | "validated" | "rejected" | "expired" | "cancelled";
   note: string | null;
 };
 
 type RhDocumentRow = {
   id: string;
+  employeeId: string;
+  employeeRole: string | null;
+  documentTypeId: string;
+  documentTypeCode: string;
+  uploaderRole: string;
   fileName: string;
   status: "pending" | "validated" | "rejected";
+  updatedAt: string | null;
+  sizeBytes: number | null;
+  storageBucket: string;
   storagePath: string;
+  sourceKind: string;
   uploadedByName: string;
   createdAt: string | null;
   periodMonth: string | null;
