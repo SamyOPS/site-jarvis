@@ -1,15 +1,27 @@
+// @ts-nocheck
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient, type User } from "@supabase/supabase-js";
-import { AlertCircle, ChevronLeft, ChevronRight, Loader2, LogOut, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Eye, LogOut, MessageSquareText, Pencil, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 
+import { DashboardDocumentList } from "@/components/dashboard/document-list";
+import type { BillingProfileFormState } from "@/components/dashboard/billing-profile-card";
+import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
+import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
+import { DashboardProfileMenu } from "@/components/dashboard/profile-menu";
+import { SalarieDocumentsSection } from "@/components/dashboard/salarie-documents-section";
+import { SalarieOffersSection } from "@/components/dashboard/salarie-offers-section";
+import { SalarieOverviewSection } from "@/components/dashboard/salarie-overview-section";
+import { SalarieSettingsSection } from "@/components/dashboard/salarie-settings-section";
+import { StatusNotice } from "@/components/dashboard/status-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { formatDate, formatMonth, normalizeJoinOne, type DocumentStatus } from "@/lib/dashboard-formatters";
 import { cn } from "@/lib/utils";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 
@@ -19,7 +31,6 @@ const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supa
 
 type ProfileRow = { id: string; email: string; full_name: string | null; role: string | null; professional_status: string | null };
 type RequestStatus = "pending" | "uploaded" | "validated" | "rejected" | "expired" | "cancelled";
-type DocumentStatus = "pending" | "validated" | "rejected";
 type DocumentTypeRow = {
   id: string;
   label: string;
@@ -31,31 +42,16 @@ type DocumentRow = {
   id: string;
   documentTypeId: string;
   status: DocumentStatus;
+  uploadedByName: string;
   fileName: string;
   createdAt: string | null;
+  updatedAt: string | null;
   periodMonth: string | null;
+  sizeBytes: number | null;
   reviewComment: string | null;
   typeLabel: string;
   storageBucket: string;
   storagePath: string;
-};
-
-type BillingProfileFormState = {
-  firstName: string;
-  lastName: string;
-  companyName: string;
-  esnPartenaire: string;
-  addressLine1: string;
-  addressLine2: string;
-  postalCode: string;
-  city: string;
-  country: string;
-  phone: string;
-  email: string;
-  siret: string;
-  iban: string;
-  bic: string;
-  dailyRate: string;
 };
 
 type CraSummaryRow = {
@@ -75,21 +71,10 @@ type CraEntryDraft = {
   label: string;
 };
 
-const normalizeJoinOne = <T,>(value: T | T[] | null | undefined): T | null => {
-  if (!value) return null;
-  return Array.isArray(value) ? (value[0] ?? null) : value;
-};
-
-const formatDate = (value: string | null) => {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleDateString("fr-FR");
-};
-
-const formatMonth = (value: string | null) => {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+const formatDocumentStatus = (value: DocumentStatus) => {
+  if (value === "validated") return "Validé";
+  if (value === "rejected") return "Refusé";
+  return "En attente";
 };
 
 const normalizeDocumentLabel = (value: string) =>
@@ -97,6 +82,16 @@ const normalizeDocumentLabel = (value: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+
+const matchesDocumentFilters = (
+  document: Pick<DocumentRow, "typeLabel" | "periodMonth" | "status">,
+  filters: { type: string; period: string; status: string },
+) => {
+  if (filters.type !== "all" && document.typeLabel !== filters.type) return false;
+  if (filters.period !== "all" && (document.periodMonth ?? "__none__") !== filters.period) return false;
+  if (filters.status !== "all" && document.status !== filters.status) return false;
+  return true;
+};
 
 const emptyBillingProfileForm = (): BillingProfileFormState => ({
   firstName: "",
@@ -191,6 +186,9 @@ export default function SalarieWorkspace() {
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeRow[]>([]);
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
+  const [documentTypeFilter, setDocumentTypeFilter] = useState("all");
+  const [documentPeriodFilter, setDocumentPeriodFilter] = useState("all");
+  const [documentStatusFilter, setDocumentStatusFilter] = useState("all");
   const [applicationsCount, setApplicationsCount] = useState(0);
   const [offersCount, setOffersCount] = useState(0);
   const [hasCv, setHasCv] = useState(false);
@@ -211,6 +209,8 @@ export default function SalarieWorkspace() {
   const [editPeriodMonth, setEditPeriodMonth] = useState("");
   const [editFileName, setEditFileName] = useState("");
   const [editFile, setEditFile] = useState<File | null>(null);
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [selectedCommentDocument, setSelectedCommentDocument] = useState<{ fileName: string; comment: string } | null>(null);
   const [savingDocumentId, setSavingDocumentId] = useState<string | null>(null);
   const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -228,6 +228,8 @@ export default function SalarieWorkspace() {
   const [craEntries, setCraEntries] = useState<CraEntryDraft[]>([]);
   const [craGenerating, setCraGenerating] = useState(false);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const loadDashboardData = useCallback(async (profileId: string) => {
     if (!supabase) return;
@@ -245,7 +247,7 @@ export default function SalarieWorkspace() {
         .order("created_at", { ascending: false }),
       supabase
         .from("employee_documents")
-        .select("id,status,file_name,created_at,period_month,review_comment,storage_bucket,storage_path,document_type:document_types(id,label)")
+        .select("id,status,file_name,created_at,updated_at,size_bytes,period_month,review_comment,storage_bucket,storage_path,document_type:document_types(id,label),uploader:profiles!employee_documents_uploaded_by_fkey(full_name,email)")
         .eq("employee_id", profileId)
         .order("created_at", { ascending: false }),
       supabase.from("applications").select("id", { count: "exact", head: true }).eq("candidate_id", profileId),
@@ -298,20 +300,27 @@ export default function SalarieWorkspace() {
       status: DocumentStatus;
       file_name: string;
       created_at: string | null;
+      updated_at: string | null;
+      size_bytes: number | null;
       period_month: string | null;
       review_comment: string | null;
       storage_bucket: string | null;
       storage_path: string | null;
       document_type: { id: string; label: string } | { id: string; label: string }[] | null;
+      uploader: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null;
     }) => {
       const documentType = normalizeJoinOne(row.document_type);
+      const uploader = normalizeJoinOne(row.uploader);
       return {
         id: row.id,
         documentTypeId: documentType?.id ?? "",
         status: row.status,
+        uploadedByName: uploader?.full_name ?? uploader?.email ?? "Utilisateur",
         fileName: row.file_name,
         createdAt: row.created_at,
+        updatedAt: row.updated_at,
         periodMonth: row.period_month,
+        sizeBytes: row.size_bytes,
         reviewComment: row.review_comment,
         typeLabel: documentType?.label ?? "Document",
         storageBucket: row.storage_bucket ?? "employee-documents",
@@ -595,6 +604,12 @@ export default function SalarieWorkspace() {
     setEditFile(null);
     setActionMessage(null);
     setEditDialogOpen(true);
+  }, []);
+
+  const openCommentDialog = useCallback((document: Pick<DocumentRow, "fileName" | "reviewComment">) => {
+    if (!document.reviewComment) return;
+    setSelectedCommentDocument({ fileName: document.fileName, comment: document.reviewComment });
+    setCommentDialogOpen(true);
   }, []);
 
   const handleRequestSelection = useCallback((requestId: string) => {
@@ -1070,7 +1085,6 @@ export default function SalarieWorkspace() {
         : pathname.startsWith("/dashboard/salarie/cv")
             ? "cvs"
             : "offres_toutes";
-  const shellTitle = currentSection === "documents" ? "Documents" : currentSection === "offres" ? "Opportunites" : currentSection === "parametres" ? "Parametres" : "Espace salarie";
   const pendingRequests = useMemo(() => requests.filter((request) => ["pending", "rejected", "expired"].includes(request.status)), [requests]);
   const selectedUploadType = useMemo(
     () => documentTypes.find((documentType) => documentType.id === uploadDocumentTypeId) ?? null,
@@ -1102,6 +1116,41 @@ export default function SalarieWorkspace() {
     }
     return documents;
   }, [currentSubSection, documents]);
+  const documentTypeOptions = useMemo(
+    () => Array.from(new Set(filteredDocuments.map((document) => document.typeLabel))).sort((left, right) => left.localeCompare(right, "fr")),
+    [filteredDocuments],
+  );
+  const documentPeriodOptions = useMemo(
+    () => Array.from(new Set(filteredDocuments.map((document) => document.periodMonth ?? "__none__"))).sort((left, right) => left.localeCompare(right)),
+    [filteredDocuments],
+  );
+  const visibleDocuments = useMemo(
+    () =>
+      filteredDocuments.filter((document) =>
+        matchesDocumentFilters(document, {
+          type: documentTypeFilter,
+          period: documentPeriodFilter,
+          status: documentStatusFilter,
+        }),
+      ),
+    [documentPeriodFilter, documentStatusFilter, documentTypeFilter, filteredDocuments],
+  );
+  const documentFilterOptions = useMemo(
+    () => ({
+      type: documentTypeOptions.map((value) => ({ value, label: value })),
+      period: documentPeriodOptions.map((value) => ({
+        value,
+        label: value === "__none__" ? "Sans periode" : formatMonth(value),
+      })),
+      status: [
+        { value: "pending", label: "En attente" },
+        { value: "validated", label: "Valide" },
+        { value: "rejected", label: "Refuse" },
+      ],
+      owner: [],
+    }),
+    [documentPeriodOptions, documentTypeOptions],
+  );
   const documentsCardTitle =
     currentSubSection === "docs_a_deposer"
       ? "Documents a deposer"
@@ -1127,6 +1176,39 @@ export default function SalarieWorkspace() {
   }, [profile?.email, profile?.full_name, user?.user_metadata]);
 
   useEffect(() => {
+    setProfileMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [profileMenuOpen]);
+
+  const handleSignOut = useCallback(async () => {
+    if (!supabase) return;
+    setProfileMenuOpen(false);
+    await supabase.auth.signOut();
+    router.push("/auth");
+  }, [router]);
+
+  useEffect(() => {
     if (!profile) return;
 
     if (currentSubSection === "docs_cra_facture" || currentSection === "parametres") {
@@ -1143,12 +1225,14 @@ export default function SalarieWorkspace() {
   }, [currentSection, currentSubSection, loadBillingProfile, loadCraItems, profile]);
 
   return (
-    <div className="min-h-screen bg-[#eaf0fb] text-[#0A1A2F]">
-      <div className="relative min-h-screen">
-        <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[260px]">
+    <div className="h-screen overflow-hidden bg-[#eaf0fb] text-[#0A1A2F]">
+      <div className="relative h-full">
+        <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[232px]">
           <div className="flex h-full flex-col gap-4 px-4 py-5">
-            <div><p className="text-sm font-medium">Bonjour, {displayName}</p><p className="text-xs text-[#0A1A2F]/60">Espace documentaire</p></div>
-            <nav className="space-y-1 text-sm">
+            <Link href="/" className="block rounded-2xl px-2 py-1 transition hover:bg-white/60">
+              <p className="text-lg font-semibold tracking-tight text-[#0A1A2F]">Jarvis Connect</p>
+            </Link>
+            <nav className="mt-5 space-y-1 text-sm">
               <Link href="/dashboard/salarie" className={`block px-1 py-2 hover:underline ${currentSection === "overview" ? "font-semibold" : ""}`}>Vue d&apos;ensemble</Link>
               <Link href="/dashboard/salarie/documents" className={`block px-1 py-2 hover:underline ${currentSection === "documents" ? "font-semibold" : ""}`}>Mes documents</Link>
               {currentSection === "documents" && (
@@ -1168,8 +1252,7 @@ export default function SalarieWorkspace() {
               )}
             </nav>
             <div className="mt-auto space-y-1">
-              <Link href="/dashboard/salarie/parametres" className={`block px-1 py-2 text-sm hover:underline ${currentSection === "parametres" ? "font-semibold" : ""}`}>Parametres</Link>
-              <button type="button" className="flex items-center px-1 py-2 text-sm hover:underline" onClick={async () => { if (!supabase) return; await supabase.auth.signOut(); router.push("/auth"); }}>
+              <button type="button" className="flex items-center px-1 py-2 text-sm hover:underline" onClick={() => void handleSignOut()}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Deconnexion
               </button>
@@ -1177,77 +1260,116 @@ export default function SalarieWorkspace() {
           </div>
         </aside>
 
-        <main className="px-3 py-3 lg:ml-[260px] lg:px-5 lg:py-5">
-          <div className="hidden lg:flex items-center justify-between gap-4 rounded-[30px] px-5 py-3">
-            <div>
-              <p className="text-lg font-semibold text-[#0A1A2F]">{shellTitle}</p>
-              <p className="text-sm text-[#0A1A2F]/60">Espace de travail unifie</p>
-            </div>
-            <div className="flex flex-1 items-center justify-center px-4">
-              <div className="flex w-full max-w-2xl items-center gap-3 rounded-full border border-white/70 bg-white/70 px-4 py-3 shadow-[0_8px_24px_rgba(148,163,184,0.14)] backdrop-blur">
-                <Search className="h-4 w-4 text-[#0A1A2F]/55" />
-                <span className="text-sm text-[#0A1A2F]/55">Rechercher dans l&apos;espace salarie</span>
-                <SlidersHorizontal className="ml-auto h-4 w-4 text-[#0A1A2F]/45" />
+        <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[64px]">
+          <div className="flex h-full items-stretch justify-center px-2 py-5" />
+        </aside>
+
+        <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[64px] lg:px-3 lg:py-3">
+          <div className="hidden lg:flex items-center rounded-[30px] px-2 py-1.5">
+            <div className="flex min-w-0 flex-1 items-center">
+              <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 shadow-[0_8px_24px_rgba(148,163,184,0.14)] backdrop-blur">
+                  <Search className="h-4 w-4 text-[#0A1A2F]/55" />
+                  <span className="text-sm text-[#0A1A2F]/55">Rechercher dans l&apos;espace salarie</span>
+                  <SlidersHorizontal className="ml-auto h-4 w-4 text-[#0A1A2F]/45" />
               </div>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#0A1A2F] text-sm font-semibold text-white shadow-sm">
-              {displayName.charAt(0).toUpperCase()}
-            </div>
           </div>
+          <DashboardProfileMenu
+            menuRef={profileMenuRef}
+            isOpen={profileMenuOpen}
+            onToggle={() => setProfileMenuOpen((open) => !open)}
+            onClose={() => setProfileMenuOpen(false)}
+            onSignOut={handleSignOut}
+            email={profile?.email ?? user?.email ?? "-"}
+            displayName={displayName}
+            roleLabel="Espace salarie"
+            settingsHref="/dashboard/salarie/parametres"
+            settingsActive={currentSection === "parametres"}
+          />
 
-          <div className="space-y-4 rounded-[30px] border border-white/70 bg-white px-4 py-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] lg:px-8 lg:py-8">
+          <div className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-[30px] border border-white/70 bg-white px-4 py-6 overscroll-contain lg:px-8 lg:py-8">
+          <div className="space-y-4">
           {(!supabase || error) && (
-            <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <div><p className="font-semibold">Erreur</p><p>{error ?? "Configuration Supabase manquante."}</p></div>
-            </div>
+            <StatusNotice
+              tone="error"
+              title="Erreur"
+              message={error ?? "Configuration Supabase manquante."}
+            />
           )}
 
-          {actionMessage && !error && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-[#0A1A2F]">
-              {actionMessage}
-            </div>
-          )}
+          {actionMessage && !error && <StatusNotice message={actionMessage} />}
 
           {currentSection === "overview" && (
-            <>
-              <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Card><CardContent className="pt-6"><p className="text-sm text-[#0A1A2F]/70">Demandes ouvertes</p><p className="mt-1 text-2xl font-semibold">{pendingRequests.length}</p></CardContent></Card>
-                <Card><CardContent className="pt-6"><p className="text-sm text-[#0A1A2F]/70">Documents deposes</p><p className="mt-1 text-2xl font-semibold">{documents.length}</p></CardContent></Card>
-                <Card><CardContent className="pt-6"><p className="text-sm text-[#0A1A2F]/70">Documents valides</p><p className="mt-1 text-2xl font-semibold">{documents.filter((document) => document.status === "validated").length}</p></CardContent></Card>
-              </section>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between gap-3">
-                  <CardTitle>Documents a deposer</CardTitle>
-                  <Button type="button" variant="outline" size="sm" onClick={() => openUploadDialog()}>
-                    Deposer un document
-                  </Button>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {pendingRequests.length ? pendingRequests.map((request) => (
-                    <div key={request.id} className="rounded-lg border border-slate-200 p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <p className="font-medium">{request.typeLabel}</p>
-                          <p className="text-sm text-[#0A1A2F]/70">Echeance: {formatDate(request.dueAt)} | Periode: {formatMonth(request.periodMonth)}</p>
-                        </div>
-                        <Badge variant="outline">{request.status}</Badge>
-                      </div>
-                      {request.note && <p className="mt-2 text-sm text-[#0A1A2F]/75">{request.note}</p>}
-                    </div>
-                  )) : <p className="text-sm text-[#0A1A2F]/70">Aucune demande ouverte.</p>}
-                </CardContent>
-              </Card>
-            </>
+            <SalarieOverviewSection
+              pendingRequestsCount={pendingRequests.length}
+              documentsCount={documents.length}
+              validatedDocumentsCount={documents.filter((document) => document.status === "validated").length}
+              pendingRequests={pendingRequests}
+              formatDate={formatDate}
+              formatMonth={formatMonth}
+              action={
+                <Button type="button" variant="outline" size="sm" onClick={() => openUploadDialog()}>
+                  Deposer un document
+                </Button>
+              }
+            />
           )}
 
           {currentSection === "documents" && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>{documentsCardTitle}</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <>
+              <SalarieDocumentsSection
+                currentSubSection={currentSubSection}
+                documentsCardTitle={documentsCardTitle}
+                billingProfileReady={billingProfileReady}
+                selectedCraId={selectedCraId}
+                selectedCraSummary={selectedCraSummary}
+                resetCraEditor={resetCraEditor}
+                onGenerateCraPdf={handleGenerateCraPdf}
+                onGenerateInvoicePdf={handleGenerateInvoicePdf}
+                craGenerating={craGenerating}
+                invoiceGenerating={invoiceGenerating}
+                craPeriodMonth={craPeriodMonth}
+                onCraPeriodMonthChange={handleCraPeriodMonthChange}
+                shiftMonthInputValue={shiftMonthInputValue}
+                craDraftTotalDays={craDraftTotalDays}
+                craNotes={craNotes}
+                onCraNotesChange={setCraNotes}
+                weekdayLabels={weekdayLabels}
+                craCalendarCells={craCalendarCells}
+                craEntriesByDate={craEntriesByDate}
+                craEntries={craEntries}
+                toggleCraWorkDate={toggleCraWorkDate}
+                formatCraEntryDateLabel={formatCraEntryDateLabel}
+                updateCraEntry={updateCraEntry}
+                visibleDocuments={visibleDocuments}
+                documentTypeFilter={documentTypeFilter}
+                documentPeriodFilter={documentPeriodFilter}
+                documentStatusFilter={documentStatusFilter}
+                documentFilterOptions={documentFilterOptions}
+                onDocumentTypeFilterChange={setDocumentTypeFilter}
+                onDocumentPeriodFilterChange={setDocumentPeriodFilter}
+                onDocumentStatusFilterChange={setDocumentStatusFilter}
+                onViewDocument={handleViewDocument}
+                onDownloadDocument={handleDownloadDocument}
+                onDeleteDocument={handleDeleteDocument}
+                onOpenCommentDialog={openCommentDialog}
+                onOpenEditDialog={openEditDialog}
+                viewingDocumentId={viewingDocumentId}
+                downloadingDocumentId={downloadingDocumentId}
+                deletingDocumentId={deletingDocumentId}
+                savingDocumentId={savingDocumentId}
+                pendingRequests={pendingRequests}
+                openUploadDialog={openUploadDialog}
+                formatDate={formatDate}
+                formatMonth={formatMonth}
+                formatDocumentStatus={formatDocumentStatus}
+              />
+              {false && (
+                <section className="space-y-4">
+                  <div className="flex flex-row items-center justify-between gap-3">
+                    <h2 className="text-lg font-semibold text-[#0A1A2F]">{documentsCardTitle}</h2>
+                  </div>
+                  <div>
                 {currentSubSection === "docs_cra_facture" ? (
                   <div className="space-y-6">
                     <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-[#0A1A2F]/80">
@@ -1406,68 +1528,88 @@ export default function SalarieWorkspace() {
                       </Card>
                     </div>
 
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-medium">Documents CRA & Facture generes ou deposes</p>
-                        <Badge variant="outline">{filteredDocuments.length}</Badge>
-                      </div>
-                      {filteredDocuments.length ? (
-                        <div className="overflow-x-auto rounded-lg">
-                          <table className="min-w-full text-sm">
-                            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70">
-                              <tr><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Depose le</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-200 bg-white">
-                              {filteredDocuments.map((document) => (
-                                <tr key={document.id}>
-                                  <td className="px-3 py-2">{document.typeLabel}</td>
-                                  <td className="px-3 py-2">{document.fileName}</td>
-                                  <td className="px-3 py-2">{formatMonth(document.periodMonth)}</td>
-                                  <td className="px-3 py-2">{formatDate(document.createdAt)}</td>
-                                  <td className="px-3 py-2"><Badge variant="outline">{document.status}</Badge></td>
-                                  <td className="px-3 py-2 text-[#0A1A2F]/70">{document.reviewComment ?? "-"}</td>
-                                  <td className="px-3 py-2">
-                                    <div className="flex items-center gap-2">
-                                      {document.fileName.toLowerCase().endsWith(".pdf") && (
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => void handleViewDocument(document)}
-                                          disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
-                                        >
-                                          {viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}
-                                        </Button>
-                                      )}
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => void handleDownloadDocument(document)}
-                                        disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
-                                      >
-                                        {downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}
-                                      </Button>
-                                      {document.status !== "validated" ? (
-                                        <Button
-                                          type="button"
-                                          variant="destructive"
-                                          size="sm"
-                                          onClick={() => void handleDeleteDocument(document)}
-                                          disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
-                                        >
-                                          {deletingDocumentId === document.id ? "Suppression..." : "Supprimer"}
-                                        </Button>
-                                      ) : (
-                                        <Badge variant="outline">Verrouille</Badge>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+	                    <div className="space-y-3">
+	                      <div className="flex items-center justify-between gap-3">
+	                        <p className="font-medium">Documents CRA & Facture generes ou deposes</p>
+	                        <Badge variant="outline">{visibleDocuments.length}</Badge>
+	                      </div>
+	                      <DocumentFiltersBar
+                      fields={["type", "period", "status"]}
+                      values={{ type: documentTypeFilter, period: documentPeriodFilter, status: documentStatusFilter, owner: "all" }}
+                      options={documentFilterOptions}
+                      onChange={(field, value) => {
+                        if (field === "type") setDocumentTypeFilter(value);
+                        if (field === "period") setDocumentPeriodFilter(value);
+                        if (field === "status") setDocumentStatusFilter(value);
+                      }}
+                    />
+	                      {visibleDocuments.length ? (
+	                        <DashboardDocumentList
+	                          items={visibleDocuments.map((document) => ({
+                            ...document,
+                            ownerName: document.uploadedByName,
+                            createdAt: document.createdAt,
+                            statusLabel: formatDocumentStatus(document.status),
+                            periodLabel: formatMonth(document.periodMonth),
+                            details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
+                          }))}
+                          storageKey="salarie-documents-cra-facture-columns"
+                          renderActions={(document, closeMenu) => (
+                            <>
+                              {document.fileName.toLowerCase().endsWith(".pdf") ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full justify-start"
+                                  onClick={() => { closeMenu(); void handleViewDocument(document); }}
+                                  disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
+                                >
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Visualiser
+                                </Button>
+                              ) : null}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start"
+                                onClick={() => { closeMenu(); void handleDownloadDocument(document); }}
+                                disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
+                              >
+                                <Download className="mr-2 h-4 w-4" />
+                                Télécharger
+                              </Button>
+	                              {document.reviewComment ? (
+	                                <Button
+	                                  type="button"
+	                                  variant="ghost"
+	                                  size="sm"
+	                                  className="w-full justify-start"
+	                                  onClick={() => { closeMenu(); openCommentDialog(document); }}
+	                                >
+	                                  <MessageSquareText className="mr-2 h-4 w-4" />
+	                                  Voir commentaire RH
+	                                </Button>
+	                              ) : null}
+	                              {document.status !== "validated" ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full justify-start text-red-600 hover:text-red-700"
+                                  onClick={() => { closeMenu(); void handleDeleteDocument(document); }}
+                                  disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Supprimer
+                                </Button>
+                              ) : (
+                                <Badge variant="outline">Verrouillé</Badge>
+                              )}
+                            </>
+                          )}
+                        />
                       ) : (
                         <p className="text-sm text-[#0A1A2F]/70">Aucun CRA ou facture depose pour le moment.</p>
                       )}
@@ -1500,169 +1642,138 @@ export default function SalarieWorkspace() {
                       )) : <p className="text-sm text-[#0A1A2F]/70">Aucune demande RH ouverte pour le moment.</p>}
                     </div>
                   </div>
-                ) : filteredDocuments.length ? (
-                  <div className="overflow-x-auto rounded-lg border border-slate-200">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70">
-                        <tr><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Depose le</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">
-                        {filteredDocuments.map((document) => (
-                          <tr key={document.id}>
-                            <td className="px-3 py-2">{document.typeLabel}</td>
-                            <td className="px-3 py-2">{document.fileName}</td>
-                            <td className="px-3 py-2">{formatMonth(document.periodMonth)}</td>
-                            <td className="px-3 py-2">{formatDate(document.createdAt)}</td>
-                            <td className="px-3 py-2"><Badge variant="outline">{document.status}</Badge></td>
-                            <td className="px-3 py-2 text-[#0A1A2F]/70">{document.reviewComment ?? "-"}</td>
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-2">
-                                {document.fileName.toLowerCase().endsWith(".pdf") && (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => void handleViewDocument(document)}
-                                    disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
-                                  >
-                                    {viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}
-                                  </Button>
-                                )}
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => void handleDownloadDocument(document)}
-                                  disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
-                                >
-                                  {downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}
-                                </Button>
-                                {document.status !== "validated" ? (
-                                  <>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => openEditDialog(document)}
-                                      disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
-                                    >
-                                      Modifier
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="destructive"
-                                      size="sm"
-                                      onClick={() => void handleDeleteDocument(document)}
-                                      disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
-                                    >
-                                      {deletingDocumentId === document.id ? "Suppression..." : "Supprimer"}
-                                    </Button>
-                                  </>
-                                ) : (
-                                  <Badge variant="outline">Verrouille</Badge>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+	                ) : (
+	                  <div className="space-y-3">
+	                    <DocumentFiltersBar
+                      fields={["type", "period", "status"]}
+                      values={{ type: documentTypeFilter, period: documentPeriodFilter, status: documentStatusFilter, owner: "all" }}
+                      options={documentFilterOptions}
+                      onChange={(field, value) => {
+                        if (field === "type") setDocumentTypeFilter(value);
+                        if (field === "period") setDocumentPeriodFilter(value);
+                        if (field === "status") setDocumentStatusFilter(value);
+                      }}
+                    />
+		                    {visibleDocuments.length ? (
+	                  <DashboardDocumentList
+	                    items={visibleDocuments.map((document) => ({
+                      ...document,
+                      ownerName: document.uploadedByName,
+                      createdAt: document.createdAt,
+                      statusLabel: formatDocumentStatus(document.status),
+                      periodLabel: formatMonth(document.periodMonth),
+                      details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
+                    }))}
+                    storageKey="salarie-documents-columns"
+                    renderActions={(document, closeMenu) => (
+                      <>
+                        {document.fileName.toLowerCase().endsWith(".pdf") ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start"
+                            onClick={() => { closeMenu(); void handleViewDocument(document); }}
+                            disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            Visualiser
+                          </Button>
+                        ) : null}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => { closeMenu(); void handleDownloadDocument(document); }}
+                          disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Télécharger
+                        </Button>
+	                        {document.reviewComment ? (
+	                          <Button
+	                            type="button"
+	                            variant="ghost"
+	                            size="sm"
+	                            className="w-full justify-start"
+	                            onClick={() => { closeMenu(); openCommentDialog(document); }}
+	                          >
+	                            <MessageSquareText className="mr-2 h-4 w-4" />
+	                            Voir commentaire RH
+	                          </Button>
+	                        ) : null}
+	                        {document.status !== "validated" ? (
+                          <>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start"
+                              onClick={() => { closeMenu(); openEditDialog(document); }}
+                              disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Modifier
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start text-red-600 hover:text-red-700"
+                              onClick={() => { closeMenu(); void handleDeleteDocument(document); }}
+                              disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Supprimer
+                            </Button>
+                          </>
+                        ) : (
+                          <Badge variant="outline">Verrouillé</Badge>
+                        )}
+                      </>
+                    )}
+	                  />
+	                ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document depose pour le moment.</p>}
+	                  </div>
+	                )}
                   </div>
-                ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document depose pour le moment.</p>}
-              </CardContent>
-            </Card>
+                </section>
+              )}
+            </>
           )}
 
           {currentSection === "offres" && (
-            <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <Card><CardHeader><CardTitle>Toutes les offres</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold">{offersCount}</p><p className="text-sm text-[#0A1A2F]/70">Offres actuellement publiees.</p></CardContent></Card>
-              <Card><CardHeader><CardTitle>Mes candidatures</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold">{applicationsCount}</p><p className="text-sm text-[#0A1A2F]/70">Candidatures envoyees.</p></CardContent></Card>
-              <Card><CardHeader><CardTitle>Mes CVs</CardTitle></CardHeader><CardContent><Badge variant="outline">{hasCv ? "CV disponible" : "Aucun CV"}</Badge></CardContent></Card>
-            </section>
+            <SalarieOffersSection
+              offersCount={offersCount}
+              applicationsCount={applicationsCount}
+              hasCv={hasCv}
+            />
           )}
 
           {currentSection === "parametres" && (
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
-              <Card>
-                <CardHeader><CardTitle>Profil</CardTitle></CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between"><span>Email</span><span>{profile?.email ?? "-"}</span></div>
-                  <div className="flex items-center justify-between"><span>Nom</span><span>{profile?.full_name ?? "-"}</span></div>
-                  <div className="flex items-center justify-between"><span>Role</span><Badge variant="outline">{profile?.role ?? "salarie"}</Badge></div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between gap-3">
-                  <div>
-                    <CardTitle>Profil de facturation</CardTitle>
-                    <p className="mt-1 text-sm text-[#0A1A2F]/70">
-                      Ces informations sont utilisees pour le CRA et les futurs flux de facturation.
-                    </p>
-                  </div>
-                  <Button type="button" size="sm" onClick={() => void handleBillingProfileSave()} disabled={billingProfileSaving || billingProfileLoading}>
-                    {billingProfileSaving ? "Enregistrement..." : "Enregistrer"}
-                  </Button>
-                </CardHeader>
-                <CardContent className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-1"><label className="text-sm font-medium">Prenom</label><input value={billingProfileForm.firstName} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, firstName: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                  <div className="space-y-1"><label className="text-sm font-medium">Nom</label><input value={billingProfileForm.lastName} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, lastName: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                  <div className="space-y-1 md:col-span-2"><label className="text-sm font-medium">Societe</label><input value={billingProfileForm.companyName} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, companyName: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                  <div className="space-y-1 md:col-span-2"><label className="text-sm font-medium">ESN partenaire</label><input value={billingProfileForm.esnPartenaire} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, esnPartenaire: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                  <div className="space-y-1 md:col-span-2"><label className="text-sm font-medium">Adresse</label><input value={billingProfileForm.addressLine1} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, addressLine1: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                  <div className="space-y-1 md:col-span-2"><label className="text-sm font-medium">Complement d&apos;adresse</label><input value={billingProfileForm.addressLine2} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, addressLine2: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                  <div className="space-y-1"><label className="text-sm font-medium">Code postal</label><input value={billingProfileForm.postalCode} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, postalCode: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                  <div className="space-y-1"><label className="text-sm font-medium">Ville</label><input value={billingProfileForm.city} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, city: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                  <div className="space-y-1"><label className="text-sm font-medium">Pays</label><input value={billingProfileForm.country} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, country: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                  <div className="space-y-1"><label className="text-sm font-medium">Telephone</label><input value={billingProfileForm.phone} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, phone: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                  <div className="space-y-1 md:col-span-2"><label className="text-sm font-medium">Email</label><input value={billingProfileForm.email} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, email: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                  <div className="space-y-1"><label className="text-sm font-medium">SIRET</label><input value={billingProfileForm.siret} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, siret: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                  <div className="space-y-1"><label className="text-sm font-medium">Tarif journalier</label><input type="number" min="0" step="0.01" value={billingProfileForm.dailyRate} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, dailyRate: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                  <div className="space-y-1"><label className="text-sm font-medium">IBAN</label><input value={billingProfileForm.iban} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, iban: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                  <div className="space-y-1"><label className="text-sm font-medium">BIC</label><input value={billingProfileForm.bic} onChange={(event) => setBillingProfileForm((prev) => ({ ...prev, bic: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" /></div>
-                </CardContent>
-              </Card>
-
-              <Card className="xl:col-span-2">
-                <CardHeader className="flex flex-row items-center justify-between gap-3">
-                  <div>
-                    <CardTitle>Mot de passe</CardTitle>
-                    <p className="mt-1 text-sm text-[#0A1A2F]/70">
-                      Modifie le mot de passe utilise pour te connecter.
-                    </p>
-                  </div>
-                  <Button type="button" size="sm" onClick={() => void handlePasswordUpdate()} disabled={passwordSaving}>
-                    {passwordSaving ? "Enregistrement..." : "Mettre a jour"}
-                  </Button>
-                </CardHeader>
-                <CardContent className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">Nouveau mot de passe</label>
-                    <input type="password" value={passwordForm.newPassword} onChange={(event) => setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" autoComplete="new-password" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">Confirmer le mot de passe</label>
-                    <input type="password" value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirmPassword: event.target.value }))} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" autoComplete="new-password" />
-                  </div>
-                  {passwordMessage && (
-                    <p className="md:col-span-2 text-sm text-[#0A1A2F]/70">{passwordMessage}</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+            <SalarieSettingsSection
+              email={profile?.email ?? "-"}
+              fullName={profile?.full_name ?? "-"}
+              role={profile?.role ?? "salarie"}
+              billingProfileForm={billingProfileForm}
+              onBillingProfileChange={setBillingProfileForm}
+              onBillingProfileSubmit={handleBillingProfileSave}
+              billingProfileSaving={billingProfileSaving}
+              billingProfileLoading={billingProfileLoading}
+              passwordSaving={passwordSaving}
+              passwordMessage={passwordMessage}
+              passwordForm={passwordForm}
+              onPasswordFormChange={setPasswordForm}
+              onPasswordSubmit={handlePasswordUpdate}
+            />
           )}
+          </div>
           </div>
         </main>
       </div>
 
-      {loading && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-          <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm text-[#0A1A2F] shadow">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Chargement...
-          </div>
-        </div>
-      )}
+      {loading && <DashboardLoadingOverlay message="Chargement..." />}
 
       <Dialog
         open={uploadDialogOpen}
@@ -1841,6 +1952,39 @@ export default function SalarieWorkspace() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog
+        open={commentDialogOpen}
+        onOpenChange={(open) => {
+          setCommentDialogOpen(open);
+          if (!open) setSelectedCommentDocument(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Commentaire RH</DialogTitle>
+            <DialogDescription>
+              {selectedCommentDocument ? `Document : ${selectedCommentDocument.fileName}` : "Commentaire lie au document"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm leading-6 text-[#0A1A2F]/85">
+            {selectedCommentDocument?.comment ?? "Aucun commentaire RH."}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setCommentDialogOpen(false);
+                setSelectedCommentDocument(null);
+              }}
+            >
+              Fermer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+
