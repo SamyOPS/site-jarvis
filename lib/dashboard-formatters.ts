@@ -20,7 +20,7 @@ export function formatMonth(value: string | null) {
 }
 
 export function formatDocumentStatus(value: DocumentStatus) {
-  if (value === "validated") return "Validé";
-  if (value === "rejected") return "Refusé";
+  if (value === "validated") return "Valide";
+  if (value === "rejected") return "Refuse";
   return "En attente";
 }

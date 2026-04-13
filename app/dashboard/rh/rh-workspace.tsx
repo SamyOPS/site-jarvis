@@ -1,14 +1,11 @@
-// @ts-nocheck
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient, type Session, type User } from "@supabase/supabase-js";
-import { ChevronDown, Download, Eye, LogOut, RotateCcw, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import type { Session, User } from "@supabase/supabase-js";
+import { LogOut, Search, SlidersHorizontal } from "lucide-react";
 
-import { DashboardDocumentList } from "@/components/dashboard/document-list";
-import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
 import { RhOffersSection } from "@/components/dashboard/rh-offers-section";
 import { RhDocumentsSection } from "@/components/dashboard/rh-documents-section";
@@ -16,107 +13,36 @@ import { DashboardProfileMenu } from "@/components/dashboard/profile-menu";
 import { RhOverviewSection } from "@/components/dashboard/rh-overview-section";
 import { RhSettingsSection } from "@/components/dashboard/rh-settings-section";
 import { StatusNotice } from "@/components/dashboard/status-notice";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { formatDate, formatMonth, type DocumentStatus } from "@/lib/dashboard-formatters";
+import { matchesRhDocumentFilters } from "@/features/dashboard/rh/document-filters";
+import type { RhWorkspaceRouteProps } from "@/features/dashboard/rh/navigation";
+import type {
+  RhApplicationRow as ApplicationRow,
+  RhDocumentRow as RHDocumentRow,
+  RhDocumentTypeRow as DocumentTypeRow,
+  RhEventRow as EventRow,
+  RhJobOfferRow as JobOfferRow,
+  RhProfileCvRow as ProfileCvRow,
+  RhProfileRow as ProfileRow,
+  RhRequestRow as RequestRow,
+  RhRequestStatus as RequestStatus,
+} from "@/features/dashboard/rh/types";
+import { formatDate, formatDocumentStatus, formatMonth, normalizeJoinOne, type DocumentStatus } from "@/lib/dashboard-formatters";
+import { browserSupabase as supabase } from "@/lib/supabase-browser";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
-
-type ProfileRow = {
-  id: string;
-  email: string;
-  full_name: string | null;
-  phone: string | null;
-  role: string | null;
-  professional_status: string | null;
-  employment_status: "active" | "inactive" | "exited" | null;
-  company_name: string | null;
-  esn_partenaire: string | null;
+const defaultRouteProps: RhWorkspaceRouteProps = {
+  currentSection: "overview",
+  currentSubSection: "overview",
+  selectedEmployeeId: null,
 };
 
-type RequestStatus = "pending" | "uploaded" | "validated" | "rejected" | "expired" | "cancelled";
-type DocumentTypeRow = {
-  id: string;
-  label: string;
-  requiresPeriod: boolean;
-  allowedUploaderRoles: string[];
-};
-
-type RHDocumentRow = {
-  id: string;
-  employeeId: string;
-  employeeRole: string | null;
-  documentTypeId: string;
-  documentTypeCode: string;
-  uploaderRole: string;
-  uploadedByName: string;
-  employeeName: string;
-  fileName: string;
-  status: DocumentStatus;
-  periodMonth: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-  sizeBytes: number | null;
-  reviewComment: string | null;
-  typeLabel: string;
-  storageBucket: string;
-  storagePath: string;
-  sourceKind: string;
-};
-
-type RequestRow = {
-  id: string;
-  employeeId: string;
-  documentTypeId: string;
-  employeeName: string;
-  status: RequestStatus;
-  dueAt: string | null;
-  periodMonth: string | null;
-  note: string | null;
-  typeLabel: string;
-};
-
-type EventRow = {
-  id: string;
-  employeeId: string;
-  createdAt: string;
-  eventType: string;
-  actorName: string;
-  documentLabel: string;
-};
-
-type JobOfferRow = { id: string; title: string; status: "draft" | "published" | "archived"; location: string | null };
-type ApplicationRow = { id: string; candidateId: string; status: "submitted" | "reviewed" | "rejected" | "accepted"; jobTitle: string; candidateName: string };
-type ProfileCvRow = { user_id: string; file_name: string | null };
-
-const formatDocumentStatus = (value: DocumentStatus) => {
-  if (value === "validated") return "Validé";
-  if (value === "rejected") return "Refusé";
-  return "En attente";
-};
-
-const matchesDocumentFilters = (
-  document: Pick<RHDocumentRow, "typeLabel" | "periodMonth" | "status" | "uploadedByName">,
-  filters: { type: string; period: string; status: string; creator: string },
-) => {
-  if (filters.type !== "all" && document.typeLabel !== filters.type) return false;
-  if (filters.period !== "all" && (document.periodMonth ?? "__none__") !== filters.period) return false;
-  if (filters.status !== "all" && document.status !== filters.status) return false;
-  if (filters.creator !== "all" && document.uploadedByName !== filters.creator) return false;
-  return true;
-};
-
-const normalizeJoinOne = <T,>(value: T | T[] | null | undefined): T | null => {
-  if (!value) return null;
-  return Array.isArray(value) ? (value[0] ?? null) : value;
-};
-
-export default function RhWorkspace() {
-  const pathname = usePathname();
+export default function RhWorkspace({
+  currentSection = defaultRouteProps.currentSection,
+  currentSubSection = defaultRouteProps.currentSubSection,
+  selectedEmployeeId = defaultRouteProps.selectedEmployeeId,
+}: RhWorkspaceRouteProps) {
   const router = useRouter();
 
   const [session, setSession] = useState<Session | null>(null);
@@ -287,11 +213,12 @@ export default function RhWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (!supabase) return;
+    const client = supabase;
+    if (!client) return;
     const load = async () => {
       setLoading(true);
       setError(null);
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
       if (sessionError) {
         setError(sessionError.message);
         setLoading(false);
@@ -304,7 +231,7 @@ export default function RhWorkspace() {
       }
       setSession(sessionData.session);
       setUser(sessionData.session.user);
-      const { data: profileData, error: profileError } = await supabase.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("id", sessionData.session.user.id).single();
+      const { data: profileData, error: profileError } = await client.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("id", sessionData.session.user.id).single();
       if (profileError || !profileData || profileData.role !== "rh" || profileData.professional_status !== "verified") {
         setLoading(false);
         router.push("/auth");
@@ -324,7 +251,7 @@ export default function RhWorkspace() {
 
   useEffect(() => {
     setProfileMenuOpen(false);
-  }, [pathname]);
+  }, [currentSection, currentSubSection, selectedEmployeeId]);
 
   useEffect(() => {
     if (!profileMenuOpen) return;
@@ -348,10 +275,6 @@ export default function RhWorkspace() {
     };
   }, [profileMenuOpen]);
 
-  const currentSection = pathname.startsWith("/dashboard/rh/collaborateurs") ? "collaborateurs" : pathname.startsWith("/dashboard/rh/documents") ? "documents" : pathname.startsWith("/dashboard/rh/offres") ? "offres" : pathname.startsWith("/dashboard/rh/parametres") ? "parametres" : "overview";
-  const currentSubSection = /^\/dashboard\/rh\/collaborateurs\/[a-f0-9-]+$/i.test(pathname) ? "collab_detail" : pathname.startsWith("/dashboard/rh/collaborateurs/actifs") ? "collab_actifs" : pathname.startsWith("/dashboard/rh/collaborateurs/inactifs") ? "collab_inactifs" : pathname.startsWith("/dashboard/rh/documents/a-valider") ? "docs_a_valider" : pathname.startsWith("/dashboard/rh/documents/mes-demandes") ? "docs_mes_demandes" : pathname.startsWith("/dashboard/rh/documents/salaries") ? "docs_salaries" : pathname.startsWith("/dashboard/rh/offres/candidatures") ? "offres_candidatures" : pathname.startsWith("/dashboard/rh/offres/archives") ? "offres_archives" : pathname.startsWith("/dashboard/rh/offres/creer") ? "offres_creer" : pathname.startsWith("/dashboard/rh/offres") ? "offres_actives" : pathname.startsWith("/dashboard/rh/documents") ? "docs_tous" : pathname.startsWith("/dashboard/rh/collaborateurs") ? "collab_tous" : "overview";
-
-  const selectedEmployeeId = useMemo(() => pathname.match(/^\/dashboard\/rh\/collaborateurs\/([a-f0-9-]+)$/i)?.[1] ?? null, [pathname]);
   const selectedEmployee = useMemo(() => employees.find((employee) => employee.id === selectedEmployeeId) ?? null, [employees, selectedEmployeeId]);
   const activeDraft = useMemo(() => {
     if (!selectedEmployee) return null;
@@ -406,7 +329,7 @@ export default function RhWorkspace() {
   const filteredSalarieDocuments = useMemo(
     () =>
       salarieDocuments.filter((document) =>
-        matchesDocumentFilters(document, {
+        matchesRhDocumentFilters(document, {
           type: documentTypeFilter,
           period: documentPeriodFilter,
           status: documentStatusFilter,
@@ -418,7 +341,7 @@ export default function RhWorkspace() {
   const filteredPendingDocuments = useMemo(
     () =>
       pendingDocuments.filter((document) =>
-        matchesDocumentFilters(document, {
+        matchesRhDocumentFilters(document, {
           type: documentTypeFilter,
           period: documentPeriodFilter,
           status: documentStatusFilter,
@@ -430,7 +353,7 @@ export default function RhWorkspace() {
   const filteredRhDocuments = useMemo(
     () =>
       rhDocuments.filter((document) =>
-        matchesDocumentFilters(document, {
+        matchesRhDocumentFilters(document, {
           type: documentTypeFilter,
           period: documentPeriodFilter,
           status: documentStatusFilter,
@@ -864,34 +787,19 @@ export default function RhWorkspace() {
                   <Link href="/dashboard/rh/collaborateurs/actifs" className={`block py-1 ${currentSubSection === "collab_actifs" ? "font-semibold" : ""}`}>Actifs</Link>
                   <Link href="/dashboard/rh/collaborateurs/inactifs" className={`block py-1 ${currentSubSection === "collab_inactifs" ? "font-semibold" : ""}`}>Inactifs / Sortants</Link>
                   {currentSubSection === "collab_detail" && <span className="block py-1 font-semibold">Fiche collaborateur</span>}
-	                  <div className="relative">
-	                    <select
-	                      value={documentCreatorFilter}
-	                      onChange={(event) => setDocumentCreatorFilter(event.target.value)}
-	                      className="h-10 min-w-[150px] appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm font-medium text-[#0A1A2F] shadow-sm outline-none transition focus:border-slate-400"
-	                    >
-	                      <option value="all">Proprietaire</option>
-	                      {rhDocumentCreatorOptions.map((creatorName) => (
-	                        <option key={creatorName} value={creatorName}>
-	                          {creatorName}
-	                        </option>
-	                      ))}
-	                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#0A1A2F]/55" />
-	                  </div>
-	                </div>
+                </div>
               )}
               <Link href="/dashboard/rh/documents" className={`block px-1 py-2 hover:underline ${currentSection === "documents" ? "font-semibold" : ""}`}>Documents</Link>
               {currentSection === "documents" && (
                 <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
-                  <Link href="/dashboard/rh/documents/a-valider" className={`block py-1 ${currentSubSection === "docs_a_valider" ? "font-semibold" : ""}`}>A valider</Link>
-                  <Link href="/dashboard/rh/documents" className={`block py-1 ${currentSubSection === "docs_tous" ? "font-semibold" : ""}`}>Tous les documents</Link>
+                  <Link href="/dashboard/rh/documents" className={`block py-1 ${currentSubSection === "docs_tous" ? "font-semibold" : ""}`}>Documents entreprise</Link>
                   <Link href="/dashboard/rh/documents/salaries" className={`block py-1 ${currentSubSection === "docs_salaries" ? "font-semibold" : ""}`}>Documents salaries</Link>
+                  <Link href="/dashboard/rh/documents/a-valider" className={`block py-1 ${currentSubSection === "docs_a_valider" ? "font-semibold" : ""}`}>A valider</Link>
                   <Link href="/dashboard/rh/documents/mes-demandes" className={`block py-1 ${currentSubSection === "docs_mes_demandes" ? "font-semibold" : ""}`}>Mes demandes</Link>
                 </div>
               )}
-              <Link href="/dashboard/rh/offres" className={`block px-1 py-2 hover:underline ${currentSection === "offres" ? "font-semibold" : ""}`}>Offres</Link>
-              {currentSection === "offres" && (
+
+          {currentSection === "offres" && (
                 <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
                   <Link href="/dashboard/rh/offres" className={`block py-1 ${currentSubSection === "offres_actives" ? "font-semibold" : ""}`}>Offres actives</Link>
                   <Link href="/dashboard/rh/offres/candidatures" className={`block py-1 ${currentSubSection === "offres_candidatures" ? "font-semibold" : ""}`}>Candidatures</Link>
@@ -1017,212 +925,46 @@ export default function RhWorkspace() {
                 )}
               </CardContent>
             </Card>
-          )}
-
-          {currentSection === "documents" && (
-            <>
-              <RhDocumentsSection
-                currentSubSection={currentSubSection}
-                documentTypeFilter={documentTypeFilter}
-                documentPeriodFilter={documentPeriodFilter}
-                documentStatusFilter={documentStatusFilter}
-                documentCreatorFilter={documentCreatorFilter}
-                rhFilterOptions={rhFilterOptions}
-                onDocumentTypeFilterChange={setDocumentTypeFilter}
-                onDocumentPeriodFilterChange={setDocumentPeriodFilter}
-                onDocumentStatusFilterChange={setDocumentStatusFilter}
-                onDocumentCreatorFilterChange={setDocumentCreatorFilter}
-                onOpenRhUploadDialog={() => {
-                  setSaveMessage(null);
-                  setRhUploadDialogOpen(true);
-                }}
-                requests={requests}
-                cancellingRequestId={cancellingRequestId}
-                onCancelRequest={handleCancelRequest}
-                filteredSalarieDocuments={filteredSalarieDocuments}
-                filteredPendingDocuments={filteredPendingDocuments}
-                filteredRhDocuments={filteredRhDocuments}
-                onViewDocument={handleViewDocument}
-                onDownloadDocument={handleDownloadDocument}
-                onReviewDocument={handleReviewDocument}
-                onDeleteRhDocument={handleDeleteRhDocument}
-                viewingDocumentId={viewingDocumentId}
-                downloadingDocumentId={downloadingDocumentId}
-                reviewingDocumentId={reviewingDocumentId}
-                deletingRhDocumentId={deletingRhDocumentId}
-                reviewDrafts={reviewDrafts}
-                onReviewDraftsChange={setReviewDrafts}
-                formatMonth={formatMonth}
-                formatDate={formatDate}
-                formatDocumentStatus={formatDocumentStatus}
-              />
-              {false && (
-                <section className="space-y-4">
-              <div className="flex flex-row items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-[#0A1A2F]">Documents</h2>
-                <div className="flex items-center gap-2">
-                  {currentSubSection === "docs_tous" && (
-                    <Button type="button" variant="outline" size="sm" onClick={() => { setSaveMessage(null); setRhUploadDialogOpen(true); }}>
-                      Deposer un document RH
-                    </Button>
-                  )}
-                </div>
-              </div>
-              {["docs_tous", "docs_salaries", "docs_a_valider"].includes(currentSubSection) ? (
-                <DocumentFiltersBar
-                  fields={["type", "period", "status", "owner"]}
-                  values={{
-                    type: documentTypeFilter,
-                    period: documentPeriodFilter,
-                    status: documentStatusFilter,
-                    owner: documentCreatorFilter,
-                  }}
-                  options={rhFilterOptions}
-                  onChange={(field, value) => {
-                    if (field === "type") setDocumentTypeFilter(value);
-                    if (field === "period") setDocumentPeriodFilter(value);
-                    if (field === "status") setDocumentStatusFilter(value);
-                    if (field === "owner") setDocumentCreatorFilter(value);
-                  }}
-                />
-              ) : null}
-              <div>
-                {currentSubSection === "docs_mes_demandes" ? (
-                  requests.length ? (
-                    <div className="overflow-x-auto rounded-lg border border-slate-200">
-                      <table className="min-w-full text-sm">
-                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Salarie</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Echeance</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Note</th><th className="px-3 py-2">Action</th></tr></thead>
-                        <tbody className="divide-y divide-slate-200 bg-white">{requests.map((request) => <tr key={request.id}><td className="px-3 py-2">{request.employeeName}</td><td className="px-3 py-2">{request.typeLabel}</td><td className="px-3 py-2">{formatMonth(request.periodMonth)}</td><td className="px-3 py-2">{formatDate(request.dueAt)}</td><td className="px-3 py-2"><Badge variant="outline">{request.status}</Badge></td><td className="px-3 py-2 text-[#0A1A2F]/70">{request.note ?? "-"}</td><td className="px-3 py-2">{["pending", "uploaded", "rejected", "expired"].includes(request.status) ? <Button type="button" variant="outline" size="sm" onClick={() => void handleCancelRequest(request)} disabled={cancellingRequestId === request.id}>{cancellingRequestId === request.id ? "Annulation..." : "Annuler"}</Button> : <span className="text-xs text-[#0A1A2F]/50">-</span>}</td></tr>)}</tbody>
-                      </table>
-                    </div>
-                  ) : <p className="text-sm text-[#0A1A2F]/70">Aucune demande documentaire pour le moment.</p>
-                ) : currentSubSection === "docs_salaries" ? (
-                  filteredSalarieDocuments.length ? (
-                    <DashboardDocumentList
-                      items={filteredSalarieDocuments.map((document) => ({
-                        ...document,
-                        ownerName: document.uploadedByName,
-                        createdAt: document.createdAt,
-                        statusLabel: formatDocumentStatus(document.status),
-                        periodLabel: formatMonth(document.periodMonth),
-                        subtitle: document.employeeName ? `Collaborateur : ${document.employeeName}` : null,
-                        details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
-                      }))}
-                      storageKey="rh-documents-salaries-columns"
-                      renderActions={(document, closeMenu) => (
-                        <>
-                          {document.fileName.toLowerCase().endsWith(".pdf") ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="w-full justify-start"
-                              onClick={() => { closeMenu(); void handleViewDocument(document); }}
-                              disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              Visualiser
-                            </Button>
-                          ) : null}
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-start"
-                            onClick={() => { closeMenu(); void handleDownloadDocument(document); }}
-                            disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
-                          >
-                            <Download className="mr-2 h-4 w-4" />
-                            Télécharger
-                          </Button>
-                          {document.status === "validated" ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="w-full justify-start"
-                              onClick={() => { closeMenu(); void handleReviewDocument(document, "pending"); }}
-                              disabled={reviewingDocumentId === document.id}
-                            >
-                              <RotateCcw className="mr-2 h-4 w-4" />
-                              Remettre en attente
-                            </Button>
-                          ) : null}
-                        </>
-                      )}
-                    />
-                  ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document salarie pour le moment.</p>
-                ) : currentSubSection === "docs_a_valider" ? (
-                  filteredPendingDocuments.length ? (
-                    <div className="overflow-x-auto rounded-lg border border-slate-200">
-                      <table className="min-w-full text-sm">
-                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Salarie</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr></thead>
-                        <tbody className="divide-y divide-slate-200 bg-white">{filteredPendingDocuments.map((document) => <tr key={document.id}><td className="px-3 py-2">{document.typeLabel}</td><td className="px-3 py-2">{document.fileName}</td><td className="px-3 py-2">{document.employeeName}</td><td className="px-3 py-2">{formatMonth(document.periodMonth)}</td><td className="px-3 py-2"><input value={reviewDrafts[document.id] ?? document.reviewComment ?? ""} onChange={(event) => setReviewDrafts((prev) => ({ ...prev, [document.id]: event.target.value }))} placeholder="Commentaire de validation ou de refus" className="h-9 w-full min-w-[240px] rounded-md border border-slate-300 px-3 text-sm" /></td><td className="px-3 py-2"><div className="flex items-center gap-2">{document.fileName.toLowerCase().endsWith(".pdf") && <Button type="button" variant="outline" size="sm" onClick={() => void handleViewDocument(document)} disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}>{viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}</Button>}<Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}>{downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}</Button><Button type="button" size="sm" onClick={() => void handleReviewDocument(document, "validated")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Valider"}</Button><Button type="button" variant="destructive" size="sm" onClick={() => void handleReviewDocument(document, "rejected")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Refuser"}</Button></div></td></tr>)}</tbody>
-                      </table>
-                    </div>
-                  ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document en attente de validation.</p>
-                ) : (
-                  filteredRhDocuments.length ? (
-                    <DashboardDocumentList
-                      items={filteredRhDocuments.map((document) => ({
-                        ...document,
-                        ownerName: document.uploadedByName,
-                        createdAt: document.createdAt,
-                        statusLabel: formatDocumentStatus(document.status),
-                        periodLabel: formatMonth(document.periodMonth),
-                        subtitle:
-                          document.employeeName && document.employeeName !== "Aucun collaborateur"
-                            ? `Collaborateur : ${document.employeeName}`
-                            : null,
-                        details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
-                      }))}
-                      storageKey="rh-documents-rh-columns"
-                      renderActions={(document, closeMenu) => (
-                        <>
-                          {document.fileName.toLowerCase().endsWith(".pdf") ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="w-full justify-start"
-                              onClick={() => { closeMenu(); void handleViewDocument(document); }}
-                              disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              Visualiser
-                            </Button>
-                          ) : null}
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-start"
-                            onClick={() => { closeMenu(); void handleDownloadDocument(document); }}
-                            disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
-                          >
-                            <Download className="mr-2 h-4 w-4" />
-                            Télécharger
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-start text-red-600 hover:text-red-700"
-                            onClick={() => { closeMenu(); void handleDeleteRhDocument(document); }}
-                            disabled={deletingRhDocumentId === document.id}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Supprimer
-                          </Button>
-                        </>
-                      )}
-                    />
-                  ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document RH pour le moment.</p>
-                )}
-              </div>
-                </section>
-              )}
-            </>
+          )}          {currentSection === "documents" && (
+            <RhDocumentsSection
+              currentSubSection={currentSubSection}
+              documentTypeFilter={documentTypeFilter}
+              documentPeriodFilter={documentPeriodFilter}
+              documentStatusFilter={documentStatusFilter}
+              documentCreatorFilter={documentCreatorFilter}
+              rhFilterOptions={rhFilterOptions}
+              onDocumentTypeFilterChange={setDocumentTypeFilter}
+              onDocumentPeriodFilterChange={setDocumentPeriodFilter}
+              onDocumentStatusFilterChange={setDocumentStatusFilter}
+              onDocumentCreatorFilterChange={setDocumentCreatorFilter}
+              onOpenRhUploadDialog={() => {
+                setSaveMessage(null);
+                setRhUploadDialogOpen(true);
+              }}
+              onOpenRequestDialog={() => {
+                setSaveMessage(null);
+                openRequestDialog();
+              }}
+              requests={requests}
+              cancellingRequestId={cancellingRequestId}
+              onCancelRequest={handleCancelRequest}
+              filteredSalarieDocuments={filteredSalarieDocuments}
+              filteredPendingDocuments={filteredPendingDocuments}
+              filteredRhDocuments={filteredRhDocuments}
+              onViewDocument={handleViewDocument}
+              onDownloadDocument={handleDownloadDocument}
+              onReviewDocument={handleReviewDocument}
+              onDeleteRhDocument={handleDeleteRhDocument}
+              viewingDocumentId={viewingDocumentId}
+              downloadingDocumentId={downloadingDocumentId}
+              reviewingDocumentId={reviewingDocumentId}
+              deletingRhDocumentId={deletingRhDocumentId}
+              reviewDrafts={reviewDrafts}
+              onReviewDraftsChange={setReviewDrafts}
+              formatMonth={formatMonth}
+              formatDate={formatDate}
+              formatDocumentStatus={formatDocumentStatus}
+            />
           )}
 
           {currentSection === "offres" && (
@@ -1384,4 +1126,7 @@ export default function RhWorkspace() {
     </div>
   );
 }
+
+
+
 

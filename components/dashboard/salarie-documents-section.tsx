@@ -1,52 +1,18 @@
-import { ChevronLeft, ChevronRight, Download, Eye, MessageSquareText, Pencil, Trash2 } from "lucide-react";
+﻿import { ChevronLeft, ChevronRight, Download, Eye, MessageSquareText, Pencil, Trash2 } from "lucide-react";
 
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type {
+  CraCalendarCell,
+  CraEntryDraft,
+  CraSummaryRow,
+  SalarieDocumentRow as DocumentRow,
+  SalarieRequestRow as RequestRow,
+} from "@/features/dashboard/salarie/types";
 import { cn } from "@/lib/utils";
-
-type CraSummary = {
-  status: string;
-  pdf_version: number;
-};
-
-type CraCalendarCell = {
-  isoDate: string | null;
-  dayNumber: number | null;
-};
-
-type CraEntryDraft = {
-  workDate: string;
-  dayQuantity: string;
-  label: string;
-};
-
-type RequestRow = {
-  id: string;
-  typeLabel: string;
-  status: string;
-  dueAt: string | null;
-  periodMonth: string | null;
-  note: string | null;
-};
-
-type DocumentRow = {
-  id: string;
-  documentTypeId: string;
-  status: "pending" | "validated" | "rejected";
-  uploadedByName: string;
-  fileName: string;
-  createdAt: string | null;
-  updatedAt: string | null;
-  periodMonth: string | null;
-  sizeBytes: number | null;
-  reviewComment: string | null;
-  typeLabel: string;
-  storageBucket: string;
-  storagePath: string;
-};
 
 type FilterOption = {
   value: string;
@@ -58,7 +24,7 @@ type SalarieDocumentsSectionProps = {
   documentsCardTitle: string;
   billingProfileReady: boolean;
   selectedCraId: string | null;
-  selectedCraSummary: CraSummary | null;
+  selectedCraSummary: Pick<CraSummaryRow, "status" | "pdf_version"> | null;
   resetCraEditor: () => void;
   onGenerateCraPdf: () => void | Promise<void>;
   onGenerateInvoicePdf: () => void | Promise<void>;
@@ -667,3 +633,5 @@ export function SalarieDocumentsSection({
     </section>
   );
 }
+
+

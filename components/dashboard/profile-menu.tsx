@@ -31,7 +31,7 @@ export function DashboardProfileMenu({
   return (
     <div ref={menuRef} className="hidden lg:fixed lg:right-4 lg:top-[18px] lg:block">
       <div className="relative">
-        <div className="flex items-center gap-1 rounded-full border border-white/60 bg-white/85 px-2 py-1 shadow-[0_18px_40px_rgba(15,23,42,0.12)] backdrop-blur">
+        <div className="flex items-center gap-1 px-2 py-1">
           <Link
             href={settingsHref}
             aria-label="Parametres"

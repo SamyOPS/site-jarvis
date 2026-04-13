@@ -1,3 +1,7 @@
+import SalarieWorkspace from "../salarie-workspace";
+
+import { SALARIE_WORKSPACE_ROUTES } from "@/features/dashboard/salarie/navigation";
+
 export default function SalarieDocumentsPage() {
-  return null;
+  return <SalarieWorkspace {...SALARIE_WORKSPACE_ROUTES.documents} />;
 }
