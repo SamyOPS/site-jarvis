@@ -52,6 +52,7 @@ const DEFAULT_POSTS: Post[] = [
 ]
 
 export function OffresEmploi({
+  
   heading = "Job openings",
   description = "Découvrez les postes ouverts et rejoignez l'équipe Jarvis Connect.",
   buttonText = "Toutes les offres",
