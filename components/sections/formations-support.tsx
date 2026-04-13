@@ -100,7 +100,7 @@ export const FormationsSupport = ({
           transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1] }}
         >
           <motion.div
-            className="overflow-hidden rounded-none"
+            className="overflow-hidden rounded-x2"
             initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, amount: 0.2 }}
@@ -147,7 +147,7 @@ export const FormationsSupport = ({
                 viewport={{ once: true, amount: 0.2 }}
                 transition={{ duration: 0.4, ease: [0.33, 1, 0.68, 1], delay: idx * 0.08 }}
               >
-                <div className="overflow-hidden rounded-none mb-3 md:mb-4">
+                <div className="overflow-hidden rounded-x2 mb-3 md:mb-4">
                   <motion.img
                     src={feature.image}
                     alt={feature.title}

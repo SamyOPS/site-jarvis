@@ -188,7 +188,7 @@ export const About = ({
             <img
               src={mainImage.src}
               alt={mainImage.alt}
-              className="relative z-10 size-full max-h-[360px] rounded-none object-cover"
+              className="relative z-10 size-full max-h-[360px] rounded-lg object-cover"
             />
           </motion.div>
           <div className="flex flex-col gap-6">
@@ -236,7 +236,7 @@ export const About = ({
             <div className="grid flex-1 grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
               {companies.map((company, idx) => (
                 <motion.div
-                  className="flex h-28 items-center justify-center border border-white/20 bg-white px-4 py-3 transition hover:-translate-y-1 hover:border-white/40"
+                    className="flex h-28 items-center justify-center border border-white/20 bg-white px-4 py-3 transition hover:-translate-y-1 hover:border-white/40 rounded-lg"
                   key={company.alt + idx}
                   initial={{ opacity: 0, y: 12 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -255,7 +255,7 @@ export const About = ({
         </div>
         <div className="relative z-10">
           <div className="container mx-auto px-6 lg:px-10">
-            <div className="relative overflow-hidden rounded-none bg-[#F4F7FA] p-8 md:p-12">
+            <div className="relative overflow-hidden rounded-lg bg-[#F4F7FA] p-8 md:p-12">
               <motion.div
                 className="flex flex-col gap-4 text-center md:text-left"
                 initial={{ opacity: 0, y: 16 }}

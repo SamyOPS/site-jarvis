@@ -1,26 +1,13 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@supabase/supabase-js";
-import { motion } from "motion/react";
-
-import { Button } from "@/components/ui/button";
-import {
-  Carousel,
-  CarouselApi,
-  CarouselContent,
-  CarouselItem,
-} from "@/components/ui/carousel";
-
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
-const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
 interface GalleryItem {
   id: string;
   title: string;
@@ -36,243 +23,183 @@ interface ActualitesProps {
   items?: GalleryItem[];
 }
 
-
 const fallbackItems: GalleryItem[] = [
-  {
-    id: "item-1",
-    title: "Build Modern UIs",
-    summary: "Create stunning user interfaces with our comprehensive design system.",
-    url: "#",
-    image: "/images/block/placeholder-dark-1.svg",
-  },
-  {
-    id: "item-2",
-    title: "Computer Vision Technology",
-    summary:
-      "Powerful image recognition and processing capabilities that allow AI systems to analyze, understand, and interpret visual information from the world.",
-    url: "#",
-    image: "/images/block/placeholder-dark-1.svg",
-  },
-  {
-    id: "item-3",
-    title: "Machine Learning Automation",
-    summary:
-      "Self-improving algorithms that learn from data patterns to automate complex tasks and make intelligent decisions with minimal human intervention.",
-    url: "#",
-    image: "/images/block/placeholder-dark-1.svg",
-  },
-  {
-    id: "item-4",
-    title: "Predictive Analytics",
-    summary:
-      "Advanced forecasting capabilities that analyze historical data to predict future trends and outcomes, helping businesses make data-driven decisions.",
-    url: "#",
-    image: "/images/block/placeholder-dark-1.svg",
-  },
-  {
-    id: "item-5",
-    title: "Neural Network Architecture",
-    summary:
-      "Sophisticated AI models inspired by human brain structure, capable of solving complex problems through deep learning and pattern recognition.",
-    url: "#",
-    image: "/images/block/placeholder-dark-1.svg",
-  },
+  { id: "item-1", title: "Cybersecurite 2026", summary: "Les nouvelles menaces et solutions pour proteger votre SI contre les attaques modernes.", url: "#", image: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80" },
+  { id: "item-2", title: "Dev applicatif", summary: "Conception et livraison d applications metiers robustes, full stack, avec CI/CD integre.", url: "#", image: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=800&q=80" },
+  { id: "item-3", title: "Cloud et infogerance", summary: "Migration, supervision 24/7 et FinOps pour optimiser vos couts et votre disponibilite.", url: "#", image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&q=80" },
+  { id: "item-4", title: "Support N2/N3", summary: "Prise en charge des incidents complexes, supervision et automatisation pour vos utilisateurs.", url: "#", image: "https://images.unsplash.com/photo-1525182008055-f88b95ff7980?auto=format&fit=crop&w=800&q=80" },
+  { id: "item-5", title: "Transformation digitale", summary: "Audit, roadmap et pilotage des chantiers de transformation pour accelerer votre SI.", url: "#", image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=800&q=80" },
+  { id: "item-6", title: "IA et automatisation", summary: "Integration de l IA dans vos processus metiers pour gagner en productivite et fiabilite.", url: "#", image: "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?auto=format&fit=crop&w=800&q=80" },
 ];
 
+function ServiceCard({ item, idx }: { item: GalleryItem; idx: number }) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 60 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.15 }}
+      transition={{ duration: 0.5, delay: idx * 0.1, ease: [0.33, 1, 0.68, 1] }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{ position: "relative", cursor: "pointer", borderRadius: "10px", width: "100%" }}
+    >
+      <img
+        src={item.image}
+        alt={item.title}
+        style={{ width: "100%", height: "260px", objectFit: "cover", display: "block", borderRadius: "10px" }}
+      />
+
+      <motion.div
+        animate={{ opacity: isHovered ? 0 : 1, y: isHovered ? 20 : 0 }}
+        transition={{ duration: 0.4 }}
+        style={{ marginTop: "-30px", textAlign: "center", position: "relative", zIndex: 2 }}
+      >
+        <div style={{ background: "#1a3a5c", borderRadius: "10px", padding: "16px 20px", margin: "0 30px" }}>
+          <span style={{ color: "#fff", fontSize: "17px", fontWeight: 600 }}>{item.title}</span>
+        </div>
+        <div style={{ display: "inline-block", marginTop: "12px", marginBottom: "8px", borderRadius: "50px", background: "#f0f0f0", color: "#2aa0dd", padding: "10px 32px", fontSize: "14px", fontWeight: 600 }}>
+          {"En savoir plus"}
+        </div>
+      </motion.div>
+
+      <motion.div
+        animate={{ bottom: isHovered ? "0px" : "-320px", opacity: isHovered ? 1 : 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        style={{
+          position: "absolute",
+          left: "30px",
+          right: "30px",
+          background: "#1a3a5c",
+          borderRadius: "10px",
+          padding: "24px 20px",
+          textAlign: "center",
+          zIndex: 3,
+        }}
+      >
+        <h4 style={{ color: "#fff", fontSize: "18px", fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px", marginBottom: "12px", marginTop: 0 }}>
+          {item.title}
+        </h4>
+        <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "14px", lineHeight: 1.6, marginBottom: "20px", marginTop: 0 }}>
+          {item.summary}
+        </p>
+        <a
+          href={item.url}
+          style={{ display: "inline-block", borderRadius: "50px", background: "#2aa0dd", color: "#fff", padding: "10px 32px", fontSize: "14px", fontWeight: 600, textDecoration: "none" }}
+        >
+          {"En savoir plus"}
+        </a>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 const Actualites = ({
-  heading = "Galerie",
-  description = "Retrouvez nos actualités, annonces et retours d'expérience autour des projets, expertises et initiatives Jarvis Connect.",
+  heading = "Actualites de Jarvis Connect",
+  description = "Retrouvez nos actualites, annonces et retours d experience autour des projets.",
   demoUrl = "#",
   items,
 }: ActualitesProps) => {
-  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
-  const [canScrollPrev, setCanScrollPrev] = useState(false);
-  const [canScrollNext, setCanScrollNext] = useState(false);
   const [remoteItems, setRemoteItems] = useState<GalleryItem[]>([]);
-  const [isLoadingItems, setIsLoadingItems] = useState(false);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    if (items?.length || !supabase) return;
+    if (items && items.length > 0) {
+      setLoading(false);
+      return;
+    }
     const fetchNews = async () => {
-      setIsLoadingItems(true);
-      const { data } = await supabase
-        .from("news")
-        .select("id,title,slug,excerpt,cover_image,published_at,created_at")
-        .eq("status", "published")
-        .order("published_at", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false });
-
-      const mapped = (data ?? []).map((row) => ({
-        id: row.id,
-        title: row.title,
-        summary: row.excerpt ?? "",
-        url: `/actus/${row.slug}`,
-        image: row.cover_image ?? "/images/block/placeholder-dark-1.svg",
-      }));
-      setRemoteItems(mapped);
-      setIsLoadingItems(false);
+      try {
+        if (!supabase) throw new Error("Supabase non configure");
+        const { data, error } = await supabase
+          .from("news")
+          .select("id,title,slug,excerpt,cover_image")
+          .eq("status", "published")
+          .order("published_at", { ascending: false })
+          .limit(6);
+        if (error) throw error;
+        if (data && data.length > 0) {
+          setRemoteItems(data.map((row) => ({
+            id: row.id,
+            title: row.title,
+            summary: row.excerpt ?? "",
+            url: `/actus/${row.slug}`,
+            image: row.cover_image ?? "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800",
+          })));
+        }
+      } catch (err) {
+        console.error("Erreur de recuperation des actus:", err);
+      } finally {
+        setLoading(false);
+      }
     };
-
     fetchNews();
   }, [items]);
 
-  useEffect(() => {
-    if (!carouselApi) {
-      return;
-    }
-    const updateSelection = () => {
-      setCanScrollPrev(carouselApi.canScrollPrev());
-      setCanScrollNext(carouselApi.canScrollNext());
-    };
-    updateSelection();
-    carouselApi.on("select", updateSelection);
-    return () => {
-      carouselApi.off("select", updateSelection);
-    };
-  }, [carouselApi]);
+  const displayItems = useMemo(() => {
+    if (items && items.length > 0) return items;
+    if (remoteItems.length > 0) return remoteItems;
+    return loading ? [] : fallbackItems;
+  }, [items, remoteItems, loading]);
+
   return (
-    <motion.section
-      className="bg-[#F4F7FA] py-16 text-[#0A1A2F] md:py-20"
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.2 }}
-      transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1] }}
-    >
-      <div className="mx-auto max-w-6xl px-6 lg:px-10">
-        <div className="mb-8 flex flex-col items-center text-center md:mb-10 lg:mb-12">
-          <div className="max-w-3xl">
-            <motion.h2
-              className="mb-3 text-3xl font-semibold md:mb-4 md:text-4xl lg:mb-5 lg:text-5xl"
-              initial={{ opacity: 0, y: 14 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.2 }}
-              transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1] }}
-            >
-              {heading}
-            </motion.h2>
-            <motion.p
-              className="mx-auto mb-5 max-w-2xl text-sm text-muted-foreground md:text-base lg:text-lg"
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.2 }}
-              transition={{ duration: 0.4, ease: [0.33, 1, 0.68, 1], delay: 0.04 }}
-            >
-              {description}
-            </motion.p>
-            <motion.a
-              href={demoUrl}
-              className="group inline-flex items-center gap-1 text-sm font-medium md:text-base lg:text-lg"
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.2 }}
-              transition={{ duration: 0.4, ease: [0.33, 1, 0.68, 1], delay: 0.05 }}
-            >
-              Voir toutes les actus
-              <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-1" />
-            </motion.a>
-          </div>
-          <div className="mt-6 flex shrink-0 items-center justify-center gap-2">
-            <Button
-              size="icon"
-              variant="outline"
-              className="rounded-none border-black text-black disabled:pointer-events-auto"
-              onClick={() => {
-                carouselApi?.scrollPrev();
-              }}
-              disabled={!canScrollPrev}
-            >
-              <ArrowLeft className="size-5" />
-            </Button>
-            <Button
-              size="icon"
-              variant="outline"
-              className="rounded-none border-black text-black disabled:pointer-events-auto"
-              onClick={() => {
-                carouselApi?.scrollNext();
-              }}
-              disabled={!canScrollNext}
-            >
-              <ArrowRight className="size-5" />
-            </Button>
-          </div>
+<section className="bg-white py-16 text-[#0A1A2F] md:py-20">
+        <div className="mx-auto max-w-6xl px-6 lg:px-10">
+
+        <div className="mb-12 text-center">
+          <motion.h2
+            className="mb-4 text-3xl font-semibold md:text-4xl lg:text-5xl"
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.45 }}
+          >
+            {heading}
+          </motion.h2>
+          <motion.p
+            className="mx-auto mb-5 max-w-2xl text-sm text-gray-500 md:text-base"
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: 0.06 }}
+          >
+            {description}
+          </motion.p>
+          <motion.a
+            href={demoUrl}
+            className="inline-flex items-center gap-1 text-sm font-medium text-[#0A1A2F] hover:underline"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            {"Voir toutes les actus"}
+          </motion.a>
         </div>
-      </div>
-      <div className="w-full px-6 lg:px-10">
-        <Carousel
-          setApi={setCarouselApi}
-          opts={{
-            breakpoints: {
-              "(max-width: 768px)": {
-                dragFree: true,
-              },
-            },
-          }}
-          className="relative left-[-1rem]"
-        >
-          <CarouselContent className="-mr-4 ml-8 2xl:ml-[max(8rem,calc(50vw-700px+1rem))] 2xl:mr-[max(0rem,calc(50vw-700px-1rem))]">
-            {(items && items.length ? items : remoteItems.length ? remoteItems : fallbackItems).map((item, idx) => (
-              <CarouselItem key={item.id} className="pl-4 md:max-w-[452px]">
-                <motion.a
-                  href={item.url}
-                  className="group flex flex-col justify-between"
-                  initial={{ opacity: 0, y: 16 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.15 }}
-                  transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1], delay: idx * 0.15 }}
+
+        <AnimatePresence mode="wait">
+          {loading ? (
+            <div className="py-20 text-center">
+              <p className="text-gray-400">{"Chargement des actualites..."}</p>
+            </div>
+          ) : (
+            <div className="flex flex-wrap justify-center gap-8">
+              {displayItems.map((item, idx) => (
+                <div
+                  key={item.id}
+                  style={{ width: "100%", maxWidth: "360px" }}
                 >
-                  <div>
-                    <div className="flex aspect-[3/2] overflow-clip rounded-none">
-                      <div className="flex-1">
-                        <div className="relative h-full w-full origin-bottom transition duration-300 group-hover:scale-105">
-                          <motion.img
-                            src={item.image}
-                            alt={item.title}
-                            className="h-full w-full object-cover object-center"
-                            initial={{ opacity: 0 }}
-                            whileInView={{ opacity: 1 }}
-                            viewport={{ once: true, amount: 0.1 }}
-                            transition={{ duration: 0.5, ease: "easeOut" }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <motion.div
-                    className="mb-2 line-clamp-3 break-words pt-4 text-lg font-medium md:mb-3 md:pt-4 md:text-xl lg:pt-4 lg:text-2xl"
-                    initial={{ opacity: 0, y: 8 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, amount: 0.2 }}
-                    transition={{ duration: 0.35, ease: [0.33, 1, 0.68, 1] }}
-                  >
-                    {item.title}
-                  </motion.div>
-                  <motion.div
-                    className="mb-8 line-clamp-2 text-sm text-muted-foreground md:mb-12 md:text-base lg:mb-9"
-                    initial={{ opacity: 0, y: 8 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, amount: 0.2 }}
-                    transition={{ duration: 0.35, ease: [0.33, 1, 0.68, 1], delay: 0.05 }}
-                  >
-                    {item.summary}
-                  </motion.div>
-                  <motion.div
-                    className="flex items-center text-sm"
-                    initial={{ opacity: 0, y: 6 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, amount: 0.2 }}
-                    transition={{ duration: 0.3, ease: [0.33, 1, 0.68, 1], delay: 0.08 }}
-                  >
-                    En savoir plus{" "}
-                    <ArrowRight className="ml-2 size-5 transition-transform group-hover:translate-x-1" />
-                  </motion.div>
-                </motion.a>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-        </Carousel>
+                  <ServiceCard item={item} idx={idx} />
+                </div>
+              ))}
+            </div>
+          )}
+        </AnimatePresence>
+
       </div>
-    </motion.section>
+    </section>
   );
 };
 
 export { Actualites };
-

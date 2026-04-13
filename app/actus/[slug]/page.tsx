@@ -63,7 +63,7 @@ function renderMarkdown(content: string) {
           key={`img-${blocks.length}`}
           src={imageMatch[2]}
           alt={imageMatch[1] || "Image"}
-          className="my-5 w-full border border-slate-200 object-cover"
+          className="my-5 w-full border border-slate-200 object-cover rounded-lg"
         />
       );
       continue;
@@ -231,7 +231,7 @@ export default function ActuDetailPage() {
           {item && (
             <article className="mt-6">
               {item.cover_image && (
-                <div className="mb-6 aspect-[16/9] overflow-hidden border border-slate-200 bg-slate-100">
+                <div className="mb-6 aspect-[16/9] overflow-hidden border border-slate-200 bg-slate-100 rounded-lg">
                   <img
                     src={item.cover_image}
                     alt={item.title}

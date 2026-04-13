@@ -17,6 +17,8 @@ import { FormationsSupport } from "@/components/sections/formations-support";
 import { HomeHeader } from "@/components/sections/home-header";
 
 import { Shield, Code2, Sparkles } from "lucide-react";
+import { FranceMap } from "@/components/sections/carte_presence";
+import "leaflet/dist/leaflet.css";
 
 
 
@@ -431,7 +433,7 @@ export default function Home() {
 
 
 
-        <section id="actualites" className="bg-[#F4F7FA] text-[#1E1E1E]">
+        <section id="actualites" className="bg-[#F4F7FA] text-[#2aa0dd]">
 
           <Actualites heading="Actualités de Jarvis Connect" demoUrl="/actus" />
 
@@ -439,14 +441,14 @@ export default function Home() {
 
 
 
-        <section id="formations" className="text-[#1E1E1E]">
+        <section id="formations" className="text-[#2aa0dd]">
           <FormationsSupport />
 
         </section>
 
 
 
-        <section id="offres" className="text-[#1E1E1E]">
+        <section id="offres" className="text-[#2aa0dd]">
           <OffresEmploi
 
             tagline="Recrutement"
@@ -464,6 +466,9 @@ export default function Home() {
           />
 
         </section>
+        <section>
+  <FranceMap />
+  </section>
 
 
 

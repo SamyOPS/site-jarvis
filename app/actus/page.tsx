@@ -2,17 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { ArrowRight } from "lucide-react";
-
+import { motion, AnimatePresence } from "framer-motion";
 import { Footer } from "@/components/sections/footer";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 type NewsItem = {
   id: string;
@@ -24,12 +19,78 @@ type NewsItem = {
   created_at: string;
 };
 
+function NewsCard({ item, idx }: { item: NewsItem; idx: number }) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: idx * 0.1 }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{ position: "relative", overflow: "hidden", cursor: "pointer", borderRadius: "10px", height: "380px" }}
+    >
+      {/* Image de fond */}
+      <img
+        src={item.cover_image ?? "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800"}
+        alt={item.title}
+        style={{ width: "100%", height: "260px", objectFit: "cover", display: "block", borderRadius: "10px" }}
+      />
+
+      {/* État Normal : Titre et bouton gris */}
+      <motion.div
+        animate={{ opacity: isHovered ? 0 : 1, y: isHovered ? 20 : 0 }}
+        transition={{ duration: 0.4 }}
+        style={{ marginTop: "-30px", textAlign: "center", position: "relative", zIndex: 2 }}
+      >
+        <div style={{ background: "#1a3a5c", borderRadius: "10px", padding: "16px 20px", margin: "0 25px shadow-lg" }}>
+          <span style={{ color: "#fff", fontSize: "16px", fontWeight: 600 }}>{item.title}</span>
+        </div>
+        <div
+          style={{ display: "inline-block", marginTop: "12px", borderRadius: "50px", background: "#f0f0f0", color: "#e8335a", padding: "8px 24px", fontSize: "13px", fontWeight: 600 }}
+        >
+          En savoir plus
+        </div>
+      </motion.div>
+
+      {/* État Hover : Panel bleu qui monte */}
+      <motion.div
+        animate={{ bottom: isHovered ? "0%" : "-100%", opacity: isHovered ? 1 : 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        style={{
+          position: "absolute",
+          left: "25px",
+          right: "25px",
+          background: "#1a3a5c",
+          borderRadius: "10px",
+          padding: "20px 15px",
+          textAlign: "center",
+          zIndex: 3,
+        }}
+      >
+        <h4 style={{ color: "#fff", fontSize: "17px", fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "10px", marginBottom: "10px" }}>
+          {item.title}
+        </h4>
+        <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "13px", lineHeight: 1.5, marginBottom: "15px" }} className="line-clamp-4">
+          {item.excerpt ?? "Découvrez notre dernier article."}
+        </p>
+        <a
+          href={`/actus/${item.slug}`}
+          style={{ display: "inline-block", borderRadius: "50px", background: "#e8335a", color: "#fff", padding: "8px 24px", fontSize: "13px", fontWeight: 600, textDecoration: "none" }}
+        >
+          Lire l'article
+        </a>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// --- PAGE PRINCIPALE ---
 export default function ActusPage() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const isConfigured = useMemo(() => Boolean(supabase), []);
 
   useEffect(() => {
     const fetchNews = async () => {
@@ -38,100 +99,76 @@ export default function ActusPage() {
         setLoading(false);
         return;
       }
-      setLoading(true);
-      const { data, error: fetchError } = await supabase
-        .from("news")
-        .select("id,title,slug,excerpt,cover_image,published_at,created_at")
-        .eq("status", "published")
-        .order("published_at", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false });
+      try {
+        const { data, error: fetchError } = await supabase
+          .from("news")
+          .select("id,title,slug,excerpt,cover_image,published_at,created_at")
+          .eq("status", "published")
+          .order("published_at", { ascending: false });
 
-      if (fetchError) {
-        setError(fetchError.message);
-      } else {
+        if (fetchError) throw fetchError;
         setItems(data ?? []);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchNews();
   }, []);
 
   return (
-    <div className="min-h-screen bg-white text-[#0A1A2F]">
-      <main className="particle-readability">
-        <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
-          <div className="mb-8 space-y-3">
-            <p className="text-sm uppercase tracking-[0.2em] text-[#000080]">Actualités</p>
-            <h1 className="text-3xl font-semibold md:text-4xl">Toutes les actus</h1>
-            <p className="max-w-2xl text-sm text-slate-600">
-              Analyses, projets, annonces et points de vue de Jarvis Connect.
-            </p>
-          </div>
-
-          {!isConfigured && (
-            <div className="rounded-none border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              Configuration Supabase manquante (URL ou clé publique).
-            </div>
-          )}
-
-          {loading && (
-            <div className="text-sm text-slate-500">Chargement des actualités...</div>
-          )}
-
-          {!loading && error && (
-            <div className="rounded-none border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          {!loading && !error && items.length === 0 && (
-            <div className="rounded-none border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
-              Aucune actualité publiée pour le moment.
-            </div>
-          )}
-
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((item) => (
-              <a
-                key={item.id}
-                href={`/actus/${item.slug}`}
-                className="group flex h-full flex-col border border-slate-200 bg-white transition hover:border-[#000080]"
-              >
-                <div className="aspect-[4/3] overflow-hidden bg-slate-100">
-                  {item.cover_image ? (
-                    <img
-                      src={item.cover_image}
-                      alt={item.title}
-                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
-                      Image à venir
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col px-4 py-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                    {item.published_at
-                      ? new Date(item.published_at).toLocaleDateString("fr-FR")
-                      : new Date(item.created_at).toLocaleDateString("fr-FR")}
-                  </p>
-                  <h2 className="mt-2 text-lg font-semibold text-[#0A1A2F]">
-                    {item.title}
-                  </h2>
-                  {item.excerpt && (
-                    <p className="mt-2 text-sm text-slate-600 line-clamp-3">{item.excerpt}</p>
-                  )}
-                  <span className="mt-4 inline-flex items-center text-sm font-medium text-[#000080]">
-                    Lire l'article
-                    <ArrowRight className="ml-2 size-4 transition-transform group-hover:translate-x-1" />
-                  </span>
-                </div>
-              </a>
-            ))}
-          </div>
+    <div className="min-h-screen bg-[#F4F7FA] text-[#0A1A2F]">
+      <main className="mx-auto max-w-6xl px-6 py-16 lg:px-10 lg:py-20">
+        
+        {/* Header de la page */}
+        <div className="mb-16 text-center">
+          <motion.p 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="text-xs uppercase tracking-[0.3em] text-[#e8335a] font-bold mb-3"
+          >
+            Actualités
+          </motion.p>
+          <motion.h1 
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            className="text-4xl font-semibold md:text-5xl mb-6"
+          >
+            Toutes les actus
+          </motion.h1>
+          <div className="mx-auto w-20 h-1 bg-[#1a3a5c] mb-6"></div>
+          <p className="mx-auto max-w-2xl text-gray-500">
+            Analyses, projets, annonces et points de vue de Jarvis Connect.
+          </p>
         </div>
+
+        {/* Gestion des états (Loading / Error) */}
+        {loading && (
+          <div className="flex justify-center py-20">
+            <p className="animate-pulse text-gray-400">Chargement de la veille technologique...</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-lg bg-red-50 p-4 text-center text-red-700 border border-red-100">
+            {error}
+          </div>
+        )}
+
+        {/* Grille d'actualités (Même style que l'accueil) */}
+        <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+          <AnimatePresence>
+            {!loading && items.map((item, idx) => (
+              <NewsCard key={item.id} item={item} idx={idx} />
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {!loading && items.length === 0 && !error && (
+          <div className="text-center py-20 text-gray-500 italic">
+            Aucun article n'est disponible pour le moment.
+          </div>
+        )}
       </main>
       <Footer />
     </div>

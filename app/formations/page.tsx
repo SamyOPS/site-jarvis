@@ -60,7 +60,7 @@ export default function FormationsPage() {
               </p>
             </div>
 
-            <div className="overflow-hidden border border-[#d5d9dc] bg-[#f5f7f9]">
+            <div className="overflow-hidden border border-[#d5d9dc] bg-[#f5f7f9] rounded-lg">
               <img
                 src="https://images.unsplash.com/photo-1517048676732-d65bc937f952?q=80&w=1400&auto=format&fit=crop"
                 alt="Session de formation support"
@@ -85,7 +85,7 @@ export default function FormationsPage() {
               {modules.map((module) => (
                 <article
                   key={module.href}
-                  className="group flex h-full flex-col overflow-hidden border border-[#d5d9dc] bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md"
+                  className="group flex h-full flex-col overflow-hidden border border-[#d5d9dc] bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md rounded-lg"
                 >
                   <div className="overflow-hidden border-b border-[#d5d9dc] bg-[#f4f6f8]">
                     <img
@@ -140,7 +140,7 @@ export default function FormationsPage() {
               </div>
             </div>
 
-            <div className="overflow-hidden border border-[#d5d9dc] bg-white shadow-sm">
+            <div className="overflow-hidden border border-[#d5d9dc] bg-white shadow-sm rounded-lg">
               <img
                 src="https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=1400&auto=format&fit=crop"
                 alt="Equipe en atelier de formation"

@@ -57,6 +57,10 @@
   --cubic-default: cubic-bezier(0.65, 0.05, 0, 1);
 }
 
+img {
+  border-radius: var(--radius);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
