@@ -451,7 +451,6 @@ export default function Home() {
         <section id="offres" className="text-[#2aa0dd]">
           <OffresEmploi
 
-            tagline="Recrutement"
 
             heading="Nos offres d'emploi"
 
