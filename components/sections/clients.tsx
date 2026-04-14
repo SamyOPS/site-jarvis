@@ -10,17 +10,19 @@ interface ClientsRowProps { items: ClientLogo[]; rowKey: string; direction: "lef
 function ClientCard({ client }: { client: ClientLogo }) {
   return (
     <motion.div
-      className="group relative flex h-9 w-20 shrink-0 items-center justify-center rounded-lg transition-all duration-300 sm:h-11 sm:w-28"
+      className="group relative flex h-16 w-44 shrink-0 items-center justify-center rounded-xl transition-all duration-300 sm:h-20 sm:w-52 overflow-hidden"
       style={{
-        background: "rgba(255,255,255,0.8)",
-        border: "1px solid rgba(42,160,221,0.1)",
+        background: "rgba(255,255,255,0.85)",
+        border: "1px solid rgba(42,160,221,0.12)",
         backdropFilter: "blur(8px)",
       }}
+      whileHover={{ scale: 1.04, boxShadow: "0 4px 24px rgba(42,160,221,0.15)" }}
     >
       <img
         src={client.logo}
         alt={client.name}
-        className="pointer-events-none relative z-10 max-h-4.5 max-w-[70%] object-contain select-none"
+        className="pointer-events-none relative z-10 w-auto h-auto object-contain select-none"
+        style={{ maxHeight: "52px", maxWidth: "78%", display: "block" }}
         draggable={false}
       />
     </motion.div>
@@ -107,7 +109,7 @@ function ClientsRow({ items, rowKey, direction, speed }: ClientsRowProps) {
   };
 
   return (
-    <div className="overflow-x-hidden py-0.5">
+    <div className="overflow-x-hidden py-1">
       <div
         className={`cursor-grab ${isDragging ? "cursor-grabbing" : ""}`}
         onPointerDown={handlePointerDown}
@@ -115,7 +117,7 @@ function ClientsRow({ items, rowKey, direction, speed }: ClientsRowProps) {
         onPointerUp={stopDragging}
         onPointerCancel={stopDragging}
       >
-        <div ref={trackRef} className="flex w-max gap-2.5 select-none touch-pan-y">
+        <div ref={trackRef} className="flex w-max gap-3 select-none touch-pan-y">
           {duplicatedItems.map((client, index) => (
             <ClientCard key={`${rowKey}-${client.name}-${index}`} client={client} />
           ))}
@@ -141,14 +143,11 @@ export function Clients({
   return (
     <section className="relative bg-[#050B14] text-white py-8 md:py-10 overflow-hidden">
       <div className="container mx-auto px-6 lg:px-10 relative z-10">
-        
-        {/* --- DÉBUT DE LA CORRECTION --- */}
-        {/* max-w-5xl pour garder la proximité globale */}
+
         <div className="mx-auto max-w-5xl grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-12">
-          
-          {/* Content Column - space-y réduit */}
+
           <div className="space-y-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
               className="inline-flex items-center gap-2 bg-blue-50/10 border border-blue-200/20 rounded-full px-2.5 py-0.5"
             >
@@ -156,17 +155,25 @@ export function Clients({
               <span className="text-[10px] font-bold tracking-widest text-[#2aa0dd] uppercase">{tag}</span>
             </motion.div>
 
-            {/* Titre extragras mais taille légèrement réduite pour compacité */}
-            <motion.h2 className="text-3xl md:text-4xl lg:text-4xl font-extrabold leading-tight tracking-tight text-white" initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+            <motion.h2
+              className="text-3xl md:text-4xl lg:text-4xl font-extrabold leading-tight tracking-tight text-white"
+              initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            >
               {title}
             </motion.h2>
 
-            <motion.p className="text-base text-white/80 max-w-lg leading-relaxed" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
+            <motion.p
+              className="text-base text-white/80 max-w-lg leading-relaxed"
+              initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+            >
               {description}
             </motion.p>
 
             {quote && (
-              <motion.div className="border-l-4 border-[#2aa0dd]/40 pl-4 py-2 max-w-xl bg-blue-950/20 rounded-r-lg" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
+              <motion.div
+                className="border-l-4 border-[#2aa0dd]/40 pl-4 py-2 max-w-xl bg-blue-950/20 rounded-r-lg"
+                initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+              >
                 <blockquote className="text-white/90 italic text-sm leading-relaxed">
                   "{quote}"
                   {author && <footer className="mt-2 text-xs font-semibold text-[#2aa0dd]">— {author}</footer>}
@@ -175,32 +182,34 @@ export function Clients({
             )}
           </div>
 
-          {/* Highlight Logo - ENCORE PLUS GRAND ET PROCHE --- */}
           {highlightLogo && (
-            <motion.div 
-              className="hidden lg:block bg-white p-7 rounded-2xl shadow-2xl w-[280px] text-center shrink-0 self-center"
+            <motion.div
+              className="hidden lg:flex items-center justify-center bg-white p-4 rounded-2xl shadow-2xl w-[280px] h-[280px] shrink-0 self-center overflow-hidden"
               initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
               whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(42,160,221,0.2)" }}
             >
-              {/* Image h-32 w-32 contre h-28 w-28 */}
-              <img src={highlightLogo} alt="Logo Partner" className="mx-auto h-32 w-32 object-contain rounded-lg" />
+              <img
+                src={highlightLogo}
+                alt="Logo Partner"
+                className="w-auto h-auto object-contain"
+                style={{ maxWidth: "95%", maxHeight: "95%" }}
+              />
             </motion.div>
           )}
         </div>
-        {/* --- FIN DE LA CORRECTION --- */}
 
-        {/* Carousel - ENCORE PLUS COMPACT --- */}
-        <motion.div 
+        <motion.div
           className="relative mt-8 rounded-xl bg-white/5 border border-white/10 p-4"
           initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
         >
-          <div className="relative space-y-2">
+          <div className="relative space-y-3">
             <ClientsRow items={topRowClients} rowKey="top" direction="left" speed={14} />
             <ClientsRow items={bottomRowClients.length ? bottomRowClients : topRowClients} rowKey="bottom" direction="right" speed={12} />
           </div>
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#050B14]/80 to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#050B14]/80 to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-[#050B14]/90 to-transparent rounded-l-xl" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-[#050B14]/90 to-transparent rounded-r-xl" />
         </motion.div>
+
       </div>
     </section>
   );
