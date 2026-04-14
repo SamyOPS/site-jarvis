@@ -1,6 +1,7 @@
 ﻿import { ChevronDown, ChevronLeft, ChevronRight, Download, Eye, MessageSquareText, Pencil, Trash2 } from "lucide-react";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { FolderOpen } from "lucide-react";
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import type {
   CraCalendarCell,
   CraEntryDraft,
   CraSummaryRow,
+  DocumentFolderRow,
   SalarieDocumentRow as DocumentRow,
   SalarieRequestRow as RequestRow,
 } from "@/features/dashboard/salarie/types";
@@ -55,14 +57,22 @@ type SalarieDocumentsSectionProps = {
   onViewDocument: (document: DocumentRow) => void | Promise<void>;
   onDownloadDocument: (document: DocumentRow) => void | Promise<void>;
   onDeleteDocument: (document: DocumentRow) => void | Promise<void>;
+  onRenameDocument: (document: DocumentRow) => void | Promise<void>;
   onOpenCommentDialog: (document: DocumentRow) => void;
-  onOpenEditDialog: (document: DocumentRow) => void;
   viewingDocumentId: string | null;
   downloadingDocumentId: string | null;
   deletingDocumentId: string | null;
   savingDocumentId: string | null;
   pendingRequests: RequestRow[];
   openUploadDialog: (requestId?: string) => void;
+  currentFolderId: string | null;
+  folders: DocumentFolderRow[];
+  folderPath: DocumentFolderRow[];
+  onNavigateFolder: (folderId: string | null) => void;
+  onCreateFolder: () => void | Promise<void>;
+  onMoveDocumentToFolder: (document: DocumentRow, folderId: string) => void | Promise<void>;
+  onRenameFolder: (folderId: string, currentName: string) => void | Promise<void>;
+  onDeleteFolder: (folderId: string) => void | Promise<void>;
   formatDate: (value: string | null) => string;
   formatMonth: (value: string | null) => string;
   formatDocumentStatus: (value: DocumentRow["status"]) => string;
@@ -103,20 +113,105 @@ export function SalarieDocumentsSection({
   onViewDocument,
   onDownloadDocument,
   onDeleteDocument,
+  onRenameDocument,
   onOpenCommentDialog,
-  onOpenEditDialog,
   viewingDocumentId,
   downloadingDocumentId,
   deletingDocumentId,
   savingDocumentId,
   pendingRequests,
   openUploadDialog,
+  currentFolderId,
+  folders,
+  folderPath,
+  onNavigateFolder,
+  onCreateFolder,
+  onMoveDocumentToFolder,
+  onRenameFolder,
+  onDeleteFolder,
   formatDate,
   formatMonth,
   formatDocumentStatus,
 }: SalarieDocumentsSectionProps) {
+  type DocumentsListItem =
+    | {
+      rowType: "folder";
+      folderId: string;
+      id: string;
+      fileName: string;
+      typeLabel: string;
+      statusLabel?: string | null;
+      periodLabel?: string | null;
+      ownerName: string;
+      createdAt: string | null;
+      sizeBytes: number | null;
+      subtitle?: string | null;
+      details?: string | null;
+      hideDetailsPanel?: boolean;
+    }
+    | ({
+      rowType: "document";
+      document: DocumentRow;
+    } & {
+      id: string;
+      fileName: string;
+      typeLabel: string;
+      statusLabel?: string | null;
+      periodLabel?: string | null;
+      ownerName: string;
+      createdAt: string | null;
+      sizeBytes: number | null;
+      subtitle?: string | null;
+      details?: string | null;
+      hideDetailsPanel?: boolean;
+    });
+
   const [documentsMenuOpen, setDocumentsMenuOpen] = useState(false);
   const documentsMenuRef = useRef<HTMLDivElement | null>(null);
+  const documentsById = useMemo(
+    () => new Map(visibleDocuments.map((document) => [document.id, document])),
+    [visibleDocuments],
+  );
+  const listItems = useMemo<DocumentsListItem[]>(() => {
+    const documentItems: DocumentsListItem[] = visibleDocuments.map((document) => ({
+      rowType: "document",
+      document,
+      id: document.id,
+      fileName: document.fileName,
+      typeLabel: document.typeLabel,
+      ownerName: document.uploadedByName,
+      createdAt: document.createdAt,
+      statusLabel: formatDocumentStatus(document.status),
+      periodLabel: formatMonth(document.periodMonth),
+      sizeBytes: document.sizeBytes,
+      details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
+    }));
+
+    if (currentSubSection !== "docs_tous") {
+      return documentItems;
+    }
+
+    const shouldShowFoldersByType =
+      documentTypeFilter === "all" || documentTypeFilter === "Dossier";
+
+    const folderItems: DocumentsListItem[] = currentFolderId || !shouldShowFoldersByType
+      ? []
+      : [...folders]
+        .sort((left, right) => left.name.localeCompare(right.name, "fr"))
+        .map((folder) => ({
+          rowType: "folder",
+          folderId: folder.id,
+          id: `folder:${folder.id}`,
+          fileName: folder.name,
+          typeLabel: "Dossier",
+          ownerName: "-",
+          createdAt: folder.createdAt,
+          sizeBytes: null,
+          hideDetailsPanel: true,
+        }));
+
+    return [...folderItems, ...documentItems];
+  }, [currentFolderId, currentSubSection, documentTypeFilter, folders, formatDocumentStatus, formatMonth, visibleDocuments]);
 
   useEffect(() => {
     if (!documentsMenuOpen) return;
@@ -146,22 +241,65 @@ export function SalarieDocumentsSection({
       <div className="flex flex-row items-center justify-between gap-3">
         {currentSubSection === "docs_tous" ? (
           <div ref={documentsMenuRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setDocumentsMenuOpen((open) => !open)}
-              className="flex items-center gap-2 rounded-lg px-2 py-1 text-lg font-semibold text-[#0A1A2F] transition hover:bg-slate-100"
-              aria-haspopup="menu"
-              aria-expanded={documentsMenuOpen}
-            >
-              <span>{documentsCardTitle}</span>
-              <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
-            </button>
+            {folderPath.length === 0 ? (
+              <button
+                type="button"
+                onClick={() => setDocumentsMenuOpen((open) => !open)}
+                className="flex items-center gap-2 rounded-lg px-2 py-1 text-lg font-semibold text-[#0A1A2F] transition hover:bg-slate-100"
+                aria-haspopup="menu"
+                aria-expanded={documentsMenuOpen}
+              >
+                <span>{documentsCardTitle}</span>
+                <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 text-lg font-semibold text-[#0A1A2F]">
+                <button
+                  type="button"
+                  onClick={() => onNavigateFolder(null)}
+                  className="rounded-lg px-2 py-1 transition hover:bg-slate-100"
+                >
+                  {documentsCardTitle}
+                </button>
+                {folderPath.map((folder, index) => {
+                  const isLast = index === folderPath.length - 1;
+                  return (
+                    <Fragment key={folder.id}>
+                      <span className="text-[#0A1A2F]/45">&gt;</span>
+                      {isLast ? (
+                        <button
+                          type="button"
+                          onClick={() => setDocumentsMenuOpen((open) => !open)}
+                          className="flex items-center gap-2 rounded-lg px-2 py-1 transition hover:bg-slate-100"
+                          aria-haspopup="menu"
+                          aria-expanded={documentsMenuOpen}
+                        >
+                          <span>{folder.name}</span>
+                          <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onNavigateFolder(folder.id)}
+                          className="rounded-lg px-2 py-1 transition hover:bg-slate-100"
+                        >
+                          {folder.name}
+                        </button>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </div>
+            )}
             {documentsMenuOpen ? (
               <div className="absolute left-0 top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2">
                 <button
                   type="button"
                   className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F]/80 transition hover:bg-slate-50"
-                  onClick={() => setDocumentsMenuOpen(false)}
+                  onClick={() => {
+                    setDocumentsMenuOpen(false);
+                    void onCreateFolder();
+                  }}
                 >
                   Nouveau dossier
                 </button>
@@ -468,75 +606,32 @@ export function SalarieDocumentsSection({
                 if (field === "status") onDocumentStatusFilterChange(value);
               }}
             />
-            {visibleDocuments.length ? (
+            {listItems.length ? (
               <DashboardDocumentList
-                items={visibleDocuments.map((document) => ({
-                  ...document,
-                  ownerName: document.uploadedByName,
-                  createdAt: document.createdAt,
-                  statusLabel: formatDocumentStatus(document.status),
-                  periodLabel: formatMonth(document.periodMonth),
-                  details: document.reviewComment
-                    ? `Commentaire RH : ${document.reviewComment}`
-                    : null,
-                }))}
+                items={listItems}
                 storageKey="salarie-documents-columns"
-                renderActions={(document, closeMenu) => (
-                  <>
-                    {document.fileName.toLowerCase().endsWith(".pdf") ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
-                        onClick={() => {
-                          closeMenu();
-                          void onViewDocument(document);
-                        }}
-                        disabled={
-                          !document.storagePath ||
-                          viewingDocumentId === document.id ||
-                          downloadingDocumentId === document.id
-                        }
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Visualiser
-                      </Button>
-                    ) : null}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => {
-                        closeMenu();
-                        void onDownloadDocument(document);
-                      }}
-                      disabled={
-                        !document.storagePath ||
-                        downloadingDocumentId === document.id ||
-                        viewingDocumentId === document.id
-                      }
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Télécharger
-                    </Button>
-                    {document.reviewComment ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
-                        onClick={() => {
-                          closeMenu();
-                          onOpenCommentDialog(document);
-                        }}
-                      >
-                        <MessageSquareText className="mr-2 h-4 w-4" />
-                        Voir commentaire RH
-                      </Button>
-                    ) : null}
-                    {document.status !== "validated" ? (
+                onItemDoubleClick={(item) => {
+                  if (item.rowType === "folder") {
+                    onNavigateFolder(item.folderId);
+                  }
+                }}
+                isItemDoubleClickable={(item) => item.rowType === "folder"}
+                getDraggableId={(item) => (item.rowType === "document" ? item.document.id : null)}
+                canDropOnItem={(targetItem, draggedId) => {
+                  if (targetItem.rowType !== "folder") return false;
+                  const draggedDocument = documentsById.get(draggedId);
+                  if (!draggedDocument) return false;
+                  return (draggedDocument.folderId ?? null) !== targetItem.folderId;
+                }}
+                onItemDrop={async (targetItem, draggedId) => {
+                  if (targetItem.rowType !== "folder") return;
+                  const draggedDocument = documentsById.get(draggedId);
+                  if (!draggedDocument) return;
+                  await onMoveDocumentToFolder(draggedDocument, targetItem.folderId);
+                }}
+                renderActions={(item, closeMenu) => {
+                  if (item.rowType === "folder") {
+                    return (
                       <>
                         <Button
                           type="button"
@@ -545,14 +640,25 @@ export function SalarieDocumentsSection({
                           className="w-full justify-start"
                           onClick={() => {
                             closeMenu();
-                            onOpenEditDialog(document);
+                            onNavigateFolder(item.folderId);
                           }}
-                          disabled={
-                            deletingDocumentId === document.id || savingDocumentId === document.id
-                          }
+                          disabled={currentFolderId === item.folderId}
+                        >
+                          <FolderOpen className="mr-2 h-4 w-4" />
+                          Ouvrir le dossier
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            closeMenu();
+                            void onRenameFolder(item.folderId, item.fileName);
+                          }}
                         >
                           <Pencil className="mr-2 h-4 w-4" />
-                          Modifier
+                          Renommer
                         </Button>
                         <Button
                           type="button"
@@ -561,21 +667,114 @@ export function SalarieDocumentsSection({
                           className="w-full justify-start text-red-600 hover:text-red-700"
                           onClick={() => {
                             closeMenu();
-                            void onDeleteDocument(document);
+                            void onDeleteFolder(item.folderId);
                           }}
-                          disabled={
-                            deletingDocumentId === document.id || savingDocumentId === document.id
-                          }
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Supprimer
                         </Button>
                       </>
-                    ) : (
-                      <Badge variant="outline">Verrouillé</Badge>
-                    )}
-                  </>
-                )}
+                    );
+                  }
+
+                  const document = item.document;
+
+                  return (
+                    <>
+                      {document.fileName.toLowerCase().endsWith(".pdf") ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            closeMenu();
+                            void onViewDocument(document);
+                          }}
+                          disabled={
+                            !document.storagePath ||
+                            viewingDocumentId === document.id ||
+                            downloadingDocumentId === document.id
+                          }
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          Visualiser
+                        </Button>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => {
+                          closeMenu();
+                          void onDownloadDocument(document);
+                        }}
+                        disabled={
+                          !document.storagePath ||
+                          downloadingDocumentId === document.id ||
+                          viewingDocumentId === document.id
+                        }
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Télécharger
+                      </Button>
+                      {document.reviewComment ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            closeMenu();
+                            onOpenCommentDialog(document);
+                          }}
+                        >
+                          <MessageSquareText className="mr-2 h-4 w-4" />
+                          Voir commentaire RH
+                        </Button>
+                      ) : null}
+                      {document.status !== "validated" ? (
+                        <>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start"
+                            onClick={() => {
+                              closeMenu();
+                              void onRenameDocument(document);
+                            }}
+                            disabled={
+                              deletingDocumentId === document.id || savingDocumentId === document.id
+                            }
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Renommer
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start text-red-600 hover:text-red-700"
+                            onClick={() => {
+                              closeMenu();
+                              void onDeleteDocument(document);
+                            }}
+                            disabled={
+                              deletingDocumentId === document.id || savingDocumentId === document.id
+                            }
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Supprimer
+                          </Button>
+                        </>
+                      ) : (
+                        <Badge variant="outline">Verrouillé</Badge>
+                      )}
+                    </>
+                  );
+                }}
               />
             ) : (
               <p className="text-sm text-[#0A1A2F]/70">Aucun document depose pour le moment.</p>
