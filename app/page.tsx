@@ -64,11 +64,6 @@ export default function Home() {
 
   ];
 
-
-
-
-
-
   const jobOffers = [
 
     {
@@ -172,8 +167,6 @@ export default function Home() {
     { name: "Sogeprom", logo: "/client/SOGEPROM.png", logoScale: 1.3 },
   ];
 
-
-
   const aboutMainImage = {
 
     src: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1200&auto=format&fit=crop&q=80",
@@ -181,8 +174,6 @@ export default function Home() {
     alt: "Équipe Jarvis Connect",
 
   };
-
-
 
   const aboutBreakout = {
 
@@ -206,8 +197,6 @@ export default function Home() {
 
   };
 
-
-
   const aboutCompanies = [
 
     { src: "/partenaire/nxo.png", alt: "NXO" },
@@ -225,11 +214,6 @@ export default function Home() {
     { src: "/partenaire/spie.png", alt: "SPIE" },
 
   ];
-
-
-
- 
-
 
   const expertiseTabs = expertises.map((item, index) => ({
 
@@ -283,8 +267,6 @@ export default function Home() {
 
   }));
 
-
-
   return (
 
     <>
@@ -336,8 +318,6 @@ export default function Home() {
 
         </section>
 
-
-
         <section id="about">
 
           <About
@@ -354,12 +334,9 @@ export default function Home() {
 
             companies={aboutCompanies}
 
-
           />
 
         </section>
-
-
 
         <section id="expertises" className="text-[#1E1E1E]">
           <TabsFeaturettes
@@ -374,9 +351,8 @@ export default function Home() {
 
         </section>
 
-
-
-        <section>
+        {/* ✅ CORRIGÉ : id="clients" sur la section Clients */}
+        <section id="clients">
 
           <Clients
 
@@ -417,28 +393,20 @@ export default function Home() {
 
         </section>
 
-
-
         <section id="actualites" className="bg-[#F4F7FA] text-[#2aa0dd]">
 
           <Actualites heading="Actualités de Jarvis Connect" demoUrl="/actus" />
 
         </section>
 
-
-
         <section id="formations" className="text-[#2aa0dd]">
           <FormationsSupport />
 
         </section>
 
-                 <section id="clients">
-              
-            </section>
-
+        {/* ✅ CORRIGÉ : id="offres" sur la section OffresEmploi */}
         <section id="offres" className="text-[#2aa0dd]">
           <OffresEmploi
-
 
             heading="Nos offres d'emploi"
 
@@ -453,13 +421,12 @@ export default function Home() {
           />
 
         </section>
-        
+
         <section>
-          
-  <FranceMap />
-  </section>
 
+          <FranceMap />
 
+        </section>
 
       </main>
 
@@ -467,14 +434,9 @@ export default function Home() {
 
     </div>
 
-
     <Footer />
 
     </>
   );
 
 }
-
-
-
-
