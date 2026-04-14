@@ -61,6 +61,18 @@ export default function RhWorkspace({
   const [jobOffers, setJobOffers] = useState<JobOfferRow[]>([]);
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
   const [cvsByUser, setCvsByUser] = useState<Record<string, ProfileCvRow>>({});
+  const [activityByEmployeeId, setActivityByEmployeeId] = useState<
+    Record<
+      string,
+      {
+        userId: string;
+        lastSignInAt: string | null;
+        createdAt: string | null;
+        updatedAt: string | null;
+        emailConfirmedAt: string | null;
+      }
+    >
+  >({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savingEmployee, setSavingEmployee] = useState(false);
@@ -112,7 +124,7 @@ export default function RhWorkspace({
     const canAccessEmployee = (employeeId: string) =>
       !isRestricted || assignedSet.has(employeeId);
 
-    const [employeesRes, documentTypesRes, docsRes, requestsRes, offersRes, appsRes, cvsRes] = await Promise.all([
+    const [employeesRes, documentTypesRes, docsRes, requestsRes, offersRes, appsRes, cvsRes, activityResponse] = await Promise.all([
       supabase.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("role", "salarie").order("email", { ascending: true }),
       supabase.from("document_types").select("id,label,requires_period,allowed_uploader_roles").eq("active", true).order("label", { ascending: true }),
       supabase.from("employee_documents").select("id,status,file_name,period_month,created_at,updated_at,size_bytes,review_comment,uploader_role,storage_bucket,storage_path,source_kind,document_type:document_types(id,label,code),employee:profiles!employee_documents_employee_id_fkey(id,full_name,email,role),uploader:profiles!employee_documents_uploaded_by_fkey(full_name,email)").order("created_at", { ascending: false }),
@@ -120,6 +132,12 @@ export default function RhWorkspace({
       supabase.from("job_offers").select("id,title,status,location").order("created_at", { ascending: false }),
       supabase.from("applications").select("id,candidate_id,status,job:job_offers(title),candidate:profiles!applications_candidate_id_fkey(full_name,email)").order("created_at", { ascending: false }),
       supabase.from("profile_cvs").select("user_id,file_name"),
+      fetch("/api/rh/collaborators/activity", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }),
     ]);
 
     if (employeesRes.error || documentTypesRes.error || docsRes.error || requestsRes.error || offersRes.error || appsRes.error || cvsRes.error) {
@@ -211,6 +229,25 @@ export default function RhWorkspace({
       return { id: row.id, candidateId: row.candidate_id, status: row.status, jobTitle: job?.title ?? "Offre", candidateName: candidate?.full_name ?? candidate?.email ?? "Candidat" } satisfies ApplicationRow;
     }).filter((application) => canAccessEmployee(application.candidateId)));
     setCvsByUser(Object.fromEntries(((cvsRes.data ?? []) as ProfileCvRow[]).map((row) => [row.user_id, row])));
+    const activityPayload = (await activityResponse.json().catch(() => null)) as
+      | {
+          error?: string;
+          items?: {
+            userId: string;
+            lastSignInAt: string | null;
+            createdAt: string | null;
+            updatedAt: string | null;
+            emailConfirmedAt: string | null;
+          }[];
+        }
+      | null;
+    if (activityResponse.ok) {
+      setActivityByEmployeeId(
+        Object.fromEntries((activityPayload?.items ?? []).map((item) => [item.userId, item])),
+      );
+    } else if (activityPayload?.error) {
+      setSaveMessage(activityPayload.error);
+    }
 
     const documentIds = filteredDocuments.map((document) => document.id);
     if (!documentIds.length) {
@@ -304,6 +341,20 @@ export default function RhWorkspace({
   }, [profileMenuOpen]);
 
   const selectedEmployee = useMemo(() => employees.find((employee) => employee.id === selectedEmployeeId) ?? null, [employees, selectedEmployeeId]);
+  const isRecentlyActive = useCallback((employeeId: string) => {
+    const lastSignInAt = activityByEmployeeId[employeeId]?.lastSignInAt;
+    if (!lastSignInAt) return false;
+    const timestamp = new Date(lastSignInAt).getTime();
+    if (Number.isNaN(timestamp)) return false;
+    return Date.now() - timestamp <= 15 * 60 * 1000;
+  }, [activityByEmployeeId]);
+  const formatLastSignIn = useCallback((employeeId: string) => {
+    const lastSignInAt = activityByEmployeeId[employeeId]?.lastSignInAt;
+    if (!lastSignInAt) return "Jamais connecte";
+    const date = new Date(lastSignInAt);
+    if (Number.isNaN(date.getTime())) return "Date inconnue";
+    return date.toLocaleString();
+  }, [activityByEmployeeId]);
   const refreshDashboardData = useCallback(async () => {
     if (!profile?.id || !session?.access_token) return;
     await loadDashboardData(profile.id, session.access_token);
@@ -901,7 +952,7 @@ export default function RhWorkspace({
           )}
 
           {currentSection === "collaborateurs" && (
-            <Card>
+            <Card className="border-0 shadow-none">
               <CardHeader><CardTitle>Collaborateurs</CardTitle></CardHeader>
               <CardContent>
                 {currentSubSection === "collab_detail" && selectedEmployee && activeDraft ? (
@@ -948,10 +999,10 @@ export default function RhWorkspace({
                     <div className="rounded border border-slate-200 p-3"><p className="mb-2 font-medium">Candidatures ({selectedEmployeeApplications.length})</p>{selectedEmployeeApplications.length ? selectedEmployeeApplications.map((application) => <p key={application.id} className="text-[#0A1A2F]/80">{application.jobTitle} - {application.status}</p>) : <p className="text-[#0A1A2F]/70">Aucune candidature.</p>}</div>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-lg border border-slate-200">
+                  <div className="overflow-x-auto rounded-lg">
                       <table className="min-w-full text-sm">
-                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Nom</th><th className="px-3 py-2">Entreprise</th><th className="px-3 py-2">ESN partenaire</th><th className="px-3 py-2">Email</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Demandes ouvertes</th></tr></thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">{collaborateursRows.map((employee) => <tr key={employee.id}><td className="px-3 py-2"><Link href={`/dashboard/rh/collaborateurs/${employee.id}`} className="hover:underline">{employee.full_name ?? "-"}</Link></td><td className="px-3 py-2">{employee.company_name ?? "-"}</td><td className="px-3 py-2">{employee.esn_partenaire ?? "-"}</td><td className="px-3 py-2">{employee.email}</td><td className="px-3 py-2">{employee.employment_status ?? "-"}</td><td className="px-3 py-2">{requests.filter((request) => request.employeeId === employee.id && ["pending", "uploaded", "rejected", "expired"].includes(request.status)).length}</td></tr>)}</tbody>
+                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Nom</th><th className="px-3 py-2">Entreprise</th><th className="px-3 py-2">ESN partenaire</th><th className="px-3 py-2">Email</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Connexion</th><th className="px-3 py-2">Derniere connexion</th><th className="px-3 py-2">Demandes ouvertes</th></tr></thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">{collaborateursRows.map((employee) => <tr key={employee.id}><td className="px-3 py-2"><Link href={`/dashboard/rh/collaborateurs/${employee.id}`} className="hover:underline">{employee.full_name ?? "-"}</Link></td><td className="px-3 py-2">{employee.company_name ?? "-"}</td><td className="px-3 py-2">{employee.esn_partenaire ?? "-"}</td><td className="px-3 py-2">{employee.email}</td><td className="px-3 py-2">{employee.employment_status ?? "-"}</td><td className="px-3 py-2">{isRecentlyActive(employee.id) ? "Actif recemment" : "Hors ligne"}</td><td className="px-3 py-2">{formatLastSignIn(employee.id)}</td><td className="px-3 py-2">{requests.filter((request) => request.employeeId === employee.id && ["pending", "uploaded", "rejected", "expired"].includes(request.status)).length}</td></tr>)}</tbody>
                     </table>
                   </div>
                 )}
