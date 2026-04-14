@@ -1,5 +1,6 @@
-﻿import { ChevronLeft, ChevronRight, Download, Eye, MessageSquareText, Pencil, Trash2 } from "lucide-react";
+﻿import { ChevronDown, ChevronLeft, ChevronRight, Download, Eye, MessageSquareText, Pencil, Trash2 } from "lucide-react";
 
+import { useEffect, useRef, useState } from "react";
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { Badge } from "@/components/ui/badge";
@@ -114,10 +115,79 @@ export function SalarieDocumentsSection({
   formatMonth,
   formatDocumentStatus,
 }: SalarieDocumentsSectionProps) {
+  const [documentsMenuOpen, setDocumentsMenuOpen] = useState(false);
+  const documentsMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!documentsMenuOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!documentsMenuRef.current?.contains(event.target as Node)) {
+        setDocumentsMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setDocumentsMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [documentsMenuOpen]);
+
   return (
     <section className="space-y-4">
       <div className="flex flex-row items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-[#0A1A2F]">{documentsCardTitle}</h2>
+        {currentSubSection === "docs_tous" ? (
+          <div ref={documentsMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setDocumentsMenuOpen((open) => !open)}
+              className="flex items-center gap-2 rounded-lg px-2 py-1 text-lg font-semibold text-[#0A1A2F] transition hover:bg-slate-100"
+              aria-haspopup="menu"
+              aria-expanded={documentsMenuOpen}
+            >
+              <span>{documentsCardTitle}</span>
+              <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+            {documentsMenuOpen ? (
+              <div className="absolute left-0 top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2">
+                <button
+                  type="button"
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F]/80 transition hover:bg-slate-50"
+                  onClick={() => setDocumentsMenuOpen(false)}
+                >
+                  Nouveau dossier
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F] transition hover:bg-slate-50"
+                  onClick={() => {
+                    setDocumentsMenuOpen(false);
+                    openUploadDialog();
+                  }}
+                >
+                  Importer un fichier
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F]/80 transition hover:bg-slate-50"
+                  onClick={() => setDocumentsMenuOpen(false)}
+                >
+                  Importer un dossier
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <h2 className="text-lg font-semibold text-[#0A1A2F]">{documentsCardTitle}</h2>
+        )}
       </div>
       <div>
         {currentSubSection === "docs_cra_facture" ? (
@@ -338,123 +408,6 @@ export function SalarieDocumentsSection({
               </Card>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="font-medium">Documents CRA & Facture generes ou deposes</p>
-                <Badge variant="outline">{visibleDocuments.length}</Badge>
-              </div>
-              <DocumentFiltersBar
-                fields={["type", "period", "status"]}
-                values={{
-                  type: documentTypeFilter,
-                  period: documentPeriodFilter,
-                  status: documentStatusFilter,
-                  owner: "all",
-                }}
-                options={documentFilterOptions}
-                onChange={(field, value) => {
-                  if (field === "type") onDocumentTypeFilterChange(value);
-                  if (field === "period") onDocumentPeriodFilterChange(value);
-                  if (field === "status") onDocumentStatusFilterChange(value);
-                }}
-              />
-              {visibleDocuments.length ? (
-                <DashboardDocumentList
-                  items={visibleDocuments.map((document) => ({
-                    ...document,
-                    ownerName: document.uploadedByName,
-                    createdAt: document.createdAt,
-                    statusLabel: formatDocumentStatus(document.status),
-                    periodLabel: formatMonth(document.periodMonth),
-                    details: document.reviewComment
-                      ? `Commentaire RH : ${document.reviewComment}`
-                      : null,
-                  }))}
-                  storageKey="salarie-documents-cra-facture-columns"
-                  renderActions={(document, closeMenu) => (
-                    <>
-                      {document.fileName.toLowerCase().endsWith(".pdf") ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            closeMenu();
-                            void onViewDocument(document);
-                          }}
-                          disabled={
-                            !document.storagePath ||
-                            viewingDocumentId === document.id ||
-                            downloadingDocumentId === document.id
-                          }
-                        >
-                          <Eye className="mr-2 h-4 w-4" />
-                          Visualiser
-                        </Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
-                        onClick={() => {
-                          closeMenu();
-                          void onDownloadDocument(document);
-                        }}
-                        disabled={
-                          !document.storagePath ||
-                          downloadingDocumentId === document.id ||
-                          viewingDocumentId === document.id
-                        }
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Télécharger
-                      </Button>
-                      {document.reviewComment ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            closeMenu();
-                            onOpenCommentDialog(document);
-                          }}
-                        >
-                          <MessageSquareText className="mr-2 h-4 w-4" />
-                          Voir commentaire RH
-                        </Button>
-                      ) : null}
-                      {document.status !== "validated" ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start text-red-600 hover:text-red-700"
-                          onClick={() => {
-                            closeMenu();
-                            void onDeleteDocument(document);
-                          }}
-                          disabled={
-                            deletingDocumentId === document.id || savingDocumentId === document.id
-                          }
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Supprimer
-                        </Button>
-                      ) : (
-                        <Badge variant="outline">Verrouillé</Badge>
-                      )}
-                    </>
-                  )}
-                />
-              ) : (
-                <p className="text-sm text-[#0A1A2F]/70">
-                  Aucun CRA ou facture depose pour le moment.
-                </p>
-              )}
-            </div>
           </div>
         ) : currentSubSection === "docs_a_deposer" ? (
           <div className="space-y-6">
@@ -633,5 +586,7 @@ export function SalarieDocumentsSection({
     </section>
   );
 }
+
+
 
 

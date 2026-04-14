@@ -244,7 +244,7 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
             Libellés
           </Button>
           {menuOpen ? (
-            <div className="absolute right-0 top-full z-20 mt-2 w-60 rounded-xl border border-slate-200 bg-white p-3 shadow-[0_12px_30px_rgba(15,23,42,0.12)]">
+            <div className="absolute right-0 top-full z-20 mt-2 w-60 rounded-xl border border-slate-200 bg-white p-3">
               <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[#0A1A2F]/55">
                 Colonnes visibles
               </p>

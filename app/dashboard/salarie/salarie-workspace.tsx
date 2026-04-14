@@ -38,6 +38,7 @@ import type {
 import { formatDate, formatDocumentStatus, formatMonth, normalizeJoinOne, type DocumentStatus } from "@/lib/dashboard-formatters";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { browserSupabase as supabase } from "@/lib/supabase-browser";
+import { forceClientSignOut } from "@/lib/client-auth";
 
 const emptyBillingProfileForm = (): BillingProfileFormState => ({
   firstName: "",
@@ -275,9 +276,19 @@ export default function SalarieWorkspace({
         Authorization: `Bearer ${accessToken}`,
       },
     });
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    const contentType = response.headers.get("content-type") ?? "";
+    const payload = contentType.includes("application/json")
+      ? ((await response.json().catch(() => null)) as { error?: string } | null)
+      : null;
+    const rawMessage = !payload
+      ? (await response.text().catch(() => "")).trim()
+      : "";
     if (!response.ok) {
-      throw new Error(payload?.error ?? "Requete salarie impossible.");
+      const fallbackMessage = `Requete salarie impossible (${response.status}).`;
+      throw new Error(
+        payload?.error ??
+          (rawMessage ? `${fallbackMessage} ${rawMessage}` : fallbackMessage),
+      );
     }
     return payload;
   }, []);
@@ -1071,8 +1082,8 @@ export default function SalarieWorkspace({
   const handleSignOut = useCallback(async () => {
     if (!supabase) return;
     setProfileMenuOpen(false);
-    await supabase.auth.signOut();
-    router.push("/auth");
+    await forceClientSignOut(supabase);
+    router.push("/auth?logged_out=1");
   }, [router]);
 
   useEffect(() => {
@@ -1127,14 +1138,14 @@ export default function SalarieWorkspace({
           </div>
         </aside>
 
-        <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[64px]">
+        <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[48px]">
           <div className="flex h-full items-stretch justify-center px-2 py-5" />
         </aside>
 
-        <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[64px] lg:px-3 lg:py-3">
+        <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[48px] lg:px-3 lg:py-3">
           <div className="hidden lg:flex items-center rounded-[30px] px-2 py-1.5">
             <div className="flex min-w-0 flex-1 items-center">
-              <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 shadow-[0_8px_24px_rgba(148,163,184,0.14)] backdrop-blur">
+              <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 backdrop-blur">
                   <Search className="h-4 w-4 text-[#0A1A2F]/55" />
                   <span className="text-sm text-[#0A1A2F]/55">Rechercher dans l&apos;espace salarie</span>
                   <SlidersHorizontal className="ml-auto h-4 w-4 text-[#0A1A2F]/45" />

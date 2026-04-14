@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { createClient, type Session, type User } from "@supabase/supabase-js";
 import {
   AlertCircle,
@@ -26,6 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { forceClientSignOut } from "@/lib/client-auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -67,6 +68,8 @@ type Status =
   | { type: "success"; message: string };
 
 type ProfessionalStatus = "none" | "pending" | "verified" | "rejected";
+type AssignmentUser = { id: string; email: string; full_name: string | null };
+type RhAssignmentsByRh = Record<string, string[]>;
 
 export default function DashboardPage() {
   const [session, setSession] = useState<Session | null>(null);
@@ -78,6 +81,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [profileStatus, setProfileStatus] = useState<Status>({ type: "idle" });
   const [profileUpdatingId, setProfileUpdatingId] = useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [userDeleteStatus, setUserDeleteStatus] = useState<Status>({ type: "idle" });
   const [offerSaving, setOfferSaving] = useState(false);
   const [offerStatus, setOfferStatus] = useState<Status>({ type: "idle" });
   const [offerActionStatus, setOfferActionStatus] = useState<Status>({ type: "idle" });
@@ -85,6 +90,14 @@ export default function DashboardPage() {
   const [editingOfferId, setEditingOfferId] = useState<string | null>(null);
   const [offerEditSaving, setOfferEditSaving] = useState(false);
   const [offerEditStatus, setOfferEditStatus] = useState<Status>({ type: "idle" });
+  const [rhProfiles, setRhProfiles] = useState<AssignmentUser[]>([]);
+  const [salarieProfiles, setSalarieProfiles] = useState<AssignmentUser[]>([]);
+  const [assignmentsByRh, setAssignmentsByRh] = useState<RhAssignmentsByRh>({});
+  const [selectedRhId, setSelectedRhId] = useState("");
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
+  const [assignmentSaving, setAssignmentSaving] = useState(false);
+  const [assignmentStatus, setAssignmentStatus] = useState<Status>({ type: "idle" });
   const [offerEditForm, setOfferEditForm] = useState({
     title: "",
     location: "",
@@ -112,6 +125,37 @@ export default function DashboardPage() {
     salary_max: "",
     tech_stack: "",
   });
+
+  const loadRhCollaboratorAssignments = useCallback(async (accessToken: string) => {
+    setAssignmentLoading(true);
+    setAssignmentStatus({ type: "idle" });
+    const response = await fetch("/api/admin/rh-collaborators", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | {
+          error?: string;
+          rhs?: AssignmentUser[];
+          employees?: AssignmentUser[];
+          assignments?: RhAssignmentsByRh;
+        }
+      | null;
+    if (!response.ok) {
+      setAssignmentStatus({
+        type: "error",
+        message: payload?.error ?? "Chargement des affectations impossible.",
+      });
+      setAssignmentLoading(false);
+      return;
+    }
+    setRhProfiles(payload?.rhs ?? []);
+    setSalarieProfiles(payload?.employees ?? []);
+    setAssignmentsByRh(payload?.assignments ?? {});
+    setAssignmentLoading(false);
+  }, []);
 
   useEffect(() => {
     if (!supabase) {
@@ -176,6 +220,7 @@ export default function DashboardPage() {
       }
 
       setAllProfiles(allProfilesData ?? []);
+      await loadRhCollaboratorAssignments(currentSession.access_token);
 
       const { data: offersData, error: offersError } = await supabase
         .from("job_offers")
@@ -195,17 +240,39 @@ export default function DashboardPage() {
     };
 
     void load();
-  }, []);
+  }, [loadRhCollaboratorAssignments]);
+
+  useEffect(() => {
+    if (!rhProfiles.length) {
+      setSelectedRhId("");
+      return;
+    }
+    if (!selectedRhId || !rhProfiles.some((profile) => profile.id === selectedRhId)) {
+      setSelectedRhId(rhProfiles[0].id);
+    }
+  }, [rhProfiles, selectedRhId]);
+
+  useEffect(() => {
+    if (!selectedRhId) {
+      setSelectedEmployeeIds([]);
+      return;
+    }
+    setSelectedEmployeeIds(assignmentsByRh[selectedRhId] ?? []);
+  }, [assignmentsByRh, selectedRhId]);
 
   const sessionExpiry = useMemo(() => {
     if (!session?.expires_at) return null;
     return new Date(session.expires_at * 1000).toLocaleString();
   }, [session]);
+  const selectedRh = useMemo(
+    () => rhProfiles.find((profile) => profile.id === selectedRhId) ?? null,
+    [rhProfiles, selectedRhId]
+  );
 
   const handleSignOut = async () => {
     if (!supabase) return;
-    await supabase.auth.signOut();
-    window.location.href = "/auth";
+    await forceClientSignOut(supabase);
+    window.location.href = "/auth?logged_out=1";
   };
 
   const renderStatusBadge = (status: string | null) => {
@@ -284,10 +351,118 @@ export default function DashboardPage() {
     setProfileUpdatingId(null);
   };
 
+  const handleDeleteUser = async (targetProfile: ProfileRow) => {
+    if (!session?.access_token) {
+      setUserDeleteStatus({ type: "error", message: "Session admin manquante." });
+      return;
+    }
+    if (targetProfile.id === user?.id) {
+      setUserDeleteStatus({
+        type: "error",
+        message: "Tu ne peux pas supprimer ton propre compte admin.",
+      });
+      return;
+    }
+    const confirmed = window.confirm(
+      `Supprimer definitivement le compte ${targetProfile.email} ?`
+    );
+    if (!confirmed) return;
+
+    setDeletingUserId(targetProfile.id);
+    setUserDeleteStatus({ type: "idle" });
+    const response = await fetch(
+      `/api/admin/users/${encodeURIComponent(targetProfile.id)}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      }
+    );
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (!response.ok) {
+      setUserDeleteStatus({
+        type: "error",
+        message: payload?.error ?? "Suppression du compte impossible.",
+      });
+      setDeletingUserId(null);
+      return;
+    }
+
+    setAllProfiles((previous) => previous.filter((profile) => profile.id !== targetProfile.id));
+    setRhProfiles((previous) => previous.filter((profile) => profile.id !== targetProfile.id));
+    setSalarieProfiles((previous) =>
+      previous.filter((profile) => profile.id !== targetProfile.id)
+    );
+    setAssignmentsByRh((previous) => {
+      const next = Object.fromEntries(
+        Object.entries(previous)
+          .filter(([rhId]) => rhId !== targetProfile.id)
+          .map(([rhId, employeeIds]) => [
+            rhId,
+            employeeIds.filter((employeeId) => employeeId !== targetProfile.id),
+          ])
+      );
+      return next;
+    });
+    if (selectedRhId === targetProfile.id) {
+      setSelectedRhId("");
+    }
+
+    setUserDeleteStatus({
+      type: "success",
+      message: `Compte ${targetProfile.email} supprime.`,
+    });
+    setDeletingUserId(null);
+  };
+
   const buildUniqueSlug = (title: string) => {
     const base = slugify(title) || "offre";
     const suffix = crypto.randomUUID().slice(0, 8);
     return `${base}-${suffix}`;
+  };
+
+  const toggleAssignedEmployee = (employeeId: string) => {
+    setSelectedEmployeeIds((previous) =>
+      previous.includes(employeeId)
+        ? previous.filter((id) => id !== employeeId)
+        : [...previous, employeeId]
+    );
+  };
+
+  const handleSaveAssignments = async () => {
+    if (!session?.access_token || !selectedRhId) return;
+    setAssignmentSaving(true);
+    setAssignmentStatus({ type: "idle" });
+    const response = await fetch("/api/admin/rh-collaborators", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        rhId: selectedRhId,
+        employeeIds: selectedEmployeeIds,
+      }),
+    });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (!response.ok) {
+      setAssignmentStatus({
+        type: "error",
+        message: payload?.error ?? "Enregistrement des affectations impossible.",
+      });
+      setAssignmentSaving(false);
+      return;
+    }
+    setAssignmentsByRh((previous) => ({
+      ...previous,
+      [selectedRhId]: selectedEmployeeIds,
+    }));
+    setAssignmentStatus({
+      type: "success",
+      message: "Affectations RH mises a jour.",
+    });
+    setAssignmentSaving(false);
   };
 
   const handleOfferSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -639,9 +814,26 @@ export default function DashboardPage() {
                 <p className="leading-relaxed">{profileStatus.message}</p>
               </div>
             )}
+            {userDeleteStatus.type !== "idle" && (
+              <div
+                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
+                  userDeleteStatus.type === "error"
+                    ? "border-red-300 bg-red-50 text-red-900"
+                    : "border-emerald-300 bg-emerald-50 text-emerald-900"
+                }`}
+              >
+                {userDeleteStatus.type === "error" ? (
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                ) : (
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                )}
+                <p className="leading-relaxed">{userDeleteStatus.message}</p>
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {allProfiles.map((profile) => {
                 const isUpdating = profileUpdatingId === profile.id;
+                const isDeleting = deletingUserId === profile.id;
                 return (
                   <div
                     key={profile.id}
@@ -697,6 +889,22 @@ export default function DashboardPage() {
                         </Button>
                       </div>
                     )}
+                    <div className="mt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isDeleting || profile.id === user?.id}
+                        onClick={() => void handleDeleteUser(profile)}
+                        className="border-red-300 text-red-800 hover:bg-red-50"
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="mr-2 h-4 w-4" />
+                        )}
+                        Supprimer le compte
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
@@ -706,6 +914,129 @@ export default function DashboardPage() {
                 Aucun profil trouve ou RLS empêche la lecture.
               </p>
             )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-lg backdrop-blur">
+          <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle className="text-xl">Affectations RH / Collaborateurs</CardTitle>
+              <CardDescription className="text-[#0A1A2F]/70">
+                Definis quels collaborateurs chaque RH peut voir et gerer.
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]">
+              {rhProfiles.length} RH
+            </Badge>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {assignmentStatus.type !== "idle" && (
+              <div
+                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
+                  assignmentStatus.type === "error"
+                    ? "border-red-300 bg-red-50 text-red-900"
+                    : "border-emerald-300 bg-emerald-50 text-emerald-900"
+                }`}
+              >
+                {assignmentStatus.type === "error" ? (
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                ) : (
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                )}
+                <p className="leading-relaxed">{assignmentStatus.message}</p>
+              </div>
+            )}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="rh-selector" className="text-[#0A1A2F]/80">
+                  RH concerne
+                </Label>
+                <select
+                  id="rh-selector"
+                  value={selectedRhId}
+                  onChange={(event) => setSelectedRhId(event.target.value)}
+                  className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                  disabled={assignmentLoading || assignmentSaving || !rhProfiles.length}
+                >
+                  {!rhProfiles.length && <option value="">Aucun RH</option>}
+                  {rhProfiles.map((rhProfile) => (
+                    <option key={rhProfile.id} value={rhProfile.id}>
+                      {(rhProfile.full_name ?? rhProfile.email) + " - " + rhProfile.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+                <p className="text-[#0A1A2F]/70">RH selectionne</p>
+                <p className="font-medium">
+                  {selectedRh ? selectedRh.full_name ?? selectedRh.email : "-"}
+                </p>
+                <p className="text-xs text-[#0A1A2F]/70">
+                  {selectedEmployeeIds.length} collaborateur(s) autorise(s)
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-md border border-slate-200">
+              <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium">
+                Collaborateurs autorises
+              </div>
+              <div className="max-h-72 space-y-2 overflow-auto p-3 text-sm">
+                {salarieProfiles.length ? (
+                  salarieProfiles.map((employee) => (
+                    <label
+                      key={employee.id}
+                      className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">
+                          {employee.full_name ?? "Nom non renseigne"}
+                        </p>
+                        <p className="truncate text-xs text-[#0A1A2F]/70">{employee.email}</p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectedEmployeeIds.includes(employee.id)}
+                        onChange={() => toggleAssignedEmployee(employee.id)}
+                        disabled={assignmentLoading || assignmentSaving || !selectedRhId}
+                        className="h-4 w-4 rounded border-slate-300"
+                      />
+                    </label>
+                  ))
+                ) : (
+                  <p className="text-[#0A1A2F]/70">Aucun collaborateur salarie trouve.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="border-slate-300 text-[#0A1A2F]"
+                disabled={assignmentLoading || assignmentSaving || !session?.access_token}
+                onClick={() => {
+                  if (!session?.access_token) return;
+                  void loadRhCollaboratorAssignments(session.access_token);
+                }}
+              >
+                Recharger
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleSaveAssignments()}
+                disabled={
+                  assignmentLoading ||
+                  assignmentSaving ||
+                  !session?.access_token ||
+                  !selectedRhId
+                }
+                className="bg-[#2aa0dd] text-[#0A1A2F] hover:bg-[#2493cb]"
+              >
+                {assignmentSaving ? "Enregistrement..." : "Enregistrer les affectations"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

@@ -43,7 +43,7 @@ export function DocumentFiltersBar({
           <select
             value={values[field]}
             onChange={(event) => onChange(field, event.target.value)}
-            className={`h-10 appearance-none rounded-2xl border border-[#c7d7ea] bg-white px-4 pr-10 text-sm font-medium text-[#0A1A2F] shadow-[0_2px_8px_rgba(15,23,42,0.06)] outline-none transition focus:border-[#9bb8da] ${fieldWidths[field]}`}
+            className={`h-10 appearance-none rounded-lg border border-[#c7d7ea] bg-white px-4 pr-10 text-sm font-medium text-[#0A1A2F] outline-none transition focus:border-[#9bb8da] ${fieldWidths[field]}`}
           >
             <option value="all">{fieldLabels[field]}</option>
             {options[field].map((option) => (

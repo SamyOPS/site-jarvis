@@ -1,4 +1,5 @@
-﻿import { Download, Eye, RotateCcw, Trash2 } from "lucide-react";
+﻿import { useEffect, useRef, useState } from "react";
+import { ChevronDown, Download, Eye, RotateCcw, Trash2 } from "lucide-react";
 
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
@@ -78,12 +79,91 @@ export function RhDocumentsSection({
   formatDate,
   formatDocumentStatus,
 }: RhDocumentsSectionProps) {
+  const [documentsMenuOpen, setDocumentsMenuOpen] = useState(false);
+  const documentsMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!documentsMenuOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!documentsMenuRef.current?.contains(event.target as Node)) {
+        setDocumentsMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setDocumentsMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [documentsMenuOpen]);
+
+  const isRhDocumentsDropdownSection =
+    currentSubSection === "docs_tous" || currentSubSection === "docs_salaries";
+
+  const rhDocumentsTitle =
+    currentSubSection === "docs_tous"
+      ? "Documents entreprise"
+      : currentSubSection === "docs_salaries"
+        ? "Documents salaries"
+        : "Documents";
+
   return (
     <section className="space-y-4">
       <div className="flex flex-row items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-[#0A1A2F]">Documents</h2>
+        {isRhDocumentsDropdownSection ? (
+          <div ref={documentsMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setDocumentsMenuOpen((open) => !open)}
+              className="flex items-center gap-2 rounded-lg px-2 py-1 text-lg font-semibold text-[#0A1A2F] transition hover:bg-slate-100"
+              aria-haspopup="menu"
+              aria-expanded={documentsMenuOpen}
+            >
+              <span>{rhDocumentsTitle}</span>
+              <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+            {documentsMenuOpen ? (
+              <div className="absolute left-0 top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2">
+                <button
+                  type="button"
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F]/80 transition hover:bg-slate-50"
+                  onClick={() => setDocumentsMenuOpen(false)}
+                >
+                  Nouveau dossier
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F] transition hover:bg-slate-50"
+                  onClick={() => {
+                    setDocumentsMenuOpen(false);
+                    onOpenRhUploadDialog();
+                  }}
+                >
+                  Importer un fichier
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F]/80 transition hover:bg-slate-50"
+                  onClick={() => setDocumentsMenuOpen(false)}
+                >
+                  Importer un dossier
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <h2 className="text-lg font-semibold text-[#0A1A2F]">Documents</h2>
+        )}
         <div className="flex items-center gap-2">
-          {currentSubSection === "docs_tous" ? (
+          {currentSubSection === "docs_tous" && !isRhDocumentsDropdownSection ? (
             <Button type="button" variant="outline" size="sm" onClick={onOpenRhUploadDialog}>
               Deposer un document RH
             </Button>
@@ -97,7 +177,11 @@ export function RhDocumentsSection({
       </div>
       {["docs_tous", "docs_salaries", "docs_a_valider"].includes(currentSubSection) ? (
         <DocumentFiltersBar
-          fields={["type", "period", "status", "owner"]}
+          fields={
+            currentSubSection === "docs_a_valider"
+              ? ["type", "period", "owner"]
+              : ["type", "period", "status", "owner"]
+          }
           values={{
             type: documentTypeFilter,
             period: documentPeriodFilter,
@@ -172,7 +256,6 @@ export function RhDocumentsSection({
                 createdAt: document.createdAt,
                 statusLabel: formatDocumentStatus(document.status),
                 periodLabel: formatMonth(document.periodMonth),
-                subtitle: document.employeeName ? `Collaborateur : ${document.employeeName}` : null,
                 details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
               }))}
               storageKey="rh-documents-salaries-columns"
@@ -285,7 +368,6 @@ export function RhDocumentsSection({
                 createdAt: document.createdAt,
                 statusLabel: formatDocumentStatus(document.status),
                 periodLabel: formatMonth(document.periodMonth),
-                subtitle: document.employeeName ? `Collaborateur : ${document.employeeName}` : null,
                 details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
               }))}
               storageKey="rh-documents-pending-columns"
@@ -377,10 +459,6 @@ export function RhDocumentsSection({
               createdAt: document.createdAt,
               statusLabel: formatDocumentStatus(document.status),
               periodLabel: formatMonth(document.periodMonth),
-              subtitle:
-                document.employeeName && document.employeeName !== "Aucun collaborateur"
-                  ? `Collaborateur : ${document.employeeName}`
-                  : null,
               details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
             }))}
             storageKey="rh-documents-rh-columns"
@@ -502,5 +580,8 @@ export function RhDocumentsSection({
     </section>
   );
 }
+
+
+
 
 

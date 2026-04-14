@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { ChevronDown, LogIn } from "lucide-react";
+import { forceClientSignOut } from "@/lib/client-auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -124,7 +125,7 @@ export function HomeHeader() {
       return;
     }
 
-    await supabase.auth.signOut();
+    await forceClientSignOut(supabase);
     setMenuOpen(false);
     window.location.href = "/";
   };

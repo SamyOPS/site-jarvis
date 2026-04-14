@@ -57,7 +57,7 @@ export function DashboardProfileMenu({
           </button>
         </div>
         {isOpen ? (
-          <div className="absolute right-0 top-full mt-3 w-[320px] rounded-[28px] border border-slate-200 bg-[#eef3fb] p-4 shadow-[0_24px_48px_rgba(15,23,42,0.18)]">
+          <div className="absolute right-0 top-full mt-3 w-[320px] rounded-[28px] border border-slate-200 bg-[#eef3fb] p-4">
             <div className="rounded-[24px] bg-white px-5 py-6 text-center">
               <UserIcon className="mx-auto h-8 w-8 text-[#0EA5B7]" />
               <p className="mt-4 text-sm text-[#0A1A2F]/60">{email}</p>

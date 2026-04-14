@@ -30,6 +30,7 @@ import type {
   RhRequestStatus as RequestStatus,
 } from "@/features/dashboard/rh/types";
 import { formatDate, formatDocumentStatus, formatMonth, normalizeJoinOne, type DocumentStatus } from "@/lib/dashboard-formatters";
+import { forceClientSignOut } from "@/lib/client-auth";
 import { browserSupabase as supabase } from "@/lib/supabase-browser";
 
 const defaultRouteProps: RhWorkspaceRouteProps = {
@@ -89,9 +90,27 @@ export default function RhWorkspace({
   const [deletingRhDocumentId, setDeletingRhDocumentId] = useState<string | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
-
-  const loadDashboardData = useCallback(async () => {
+  const loadDashboardData = useCallback(async (rhId: string, accessToken: string) => {
     if (!supabase) return;
+
+    const visibilityResponse = await fetch("/api/rh/collaborators/visibility", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    const visibilityPayload = (await visibilityResponse.json().catch(() => null)) as
+      | { error?: string; restricted?: boolean; employeeIds?: string[] }
+      | null;
+    if (!visibilityResponse.ok) {
+      setError(visibilityPayload?.error ?? "Chargement des affectations RH impossible.");
+      return;
+    }
+
+    const isRestricted = visibilityPayload?.restricted === true;
+    const assignedSet = new Set(visibilityPayload?.employeeIds ?? []);
+    const canAccessEmployee = (employeeId: string) =>
+      !isRestricted || assignedSet.has(employeeId);
 
     const [employeesRes, documentTypesRes, docsRes, requestsRes, offersRes, appsRes, cvsRes] = await Promise.all([
       supabase.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("role", "salarie").order("email", { ascending: true }),
@@ -108,7 +127,7 @@ export default function RhWorkspace({
       return;
     }
 
-    setEmployees((employeesRes.data as ProfileRow[]) ?? []);
+    setEmployees(((employeesRes.data as ProfileRow[]) ?? []).filter((employee) => canAccessEmployee(employee.id)));
     setDocumentTypes(
       ((documentTypesRes.data ?? []) as {
         id: string;
@@ -157,7 +176,14 @@ export default function RhWorkspace({
         sourceKind: row.source_kind ?? "uploaded",
       } satisfies RHDocumentRow;
     });
-    setDocuments(mappedDocuments);
+    const filteredDocuments = mappedDocuments.filter((document) => {
+      if (!document.employeeId) return false;
+      if (document.employeeRole !== "salarie") {
+        return document.employeeId === rhId;
+      }
+      return canAccessEmployee(document.employeeId);
+    });
+    setDocuments(filteredDocuments);
 
     const mappedRequests = (requestsRes.data ?? []).map((row: { id: string; status: RequestStatus; due_at: string | null; period_month: string | null; note: string | null; document_type: { id: string; label: string } | { id: string; label: string }[] | null; employee: { id: string; full_name: string | null; email: string } | { id: string; full_name: string | null; email: string }[] | null }) => {
       const employee = normalizeJoinOne(row.employee);
@@ -174,17 +200,19 @@ export default function RhWorkspace({
         typeLabel: type?.label ?? "Document",
       } satisfies RequestRow;
     });
-    setRequests(mappedRequests);
+    setRequests(
+      mappedRequests.filter((request) => request.employeeId && canAccessEmployee(request.employeeId)),
+    );
 
     setJobOffers((offersRes.data ?? []) as JobOfferRow[]);
     setApplications((appsRes.data ?? []).map((row: { id: string; candidate_id: string; status: ApplicationRow["status"]; job: { title: string | null } | { title: string | null }[] | null; candidate: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null }) => {
       const job = normalizeJoinOne(row.job);
       const candidate = normalizeJoinOne(row.candidate);
       return { id: row.id, candidateId: row.candidate_id, status: row.status, jobTitle: job?.title ?? "Offre", candidateName: candidate?.full_name ?? candidate?.email ?? "Candidat" } satisfies ApplicationRow;
-    }));
+    }).filter((application) => canAccessEmployee(application.candidateId)));
     setCvsByUser(Object.fromEntries(((cvsRes.data ?? []) as ProfileCvRow[]).map((row) => [row.user_id, row])));
 
-    const documentIds = mappedDocuments.map((document) => document.id);
+    const documentIds = filteredDocuments.map((document) => document.id);
     if (!documentIds.length) {
       setEvents([]);
       return;
@@ -195,7 +223,7 @@ export default function RhWorkspace({
       setError(eventsError.message);
       return;
     }
-    const documentsById = Object.fromEntries(mappedDocuments.map((document) => [document.id, document]));
+    const documentsById = Object.fromEntries(filteredDocuments.map((document) => [document.id, document]));
     setEvents((eventsData ?? []).map((row: { id: string; created_at: string; event_type: string; actor: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null; document: { id: string; file_name: string | null; document_type: { label: string } | { label: string }[] | null } | { id: string; file_name: string | null; document_type: { label: string } | { label: string }[] | null }[] | null }) => {
       const actor = normalizeJoinOne(row.actor);
       const document = normalizeJoinOne(row.document);
@@ -238,7 +266,7 @@ export default function RhWorkspace({
         return;
       }
       setProfile(profileData);
-      await loadDashboardData();
+      await loadDashboardData(profileData.id, sessionData.session.access_token);
       setLoading(false);
     };
     void load();
@@ -276,6 +304,10 @@ export default function RhWorkspace({
   }, [profileMenuOpen]);
 
   const selectedEmployee = useMemo(() => employees.find((employee) => employee.id === selectedEmployeeId) ?? null, [employees, selectedEmployeeId]);
+  const refreshDashboardData = useCallback(async () => {
+    if (!profile?.id || !session?.access_token) return;
+    await loadDashboardData(profile.id, session.access_token);
+  }, [loadDashboardData, profile?.id, session?.access_token]);
   const activeDraft = useMemo(() => {
     if (!selectedEmployee) return null;
     return employeeDrafts[selectedEmployee.id] ?? { full_name: selectedEmployee.full_name ?? "", phone: selectedEmployee.phone ?? "", company_name: selectedEmployee.company_name ?? "", esn_partenaire: selectedEmployee.esn_partenaire ?? "", employment_status: selectedEmployee.employment_status ?? "active" };
@@ -380,8 +412,8 @@ export default function RhWorkspace({
   const handleSignOut = useCallback(async () => {
     if (!supabase) return;
     setProfileMenuOpen(false);
-    await supabase.auth.signOut();
-    router.push("/auth");
+    await forceClientSignOut(supabase);
+    router.push("/auth?logged_out=1");
   }, [router]);
 
   const resetRequestDialog = useCallback(() => {
@@ -419,7 +451,7 @@ export default function RhWorkspace({
       setSavingEmployee(false);
       return;
     }
-    await loadDashboardData();
+    await refreshDashboardData();
     setSaveMessage("Informations mises a jour.");
     setSavingEmployee(false);
   };
@@ -476,8 +508,8 @@ export default function RhWorkspace({
     setRequestDialogOpen(false);
     resetRequestDialog();
     setSaveMessage("Demande documentaire creee.");
-    await loadDashboardData();
-  }, [loadDashboardData, requestDocumentTypeId, requestDueAt, requestEmployeeId, requestNote, requestPeriodMonth, resetRequestDialog, selectedRequestType?.requiresPeriod, user]);
+    await refreshDashboardData();
+  }, [refreshDashboardData, requestDocumentTypeId, requestDueAt, requestEmployeeId, requestNote, requestPeriodMonth, resetRequestDialog, selectedRequestType?.requiresPeriod, user]);
 
   const handleCancelRequest = useCallback(async (request: RequestRow) => {
     if (!supabase) return;
@@ -502,8 +534,8 @@ export default function RhWorkspace({
 
     setCancellingRequestId(null);
     setSaveMessage("Demande documentaire annulee.");
-    await loadDashboardData();
-  }, [loadDashboardData]);
+    await refreshDashboardData();
+  }, [refreshDashboardData]);
 
   const handleRhUpload = useCallback(async () => {
     if (!session?.access_token) {
@@ -551,8 +583,8 @@ export default function RhWorkspace({
     setRhUploadDialogOpen(false);
     resetRhUploadDialog();
     setSaveMessage("Document RH depose.");
-    await loadDashboardData();
-  }, [loadDashboardData, resetRhUploadDialog, rhUploadDocumentTypeId, rhUploadEmployeeId, rhUploadFile, rhUploadPeriodMonth, selectedRhUploadType?.requiresPeriod, session]);
+    await refreshDashboardData();
+  }, [refreshDashboardData, resetRhUploadDialog, rhUploadDocumentTypeId, rhUploadEmployeeId, rhUploadFile, rhUploadPeriodMonth, selectedRhUploadType?.requiresPeriod, session]);
 
   const handleDeleteRhDocument = useCallback(async (document: RHDocumentRow) => {
     if (!session?.access_token) {
@@ -584,8 +616,8 @@ export default function RhWorkspace({
 
     setDeletingRhDocumentId(null);
     setSaveMessage("Document RH supprime.");
-    await loadDashboardData();
-  }, [loadDashboardData, session]);
+    await refreshDashboardData();
+  }, [refreshDashboardData, session]);
 
   const getSignedDocumentUrl = useCallback(async (document: RHDocumentRow) => {
     if (!supabase || !document.storagePath) return;
@@ -729,15 +761,15 @@ export default function RhWorkspace({
     if (requestError || generatedRecordError || eventError) {
       setSaveMessage(requestError?.message ?? generatedRecordError?.message ?? eventError?.message ?? "Le statut du document a ete mis a jour, mais le suivi n'est pas complet.");
       setReviewingDocumentId(null);
-      await loadDashboardData();
+      await refreshDashboardData();
       return;
     }
 
     setReviewDrafts((prev) => ({ ...prev, [document.id]: "" }));
     setSaveMessage(nextStatus === "validated" ? "Document valide." : nextStatus === "rejected" ? "Document refuse." : "Document remis en attente.");
     setReviewingDocumentId(null);
-    await loadDashboardData();
-  }, [findMatchingRequest, loadDashboardData, reviewDrafts, user]);
+    await refreshDashboardData();
+  }, [findMatchingRequest, refreshDashboardData, reviewDrafts, user]);
 
   const handlePasswordUpdate = useCallback(async () => {
     if (!supabase) return;
@@ -817,14 +849,14 @@ export default function RhWorkspace({
           </div>
         </aside>
 
-        <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[64px]">
+        <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[48px]">
           <div className="flex h-full items-stretch justify-center px-2 py-5" />
         </aside>
 
-        <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[64px] lg:px-3 lg:py-3">
+        <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[48px] lg:px-3 lg:py-3">
           <div className="hidden lg:flex items-center rounded-[30px] px-2 py-1.5">
             <div className="flex min-w-0 flex-1 items-center">
-              <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 shadow-[0_8px_24px_rgba(148,163,184,0.14)] backdrop-blur">
+              <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 backdrop-blur">
                   <Search className="h-4 w-4 text-[#0A1A2F]/55" />
                   <span className="text-sm text-[#0A1A2F]/55">Rechercher dans l&apos;espace RH</span>
                   <SlidersHorizontal className="ml-auto h-4 w-4 text-[#0A1A2F]/45" />

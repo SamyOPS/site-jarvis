@@ -48,6 +48,33 @@ async function getAuthorizedActor(accessToken: string) {
   return { adminClient, user, actorProfile };
 }
 
+async function canRhAccessEmployee(
+  adminClient: ReturnType<typeof getClients>["adminClient"],
+  rhId: string,
+  employeeId: string,
+) {
+  if (!employeeId || employeeId === rhId) {
+    return { allowed: true as const };
+  }
+
+  const { data, error } = await adminClient
+    .from("rh_employee_assignments")
+    .select("employee_id")
+    .eq("rh_id", rhId)
+    .eq("employee_id", employeeId)
+    .maybeSingle();
+
+  const missingTable =
+    !!error && /rh_employee_assignments/i.test(error.message ?? "");
+  if (missingTable) {
+    return { allowed: true as const };
+  }
+  if (error) {
+    return { allowed: false as const, error: error.message };
+  }
+  return { allowed: Boolean(data?.employee_id) };
+}
+
 export async function POST(request: Request) {
   try {
     const authHeader = request.headers.get("authorization");
@@ -85,6 +112,15 @@ export async function POST(request: Request) {
 
       if (employeeError || !employeeProfile || employeeProfile.role !== "salarie") {
         return NextResponse.json({ error: "Collaborateur invalide." }, { status: 400 });
+      }
+      if (actorProfile.role !== "admin") {
+        const access = await canRhAccessEmployee(adminClient, actorProfile.id, employeeProfile.id);
+        if (!access.allowed) {
+          if (access.error) {
+            return NextResponse.json({ error: access.error }, { status: 400 });
+          }
+          return NextResponse.json({ error: "Collaborateur non autorise pour ce RH." }, { status: 403 });
+        }
       }
 
       employeeId = employeeProfile.id;
@@ -232,6 +268,15 @@ export async function DELETE(request: Request) {
     }
     if (actorProfile.role !== "admin" && documentRow.uploaded_by !== user.id) {
       return NextResponse.json({ error: "Tu ne peux supprimer que tes propres documents RH." }, { status: 403 });
+    }
+    if (actorProfile.role !== "admin") {
+      const access = await canRhAccessEmployee(adminClient, actorProfile.id, documentRow.employee_id ?? "");
+      if (!access.allowed) {
+        if (access.error) {
+          return NextResponse.json({ error: access.error }, { status: 400 });
+        }
+        return NextResponse.json({ error: "Ce document n'appartient pas a un collaborateur autorise." }, { status: 403 });
+      }
     }
 
     const now = new Date().toISOString();
