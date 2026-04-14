@@ -520,7 +520,7 @@ export default function DashboardActusPage() {
                   <img
                     src={form.cover_image}
                     alt="Aperçu"
-                    className="mt-2 h-24 w-full max-w-sm border border-slate-200 object-cover"
+                    className="mt-2 h-24 w-full max-w-sm border border-slate-200 object-cover rounded-lg"
                   />
                 )}
               </div>

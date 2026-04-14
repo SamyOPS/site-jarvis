@@ -114,7 +114,7 @@ export default function OffresPage() {
         </div>
 
         {error && (
-          <div className="mx-auto max-w-3xl flex items-start gap-3 rounded-lg border border-red-500/20 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <div className="mx-auto max-w-3xl flex items-start gap-3 rounded-lg border border-bleu-500/20 bg-bleu-50 px-4 py-3 text-sm text-bleu-900">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <p className="font-semibold">Erreur</p>

@@ -1,235 +1,215 @@
-"use client";
+"use client"
 
-import { useEffect, useMemo, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { ArrowRight } from "lucide-react";
-import { motion } from "motion/react";
-
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
+import { useEffect, useMemo, useState } from "react"
+import { createClient } from "@supabase/supabase-js"
+import { ArrowRight } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Button } from "@/components/ui/button"
+import Lottie from "lottie-react"
+import handshakeAnimation from "@/public/Hiring.json"
+import ContractFilter from "@/components/sections/liste_contrat"
+import OffreCard from "@/components/sections/offre_card"
 
 interface Post {
-  id: string;
-  title: string;
-  summary: string;
-  label: string;
-  author: string;
-  published: string;
-  url: string;
-  image: string;
+  id: string
+  title: string
+  summary: string
+  label: string
+  author: string
+  published: string
+  url: string
+  image: string
 }
 
 interface OffresEmploiProps {
-  tagline?: string;
-  heading?: string;
-  description?: string;
-  buttonText?: string;
-  buttonUrl?: string;
-  posts?: Post[];
+  heading?: string
+  description?: string
+  buttonText?: string
+  buttonUrl?: string
+  posts?: Post[]
 }
 
-const OffresEmploi = ({
-  heading = "Nos offres d'emploi",
-  description = "Découvrez les postes ouverts et rejoignez l'équipe Jarvis Connect. Des missions ambitieuses pour faire grandir votre carrière.",
+function normalizeContract(raw: string | null): string {
+  if (!raw) return "Contrat"
+  const val = raw.trim()
+  const up = val.toUpperCase()
+  if (up === "CDI") return "CDI"
+  if (up === "CDD") return "CDD"
+  if (up === "CDI / CDD" || up === "CDI/CDD") return "CDI / CDD"
+  if (up.includes("ALTER")) return "Alternance"
+  if (up.includes("FREE")) return "Freelance"
+  if (up.includes("STAGE")) return "Stage"
+  return val
+}
+
+const DEFAULT_POSTS: Post[] = [
+  { id: "post-1", title: "Ingénieur support N2/N3", summary: "Pilotage des incidents, automatisation et maintien en conditions opérationnelles.", label: "CDI", author: "Paris", published: "Déc 2025", url: "#", image: "" },
+  { id: "post-2", title: "Développeur Full Stack JS", summary: "Conception et delivery d'applications web modernes avec approche produit.", label: "CDI", author: "Télétravail", published: "Déc 2025", url: "#", image: "" },
+  { id: "post-3", title: "Consultant Cloud & Sécu", summary: "Architecture, migration et sécurisation des environnements Azure/AWS.", label: "CDI", author: "Lyon", published: "Déc 2025", url: "#", image: "" },
+  { id: "post-4", title: "Alternant DevOps", summary: "CI/CD et infrastructure as code au sein d'une équipe SRE.", label: "Alternance", author: "Bordeaux", published: "Jan 2026", url: "#", image: "" },
+  { id: "post-5", title: "Développeur Backend Python", summary: "APIs robustes et pipelines de données pour nos clients bancaires.", label: "CDD", author: "Paris", published: "Jan 2026", url: "#", image: "" },
+  { id: "post-6", title: "Architecte Solutions", summary: "Cadrage technique et transformation SI en environnement multi-cloud.", label: "Freelance", author: "Télétravail", published: "Fév 2026", url: "#", image: "" },
+]
+
+export function OffresEmploi({
+  
+  heading = "Job openings",
+  description = "Découvrez les postes ouverts et rejoignez l'équipe Jarvis Connect.",
   buttonText = "Toutes les offres",
   buttonUrl = "/offres",
-  posts = [
-    {
-      id: "post-1",
-      title: "Ingénieur support N2/N3",
-      summary:
-        "Pilotage des incidents, automatisation et maintien en conditions opérationnelles des infrastructures clients.",
-      label: "CDI",
-      author: "Jarvis Connect",
-      published: "Déc 2025",
-      url: "#",
-      image:
-        "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      id: "post-2",
-      title: "Développeur Full Stack JS",
-      summary:
-        "Conception et delivery d'applications web modernes (React/Node) avec approche produit et qualité.",
-      label: "CDI",
-      author: "Jarvis Connect",
-      published: "Déc 2025",
-      url: "#",
-      image:
-        "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      id: "post-3",
-      title: "Consultant Cloud & Sécu",
-      summary:
-        "Architecture, migration et sécurisation des environnements Azure/AWS avec démarche FinOps.",
-      label: "CDI",
-      author: "Jarvis Connect",
-      published: "Déc 2025",
-      url: "#",
-      image:
-        "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80",
-    },
-  ],
-}: OffresEmploiProps) => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const supabase =
-    supabaseUrl && supabaseAnonKey
-      ? createClient(supabaseUrl, supabaseAnonKey)
-      : null;
+  posts = DEFAULT_POSTS,
+}: OffresEmploiProps) {
 
-  const isUsingRemote = Boolean(supabase);
+  const supabase = useMemo(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    return url && key ? createClient(url, key) : null
+  }, [])
 
-  const [remoteOffers, setRemoteOffers] = useState<Post[] | null>(null);
+  const [remoteOffers, setRemoteOffers] = useState<Post[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [activeFilter, setActiveFilter] = useState("Tous")
 
   useEffect(() => {
-    if (!supabase) return;
-
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
     const load = async () => {
-      const fallbackImages = [
-        "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
-        "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80",
-        "https://images.unsplash.com/photo-1525182008055-f88b95ff7980?auto=format&fit=crop&w=1200&q=80",
-      ];
-
-      const { data, error } = await supabase
-        .from("job_offers")
-        .select(
-          "id,title,company_name,status,published_at,contract_type,location,description"
-        )
-        .eq("status", "published")
-        .order("published_at", { ascending: false, nullsFirst: false })
-        .limit(20);
-
-      if (error || !data?.length) {
-        setRemoteOffers(null);
-        return;
+      try {
+        const { data, error } = await supabase
+          .from("job_offers")
+          .select("id,title,status,published_at,contract_type,location,description")
+          .eq("status", "published")
+          .order("published_at", { ascending: false })
+          .limit(20)
+        if (error) {
+          console.error("Erreur chargement offres:", error)
+          setRemoteOffers([])
+        } else {
+          setRemoteOffers(data?.map(item => ({
+            id: item.id,
+            title: item.title,
+            summary: item.description?.slice(0, 160) ?? "",
+            label: normalizeContract(item.contract_type),
+            author: item.location ?? "Entreprise",
+            published: item.published_at ? new Date(item.published_at).toLocaleDateString() : "",
+            url: `/offres/${item.id}`,
+            image: "",
+          })) ?? [])
+        }
+      } catch (err) {
+        console.error("Erreur chargement offres:", err)
+        setRemoteOffers([])
+      } finally {
+        setLoading(false)
       }
+    }
+    void load()
+  }, [supabase])
 
-      const shuffled = data
-        .map((item) => ({ sort: Math.random(), item }))
-        .sort((a, b) => a.sort - b.sort)
-        .slice(0, 3)
-        .map(({ item }, index) => ({
-          id: item.id,
-          title: item.title,
-          summary:
-            item.description?.slice(0, 160) ??
-            "Découvre cette opportunité ouverte.",
-          label: item.contract_type ?? "Contrat",
-          author: item.company_name ?? "Entreprise",
-          published: item.published_at
-            ? new Date(item.published_at).toLocaleDateString()
-            : "Date inconnue",
-          url: `/offres/${item.id}`,
-          image: fallbackImages[index % fallbackImages.length],
-        }));
+  const allOffers = supabase ? remoteOffers ?? [] : posts
 
-      setRemoteOffers(shuffled);
-    };
-
-    void load();
-  }, []);
-
-  const offersToRender = useMemo(
-    () => (isUsingRemote ? remoteOffers ?? [] : posts),
-    [isUsingRemote, remoteOffers, posts]
-  );
+  const displayed = (
+    activeFilter === "Tous"
+      ? allOffers
+      : allOffers.filter(o => {
+          if (activeFilter === "CDI" && o.label === "CDI / CDD") return true
+          if (activeFilter === "CDD" && o.label === "CDI / CDD") return true
+          return o.label === activeFilter
+        })
+  ).filter((p): p is Post => !!p && !!p.label)
 
   return (
-    <section className="relative overflow-hidden py-16 text-[#0A1A2F] md:py-20">
-      <div className="container mx-auto flex flex-col items-center gap-12 px-6 lg:px-10 xl:px-16">
-        <div className="text-center">
-          <motion.h2
-            className="mb-3 text-pretty text-3xl font-semibold md:mb-4 md:text-4xl lg:mb-5 lg:max-w-3xl lg:text-5xl"
-            initial={{ opacity: 0, y: 14 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.2 }}
-            transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1] }}
-          >
-            {heading}
-          </motion.h2>
-          <motion.p
-            className="mb-6 text-muted-foreground md:text-base lg:max-w-2xl lg:text-lg"
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.2 }}
-            transition={{ duration: 0.4, ease: [0.33, 1, 0.68, 1], delay: 0.05 }}
-          >
-            {description}
-          </motion.p>
+    <section className="relative py-16 text-[#0A1A2F] overflow-hidden">
+      <div className="container mx-auto px-6 lg:px-10 xl:px-16">
+        <div className="flex flex-col lg:flex-row items-start gap-12 w-full">
+
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.2 }}
-            transition={{ duration: 0.4, ease: [0.33, 1, 0.68, 1], delay: 0.08 }}
+            className="flex-shrink-0 flex flex-col items-center gap-6"
+            initial={{ opacity: 0, x: -60 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
           >
-            <Button variant="link" className="group w-full rounded-none sm:w-auto no-underline hover:no-underline" asChild>
-              <a href={buttonUrl} className="no-underline hover:no-underline">
-                {buttonText}
-                <ArrowRight className="ml-2 size-4 transition-transform duration-200 group-hover:translate-x-1" />
-              </a>
-            </Button>
+            <Lottie
+              animationData={handshakeAnimation}
+              loop={true}
+              style={{ width: 200, height: 200 }}
+            />
+            <ContractFilter active={activeFilter} onChange={setActiveFilter} />
+          </motion.div>
+
+          <motion.div
+            className="flex-1 min-w-0 flex flex-col gap-12"
+            initial={{ opacity: 0, x: 60 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
+          >
+            <div className="flex flex-col gap-4">
+              <h2 className="text-4xl lg:text-6xl font-bold text-[#0A1A2F] tracking-tight">
+                {heading}
+              </h2>
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
+                  {description}
+                </p>
+                <Button variant="link" className="group no-underline hover:no-underline px-0 w-fit text-[#2aa0dd] font-bold" asChild>
+                  <a href={buttonUrl}>
+                    {buttonText}
+                    <ArrowRight className="ml-2 size-5 transition-transform group-hover:translate-x-2" />
+                  </a>
+                </Button>
+              </div>
+            </div>
+
+            <AnimatePresence mode="popLayout">
+              {loading ? (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-sm text-muted-foreground italic"
+                >
+                  Chargement des opportunités...
+                </motion.p>
+              ) : displayed.length === 0 ? (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-sm text-muted-foreground italic"
+                >
+                  {supabase ? "Aucune offre disponible pour le moment." : "Aucune offre disponible pour ce filtre."}
+                </motion.p>
+              ) : (
+                <motion.div
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                  initial={{ opacity: 0, y: 40 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.7, delay: 0.2, ease: [0.33, 1, 0.68, 1] }}
+                >
+                  {displayed.map((post, idx) => (
+                    <motion.div
+                      key={post.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.35, delay: idx * 0.05 }}
+                    >
+                      <OffreCard post={post} />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
           </motion.div>
         </div>
-        {offersToRender.length === 0 ? (
-          <div className="w-full text-center text-sm text-muted-foreground">
-            Chargement des offres…
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-            {offersToRender.map((post, idx) => (
-              <motion.div
-                key={post.id}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.2 }}
-                transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1], delay: idx * 0.15 }}
-              >
-                <Card className="group grid grid-rows-[auto_auto_1fr_auto] rounded-none">
-                  <div className="aspect-[16/9] w-full">
-                    <a
-                      href={post.url}
-                      className="flex h-full transition-opacity duration-200 fade-in hover:opacity-80"
-                    >
-                      <div className="relative h-full w-full origin-bottom overflow-hidden">
-                        <img
-                          src={post.image}
-                          alt={post.title}
-                          className="h-full w-full object-cover object-center transition duration-300 group-hover:scale-105"
-                        />
-                      </div>
-                    </a>
-                  </div>
-                  <CardHeader>
-                    <h3 className="text-lg font-semibold hover:underline md:text-xl">
-                      <a href={post.url}>{post.title}</a>
-                    </h3>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">{post.summary}</p>
-                  </CardContent>
-                  <CardFooter>
-                    <a href={post.url} className="flex items-center text-foreground">
-                      Voir l'offre
-                      <ArrowRight className="ml-2 size-4 transition-transform group-hover:translate-x-1" />
-                    </a>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        )}
       </div>
     </section>
-  );
-};
+  )
+}
 
-export { OffresEmploi };
-
+export default OffresEmploi
