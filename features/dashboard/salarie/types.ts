@@ -36,6 +36,7 @@ export type SalarieRequestRow = {
 export type SalarieDocumentRow = {
   id: string;
   documentTypeId: string;
+  folderId: string | null;
   status: DocumentStatus;
   uploadedByName: string;
   fileName: string;
@@ -47,6 +48,15 @@ export type SalarieDocumentRow = {
   typeLabel: string;
   storageBucket: string;
   storagePath: string;
+};
+
+export type DocumentFolderRow = {
+  id: string;
+  ownerUserId: string;
+  name: string;
+  parentId: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 };
 
 export type CraSummaryRow = {

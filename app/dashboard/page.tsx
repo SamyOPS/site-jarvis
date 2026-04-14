@@ -70,12 +70,20 @@ type Status =
 type ProfessionalStatus = "none" | "pending" | "verified" | "rejected";
 type AssignmentUser = { id: string; email: string; full_name: string | null };
 type RhAssignmentsByRh = Record<string, string[]>;
+type UserActivityRow = {
+  userId: string;
+  lastSignInAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  emailConfirmedAt: string | null;
+};
 
 export default function DashboardPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [adminProfile, setAdminProfile] = useState<ProfileRow | null>(null);
   const [allProfiles, setAllProfiles] = useState<ProfileRow[]>([]);
+  const [activityByUserId, setActivityByUserId] = useState<Record<string, UserActivityRow>>({});
   const [jobOffers, setJobOffers] = useState<JobOffer[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -157,6 +165,27 @@ export default function DashboardPage() {
     setAssignmentLoading(false);
   }, []);
 
+  const loadUsersActivity = useCallback(async (accessToken: string) => {
+    const response = await fetch("/api/admin/users/activity", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { error?: string; items?: UserActivityRow[] }
+      | null;
+    if (!response.ok) {
+      setProfileStatus({
+        type: "error",
+        message: payload?.error ?? "Chargement de l'activite des comptes impossible.",
+      });
+      return;
+    }
+    const next = Object.fromEntries((payload?.items ?? []).map((item) => [item.userId, item]));
+    setActivityByUserId(next);
+  }, []);
+
   useEffect(() => {
     if (!supabase) {
       setError(
@@ -221,6 +250,7 @@ export default function DashboardPage() {
 
       setAllProfiles(allProfilesData ?? []);
       await loadRhCollaboratorAssignments(currentSession.access_token);
+      await loadUsersActivity(currentSession.access_token);
 
       const { data: offersData, error: offersError } = await supabase
         .from("job_offers")
@@ -240,7 +270,21 @@ export default function DashboardPage() {
     };
 
     void load();
-  }, [loadRhCollaboratorAssignments]);
+  }, [loadRhCollaboratorAssignments, loadUsersActivity]);
+
+  const isRecentlyActive = (activity: UserActivityRow | undefined) => {
+    if (!activity?.lastSignInAt) return false;
+    const lastSignIn = new Date(activity.lastSignInAt).getTime();
+    if (Number.isNaN(lastSignIn)) return false;
+    return Date.now() - lastSignIn <= 15 * 60 * 1000;
+  };
+
+  const formatLastSignIn = (activity: UserActivityRow | undefined) => {
+    if (!activity?.lastSignInAt) return "Jamais connecte";
+    const date = new Date(activity.lastSignInAt);
+    if (Number.isNaN(date.getTime())) return "Date de connexion inconnue";
+    return date.toLocaleString();
+  };
 
   useEffect(() => {
     if (!rhProfiles.length) {
@@ -834,6 +878,8 @@ export default function DashboardPage() {
               {allProfiles.map((profile) => {
                 const isUpdating = profileUpdatingId === profile.id;
                 const isDeleting = deletingUserId === profile.id;
+                const activity = activityByUserId[profile.id];
+                const recentlyActive = isRecentlyActive(activity);
                 return (
                   <div
                     key={profile.id}
@@ -853,9 +899,18 @@ export default function DashboardPage() {
                       <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]/80">
                         {profile.company_name ?? "Aucune societe"}
                       </Badge>
-                      <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]/80">
-                        Connexion globale: non disponible avec la cle publique
+                      <Badge
+                        className={
+                          recentlyActive
+                            ? "bg-emerald-600 text-[#0A1A2F] hover:bg-emerald-600"
+                            : "bg-slate-100 text-[#0A1A2F] hover:bg-slate-100"
+                        }
+                      >
+                        {recentlyActive ? "Actif recemment" : "Hors ligne"}
                       </Badge>
+                    </div>
+                    <div className="mt-1 text-xs text-[#0A1A2F]/70">
+                      Derniere connexion : {formatLastSignIn(activity)}
                     </div>
                     {isProfileActionable(profile.role) && (
                       <div className="mt-3 flex flex-wrap gap-2 text-xs">

@@ -29,6 +29,7 @@ import type { SalarieWorkspaceRouteProps } from "@/features/dashboard/salarie/na
 import type {
   CraEntryDraft,
   CraSummaryRow,
+  DocumentFolderRow,
   SalarieDocumentRow as DocumentRow,
   SalarieDocumentTypeRow as DocumentTypeRow,
   SalarieProfileRow as ProfileRow,
@@ -75,6 +76,8 @@ export default function SalarieWorkspace({
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeRow[]>([]);
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
+  const [folders, setFolders] = useState<DocumentFolderRow[]>([]);
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [documentTypeFilter, setDocumentTypeFilter] = useState("all");
   const [documentPeriodFilter, setDocumentPeriodFilter] = useState("all");
   const [documentStatusFilter, setDocumentStatusFilter] = useState("all");
@@ -136,7 +139,7 @@ export default function SalarieWorkspace({
         .order("created_at", { ascending: false }),
       supabase
         .from("employee_documents")
-        .select("id,status,file_name,created_at,updated_at,size_bytes,period_month,review_comment,storage_bucket,storage_path,document_type:document_types(id,label),uploader:profiles!employee_documents_uploaded_by_fkey(full_name,email)")
+        .select("id,status,file_name,created_at,updated_at,size_bytes,period_month,review_comment,storage_bucket,storage_path,folder_id,document_type:document_types(id,label),uploader:profiles!employee_documents_uploaded_by_fkey(full_name,email)")
         .eq("employee_id", profileId)
         .order("created_at", { ascending: false }),
       supabase.from("applications").select("id", { count: "exact", head: true }).eq("candidate_id", profileId),
@@ -195,6 +198,7 @@ export default function SalarieWorkspace({
       review_comment: string | null;
       storage_bucket: string | null;
       storage_path: string | null;
+      folder_id: string | null;
       document_type: { id: string; label: string } | { id: string; label: string }[] | null;
       uploader: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null;
     }) => {
@@ -203,6 +207,7 @@ export default function SalarieWorkspace({
       return {
         id: row.id,
         documentTypeId: documentType?.id ?? "",
+        folderId: row.folder_id,
         status: row.status,
         uploadedByName: uploader?.full_name ?? uploader?.email ?? "Utilisateur",
         fileName: row.file_name,
@@ -292,6 +297,128 @@ export default function SalarieWorkspace({
     }
     return payload;
   }, []);
+
+  const loadFolders = useCallback(async (ownerUserId: string) => {
+    const payload = (await callSalarieApi(
+      `/api/documents/folders?ownerUserId=${encodeURIComponent(ownerUserId)}&all=1`,
+    )) as {
+      items?: {
+        id: string;
+        owner_user_id: string;
+        name: string;
+        parent_id: string | null;
+        created_at: string | null;
+        updated_at: string | null;
+      }[];
+    };
+    setFolders(
+      (payload.items ?? []).map((row) => ({
+        id: row.id,
+        ownerUserId: row.owner_user_id,
+        name: row.name,
+        parentId: row.parent_id,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })),
+    );
+  }, [callSalarieApi]);
+
+  const createFolder = useCallback(async () => {
+    if (!profile?.id) return;
+    const folderName = window.prompt("Nom du dossier");
+    if (!folderName?.trim()) return;
+    await callSalarieApi("/api/documents/folders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ownerUserId: profile.id,
+        name: folderName.trim(),
+        parentId: null,
+      }),
+    });
+    await loadFolders(profile.id);
+    setActionMessage("Dossier cree.");
+  }, [callSalarieApi, loadFolders, profile?.id]);
+
+  const moveDocumentToFolder = useCallback(
+    async (document: DocumentRow, folderId: string) => {
+      if (!profile?.id) return;
+
+      await callSalarieApi(`/api/documents/items/${encodeURIComponent(document.id)}/move`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ownerUserId: profile.id,
+          folderId,
+        }),
+      });
+
+      setDocuments((current) =>
+        current.map((row) =>
+          row.id === document.id
+            ? {
+              ...row,
+              folderId,
+            }
+            : row,
+        ),
+      );
+      setActionMessage("Document deplace dans le dossier.");
+    },
+    [callSalarieApi, profile?.id],
+  );
+
+  const renameFolder = useCallback(
+    async (folderId: string, currentName: string) => {
+      if (!profile?.id) return;
+      const nextName = window.prompt("Nouveau nom du dossier", currentName);
+      if (!nextName?.trim() || nextName.trim() === currentName.trim()) return;
+
+      await callSalarieApi(`/api/documents/folders/${encodeURIComponent(folderId)}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: nextName.trim(),
+        }),
+      });
+
+      await loadFolders(profile.id);
+      setActionMessage("Dossier renomme.");
+    },
+    [callSalarieApi, loadFolders, profile?.id],
+  );
+
+  const deleteFolder = useCallback(
+    async (folderId: string) => {
+      if (!profile?.id) return;
+      const confirmed = window.confirm("Supprimer ce dossier ?");
+      if (!confirmed) return;
+
+      await callSalarieApi(`/api/documents/folders/${encodeURIComponent(folderId)}`, {
+        method: "DELETE",
+      });
+
+      await loadFolders(profile.id);
+      if (currentFolderId === folderId) {
+        setCurrentFolderId(null);
+      }
+      setActionMessage("Dossier supprime.");
+    },
+    [callSalarieApi, currentFolderId, loadFolders, profile?.id],
+  );
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    void loadFolders(profile.id).catch((loadError) => {
+      setActionMessage(loadError instanceof Error ? loadError.message : "Chargement des dossiers impossible.");
+    });
+  }, [loadFolders, profile?.id]);
 
   const loadBillingProfile = useCallback(async () => {
     setBillingProfileLoading(true);
@@ -410,6 +537,7 @@ export default function SalarieWorkspace({
         uploaded_by: user.id,
         uploader_role: "salarie",
         document_type_id: args.documentTypeId,
+        folder_id: currentFolderId,
         period_month: args.periodMonth,
         document_date: new Date().toISOString().slice(0, 10),
         status: "pending",
@@ -456,7 +584,7 @@ export default function SalarieWorkspace({
 
     setActionMessage("Document depose avec succes.");
     await loadDashboardData(profile.id);
-  }, [loadDashboardData, profile, user]);
+  }, [currentFolderId, loadDashboardData, profile, user]);
 
   const resetUploadDialog = useCallback(() => {
     setUploadDialogMode("default");
@@ -504,6 +632,48 @@ export default function SalarieWorkspace({
     setEditFile(null);
     setActionMessage(null);
     setEditDialogOpen(true);
+  }, []);
+
+  const renameDocument = useCallback(async (document: DocumentRow) => {
+    if (!supabase) return;
+    if (document.status === "validated") {
+      setActionMessage("Ce document est valide par le RH et ne peut plus etre modifie.");
+      return;
+    }
+
+    const nextName = window.prompt("Nouveau nom du fichier", document.fileName);
+    if (!nextName?.trim() || nextName.trim() === document.fileName.trim()) return;
+
+    setSavingDocumentId(document.id);
+    setActionMessage(null);
+
+    const { error: updateError } = await supabase
+      .from("employee_documents")
+      .update({
+        file_name: nextName.trim(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", document.id);
+
+    if (updateError) {
+      setActionMessage(updateError.message);
+      setSavingDocumentId(null);
+      return;
+    }
+
+    setDocuments((current) =>
+      current.map((row) =>
+        row.id === document.id
+          ? {
+            ...row,
+            fileName: nextName.trim(),
+            updatedAt: new Date().toISOString(),
+          }
+          : row,
+      ),
+    );
+    setSavingDocumentId(null);
+    setActionMessage("Document renomme.");
   }, []);
 
   const openCommentDialog = useCallback((document: Pick<DocumentRow, "fileName" | "reviewComment">) => {
@@ -602,6 +772,7 @@ export default function SalarieWorkspace({
       .from("employee_documents")
       .update({
         document_type_id: editDocumentTypeId,
+        folder_id: document.folderId,
         period_month: normalizedPeriodMonth,
         file_name: nextFileName,
         mime_type: editFile ? (editFile.type || null) : undefined,
@@ -985,6 +1156,22 @@ export default function SalarieWorkspace({
     [documentTypes],
   );
   const availableUploadDocumentTypes = uploadDialogMode === "cra_facture" ? craFactureDocumentTypes : documentTypes;
+  const folderList = useMemo(
+    () => [...folders].sort((left, right) => left.name.localeCompare(right.name, "fr")),
+    [folders],
+  );
+  const folderPath = useMemo(() => {
+    const byId = new Map(folders.map((folder) => [folder.id, folder]));
+    const path: DocumentFolderRow[] = [];
+    let cursor = currentFolderId;
+    while (cursor) {
+      const folder = byId.get(cursor);
+      if (!folder) break;
+      path.unshift(folder);
+      cursor = folder.parentId ?? null;
+    }
+    return path;
+  }, [currentFolderId, folders]);
   const filteredDocuments = useMemo(() => {
     if (currentSubSection === "docs_cra_facture") {
       return documents.filter((document) => {
@@ -992,11 +1179,23 @@ export default function SalarieWorkspace({
         return normalizedLabel.includes("cra") || normalizedLabel.includes("facture");
       });
     }
+    if (currentSubSection === "docs_tous") {
+      if (!currentFolderId) {
+        return documents;
+      }
+      return documents.filter((document) => (document.folderId ?? null) === currentFolderId);
+    }
     return documents;
-  }, [currentSubSection, documents]);
+  }, [currentFolderId, currentSubSection, documents]);
   const documentTypeOptions = useMemo(
-    () => Array.from(new Set(filteredDocuments.map((document) => document.typeLabel))).sort((left, right) => left.localeCompare(right, "fr")),
-    [filteredDocuments],
+    () => {
+      const options = new Set(filteredDocuments.map((document) => document.typeLabel));
+      if (currentSubSection === "docs_tous") {
+        options.add("Dossier");
+      }
+      return Array.from(options).sort((left, right) => left.localeCompare(right, "fr"));
+    },
+    [currentSubSection, filteredDocuments],
   );
   const documentPeriodOptions = useMemo(
     () => Array.from(new Set(filteredDocuments.map((document) => document.periodMonth ?? "__none__"))).sort((left, right) => left.localeCompare(right)),
@@ -1078,6 +1277,12 @@ export default function SalarieWorkspace({
       window.removeEventListener("keydown", handleEscape);
     };
   }, [profileMenuOpen]);
+
+  useEffect(() => {
+    if (currentFolderId && !folders.some((folder) => folder.id === currentFolderId)) {
+      setCurrentFolderId(null);
+    }
+  }, [currentFolderId, folders]);
 
   const handleSignOut = useCallback(async () => {
     if (!supabase) return;
@@ -1227,14 +1432,22 @@ export default function SalarieWorkspace({
               onViewDocument={handleViewDocument}
               onDownloadDocument={handleDownloadDocument}
               onDeleteDocument={handleDeleteDocument}
+              onRenameDocument={renameDocument}
               onOpenCommentDialog={openCommentDialog}
-              onOpenEditDialog={openEditDialog}
               viewingDocumentId={viewingDocumentId}
               downloadingDocumentId={downloadingDocumentId}
               deletingDocumentId={deletingDocumentId}
               savingDocumentId={savingDocumentId}
               pendingRequests={pendingRequests}
               openUploadDialog={openUploadDialog}
+              currentFolderId={currentFolderId}
+              folders={folderList}
+              folderPath={folderPath}
+              onNavigateFolder={setCurrentFolderId}
+              onCreateFolder={createFolder}
+              onMoveDocumentToFolder={moveDocumentToFolder}
+              onRenameFolder={renameFolder}
+              onDeleteFolder={deleteFolder}
               formatDate={formatDate}
               formatMonth={formatMonth}
               formatDocumentStatus={formatDocumentStatus}

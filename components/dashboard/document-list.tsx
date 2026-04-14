@@ -26,12 +26,18 @@ type DashboardDocumentListItem = {
   sizeBytes: number | null;
   subtitle?: string | null;
   details?: string | null;
+  hideDetailsPanel?: boolean;
 };
 
 type DashboardDocumentListProps<T extends DashboardDocumentListItem> = {
   items: T[];
   renderActions?: (item: T, closeMenu: () => void) => ReactNode;
   storageKey?: string;
+  onItemDoubleClick?: (item: T) => void;
+  isItemDoubleClickable?: (item: T) => boolean;
+  getDraggableId?: (item: T) => string | null;
+  canDropOnItem?: (targetItem: T, draggedId: string) => boolean;
+  onItemDrop?: (targetItem: T, draggedId: string) => void | Promise<void>;
 };
 
 type ColumnKey = "type" | "status" | "period" | "owner" | "createdAt" | "size";
@@ -123,7 +129,10 @@ function getFileExtension(fileName: string) {
   return segments.length > 1 ? segments.at(-1) ?? "" : "";
 }
 
-function getFileIcon(fileName: string) {
+function getFileIcon(fileName: string, typeLabel?: string) {
+  if ((typeLabel ?? "").toLowerCase().includes("dossier")) {
+    return <Folder className="h-5 w-5 text-[#4b5563]" />;
+  }
   const extension = getFileExtension(fileName);
 
   if (!extension) {
@@ -170,9 +179,15 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
   items,
   renderActions,
   storageKey,
+  onItemDoubleClick,
+  isItemDoubleClickable,
+  getDraggableId,
+  canDropOnItem,
+  onItemDrop,
 }: DashboardDocumentListProps<T>) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(defaultVisibleColumns);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -288,10 +303,53 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
           <tbody className="divide-y divide-slate-200">
             {items.map((item) => (
               <Fragment key={item.id}>
-                <tr className="transition-colors hover:bg-slate-50/60">
+                <tr
+                  className={`transition-colors hover:bg-slate-50/60 ${dragOverItemId === item.id ? "bg-slate-100/70" : ""} ${(isItemDoubleClickable ? isItemDoubleClickable(item) : false) ? "cursor-pointer" : ""}`}
+                  draggable={Boolean(getDraggableId?.(item))}
+                  onDoubleClick={() => {
+                    if (!onItemDoubleClick) return;
+                    const enabled = isItemDoubleClickable ? isItemDoubleClickable(item) : true;
+                    if (!enabled) return;
+                    onItemDoubleClick(item);
+                  }}
+                  onDragStart={(event) => {
+                    const draggedId = getDraggableId?.(item);
+                    if (!draggedId) return;
+                    event.dataTransfer.setData("text/x-dashboard-item-id", draggedId);
+                    event.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragEnd={() => setDragOverItemId(null)}
+                  onDragOver={(event) => {
+                    if (!onItemDrop) return;
+                    const draggedId = event.dataTransfer.getData("text/x-dashboard-item-id");
+                    if (!draggedId) return;
+                    const allowed = canDropOnItem ? canDropOnItem(item, draggedId) : true;
+                    if (!allowed) return;
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                    if (dragOverItemId !== item.id) {
+                      setDragOverItemId(item.id);
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverItemId === item.id) {
+                      setDragOverItemId(null);
+                    }
+                  }}
+                  onDrop={(event) => {
+                    if (!onItemDrop) return;
+                    const draggedId = event.dataTransfer.getData("text/x-dashboard-item-id");
+                    setDragOverItemId(null);
+                    if (!draggedId) return;
+                    const allowed = canDropOnItem ? canDropOnItem(item, draggedId) : true;
+                    if (!allowed) return;
+                    event.preventDefault();
+                    void onItemDrop(item, draggedId);
+                  }}
+                >
                 <td className="px-4 py-3 align-middle">
                   <div className="flex items-start gap-3">
-                    <div className="mt-0.5 shrink-0">{getFileIcon(item.fileName)}</div>
+                    <div className="mt-0.5 shrink-0">{getFileIcon(item.fileName, item.typeLabel)}</div>
                     <div className="min-w-0">
                       <p className="truncate font-medium text-[#0A1A2F]" title={item.fileName}>
                         {item.fileName}
@@ -371,25 +429,31 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
               {actionMenuId === item.id ? (
                 <tr className="bg-slate-50/70">
                   <td colSpan={activeColumns.length + 2} className="px-4 py-3">
-                    <div className="grid gap-4 md:grid-cols-[minmax(260px,340px)_minmax(0,1fr)] md:items-start">
-                      <div className="flex flex-col items-stretch gap-2">
-                        {renderActions ? renderActions(item, () => setActionMenuId(null)) : null}
-                      </div>
-                      {formatActionDetails(item.details) ? (
-                        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                          <p className="text-xs font-medium uppercase tracking-wide text-[#0A1A2F]/55">
-                            Commentaire RH
-                          </p>
-                          <p className="mt-2 whitespace-pre-wrap text-sm text-[#0A1A2F]/80">
-                            {formatActionDetails(item.details)}
-                          </p>
+                      {item.hideDetailsPanel ? (
+                        <div className="flex flex-col items-stretch gap-2 md:max-w-[340px]">
+                          {renderActions ? renderActions(item, () => setActionMenuId(null)) : null}
                         </div>
                       ) : (
-                        <div className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-sm text-[#0A1A2F]/55">
-                          Aucun commentaire RH pour ce document.
+                        <div className="grid gap-4 md:grid-cols-[minmax(260px,340px)_minmax(0,1fr)] md:items-start">
+                          <div className="flex flex-col items-stretch gap-2">
+                            {renderActions ? renderActions(item, () => setActionMenuId(null)) : null}
+                          </div>
+                          {formatActionDetails(item.details) ? (
+                            <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                              <p className="text-xs font-medium uppercase tracking-wide text-[#0A1A2F]/55">
+                                Commentaire RH
+                              </p>
+                              <p className="mt-2 whitespace-pre-wrap text-sm text-[#0A1A2F]/80">
+                                {formatActionDetails(item.details)}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-sm text-[#0A1A2F]/55">
+                              Aucun commentaire RH pour ce document.
+                            </div>
+                          )}
                         </div>
                       )}
-                    </div>
                   </td>
                 </tr>
               ) : null}
