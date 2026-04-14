@@ -39,6 +39,10 @@ type Status =
 
 type RoleChoice = "candidate" | "professional" | "salarie" | "rh";
 type AuthMode = "login" | "register";
+type AccessResolution = {
+  allowed: boolean;
+  message: string | null;
+};
 
 type AuthPageProps = {
   defaultMode?: AuthMode;
@@ -52,11 +56,40 @@ const getDashboardPath = (role?: string | null) => {
   return "/dashboard/candidat";
 };
 
+const resolveDashboardAccess = (
+  role?: string | null,
+  professionalStatus?: string | null
+): AccessResolution => {
+  if (!role || role === "candidate") {
+    return { allowed: true, message: null };
+  }
+  if (role === "admin") {
+    return { allowed: true, message: null };
+  }
+  if (["professional", "salarie", "rh"].includes(role)) {
+    if (professionalStatus === "verified") {
+      return { allowed: true, message: null };
+    }
+    if (professionalStatus === "rejected") {
+      return {
+        allowed: false,
+        message: "Compte refuse. Contacte un administrateur.",
+      };
+    }
+    return {
+      allowed: false,
+      message: "Compte en attente de validation administrateur.",
+    };
+  }
+  return { allowed: true, message: null };
+};
+
 export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>(defaultMode);
   const [status, setStatus] = useState<Status>({ type: "idle" });
   const [loading, setLoading] = useState(false);
+  const [justLoggedOut, setJustLoggedOut] = useState(false);
 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -81,9 +114,14 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
       ? "pending"
       : "none";
   const isPro = roleChoice === "professional";
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setJustLoggedOut(new URLSearchParams(window.location.search).get("logged_out") === "1");
+  }, []);
 
   useEffect(() => {
     if (!supabase) return;
+    if (justLoggedOut) return;
 
     let isMounted = true;
 
@@ -100,7 +138,7 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
 
       const { data: profileRow } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role,professional_status")
         .eq("id", data.session.user.id)
         .maybeSingle();
 
@@ -109,7 +147,19 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
       if (profileRow?.role) {
         resolvedRole = profileRow.role;
       }
-
+      const access = resolveDashboardAccess(
+        resolvedRole,
+        profileRow?.professional_status ??
+          ((data.session.user.user_metadata as { professional_status?: string } | undefined)
+            ?.professional_status ?? null)
+      );
+      if (!access.allowed) {
+        setStatus({
+          type: "error",
+          message: access.message ?? "Compte non autorise.",
+        });
+        return;
+      }
       router.replace(getDashboardPath(resolvedRole));
     };
 
@@ -118,7 +168,7 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
     return () => {
       isMounted = false;
     };
-  }, [router]);
+  }, [justLoggedOut, router]);
 
   const handleModeChange = (nextMode: AuthMode) => {
     setMode(nextMode);
@@ -153,16 +203,22 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
     }
 
     let resolvedRole = (data.user?.user_metadata as { role?: string } | undefined)?.role;
+    let resolvedProfessionalStatus =
+      (data.user?.user_metadata as { professional_status?: string } | undefined)
+        ?.professional_status ?? null;
 
     if (data.user) {
       const { data: profileRow, error: profileSelectError } = await supabase
         .from("profiles")
-        .select("id, role")
+        .select("id, role, professional_status")
         .eq("id", data.user.id)
         .maybeSingle();
 
       if (profileRow?.role) {
         resolvedRole = profileRow.role;
+      }
+      if (profileRow?.professional_status) {
+        resolvedProfessionalStatus = profileRow.professional_status;
       }
 
       if (!profileRow && !profileSelectError) {
@@ -183,6 +239,14 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
       message: `Connecte en tant que ${data.user?.email ?? "utilisateur"}`,
     });
     setLoading(false);
+    const access = resolveDashboardAccess(resolvedRole, resolvedProfessionalStatus);
+    if (!access.allowed) {
+      setStatus({
+        type: "error",
+        message: access.message ?? "Compte non autorise.",
+      });
+      return;
+    }
     router.replace(getDashboardPath(resolvedRole));
   };
 

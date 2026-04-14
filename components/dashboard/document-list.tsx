@@ -78,6 +78,12 @@ function formatFileSize(value: number | null) {
   })} ${units[unitIndex]}`;
 }
 
+function formatActionDetails(details: string | null | undefined) {
+  if (!details) return null;
+
+  return details.replace(/^Commentaire RH\s*:\s*/i, "").trim() || null;
+}
+
 function getHiddenColumnValues<T extends DashboardDocumentListItem>(
   item: T,
   visibleColumns: ColumnKey[],
@@ -238,7 +244,7 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
             Libellés
           </Button>
           {menuOpen ? (
-            <div className="absolute right-0 top-full z-20 mt-2 w-60 rounded-xl border border-slate-200 bg-white p-3 shadow-[0_12px_30px_rgba(15,23,42,0.12)]">
+            <div className="absolute right-0 top-full z-20 mt-2 w-60 rounded-xl border border-slate-200 bg-white p-3">
               <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[#0A1A2F]/55">
                 Colonnes visibles
               </p>
@@ -305,11 +311,6 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
                           </p>
                         );
                       })()}
-                      {item.details ? (
-                        <p className="mt-1 truncate text-xs text-[#0A1A2F]/50" title={item.details}>
-                          {item.details}
-                        </p>
-                      ) : null}
                     </div>
                   </div>
                 </td>
@@ -370,8 +371,24 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
               {actionMenuId === item.id ? (
                 <tr className="bg-slate-50/70">
                   <td colSpan={activeColumns.length + 2} className="px-4 py-3">
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      {renderActions ? renderActions(item, () => setActionMenuId(null)) : null}
+                    <div className="grid gap-4 md:grid-cols-[minmax(260px,340px)_minmax(0,1fr)] md:items-start">
+                      <div className="flex flex-col items-stretch gap-2">
+                        {renderActions ? renderActions(item, () => setActionMenuId(null)) : null}
+                      </div>
+                      {formatActionDetails(item.details) ? (
+                        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                          <p className="text-xs font-medium uppercase tracking-wide text-[#0A1A2F]/55">
+                            Commentaire RH
+                          </p>
+                          <p className="mt-2 whitespace-pre-wrap text-sm text-[#0A1A2F]/80">
+                            {formatActionDetails(item.details)}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-sm text-[#0A1A2F]/55">
+                          Aucun commentaire RH pour ce document.
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>

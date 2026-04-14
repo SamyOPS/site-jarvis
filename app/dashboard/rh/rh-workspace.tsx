@@ -1,14 +1,11 @@
-// @ts-nocheck
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient, type Session, type User } from "@supabase/supabase-js";
-import { ChevronDown, Download, Eye, LogOut, RotateCcw, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import type { Session, User } from "@supabase/supabase-js";
+import { LogOut, Search, SlidersHorizontal } from "lucide-react";
 
-import { DashboardDocumentList } from "@/components/dashboard/document-list";
-import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
 import { RhOffersSection } from "@/components/dashboard/rh-offers-section";
 import { RhDocumentsSection } from "@/components/dashboard/rh-documents-section";
@@ -16,107 +13,37 @@ import { DashboardProfileMenu } from "@/components/dashboard/profile-menu";
 import { RhOverviewSection } from "@/components/dashboard/rh-overview-section";
 import { RhSettingsSection } from "@/components/dashboard/rh-settings-section";
 import { StatusNotice } from "@/components/dashboard/status-notice";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { formatDate, formatMonth, type DocumentStatus } from "@/lib/dashboard-formatters";
+import { matchesRhDocumentFilters } from "@/features/dashboard/rh/document-filters";
+import type { RhWorkspaceRouteProps } from "@/features/dashboard/rh/navigation";
+import type {
+  RhApplicationRow as ApplicationRow,
+  RhDocumentRow as RHDocumentRow,
+  RhDocumentTypeRow as DocumentTypeRow,
+  RhEventRow as EventRow,
+  RhJobOfferRow as JobOfferRow,
+  RhProfileCvRow as ProfileCvRow,
+  RhProfileRow as ProfileRow,
+  RhRequestRow as RequestRow,
+  RhRequestStatus as RequestStatus,
+} from "@/features/dashboard/rh/types";
+import { formatDate, formatDocumentStatus, formatMonth, normalizeJoinOne, type DocumentStatus } from "@/lib/dashboard-formatters";
+import { forceClientSignOut } from "@/lib/client-auth";
+import { browserSupabase as supabase } from "@/lib/supabase-browser";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
-
-type ProfileRow = {
-  id: string;
-  email: string;
-  full_name: string | null;
-  phone: string | null;
-  role: string | null;
-  professional_status: string | null;
-  employment_status: "active" | "inactive" | "exited" | null;
-  company_name: string | null;
-  esn_partenaire: string | null;
+const defaultRouteProps: RhWorkspaceRouteProps = {
+  currentSection: "overview",
+  currentSubSection: "overview",
+  selectedEmployeeId: null,
 };
 
-type RequestStatus = "pending" | "uploaded" | "validated" | "rejected" | "expired" | "cancelled";
-type DocumentTypeRow = {
-  id: string;
-  label: string;
-  requiresPeriod: boolean;
-  allowedUploaderRoles: string[];
-};
-
-type RHDocumentRow = {
-  id: string;
-  employeeId: string;
-  employeeRole: string | null;
-  documentTypeId: string;
-  documentTypeCode: string;
-  uploaderRole: string;
-  uploadedByName: string;
-  employeeName: string;
-  fileName: string;
-  status: DocumentStatus;
-  periodMonth: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-  sizeBytes: number | null;
-  reviewComment: string | null;
-  typeLabel: string;
-  storageBucket: string;
-  storagePath: string;
-  sourceKind: string;
-};
-
-type RequestRow = {
-  id: string;
-  employeeId: string;
-  documentTypeId: string;
-  employeeName: string;
-  status: RequestStatus;
-  dueAt: string | null;
-  periodMonth: string | null;
-  note: string | null;
-  typeLabel: string;
-};
-
-type EventRow = {
-  id: string;
-  employeeId: string;
-  createdAt: string;
-  eventType: string;
-  actorName: string;
-  documentLabel: string;
-};
-
-type JobOfferRow = { id: string; title: string; status: "draft" | "published" | "archived"; location: string | null };
-type ApplicationRow = { id: string; candidateId: string; status: "submitted" | "reviewed" | "rejected" | "accepted"; jobTitle: string; candidateName: string };
-type ProfileCvRow = { user_id: string; file_name: string | null };
-
-const formatDocumentStatus = (value: DocumentStatus) => {
-  if (value === "validated") return "Validé";
-  if (value === "rejected") return "Refusé";
-  return "En attente";
-};
-
-const matchesDocumentFilters = (
-  document: Pick<RHDocumentRow, "typeLabel" | "periodMonth" | "status" | "uploadedByName">,
-  filters: { type: string; period: string; status: string; creator: string },
-) => {
-  if (filters.type !== "all" && document.typeLabel !== filters.type) return false;
-  if (filters.period !== "all" && (document.periodMonth ?? "__none__") !== filters.period) return false;
-  if (filters.status !== "all" && document.status !== filters.status) return false;
-  if (filters.creator !== "all" && document.uploadedByName !== filters.creator) return false;
-  return true;
-};
-
-const normalizeJoinOne = <T,>(value: T | T[] | null | undefined): T | null => {
-  if (!value) return null;
-  return Array.isArray(value) ? (value[0] ?? null) : value;
-};
-
-export default function RhWorkspace() {
-  const pathname = usePathname();
+export default function RhWorkspace({
+  currentSection = defaultRouteProps.currentSection,
+  currentSubSection = defaultRouteProps.currentSubSection,
+  selectedEmployeeId = defaultRouteProps.selectedEmployeeId,
+}: RhWorkspaceRouteProps) {
   const router = useRouter();
 
   const [session, setSession] = useState<Session | null>(null);
@@ -163,9 +90,27 @@ export default function RhWorkspace() {
   const [deletingRhDocumentId, setDeletingRhDocumentId] = useState<string | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
-
-  const loadDashboardData = useCallback(async () => {
+  const loadDashboardData = useCallback(async (rhId: string, accessToken: string) => {
     if (!supabase) return;
+
+    const visibilityResponse = await fetch("/api/rh/collaborators/visibility", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    const visibilityPayload = (await visibilityResponse.json().catch(() => null)) as
+      | { error?: string; restricted?: boolean; employeeIds?: string[] }
+      | null;
+    if (!visibilityResponse.ok) {
+      setError(visibilityPayload?.error ?? "Chargement des affectations RH impossible.");
+      return;
+    }
+
+    const isRestricted = visibilityPayload?.restricted === true;
+    const assignedSet = new Set(visibilityPayload?.employeeIds ?? []);
+    const canAccessEmployee = (employeeId: string) =>
+      !isRestricted || assignedSet.has(employeeId);
 
     const [employeesRes, documentTypesRes, docsRes, requestsRes, offersRes, appsRes, cvsRes] = await Promise.all([
       supabase.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("role", "salarie").order("email", { ascending: true }),
@@ -182,7 +127,7 @@ export default function RhWorkspace() {
       return;
     }
 
-    setEmployees((employeesRes.data as ProfileRow[]) ?? []);
+    setEmployees(((employeesRes.data as ProfileRow[]) ?? []).filter((employee) => canAccessEmployee(employee.id)));
     setDocumentTypes(
       ((documentTypesRes.data ?? []) as {
         id: string;
@@ -231,7 +176,14 @@ export default function RhWorkspace() {
         sourceKind: row.source_kind ?? "uploaded",
       } satisfies RHDocumentRow;
     });
-    setDocuments(mappedDocuments);
+    const filteredDocuments = mappedDocuments.filter((document) => {
+      if (!document.employeeId) return false;
+      if (document.employeeRole !== "salarie") {
+        return document.employeeId === rhId;
+      }
+      return canAccessEmployee(document.employeeId);
+    });
+    setDocuments(filteredDocuments);
 
     const mappedRequests = (requestsRes.data ?? []).map((row: { id: string; status: RequestStatus; due_at: string | null; period_month: string | null; note: string | null; document_type: { id: string; label: string } | { id: string; label: string }[] | null; employee: { id: string; full_name: string | null; email: string } | { id: string; full_name: string | null; email: string }[] | null }) => {
       const employee = normalizeJoinOne(row.employee);
@@ -248,17 +200,19 @@ export default function RhWorkspace() {
         typeLabel: type?.label ?? "Document",
       } satisfies RequestRow;
     });
-    setRequests(mappedRequests);
+    setRequests(
+      mappedRequests.filter((request) => request.employeeId && canAccessEmployee(request.employeeId)),
+    );
 
     setJobOffers((offersRes.data ?? []) as JobOfferRow[]);
     setApplications((appsRes.data ?? []).map((row: { id: string; candidate_id: string; status: ApplicationRow["status"]; job: { title: string | null } | { title: string | null }[] | null; candidate: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null }) => {
       const job = normalizeJoinOne(row.job);
       const candidate = normalizeJoinOne(row.candidate);
       return { id: row.id, candidateId: row.candidate_id, status: row.status, jobTitle: job?.title ?? "Offre", candidateName: candidate?.full_name ?? candidate?.email ?? "Candidat" } satisfies ApplicationRow;
-    }));
+    }).filter((application) => canAccessEmployee(application.candidateId)));
     setCvsByUser(Object.fromEntries(((cvsRes.data ?? []) as ProfileCvRow[]).map((row) => [row.user_id, row])));
 
-    const documentIds = mappedDocuments.map((document) => document.id);
+    const documentIds = filteredDocuments.map((document) => document.id);
     if (!documentIds.length) {
       setEvents([]);
       return;
@@ -269,7 +223,7 @@ export default function RhWorkspace() {
       setError(eventsError.message);
       return;
     }
-    const documentsById = Object.fromEntries(mappedDocuments.map((document) => [document.id, document]));
+    const documentsById = Object.fromEntries(filteredDocuments.map((document) => [document.id, document]));
     setEvents((eventsData ?? []).map((row: { id: string; created_at: string; event_type: string; actor: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null; document: { id: string; file_name: string | null; document_type: { label: string } | { label: string }[] | null } | { id: string; file_name: string | null; document_type: { label: string } | { label: string }[] | null }[] | null }) => {
       const actor = normalizeJoinOne(row.actor);
       const document = normalizeJoinOne(row.document);
@@ -287,11 +241,12 @@ export default function RhWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (!supabase) return;
+    const client = supabase;
+    if (!client) return;
     const load = async () => {
       setLoading(true);
       setError(null);
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
       if (sessionError) {
         setError(sessionError.message);
         setLoading(false);
@@ -304,14 +259,14 @@ export default function RhWorkspace() {
       }
       setSession(sessionData.session);
       setUser(sessionData.session.user);
-      const { data: profileData, error: profileError } = await supabase.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("id", sessionData.session.user.id).single();
+      const { data: profileData, error: profileError } = await client.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("id", sessionData.session.user.id).single();
       if (profileError || !profileData || profileData.role !== "rh" || profileData.professional_status !== "verified") {
         setLoading(false);
         router.push("/auth");
         return;
       }
       setProfile(profileData);
-      await loadDashboardData();
+      await loadDashboardData(profileData.id, sessionData.session.access_token);
       setLoading(false);
     };
     void load();
@@ -324,7 +279,7 @@ export default function RhWorkspace() {
 
   useEffect(() => {
     setProfileMenuOpen(false);
-  }, [pathname]);
+  }, [currentSection, currentSubSection, selectedEmployeeId]);
 
   useEffect(() => {
     if (!profileMenuOpen) return;
@@ -348,11 +303,11 @@ export default function RhWorkspace() {
     };
   }, [profileMenuOpen]);
 
-  const currentSection = pathname.startsWith("/dashboard/rh/collaborateurs") ? "collaborateurs" : pathname.startsWith("/dashboard/rh/documents") ? "documents" : pathname.startsWith("/dashboard/rh/offres") ? "offres" : pathname.startsWith("/dashboard/rh/parametres") ? "parametres" : "overview";
-  const currentSubSection = /^\/dashboard\/rh\/collaborateurs\/[a-f0-9-]+$/i.test(pathname) ? "collab_detail" : pathname.startsWith("/dashboard/rh/collaborateurs/actifs") ? "collab_actifs" : pathname.startsWith("/dashboard/rh/collaborateurs/inactifs") ? "collab_inactifs" : pathname.startsWith("/dashboard/rh/documents/a-valider") ? "docs_a_valider" : pathname.startsWith("/dashboard/rh/documents/mes-demandes") ? "docs_mes_demandes" : pathname.startsWith("/dashboard/rh/documents/salaries") ? "docs_salaries" : pathname.startsWith("/dashboard/rh/offres/candidatures") ? "offres_candidatures" : pathname.startsWith("/dashboard/rh/offres/archives") ? "offres_archives" : pathname.startsWith("/dashboard/rh/offres/creer") ? "offres_creer" : pathname.startsWith("/dashboard/rh/offres") ? "offres_actives" : pathname.startsWith("/dashboard/rh/documents") ? "docs_tous" : pathname.startsWith("/dashboard/rh/collaborateurs") ? "collab_tous" : "overview";
-
-  const selectedEmployeeId = useMemo(() => pathname.match(/^\/dashboard\/rh\/collaborateurs\/([a-f0-9-]+)$/i)?.[1] ?? null, [pathname]);
   const selectedEmployee = useMemo(() => employees.find((employee) => employee.id === selectedEmployeeId) ?? null, [employees, selectedEmployeeId]);
+  const refreshDashboardData = useCallback(async () => {
+    if (!profile?.id || !session?.access_token) return;
+    await loadDashboardData(profile.id, session.access_token);
+  }, [loadDashboardData, profile?.id, session?.access_token]);
   const activeDraft = useMemo(() => {
     if (!selectedEmployee) return null;
     return employeeDrafts[selectedEmployee.id] ?? { full_name: selectedEmployee.full_name ?? "", phone: selectedEmployee.phone ?? "", company_name: selectedEmployee.company_name ?? "", esn_partenaire: selectedEmployee.esn_partenaire ?? "", employment_status: selectedEmployee.employment_status ?? "active" };
@@ -406,7 +361,7 @@ export default function RhWorkspace() {
   const filteredSalarieDocuments = useMemo(
     () =>
       salarieDocuments.filter((document) =>
-        matchesDocumentFilters(document, {
+        matchesRhDocumentFilters(document, {
           type: documentTypeFilter,
           period: documentPeriodFilter,
           status: documentStatusFilter,
@@ -418,7 +373,7 @@ export default function RhWorkspace() {
   const filteredPendingDocuments = useMemo(
     () =>
       pendingDocuments.filter((document) =>
-        matchesDocumentFilters(document, {
+        matchesRhDocumentFilters(document, {
           type: documentTypeFilter,
           period: documentPeriodFilter,
           status: documentStatusFilter,
@@ -430,7 +385,7 @@ export default function RhWorkspace() {
   const filteredRhDocuments = useMemo(
     () =>
       rhDocuments.filter((document) =>
-        matchesDocumentFilters(document, {
+        matchesRhDocumentFilters(document, {
           type: documentTypeFilter,
           period: documentPeriodFilter,
           status: documentStatusFilter,
@@ -457,8 +412,8 @@ export default function RhWorkspace() {
   const handleSignOut = useCallback(async () => {
     if (!supabase) return;
     setProfileMenuOpen(false);
-    await supabase.auth.signOut();
-    router.push("/auth");
+    await forceClientSignOut(supabase);
+    router.push("/auth?logged_out=1");
   }, [router]);
 
   const resetRequestDialog = useCallback(() => {
@@ -496,7 +451,7 @@ export default function RhWorkspace() {
       setSavingEmployee(false);
       return;
     }
-    await loadDashboardData();
+    await refreshDashboardData();
     setSaveMessage("Informations mises a jour.");
     setSavingEmployee(false);
   };
@@ -553,8 +508,8 @@ export default function RhWorkspace() {
     setRequestDialogOpen(false);
     resetRequestDialog();
     setSaveMessage("Demande documentaire creee.");
-    await loadDashboardData();
-  }, [loadDashboardData, requestDocumentTypeId, requestDueAt, requestEmployeeId, requestNote, requestPeriodMonth, resetRequestDialog, selectedRequestType?.requiresPeriod, user]);
+    await refreshDashboardData();
+  }, [refreshDashboardData, requestDocumentTypeId, requestDueAt, requestEmployeeId, requestNote, requestPeriodMonth, resetRequestDialog, selectedRequestType?.requiresPeriod, user]);
 
   const handleCancelRequest = useCallback(async (request: RequestRow) => {
     if (!supabase) return;
@@ -579,8 +534,8 @@ export default function RhWorkspace() {
 
     setCancellingRequestId(null);
     setSaveMessage("Demande documentaire annulee.");
-    await loadDashboardData();
-  }, [loadDashboardData]);
+    await refreshDashboardData();
+  }, [refreshDashboardData]);
 
   const handleRhUpload = useCallback(async () => {
     if (!session?.access_token) {
@@ -628,8 +583,8 @@ export default function RhWorkspace() {
     setRhUploadDialogOpen(false);
     resetRhUploadDialog();
     setSaveMessage("Document RH depose.");
-    await loadDashboardData();
-  }, [loadDashboardData, resetRhUploadDialog, rhUploadDocumentTypeId, rhUploadEmployeeId, rhUploadFile, rhUploadPeriodMonth, selectedRhUploadType?.requiresPeriod, session]);
+    await refreshDashboardData();
+  }, [refreshDashboardData, resetRhUploadDialog, rhUploadDocumentTypeId, rhUploadEmployeeId, rhUploadFile, rhUploadPeriodMonth, selectedRhUploadType?.requiresPeriod, session]);
 
   const handleDeleteRhDocument = useCallback(async (document: RHDocumentRow) => {
     if (!session?.access_token) {
@@ -661,8 +616,8 @@ export default function RhWorkspace() {
 
     setDeletingRhDocumentId(null);
     setSaveMessage("Document RH supprime.");
-    await loadDashboardData();
-  }, [loadDashboardData, session]);
+    await refreshDashboardData();
+  }, [refreshDashboardData, session]);
 
   const getSignedDocumentUrl = useCallback(async (document: RHDocumentRow) => {
     if (!supabase || !document.storagePath) return;
@@ -806,15 +761,15 @@ export default function RhWorkspace() {
     if (requestError || generatedRecordError || eventError) {
       setSaveMessage(requestError?.message ?? generatedRecordError?.message ?? eventError?.message ?? "Le statut du document a ete mis a jour, mais le suivi n'est pas complet.");
       setReviewingDocumentId(null);
-      await loadDashboardData();
+      await refreshDashboardData();
       return;
     }
 
     setReviewDrafts((prev) => ({ ...prev, [document.id]: "" }));
     setSaveMessage(nextStatus === "validated" ? "Document valide." : nextStatus === "rejected" ? "Document refuse." : "Document remis en attente.");
     setReviewingDocumentId(null);
-    await loadDashboardData();
-  }, [findMatchingRequest, loadDashboardData, reviewDrafts, user]);
+    await refreshDashboardData();
+  }, [findMatchingRequest, refreshDashboardData, reviewDrafts, user]);
 
   const handlePasswordUpdate = useCallback(async () => {
     if (!supabase) return;
@@ -864,34 +819,19 @@ export default function RhWorkspace() {
                   <Link href="/dashboard/rh/collaborateurs/actifs" className={`block py-1 ${currentSubSection === "collab_actifs" ? "font-semibold" : ""}`}>Actifs</Link>
                   <Link href="/dashboard/rh/collaborateurs/inactifs" className={`block py-1 ${currentSubSection === "collab_inactifs" ? "font-semibold" : ""}`}>Inactifs / Sortants</Link>
                   {currentSubSection === "collab_detail" && <span className="block py-1 font-semibold">Fiche collaborateur</span>}
-	                  <div className="relative">
-	                    <select
-	                      value={documentCreatorFilter}
-	                      onChange={(event) => setDocumentCreatorFilter(event.target.value)}
-	                      className="h-10 min-w-[150px] appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-10 text-sm font-medium text-[#0A1A2F] shadow-sm outline-none transition focus:border-slate-400"
-	                    >
-	                      <option value="all">Proprietaire</option>
-	                      {rhDocumentCreatorOptions.map((creatorName) => (
-	                        <option key={creatorName} value={creatorName}>
-	                          {creatorName}
-	                        </option>
-	                      ))}
-	                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#0A1A2F]/55" />
-	                  </div>
-	                </div>
+                </div>
               )}
               <Link href="/dashboard/rh/documents" className={`block px-1 py-2 hover:underline ${currentSection === "documents" ? "font-semibold" : ""}`}>Documents</Link>
               {currentSection === "documents" && (
                 <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
-                  <Link href="/dashboard/rh/documents/a-valider" className={`block py-1 ${currentSubSection === "docs_a_valider" ? "font-semibold" : ""}`}>A valider</Link>
-                  <Link href="/dashboard/rh/documents" className={`block py-1 ${currentSubSection === "docs_tous" ? "font-semibold" : ""}`}>Tous les documents</Link>
+                  <Link href="/dashboard/rh/documents" className={`block py-1 ${currentSubSection === "docs_tous" ? "font-semibold" : ""}`}>Documents entreprise</Link>
                   <Link href="/dashboard/rh/documents/salaries" className={`block py-1 ${currentSubSection === "docs_salaries" ? "font-semibold" : ""}`}>Documents salaries</Link>
+                  <Link href="/dashboard/rh/documents/a-valider" className={`block py-1 ${currentSubSection === "docs_a_valider" ? "font-semibold" : ""}`}>A valider</Link>
                   <Link href="/dashboard/rh/documents/mes-demandes" className={`block py-1 ${currentSubSection === "docs_mes_demandes" ? "font-semibold" : ""}`}>Mes demandes</Link>
                 </div>
               )}
-              <Link href="/dashboard/rh/offres" className={`block px-1 py-2 hover:underline ${currentSection === "offres" ? "font-semibold" : ""}`}>Offres</Link>
-              {currentSection === "offres" && (
+
+          {currentSection === "offres" && (
                 <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
                   <Link href="/dashboard/rh/offres" className={`block py-1 ${currentSubSection === "offres_actives" ? "font-semibold" : ""}`}>Offres actives</Link>
                   <Link href="/dashboard/rh/offres/candidatures" className={`block py-1 ${currentSubSection === "offres_candidatures" ? "font-semibold" : ""}`}>Candidatures</Link>
@@ -909,14 +849,14 @@ export default function RhWorkspace() {
           </div>
         </aside>
 
-        <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[64px]">
+        <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[48px]">
           <div className="flex h-full items-stretch justify-center px-2 py-5" />
         </aside>
 
-        <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[64px] lg:px-3 lg:py-3">
+        <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[48px] lg:px-3 lg:py-3">
           <div className="hidden lg:flex items-center rounded-[30px] px-2 py-1.5">
             <div className="flex min-w-0 flex-1 items-center">
-              <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 shadow-[0_8px_24px_rgba(148,163,184,0.14)] backdrop-blur">
+              <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 backdrop-blur">
                   <Search className="h-4 w-4 text-[#0A1A2F]/55" />
                   <span className="text-sm text-[#0A1A2F]/55">Rechercher dans l&apos;espace RH</span>
                   <SlidersHorizontal className="ml-auto h-4 w-4 text-[#0A1A2F]/45" />
@@ -1017,212 +957,46 @@ export default function RhWorkspace() {
                 )}
               </CardContent>
             </Card>
-          )}
-
-          {currentSection === "documents" && (
-            <>
-              <RhDocumentsSection
-                currentSubSection={currentSubSection}
-                documentTypeFilter={documentTypeFilter}
-                documentPeriodFilter={documentPeriodFilter}
-                documentStatusFilter={documentStatusFilter}
-                documentCreatorFilter={documentCreatorFilter}
-                rhFilterOptions={rhFilterOptions}
-                onDocumentTypeFilterChange={setDocumentTypeFilter}
-                onDocumentPeriodFilterChange={setDocumentPeriodFilter}
-                onDocumentStatusFilterChange={setDocumentStatusFilter}
-                onDocumentCreatorFilterChange={setDocumentCreatorFilter}
-                onOpenRhUploadDialog={() => {
-                  setSaveMessage(null);
-                  setRhUploadDialogOpen(true);
-                }}
-                requests={requests}
-                cancellingRequestId={cancellingRequestId}
-                onCancelRequest={handleCancelRequest}
-                filteredSalarieDocuments={filteredSalarieDocuments}
-                filteredPendingDocuments={filteredPendingDocuments}
-                filteredRhDocuments={filteredRhDocuments}
-                onViewDocument={handleViewDocument}
-                onDownloadDocument={handleDownloadDocument}
-                onReviewDocument={handleReviewDocument}
-                onDeleteRhDocument={handleDeleteRhDocument}
-                viewingDocumentId={viewingDocumentId}
-                downloadingDocumentId={downloadingDocumentId}
-                reviewingDocumentId={reviewingDocumentId}
-                deletingRhDocumentId={deletingRhDocumentId}
-                reviewDrafts={reviewDrafts}
-                onReviewDraftsChange={setReviewDrafts}
-                formatMonth={formatMonth}
-                formatDate={formatDate}
-                formatDocumentStatus={formatDocumentStatus}
-              />
-              {false && (
-                <section className="space-y-4">
-              <div className="flex flex-row items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-[#0A1A2F]">Documents</h2>
-                <div className="flex items-center gap-2">
-                  {currentSubSection === "docs_tous" && (
-                    <Button type="button" variant="outline" size="sm" onClick={() => { setSaveMessage(null); setRhUploadDialogOpen(true); }}>
-                      Deposer un document RH
-                    </Button>
-                  )}
-                </div>
-              </div>
-              {["docs_tous", "docs_salaries", "docs_a_valider"].includes(currentSubSection) ? (
-                <DocumentFiltersBar
-                  fields={["type", "period", "status", "owner"]}
-                  values={{
-                    type: documentTypeFilter,
-                    period: documentPeriodFilter,
-                    status: documentStatusFilter,
-                    owner: documentCreatorFilter,
-                  }}
-                  options={rhFilterOptions}
-                  onChange={(field, value) => {
-                    if (field === "type") setDocumentTypeFilter(value);
-                    if (field === "period") setDocumentPeriodFilter(value);
-                    if (field === "status") setDocumentStatusFilter(value);
-                    if (field === "owner") setDocumentCreatorFilter(value);
-                  }}
-                />
-              ) : null}
-              <div>
-                {currentSubSection === "docs_mes_demandes" ? (
-                  requests.length ? (
-                    <div className="overflow-x-auto rounded-lg border border-slate-200">
-                      <table className="min-w-full text-sm">
-                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Salarie</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Echeance</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Note</th><th className="px-3 py-2">Action</th></tr></thead>
-                        <tbody className="divide-y divide-slate-200 bg-white">{requests.map((request) => <tr key={request.id}><td className="px-3 py-2">{request.employeeName}</td><td className="px-3 py-2">{request.typeLabel}</td><td className="px-3 py-2">{formatMonth(request.periodMonth)}</td><td className="px-3 py-2">{formatDate(request.dueAt)}</td><td className="px-3 py-2"><Badge variant="outline">{request.status}</Badge></td><td className="px-3 py-2 text-[#0A1A2F]/70">{request.note ?? "-"}</td><td className="px-3 py-2">{["pending", "uploaded", "rejected", "expired"].includes(request.status) ? <Button type="button" variant="outline" size="sm" onClick={() => void handleCancelRequest(request)} disabled={cancellingRequestId === request.id}>{cancellingRequestId === request.id ? "Annulation..." : "Annuler"}</Button> : <span className="text-xs text-[#0A1A2F]/50">-</span>}</td></tr>)}</tbody>
-                      </table>
-                    </div>
-                  ) : <p className="text-sm text-[#0A1A2F]/70">Aucune demande documentaire pour le moment.</p>
-                ) : currentSubSection === "docs_salaries" ? (
-                  filteredSalarieDocuments.length ? (
-                    <DashboardDocumentList
-                      items={filteredSalarieDocuments.map((document) => ({
-                        ...document,
-                        ownerName: document.uploadedByName,
-                        createdAt: document.createdAt,
-                        statusLabel: formatDocumentStatus(document.status),
-                        periodLabel: formatMonth(document.periodMonth),
-                        subtitle: document.employeeName ? `Collaborateur : ${document.employeeName}` : null,
-                        details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
-                      }))}
-                      storageKey="rh-documents-salaries-columns"
-                      renderActions={(document, closeMenu) => (
-                        <>
-                          {document.fileName.toLowerCase().endsWith(".pdf") ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="w-full justify-start"
-                              onClick={() => { closeMenu(); void handleViewDocument(document); }}
-                              disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              Visualiser
-                            </Button>
-                          ) : null}
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-start"
-                            onClick={() => { closeMenu(); void handleDownloadDocument(document); }}
-                            disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
-                          >
-                            <Download className="mr-2 h-4 w-4" />
-                            Télécharger
-                          </Button>
-                          {document.status === "validated" ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="w-full justify-start"
-                              onClick={() => { closeMenu(); void handleReviewDocument(document, "pending"); }}
-                              disabled={reviewingDocumentId === document.id}
-                            >
-                              <RotateCcw className="mr-2 h-4 w-4" />
-                              Remettre en attente
-                            </Button>
-                          ) : null}
-                        </>
-                      )}
-                    />
-                  ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document salarie pour le moment.</p>
-                ) : currentSubSection === "docs_a_valider" ? (
-                  filteredPendingDocuments.length ? (
-                    <div className="overflow-x-auto rounded-lg border border-slate-200">
-                      <table className="min-w-full text-sm">
-                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Type</th><th className="px-3 py-2">Fichier</th><th className="px-3 py-2">Salarie</th><th className="px-3 py-2">Periode</th><th className="px-3 py-2">Commentaire RH</th><th className="px-3 py-2">Action</th></tr></thead>
-                        <tbody className="divide-y divide-slate-200 bg-white">{filteredPendingDocuments.map((document) => <tr key={document.id}><td className="px-3 py-2">{document.typeLabel}</td><td className="px-3 py-2">{document.fileName}</td><td className="px-3 py-2">{document.employeeName}</td><td className="px-3 py-2">{formatMonth(document.periodMonth)}</td><td className="px-3 py-2"><input value={reviewDrafts[document.id] ?? document.reviewComment ?? ""} onChange={(event) => setReviewDrafts((prev) => ({ ...prev, [document.id]: event.target.value }))} placeholder="Commentaire de validation ou de refus" className="h-9 w-full min-w-[240px] rounded-md border border-slate-300 px-3 text-sm" /></td><td className="px-3 py-2"><div className="flex items-center gap-2">{document.fileName.toLowerCase().endsWith(".pdf") && <Button type="button" variant="outline" size="sm" onClick={() => void handleViewDocument(document)} disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}>{viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}</Button>}<Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}>{downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}</Button><Button type="button" size="sm" onClick={() => void handleReviewDocument(document, "validated")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Valider"}</Button><Button type="button" variant="destructive" size="sm" onClick={() => void handleReviewDocument(document, "rejected")} disabled={reviewingDocumentId === document.id}>{reviewingDocumentId === document.id ? "Traitement..." : "Refuser"}</Button></div></td></tr>)}</tbody>
-                      </table>
-                    </div>
-                  ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document en attente de validation.</p>
-                ) : (
-                  filteredRhDocuments.length ? (
-                    <DashboardDocumentList
-                      items={filteredRhDocuments.map((document) => ({
-                        ...document,
-                        ownerName: document.uploadedByName,
-                        createdAt: document.createdAt,
-                        statusLabel: formatDocumentStatus(document.status),
-                        periodLabel: formatMonth(document.periodMonth),
-                        subtitle:
-                          document.employeeName && document.employeeName !== "Aucun collaborateur"
-                            ? `Collaborateur : ${document.employeeName}`
-                            : null,
-                        details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
-                      }))}
-                      storageKey="rh-documents-rh-columns"
-                      renderActions={(document, closeMenu) => (
-                        <>
-                          {document.fileName.toLowerCase().endsWith(".pdf") ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="w-full justify-start"
-                              onClick={() => { closeMenu(); void handleViewDocument(document); }}
-                              disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              Visualiser
-                            </Button>
-                          ) : null}
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-start"
-                            onClick={() => { closeMenu(); void handleDownloadDocument(document); }}
-                            disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
-                          >
-                            <Download className="mr-2 h-4 w-4" />
-                            Télécharger
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-start text-red-600 hover:text-red-700"
-                            onClick={() => { closeMenu(); void handleDeleteRhDocument(document); }}
-                            disabled={deletingRhDocumentId === document.id}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Supprimer
-                          </Button>
-                        </>
-                      )}
-                    />
-                  ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document RH pour le moment.</p>
-                )}
-              </div>
-                </section>
-              )}
-            </>
+          )}          {currentSection === "documents" && (
+            <RhDocumentsSection
+              currentSubSection={currentSubSection}
+              documentTypeFilter={documentTypeFilter}
+              documentPeriodFilter={documentPeriodFilter}
+              documentStatusFilter={documentStatusFilter}
+              documentCreatorFilter={documentCreatorFilter}
+              rhFilterOptions={rhFilterOptions}
+              onDocumentTypeFilterChange={setDocumentTypeFilter}
+              onDocumentPeriodFilterChange={setDocumentPeriodFilter}
+              onDocumentStatusFilterChange={setDocumentStatusFilter}
+              onDocumentCreatorFilterChange={setDocumentCreatorFilter}
+              onOpenRhUploadDialog={() => {
+                setSaveMessage(null);
+                setRhUploadDialogOpen(true);
+              }}
+              onOpenRequestDialog={() => {
+                setSaveMessage(null);
+                openRequestDialog();
+              }}
+              requests={requests}
+              cancellingRequestId={cancellingRequestId}
+              onCancelRequest={handleCancelRequest}
+              filteredSalarieDocuments={filteredSalarieDocuments}
+              filteredPendingDocuments={filteredPendingDocuments}
+              filteredRhDocuments={filteredRhDocuments}
+              onViewDocument={handleViewDocument}
+              onDownloadDocument={handleDownloadDocument}
+              onReviewDocument={handleReviewDocument}
+              onDeleteRhDocument={handleDeleteRhDocument}
+              viewingDocumentId={viewingDocumentId}
+              downloadingDocumentId={downloadingDocumentId}
+              reviewingDocumentId={reviewingDocumentId}
+              deletingRhDocumentId={deletingRhDocumentId}
+              reviewDrafts={reviewDrafts}
+              onReviewDraftsChange={setReviewDrafts}
+              formatMonth={formatMonth}
+              formatDate={formatDate}
+              formatDocumentStatus={formatDocumentStatus}
+            />
           )}
 
           {currentSection === "offres" && (
@@ -1384,4 +1158,7 @@ export default function RhWorkspace() {
     </div>
   );
 }
+
+
+
 

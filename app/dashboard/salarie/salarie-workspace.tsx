@@ -1,15 +1,12 @@
-// @ts-nocheck
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient, type User } from "@supabase/supabase-js";
-import { ChevronLeft, ChevronRight, Download, Eye, LogOut, MessageSquareText, Pencil, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import type { User } from "@supabase/supabase-js";
+import { LogOut, Search, SlidersHorizontal } from "lucide-react";
 
-import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import type { BillingProfileFormState } from "@/components/dashboard/billing-profile-card";
-import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
 import { DashboardProfileMenu } from "@/components/dashboard/profile-menu";
 import { SalarieDocumentsSection } from "@/components/dashboard/salarie-documents-section";
@@ -17,81 +14,31 @@ import { SalarieOffersSection } from "@/components/dashboard/salarie-offers-sect
 import { SalarieOverviewSection } from "@/components/dashboard/salarie-overview-section";
 import { SalarieSettingsSection } from "@/components/dashboard/salarie-settings-section";
 import { StatusNotice } from "@/components/dashboard/status-notice";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { formatDate, formatMonth, normalizeJoinOne, type DocumentStatus } from "@/lib/dashboard-formatters";
-import { cn } from "@/lib/utils";
+import {
+  buildCalendarCells,
+  currentMonthInputValue,
+  formatCraEntryDateLabel,
+  shiftMonthInputValue,
+  sortCraEntries,
+  WEEKDAY_LABELS,
+} from "@/features/dashboard/salarie/cra";
+import { matchesSalarieDocumentFilters, normalizeDocumentLabel } from "@/features/dashboard/salarie/document-filters";
+import type { SalarieWorkspaceRouteProps } from "@/features/dashboard/salarie/navigation";
+import type {
+  CraEntryDraft,
+  CraSummaryRow,
+  SalarieDocumentRow as DocumentRow,
+  SalarieDocumentTypeRow as DocumentTypeRow,
+  SalarieProfileRow as ProfileRow,
+  SalarieRequestRow as RequestRow,
+  SalarieRequestStatus as RequestStatus,
+} from "@/features/dashboard/salarie/types";
+import { formatDate, formatDocumentStatus, formatMonth, normalizeJoinOne, type DocumentStatus } from "@/lib/dashboard-formatters";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
-
-type ProfileRow = { id: string; email: string; full_name: string | null; role: string | null; professional_status: string | null };
-type RequestStatus = "pending" | "uploaded" | "validated" | "rejected" | "expired" | "cancelled";
-type DocumentTypeRow = {
-  id: string;
-  label: string;
-  requiresPeriod: boolean;
-  allowedUploaderRoles: string[];
-};
-type RequestRow = { id: string; documentTypeId: string; status: RequestStatus; dueAt: string | null; periodMonth: string | null; note: string | null; typeLabel: string };
-type DocumentRow = {
-  id: string;
-  documentTypeId: string;
-  status: DocumentStatus;
-  uploadedByName: string;
-  fileName: string;
-  createdAt: string | null;
-  updatedAt: string | null;
-  periodMonth: string | null;
-  sizeBytes: number | null;
-  reviewComment: string | null;
-  typeLabel: string;
-  storageBucket: string;
-  storagePath: string;
-};
-
-type CraSummaryRow = {
-  id: string;
-  period_month: string;
-  status: string;
-  worked_days_count: number;
-  pdf_version: number;
-  employee_document_id: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-type CraEntryDraft = {
-  workDate: string;
-  dayQuantity: string;
-  label: string;
-};
-
-const formatDocumentStatus = (value: DocumentStatus) => {
-  if (value === "validated") return "Validé";
-  if (value === "rejected") return "Refusé";
-  return "En attente";
-};
-
-const normalizeDocumentLabel = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-const matchesDocumentFilters = (
-  document: Pick<DocumentRow, "typeLabel" | "periodMonth" | "status">,
-  filters: { type: string; period: string; status: string },
-) => {
-  if (filters.type !== "all" && document.typeLabel !== filters.type) return false;
-  if (filters.period !== "all" && (document.periodMonth ?? "__none__") !== filters.period) return false;
-  if (filters.status !== "all" && document.status !== filters.status) return false;
-  return true;
-};
+import { browserSupabase as supabase } from "@/lib/supabase-browser";
+import { forceClientSignOut } from "@/lib/client-auth";
 
 const emptyBillingProfileForm = (): BillingProfileFormState => ({
   firstName: "",
@@ -111,76 +58,18 @@ const emptyBillingProfileForm = (): BillingProfileFormState => ({
   dailyRate: "",
 });
 
-const currentMonthInputValue = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+const weekdayLabels = WEEKDAY_LABELS;
+
+const defaultRouteProps: SalarieWorkspaceRouteProps = {
+  currentSection: "overview",
+  currentSubSection: "offres_toutes",
 };
 
-const weekdayLabels = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-
-const sortCraEntries = (entries: CraEntryDraft[]) => [...entries].sort((left, right) => left.workDate.localeCompare(right.workDate));
-
-const shiftMonthInputValue = (value: string, offset: number) => {
-  const [yearString, monthString] = value.split("-");
-  const year = Number(yearString);
-  const month = Number(monthString);
-  if (!year || !month) {
-    return currentMonthInputValue();
-  }
-
-  const nextDate = new Date(year, month - 1 + offset, 1);
-  const nextYear = nextDate.getFullYear();
-  const nextMonth = String(nextDate.getMonth() + 1).padStart(2, "0");
-  return `${nextYear}-${nextMonth}`;
-};
-
-const buildCalendarCells = (monthValue: string) => {
-  const [yearString, monthString] = monthValue.split("-");
-  const year = Number(yearString);
-  const month = Number(monthString);
-  if (!year || !month) {
-    return [] as Array<{ isoDate: string | null; dayNumber: number | null }>;
-  }
-
-  const firstDay = new Date(year, month - 1, 1);
-  const totalDays = new Date(year, month, 0).getDate();
-  const leadingEmptyCells = (firstDay.getDay() + 6) % 7;
-  const cells: Array<{ isoDate: string | null; dayNumber: number | null }> = [];
-
-  for (let index = 0; index < leadingEmptyCells; index += 1) {
-    cells.push({ isoDate: null, dayNumber: null });
-  }
-
-  for (let dayNumber = 1; dayNumber <= totalDays; dayNumber += 1) {
-    cells.push({
-      isoDate: `${monthValue}-${String(dayNumber).padStart(2, "0")}`,
-      dayNumber,
-    });
-  }
-
-  while (cells.length % 7 !== 0) {
-    cells.push({ isoDate: null, dayNumber: null });
-  }
-
-  return cells;
-};
-
-const formatCraEntryDateLabel = (value: string) => {
-  const parsed = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return parsed.toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-};
-
-export default function SalarieWorkspace() {
+export default function SalarieWorkspace({
+  currentSection = defaultRouteProps.currentSection,
+  currentSubSection = defaultRouteProps.currentSubSection,
+}: SalarieWorkspaceRouteProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeRow[]>([]);
@@ -334,11 +223,12 @@ export default function SalarieWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (!supabase) return;
+    const client = supabase;
+    if (!client) return;
     const load = async () => {
       setLoading(true);
       setError(null);
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
       if (sessionError) {
         setError(sessionError.message);
         setLoading(false);
@@ -350,7 +240,7 @@ export default function SalarieWorkspace() {
         return;
       }
       setUser(sessionData.session.user);
-      const { data: profileData, error: profileError } = await supabase.from("profiles").select("id,email,full_name,role,professional_status").eq("id", sessionData.session.user.id).single();
+      const { data: profileData, error: profileError } = await client.from("profiles").select("id,email,full_name,role,professional_status").eq("id", sessionData.session.user.id).single();
       if (profileError || !profileData || profileData.role !== "salarie" || profileData.professional_status !== "verified") {
         setLoading(false);
         router.push("/auth");
@@ -386,9 +276,19 @@ export default function SalarieWorkspace() {
         Authorization: `Bearer ${accessToken}`,
       },
     });
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    const contentType = response.headers.get("content-type") ?? "";
+    const payload = contentType.includes("application/json")
+      ? ((await response.json().catch(() => null)) as { error?: string } | null)
+      : null;
+    const rawMessage = !payload
+      ? (await response.text().catch(() => "")).trim()
+      : "";
     if (!response.ok) {
-      throw new Error(payload?.error ?? "Requete salarie impossible.");
+      const fallbackMessage = `Requete salarie impossible (${response.status}).`;
+      throw new Error(
+        payload?.error ??
+          (rawMessage ? `${fallbackMessage} ${rawMessage}` : fallbackMessage),
+      );
     }
     return payload;
   }, []);
@@ -1063,28 +963,6 @@ export default function SalarieWorkspace() {
     setPasswordSaving(false);
   }, [passwordForm]);
 
-  const currentSection =
-    pathname.startsWith("/dashboard/salarie/documents")
-      ? "documents"
-      : pathname.startsWith("/dashboard/salarie/parametres")
-        ? "parametres"
-        : pathname.startsWith("/dashboard/salarie/offres") ||
-            pathname.startsWith("/dashboard/salarie/candidatures") ||
-            pathname.startsWith("/dashboard/salarie/cv")
-          ? "offres"
-          : "overview";
-  const currentSubSection =
-    pathname.startsWith("/dashboard/salarie/documents/a-deposer")
-      ? "docs_a_deposer"
-      : pathname.startsWith("/dashboard/salarie/documents/cra-facture")
-        ? "docs_cra_facture"
-      : pathname.startsWith("/dashboard/salarie/documents")
-        ? "docs_tous"
-        : pathname.startsWith("/dashboard/salarie/candidatures")
-          ? "candidatures"
-        : pathname.startsWith("/dashboard/salarie/cv")
-            ? "cvs"
-            : "offres_toutes";
   const pendingRequests = useMemo(() => requests.filter((request) => ["pending", "rejected", "expired"].includes(request.status)), [requests]);
   const selectedUploadType = useMemo(
     () => documentTypes.find((documentType) => documentType.id === uploadDocumentTypeId) ?? null,
@@ -1127,7 +1005,7 @@ export default function SalarieWorkspace() {
   const visibleDocuments = useMemo(
     () =>
       filteredDocuments.filter((document) =>
-        matchesDocumentFilters(document, {
+        matchesSalarieDocumentFilters(document, {
           type: documentTypeFilter,
           period: documentPeriodFilter,
           status: documentStatusFilter,
@@ -1177,7 +1055,7 @@ export default function SalarieWorkspace() {
 
   useEffect(() => {
     setProfileMenuOpen(false);
-  }, [pathname]);
+  }, [currentSection, currentSubSection]);
 
   useEffect(() => {
     if (!profileMenuOpen) return;
@@ -1204,8 +1082,8 @@ export default function SalarieWorkspace() {
   const handleSignOut = useCallback(async () => {
     if (!supabase) return;
     setProfileMenuOpen(false);
-    await supabase.auth.signOut();
-    router.push("/auth");
+    await forceClientSignOut(supabase);
+    router.push("/auth?logged_out=1");
   }, [router]);
 
   useEffect(() => {
@@ -1260,14 +1138,14 @@ export default function SalarieWorkspace() {
           </div>
         </aside>
 
-        <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[64px]">
+        <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[48px]">
           <div className="flex h-full items-stretch justify-center px-2 py-5" />
         </aside>
 
-        <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[64px] lg:px-3 lg:py-3">
+        <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[48px] lg:px-3 lg:py-3">
           <div className="hidden lg:flex items-center rounded-[30px] px-2 py-1.5">
             <div className="flex min-w-0 flex-1 items-center">
-              <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 shadow-[0_8px_24px_rgba(148,163,184,0.14)] backdrop-blur">
+              <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 backdrop-blur">
                   <Search className="h-4 w-4 text-[#0A1A2F]/55" />
                   <span className="text-sm text-[#0A1A2F]/55">Rechercher dans l&apos;espace salarie</span>
                   <SlidersHorizontal className="ml-auto h-4 w-4 text-[#0A1A2F]/45" />
@@ -1313,434 +1191,54 @@ export default function SalarieWorkspace() {
                 </Button>
               }
             />
-          )}
-
-          {currentSection === "documents" && (
-            <>
-              <SalarieDocumentsSection
-                currentSubSection={currentSubSection}
-                documentsCardTitle={documentsCardTitle}
-                billingProfileReady={billingProfileReady}
-                selectedCraId={selectedCraId}
-                selectedCraSummary={selectedCraSummary}
-                resetCraEditor={resetCraEditor}
-                onGenerateCraPdf={handleGenerateCraPdf}
-                onGenerateInvoicePdf={handleGenerateInvoicePdf}
-                craGenerating={craGenerating}
-                invoiceGenerating={invoiceGenerating}
-                craPeriodMonth={craPeriodMonth}
-                onCraPeriodMonthChange={handleCraPeriodMonthChange}
-                shiftMonthInputValue={shiftMonthInputValue}
-                craDraftTotalDays={craDraftTotalDays}
-                craNotes={craNotes}
-                onCraNotesChange={setCraNotes}
-                weekdayLabels={weekdayLabels}
-                craCalendarCells={craCalendarCells}
-                craEntriesByDate={craEntriesByDate}
-                craEntries={craEntries}
-                toggleCraWorkDate={toggleCraWorkDate}
-                formatCraEntryDateLabel={formatCraEntryDateLabel}
-                updateCraEntry={updateCraEntry}
-                visibleDocuments={visibleDocuments}
-                documentTypeFilter={documentTypeFilter}
-                documentPeriodFilter={documentPeriodFilter}
-                documentStatusFilter={documentStatusFilter}
-                documentFilterOptions={documentFilterOptions}
-                onDocumentTypeFilterChange={setDocumentTypeFilter}
-                onDocumentPeriodFilterChange={setDocumentPeriodFilter}
-                onDocumentStatusFilterChange={setDocumentStatusFilter}
-                onViewDocument={handleViewDocument}
-                onDownloadDocument={handleDownloadDocument}
-                onDeleteDocument={handleDeleteDocument}
-                onOpenCommentDialog={openCommentDialog}
-                onOpenEditDialog={openEditDialog}
-                viewingDocumentId={viewingDocumentId}
-                downloadingDocumentId={downloadingDocumentId}
-                deletingDocumentId={deletingDocumentId}
-                savingDocumentId={savingDocumentId}
-                pendingRequests={pendingRequests}
-                openUploadDialog={openUploadDialog}
-                formatDate={formatDate}
-                formatMonth={formatMonth}
-                formatDocumentStatus={formatDocumentStatus}
-              />
-              {false && (
-                <section className="space-y-4">
-                  <div className="flex flex-row items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold text-[#0A1A2F]">{documentsCardTitle}</h2>
-                  </div>
-                  <div>
-                {currentSubSection === "docs_cra_facture" ? (
-                  <div className="space-y-6">
-                    <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-[#0A1A2F]/80">
-                      Cette page permet de generer un CRA et une facture PDF a partir de la meme periode de travail.
-                    </div>
-
-                    <div className="max-w-5xl">
-                      <Card className="border-0 shadow-none">
-                        <CardHeader className="flex flex-row items-center justify-between gap-3">
-                          <div>
-                            <CardTitle className="text-base">{selectedCraId ? "CRA en cours" : "Nouveau CRA"}</CardTitle>
-                            <p className="mt-1 text-sm text-[#0A1A2F]/70">
-                              {selectedCraSummary ? `Statut actuel: ${selectedCraSummary.status} | PDF v${selectedCraSummary.pdf_version}` : "Selectionne tes jours, puis genere directement le PDF depuis cette page."}
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Button type="button" variant="outline" size="sm" onClick={resetCraEditor}>
-                              Remettre a 0
-                            </Button>
-                            <Button type="button" size="sm" onClick={() => void handleGenerateCraPdf()} disabled={craGenerating || invoiceGenerating}>
-                              {craGenerating ? "Generation..." : "Generer un CRA"}
-                            </Button>
-                            <Button type="button" variant="outline" size="sm" onClick={handleGenerateInvoicePdf} disabled={invoiceGenerating || craGenerating}>
-                              {invoiceGenerating ? "Generation..." : "Generer une facture"}
-                            </Button>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-5">
-                          {!billingProfileReady && (
-                            <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                              Enregistre d&apos;abord ton profil de facturation pour pouvoir creer un CRA.
-                            </div>
-                          )}
-
-                          <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-1">
-                              <label className="text-sm font-medium">Periode</label>
-                              <div className="flex items-center gap-2">
-                                <Button type="button" variant="outline" size="icon" onClick={() => handleCraPeriodMonthChange(shiftMonthInputValue(craPeriodMonth, -1))}>
-                                  <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <input type="month" value={craPeriodMonth} onChange={(event) => handleCraPeriodMonthChange(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
-                                <Button type="button" variant="outline" size="icon" onClick={() => handleCraPeriodMonthChange(shiftMonthInputValue(craPeriodMonth, 1))}>
-                                  <ChevronRight className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-sm font-medium">Total saisi</label>
-                              <div className="flex h-10 items-center rounded-md bg-slate-50 px-3 text-sm">{craDraftTotalDays.toFixed(2)} jour(s)</div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-sm font-medium">Notes</label>
-                            <textarea value={craNotes} onChange={(event) => setCraNotes(event.target.value)} rows={4} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Commentaire interne, precision de mission, etc." />
-                          </div>
-
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <p className="font-medium">Journees travaillees</p>
-                                <p className="text-sm text-[#0A1A2F]/70">Clique sur les jours travailles dans le calendrier pour les ajouter ou les retirer.</p>
-                              </div>
-                              <Badge variant="outline">{craEntries.length} selection(s)</Badge>
-                            </div>
-                            <div className="rounded-xl bg-slate-50/70 p-4">
-                              <div className="mb-3 grid grid-cols-7 gap-2">
-                                {weekdayLabels.map((label) => (
-                                  <div key={label} className="px-1 text-center text-xs font-medium uppercase tracking-wide text-[#0A1A2F]/50">
-                                    {label}
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="grid grid-cols-7 gap-2">
-                                {craCalendarCells.map((cell, index) => {
-                                  const isoDate = cell.isoDate;
-                                  const dayNumber = cell.dayNumber;
-
-                                  if (!isoDate || !dayNumber) {
-                                    return <div key={`empty-${index}`} className="aspect-square rounded-lg bg-slate-50/60" />;
-                                  }
-
-                                  const parsedDate = new Date(`${isoDate}T00:00:00`);
-                                  const isWeekend = [0, 6].includes(parsedDate.getDay());
-                                  const isSelected = craEntriesByDate.has(isoDate);
-
-                                  return (
-                                    <button
-                                      key={isoDate}
-                                      type="button"
-                                      onClick={() => toggleCraWorkDate(isoDate)}
-                                      className={cn(
-                                        "aspect-square rounded-lg border border-transparent text-sm transition-colors",
-                                        isSelected
-                                          ? "border-[#2aa0dd] bg-[#2aa0dd] text-white"
-                                          : "bg-white text-[#0A1A2F] hover:bg-slate-100",
-                                        isWeekend && !isSelected ? "text-[#0A1A2F]/55" : "",
-                                      )}
-                                      aria-pressed={isSelected}
-                                    >
-                                      {dayNumber}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-
-                            <div className="space-y-3">
-                              <p className="text-sm font-medium">Jours selectionnes</p>
-                              {craEntries.length ? (
-                                craEntries.map((entry) => (
-                                  <div key={entry.workDate} className="grid gap-3 rounded-lg bg-slate-50 p-3 md:grid-cols-[1.1fr_120px_1.3fr_auto]">
-                                    <div className="space-y-1">
-                                      <label className="text-xs font-medium text-[#0A1A2F]/70">Date</label>
-                                      <div className="flex h-10 items-center rounded-md bg-white px-3 text-sm capitalize">
-                                        {formatCraEntryDateLabel(entry.workDate)}
-                                      </div>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <label className="text-xs font-medium text-[#0A1A2F]/70">Jours</label>
-                                      <input
-                                        type="number"
-                                        min="0.25"
-                                        max="1"
-                                        step="0.25"
-                                        value={entry.dayQuantity}
-                                        onChange={(event) => updateCraEntry(entry.workDate, { dayQuantity: event.target.value })}
-                                        className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
-                                      />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <label className="text-xs font-medium text-[#0A1A2F]/70">Libelle</label>
-                                      <input
-                                        value={entry.label}
-                                        onChange={(event) => updateCraEntry(entry.workDate, { label: event.target.value })}
-                                        className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
-                                        placeholder="Mission client, support, intervention..."
-                                      />
-                                    </div>
-                                    <div className="flex items-end">
-                                      <Button type="button" variant="destructive" size="sm" onClick={() => toggleCraWorkDate(entry.workDate)}>
-                                        Retirer
-                                      </Button>
-                                    </div>
-                                  </div>
-                                ))
-                              ) : (
-                                <div className="rounded-lg bg-slate-50 px-4 py-6 text-sm text-[#0A1A2F]/65">
-                                  Aucun jour selectionne pour cette periode.
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-	                    <div className="space-y-3">
-	                      <div className="flex items-center justify-between gap-3">
-	                        <p className="font-medium">Documents CRA & Facture generes ou deposes</p>
-	                        <Badge variant="outline">{visibleDocuments.length}</Badge>
-	                      </div>
-	                      <DocumentFiltersBar
-                      fields={["type", "period", "status"]}
-                      values={{ type: documentTypeFilter, period: documentPeriodFilter, status: documentStatusFilter, owner: "all" }}
-                      options={documentFilterOptions}
-                      onChange={(field, value) => {
-                        if (field === "type") setDocumentTypeFilter(value);
-                        if (field === "period") setDocumentPeriodFilter(value);
-                        if (field === "status") setDocumentStatusFilter(value);
-                      }}
-                    />
-	                      {visibleDocuments.length ? (
-	                        <DashboardDocumentList
-	                          items={visibleDocuments.map((document) => ({
-                            ...document,
-                            ownerName: document.uploadedByName,
-                            createdAt: document.createdAt,
-                            statusLabel: formatDocumentStatus(document.status),
-                            periodLabel: formatMonth(document.periodMonth),
-                            details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
-                          }))}
-                          storageKey="salarie-documents-cra-facture-columns"
-                          renderActions={(document, closeMenu) => (
-                            <>
-                              {document.fileName.toLowerCase().endsWith(".pdf") ? (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="w-full justify-start"
-                                  onClick={() => { closeMenu(); void handleViewDocument(document); }}
-                                  disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
-                                >
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  Visualiser
-                                </Button>
-                              ) : null}
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="w-full justify-start"
-                                onClick={() => { closeMenu(); void handleDownloadDocument(document); }}
-                                disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
-                              >
-                                <Download className="mr-2 h-4 w-4" />
-                                Télécharger
-                              </Button>
-	                              {document.reviewComment ? (
-	                                <Button
-	                                  type="button"
-	                                  variant="ghost"
-	                                  size="sm"
-	                                  className="w-full justify-start"
-	                                  onClick={() => { closeMenu(); openCommentDialog(document); }}
-	                                >
-	                                  <MessageSquareText className="mr-2 h-4 w-4" />
-	                                  Voir commentaire RH
-	                                </Button>
-	                              ) : null}
-	                              {document.status !== "validated" ? (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="w-full justify-start text-red-600 hover:text-red-700"
-                                  onClick={() => { closeMenu(); void handleDeleteDocument(document); }}
-                                  disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Supprimer
-                                </Button>
-                              ) : (
-                                <Badge variant="outline">Verrouillé</Badge>
-                              )}
-                            </>
-                          )}
-                        />
-                      ) : (
-                        <p className="text-sm text-[#0A1A2F]/70">Aucun CRA ou facture depose pour le moment.</p>
-                      )}
-                    </div>
-                  </div>
-                ) : currentSubSection === "docs_a_deposer" ? (
-                  <div className="space-y-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-medium">Demandes RH ouvertes</p>
-                        <Badge variant="outline">{pendingRequests.length}</Badge>
-                      </div>
-                      {pendingRequests.length ? pendingRequests.map((request) => (
-                        <div key={request.id} className="rounded-lg border border-slate-200 p-4">
-                          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                            <div className="space-y-1">
-                              <p className="font-medium">{request.typeLabel}</p>
-                              <p className="text-sm text-[#0A1A2F]/70">Periode: {formatMonth(request.periodMonth)}</p>
-                              <p className="text-sm text-[#0A1A2F]/70">Echeance: {formatDate(request.dueAt)}</p>
-                              <p className="text-sm text-[#0A1A2F]/70">Note: {request.note ?? "-"}</p>
-                            </div>
-                            <Badge variant="outline">{request.status}</Badge>
-                          </div>
-                          <div className="mt-4">
-                            <Button type="button" variant="outline" size="sm" onClick={() => openUploadDialog(request.id)}>
-                              Utiliser cette demande
-                            </Button>
-                          </div>
-                        </div>
-                      )) : <p className="text-sm text-[#0A1A2F]/70">Aucune demande RH ouverte pour le moment.</p>}
-                    </div>
-                  </div>
-	                ) : (
-	                  <div className="space-y-3">
-	                    <DocumentFiltersBar
-                      fields={["type", "period", "status"]}
-                      values={{ type: documentTypeFilter, period: documentPeriodFilter, status: documentStatusFilter, owner: "all" }}
-                      options={documentFilterOptions}
-                      onChange={(field, value) => {
-                        if (field === "type") setDocumentTypeFilter(value);
-                        if (field === "period") setDocumentPeriodFilter(value);
-                        if (field === "status") setDocumentStatusFilter(value);
-                      }}
-                    />
-		                    {visibleDocuments.length ? (
-	                  <DashboardDocumentList
-	                    items={visibleDocuments.map((document) => ({
-                      ...document,
-                      ownerName: document.uploadedByName,
-                      createdAt: document.createdAt,
-                      statusLabel: formatDocumentStatus(document.status),
-                      periodLabel: formatMonth(document.periodMonth),
-                      details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
-                    }))}
-                    storageKey="salarie-documents-columns"
-                    renderActions={(document, closeMenu) => (
-                      <>
-                        {document.fileName.toLowerCase().endsWith(".pdf") ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-start"
-                            onClick={() => { closeMenu(); void handleViewDocument(document); }}
-                            disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}
-                          >
-                            <Eye className="mr-2 h-4 w-4" />
-                            Visualiser
-                          </Button>
-                        ) : null}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => { closeMenu(); void handleDownloadDocument(document); }}
-                          disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          Télécharger
-                        </Button>
-	                        {document.reviewComment ? (
-	                          <Button
-	                            type="button"
-	                            variant="ghost"
-	                            size="sm"
-	                            className="w-full justify-start"
-	                            onClick={() => { closeMenu(); openCommentDialog(document); }}
-	                          >
-	                            <MessageSquareText className="mr-2 h-4 w-4" />
-	                            Voir commentaire RH
-	                          </Button>
-	                        ) : null}
-	                        {document.status !== "validated" ? (
-                          <>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="w-full justify-start"
-                              onClick={() => { closeMenu(); openEditDialog(document); }}
-                              disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
-                            >
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Modifier
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="w-full justify-start text-red-600 hover:text-red-700"
-                              onClick={() => { closeMenu(); void handleDeleteDocument(document); }}
-                              disabled={deletingDocumentId === document.id || savingDocumentId === document.id}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Supprimer
-                            </Button>
-                          </>
-                        ) : (
-                          <Badge variant="outline">Verrouillé</Badge>
-                        )}
-                      </>
-                    )}
-	                  />
-	                ) : <p className="text-sm text-[#0A1A2F]/70">Aucun document depose pour le moment.</p>}
-	                  </div>
-	                )}
-                  </div>
-                </section>
-              )}
-            </>
+          )}          {currentSection === "documents" && (
+            <SalarieDocumentsSection
+              currentSubSection={currentSubSection}
+              documentsCardTitle={documentsCardTitle}
+              billingProfileReady={billingProfileReady}
+              selectedCraId={selectedCraId}
+              selectedCraSummary={selectedCraSummary}
+              resetCraEditor={resetCraEditor}
+              onGenerateCraPdf={handleGenerateCraPdf}
+              onGenerateInvoicePdf={handleGenerateInvoicePdf}
+              craGenerating={craGenerating}
+              invoiceGenerating={invoiceGenerating}
+              craPeriodMonth={craPeriodMonth}
+              onCraPeriodMonthChange={handleCraPeriodMonthChange}
+              shiftMonthInputValue={shiftMonthInputValue}
+              craDraftTotalDays={craDraftTotalDays}
+              craNotes={craNotes}
+              onCraNotesChange={setCraNotes}
+              weekdayLabels={weekdayLabels}
+              craCalendarCells={craCalendarCells}
+              craEntriesByDate={craEntriesByDate}
+              craEntries={craEntries}
+              toggleCraWorkDate={toggleCraWorkDate}
+              formatCraEntryDateLabel={formatCraEntryDateLabel}
+              updateCraEntry={updateCraEntry}
+              visibleDocuments={visibleDocuments}
+              documentTypeFilter={documentTypeFilter}
+              documentPeriodFilter={documentPeriodFilter}
+              documentStatusFilter={documentStatusFilter}
+              documentFilterOptions={documentFilterOptions}
+              onDocumentTypeFilterChange={setDocumentTypeFilter}
+              onDocumentPeriodFilterChange={setDocumentPeriodFilter}
+              onDocumentStatusFilterChange={setDocumentStatusFilter}
+              onViewDocument={handleViewDocument}
+              onDownloadDocument={handleDownloadDocument}
+              onDeleteDocument={handleDeleteDocument}
+              onOpenCommentDialog={openCommentDialog}
+              onOpenEditDialog={openEditDialog}
+              viewingDocumentId={viewingDocumentId}
+              downloadingDocumentId={downloadingDocumentId}
+              deletingDocumentId={deletingDocumentId}
+              savingDocumentId={savingDocumentId}
+              pendingRequests={pendingRequests}
+              openUploadDialog={openUploadDialog}
+              formatDate={formatDate}
+              formatMonth={formatMonth}
+              formatDocumentStatus={formatDocumentStatus}
+            />
           )}
 
           {currentSection === "offres" && (
@@ -1986,5 +1484,8 @@ export default function SalarieWorkspace() {
     </div>
   );
 }
+
+
+
 
 

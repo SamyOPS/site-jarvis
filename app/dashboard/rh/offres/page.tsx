@@ -1,3 +1,7 @@
-﻿export default function RhOffresPage() {
-  return null;
+import RhWorkspace from "../rh-workspace";
+
+import { RH_WORKSPACE_ROUTES } from "@/features/dashboard/rh/navigation";
+
+export default function RhOffresPage() {
+  return <RhWorkspace {...RH_WORKSPACE_ROUTES.offres} />;
 }

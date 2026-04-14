@@ -6,6 +6,8 @@ import { buildCraPdfBuffer } from "@/lib/cra-pdf";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toDocumentDate } from "@/lib/server-supabase";
 
+export const runtime = "nodejs";
+
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const logoRgbBase64 = await readFile(
