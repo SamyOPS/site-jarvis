@@ -228,16 +228,7 @@ export default function Home() {
 
 
 
-  const aboutAchievements = [
-
-    { label: "Clients accompagnés", value: "50+" },
-
-    { label: "Projets délivrés", value: "250+" },
-
-    { label: "Satisfaction", value: "98%" },
-
-  ];
-
+ 
 
 
   const expertiseTabs = expertises.map((item, index) => ({
@@ -363,11 +354,6 @@ export default function Home() {
 
             companies={aboutCompanies}
 
-            achievementsTitle="Notre impact"
-
-            achievementsDescription="Une équipe senior, des process industriels et une culture de la disponibilité pour vos utilisateurs."
-
-            achievements={aboutAchievements}
 
           />
 
@@ -446,7 +432,9 @@ export default function Home() {
 
         </section>
 
-
+                 <section id="clients">
+              
+            </section>
 
         <section id="offres" className="text-[#2aa0dd]">
           <OffresEmploi
@@ -465,7 +453,9 @@ export default function Home() {
           />
 
         </section>
+        
         <section>
+          
   <FranceMap />
   </section>
 

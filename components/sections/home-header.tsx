@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { ChevronDown, LogIn } from "lucide-react";
+import { ChevronDown, LogIn, Menu, X } from "lucide-react";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -33,16 +32,31 @@ type ProfileRow = {
   role: string | null;
 };
 
+const navLinks = [
+  { label: "Expertises", href: "#expertises" },
+  { label: "Clients", href: "#clients" },
+  { label: "Actualités", href: "#actualites" },
+  { label: "Formations", href: "#formations" },
+  { label: "Offres", href: "#offres" },
+];
+
 export function HomeHeader() {
   const [userLabel, setUserLabel] = useState<string | null>(null);
   const [dashboardPath, setDashboardPath] = useState("/auth");
   const [settingsPath, setSettingsPath] = useState("/auth");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!supabase) return;
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
+  useEffect(() => {
+    if (!supabase) return;
     let isMounted = true;
 
     const loadUserState = async () => {
@@ -76,13 +90,8 @@ export function HomeHeader() {
 
       if (!isMounted) return;
 
-      if (profile?.full_name) {
-        resolvedLabel = profile.full_name;
-      }
-
-      if (profile?.role) {
-        resolvedRole = profile.role;
-      }
+      if (profile?.full_name) resolvedLabel = profile.full_name;
+      if (profile?.role) resolvedRole = profile.role;
 
       setUserLabel(resolvedLabel);
       setDashboardPath(getDashboardPath(resolvedRole));
@@ -91,9 +100,7 @@ export function HomeHeader() {
 
     void loadUserState();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       void loadUserState();
     });
 
@@ -105,93 +112,126 @@ export function HomeHeader() {
 
   useEffect(() => {
     if (!menuOpen) return;
-
     const handlePointerDown = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handlePointerDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-    };
+    return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [menuOpen]);
 
   const handleSignOut = async () => {
-    if (!supabase) {
-      window.location.href = "/";
-      return;
-    }
-
+    if (!supabase) { window.location.href = "/"; return; }
     await supabase.auth.signOut();
     setMenuOpen(false);
     window.location.href = "/";
   };
 
   return (
-    <header className="absolute inset-x-0 top-0 z-50">
-      <div className="w-full px-4 pt-4 sm:px-6 lg:px-8">
-        <div className="relative grid w-full grid-cols-[1fr_auto] items-center px-0 py-2 text-white">
+    <header
+      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
+        scrolled
+          ? "bg-[#0A1A2F]/95 backdrop-blur-md shadow-lg shadow-black/20"
+          : "bg-transparent"
+      }`}
+    >
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
+
           <Link
             href="/"
-            className="absolute left-1/2 -translate-x-1/2 text-center text-sm font-semibold uppercase tracking-[0.28em] text-white sm:text-base"
+            className="flex items-center gap-2.5 hover:opacity-85 transition-opacity duration-200"
           >
-            Jarvis Connect
+            <img
+              src="/logo jarvis.png"
+              alt="Jarvis Connect"
+              className="h-25 w-25 object-contain"
+            />
+            <span className="text-sm font-bold uppercase tracking-[0.28em] text-white">
+              Jarvis Connect
+            </span>
           </Link>
 
-          {userLabel ? (
-            <div className="relative justify-self-end" ref={menuRef}>
-              <button
-                type="button"
-                aria-label={userLabel}
-                onClick={() => setMenuOpen((open) => !open)}
-                className="inline-flex max-w-[220px] items-center justify-end gap-2 text-right text-sm font-semibold text-white transition hover:opacity-75"
+          {/* Nav desktop */}
+          <nav className="hidden md:flex items-center gap-1">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="px-4 py-2 text-sm font-medium text-white/80 hover:text-[#2aa0dd] hover:bg-white/5 rounded-lg transition-all duration-200"
               >
-                <span className="truncate">{userLabel}</span>
-                <ChevronDown
-                  className={`h-4 w-4 shrink-0 transition-transform ${
-                    menuOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
+                {link.label}
+              </Link>
+            ))}
+          </nav>
 
-              {menuOpen ? (
-                <div className="absolute right-0 mt-3 w-48 rounded-2xl bg-white p-2 text-[#0A1A2F] shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
-                  <Link
-                    href={dashboardPath}
-                    className="block rounded-xl px-3 py-2 text-sm font-medium transition hover:bg-[#f4f7fa]"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Mon espace
-                  </Link>
-                  <Link
-                    href={settingsPath}
-                    className="block rounded-xl px-3 py-2 text-sm font-medium transition hover:bg-[#f4f7fa]"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Parametres
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => void handleSignOut()}
-                    className="block w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
-                  >
-                    Deconnexion
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <Link
-              href="/auth"
-              aria-label="Connexion"
-              className="inline-flex h-11 w-11 items-center justify-center text-white transition hover:opacity-75"
+          {/* Actions */}
+          <div className="flex items-center gap-3">
+            {userLabel ? (
+              <div className="relative" ref={menuRef}>
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((o) => !o)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
+                >
+                  <span className="max-w-[140px] truncate">{userLabel}</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${menuOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {menuOpen && (
+                  <div className="absolute right-0 mt-3 w-48 rounded-2xl bg-white p-2 text-[#0A1A2F] shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+                    <Link href={dashboardPath} className="block rounded-xl px-3 py-2 text-sm font-medium transition hover:bg-[#f4f7fa]" onClick={() => setMenuOpen(false)}>
+                      Mon espace
+                    </Link>
+                    <Link href={settingsPath} className="block rounded-xl px-3 py-2 text-sm font-medium transition hover:bg-[#f4f7fa]" onClick={() => setMenuOpen(false)}>
+                      Paramètres
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => void handleSignOut()}
+                      className="block w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
+                    >
+                      Déconnexion
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                href="/auth"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#2aa0dd] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1e8bbf] active:scale-95"
+              >
+                <LogIn className="h-4 w-4" />
+                Connexion
+              </Link>
+            )}
+
+            <button
+              type="button"
+              className="md:hidden inline-flex items-center justify-center rounded-lg p-2 text-white hover:bg-white/10 transition"
+              onClick={() => setMobileOpen((o) => !o)}
             >
-              <LogIn className="h-5 w-5" />
-            </Link>
-          )}
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
+
+        {/* Menu mobile */}
+        {mobileOpen && (
+          <div className="md:hidden border-t border-white/10 bg-[#0A1A2F]/95 backdrop-blur-md pb-4">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="block px-4 py-3 text-sm font-medium text-white/80 hover:text-[#2aa0dd] transition-colors"
+                onClick={() => setMobileOpen(false)}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </header>
   );
