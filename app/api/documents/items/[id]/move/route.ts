@@ -47,15 +47,45 @@ export async function POST(request: Request, context: RouteContext) {
       }
     }
 
-    const employeeUpdate = await auth.adminClient
+    const { data: employeeDocument, error: employeeDocumentError } = await auth.adminClient
       .from("employee_documents")
-      .update({ folder_id: folderId })
+      .select("id,employee_id,uploader_role,uploaded_by,deleted_at")
       .eq("id", documentId)
-      .eq("employee_id", ownerUserId)
-      .select("id,folder_id")
       .maybeSingle();
 
-    if (!employeeUpdate.error && employeeUpdate.data) {
+    if (employeeDocumentError) {
+      return NextResponse.json({ error: employeeDocumentError.message }, { status: 400 });
+    }
+
+    if (employeeDocument) {
+      if (employeeDocument.deleted_at) {
+        return NextResponse.json({ error: "Document place dans la corbeille." }, { status: 400 });
+      }
+
+      const ownsDocument = employeeDocument.employee_id === ownerUserId;
+      const isRhOwnDocumentMove =
+        employeeDocument.uploader_role === "rh" &&
+        employeeDocument.uploaded_by === auth.actorId &&
+        ownerUserId === auth.actorId;
+
+      if (!ownsDocument && !isRhOwnDocumentMove && auth.actorRole !== "admin") {
+        return NextResponse.json({ error: "Acces refuse." }, { status: 403 });
+      }
+
+      const employeeUpdate = await auth.adminClient
+        .from("employee_documents")
+        .update({ folder_id: folderId })
+        .eq("id", documentId)
+        .select("id,folder_id")
+        .maybeSingle();
+
+      if (employeeUpdate.error) {
+        return NextResponse.json({ error: employeeUpdate.error.message }, { status: 400 });
+      }
+      if (!employeeUpdate.data) {
+        return NextResponse.json({ error: "Document introuvable." }, { status: 404 });
+      }
+
       return NextResponse.json({ item: employeeUpdate.data, source: "employee_documents" });
     }
 
@@ -70,10 +100,7 @@ export async function POST(request: Request, context: RouteContext) {
     if (userUpdate.error) {
       return NextResponse.json(
         {
-          error:
-            employeeUpdate.error?.message ??
-            userUpdate.error.message ??
-            "Mouvement du document impossible.",
+          error: userUpdate.error.message ?? "Mouvement du document impossible.",
         },
         { status: 400 },
       );
@@ -90,4 +117,3 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 }
-

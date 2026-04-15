@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { safeGetClientSession } from "@/lib/client-auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -126,20 +127,20 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
     let isMounted = true;
 
     const redirectIfAuthenticated = async () => {
-      const { data, error } = await supabase.auth.getSession();
+      const { session, error } = await safeGetClientSession(supabase);
 
-      if (error || !data.session?.user || !isMounted) {
+      if (error || !session?.user || !isMounted) {
         return;
       }
 
       let resolvedRole = (
-        data.session.user.user_metadata as { role?: string } | undefined
+        session.user.user_metadata as { role?: string } | undefined
       )?.role;
 
       const { data: profileRow } = await supabase
         .from("profiles")
         .select("role,professional_status")
-        .eq("id", data.session.user.id)
+        .eq("id", session.user.id)
         .maybeSingle();
 
       if (!isMounted) return;
@@ -149,8 +150,8 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
       }
       const access = resolveDashboardAccess(
         resolvedRole,
-        profileRow?.professional_status ??
-          ((data.session.user.user_metadata as { professional_status?: string } | undefined)
+          profileRow?.professional_status ??
+          ((session.user.user_metadata as { professional_status?: string } | undefined)
             ?.professional_status ?? null)
       );
       if (!access.allowed) {
@@ -422,10 +423,6 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
                 >
                   {loading ? "Connexion en cours..." : "Se connecter"}
                 </Button>
-
-                <p className="text-xs leading-relaxed text-[#4f5e66]">
-                  Assure-toi que NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY sont bien renseignees dans .env.local.
-                </p>
               </form>
             ) : (
               <form onSubmit={handleRegisterSubmit} className="space-y-4">

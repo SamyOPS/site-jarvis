@@ -15,6 +15,7 @@ export type RhDashboardSubSection =
   | "docs_a_valider"
   | "docs_mes_demandes"
   | "docs_salaries"
+  | "docs_corbeille"
   | "offres_actives"
   | "offres_candidatures"
   | "offres_archives"
@@ -58,6 +59,10 @@ export const RH_WORKSPACE_ROUTES = {
   documentsSalaries: {
     currentSection: "documents",
     currentSubSection: "docs_salaries",
+  },
+  documentsCorbeille: {
+    currentSection: "documents",
+    currentSubSection: "docs_corbeille",
   },
   offres: {
     currentSection: "offres",

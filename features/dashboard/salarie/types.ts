@@ -37,6 +37,9 @@ export type SalarieDocumentRow = {
   id: string;
   documentTypeId: string;
   folderId: string | null;
+  folderDeletedAt: string | null;
+  deletedAt: string | null;
+  uploaderRole: string | null;
   status: DocumentStatus;
   uploadedByName: string;
   fileName: string;
@@ -55,6 +58,7 @@ export type DocumentFolderRow = {
   ownerUserId: string;
   name: string;
   parentId: string | null;
+  deletedAt?: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };

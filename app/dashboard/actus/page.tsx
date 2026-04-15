@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { safeGetClientSession } from "@/lib/client-auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -89,8 +90,7 @@ export default function DashboardActusPage() {
         setError("Configuration Supabase manquante.");
         return;
       }
-      const { data: sessionData } = await supabase.auth.getSession();
-      const currentSession = sessionData?.session ?? null;
+      const { session: currentSession } = await safeGetClientSession(supabase);
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
 

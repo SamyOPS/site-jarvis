@@ -248,15 +248,16 @@ export async function DELETE(request: Request) {
     }
     const { adminClient, user, actorProfile } = authorized;
 
-    const body = (await request.json().catch(() => null)) as { documentId?: string } | null;
+    const body = (await request.json().catch(() => null)) as { documentId?: string; permanent?: boolean } | null;
     const documentId = body?.documentId ?? "";
+    const permanent = body?.permanent === true;
     if (!documentId) {
       return NextResponse.json({ error: "Document RH introuvable." }, { status: 400 });
     }
 
     const { data: documentRow, error: documentError } = await adminClient
       .from("employee_documents")
-      .select("id,employee_id,document_type_id,period_month,storage_bucket,storage_path,uploader_role,uploaded_by,status")
+      .select("id,employee_id,document_type_id,period_month,storage_bucket,storage_path,uploader_role,uploaded_by,status,deleted_at")
       .eq("id", documentId)
       .single();
 
@@ -294,6 +295,33 @@ export async function DELETE(request: Request) {
       (matchingRequests ?? [])[0] ??
       null;
 
+    if (!permanent) {
+      const { error: documentSoftDeleteError } = await adminClient
+        .from("employee_documents")
+        .update({ deleted_at: now, updated_at: now })
+        .eq("id", documentId);
+      if (documentSoftDeleteError) {
+        return NextResponse.json({ error: documentSoftDeleteError.message }, { status: 400 });
+      }
+      if (matchingRequest) {
+        const { error: requestUpdateError } = await adminClient
+          .from("document_requests")
+          .update({ status: "pending", updated_at: now })
+          .eq("id", matchingRequest.id);
+
+        if (requestUpdateError) {
+          return NextResponse.json({ error: requestUpdateError.message }, { status: 400 });
+        }
+      }
+      return NextResponse.json({ success: true, deleted: true, permanent: false });
+    }
+    if (!documentRow.deleted_at) {
+      return NextResponse.json(
+        { error: "Le document doit etre dans la corbeille avant suppression definitive." },
+        { status: 400 },
+      );
+    }
+
     const { error: eventsDeleteError } = await adminClient.from("document_events").delete().eq("document_id", documentId);
     if (eventsDeleteError) {
       return NextResponse.json({ error: eventsDeleteError.message }, { status: 400 });
@@ -319,7 +347,65 @@ export async function DELETE(request: Request) {
       await adminClient.storage.from(documentRow.storage_bucket || "employee-documents").remove([documentRow.storage_path]);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, deleted: true, permanent: true });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const authHeader = request.headers.get("authorization");
+    const accessToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!accessToken) {
+      return NextResponse.json({ error: "Session RH manquante." }, { status: 401 });
+    }
+
+    const authorized = await getAuthorizedActor(accessToken);
+    if ("error" in authorized) {
+      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
+    }
+    const { adminClient, user, actorProfile } = authorized;
+
+    const body = (await request.json().catch(() => null)) as { documentId?: string } | null;
+    const documentId = body?.documentId ?? "";
+    if (!documentId) {
+      return NextResponse.json({ error: "Document RH introuvable." }, { status: 400 });
+    }
+
+    const { data: documentRow, error: documentError } = await adminClient
+      .from("employee_documents")
+      .select("id,employee_id,uploader_role,uploaded_by,deleted_at")
+      .eq("id", documentId)
+      .single();
+    if (documentError || !documentRow) {
+      return NextResponse.json({ error: documentError?.message ?? "Document introuvable." }, { status: 404 });
+    }
+    if (documentRow.uploader_role !== "rh") {
+      return NextResponse.json({ error: "Seuls les documents RH peuvent etre restaures ici." }, { status: 403 });
+    }
+    if (actorProfile.role !== "admin" && documentRow.uploaded_by !== user.id) {
+      return NextResponse.json({ error: "Tu ne peux restaurer que tes propres documents RH." }, { status: 403 });
+    }
+    if (actorProfile.role !== "admin") {
+      const access = await canRhAccessEmployee(adminClient, actorProfile.id, documentRow.employee_id ?? "");
+      if (!access.allowed) {
+        if (access.error) {
+          return NextResponse.json({ error: access.error }, { status: 400 });
+        }
+        return NextResponse.json({ error: "Ce document n'appartient pas a un collaborateur autorise." }, { status: 403 });
+      }
+    }
+
+    const { error: restoreError } = await adminClient
+      .from("employee_documents")
+      .update({ deleted_at: null, updated_at: new Date().toISOString() })
+      .eq("id", documentId);
+    if (restoreError) {
+      return NextResponse.json({ error: restoreError.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true, restored: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
   }

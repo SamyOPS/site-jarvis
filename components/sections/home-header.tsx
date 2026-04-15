@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { ChevronDown, LogIn, Menu, X } from "lucide-react";
+import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -60,8 +61,8 @@ export function HomeHeader() {
     let isMounted = true;
 
     const loadUserState = async () => {
-      const { data } = await supabase.auth.getSession();
-      const user = data.session?.user;
+      const { session } = await safeGetClientSession(supabase);
+      const user = session?.user;
 
       if (!user) {
         if (!isMounted) return;
@@ -123,7 +124,7 @@ export function HomeHeader() {
 
   const handleSignOut = async () => {
     if (!supabase) { window.location.href = "/"; return; }
-    await supabase.auth.signOut();
+    await forceClientSignOut(supabase);
     setMenuOpen(false);
     window.location.href = "/";
   };
