@@ -1,5 +1,5 @@
 ﻿import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Download, Eye, RotateCcw, Trash2 } from "lucide-react";
+import { Check, ChevronDown, Download, Eye, RotateCcw, Trash2, X } from "lucide-react";
 
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import { Fragment, useMemo } from "react";
@@ -7,6 +7,14 @@ import { FolderOpen, Pencil } from "lucide-react";
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { RhDocumentFolderRow, RhDocumentRow, RhRequestRow as RequestRow } from "@/features/dashboard/rh/types";
 
 const RH_SHARED_COLUMNS_STORAGE_KEY = "rh-documents-shared-columns";
@@ -34,6 +42,7 @@ type RhDocumentsSectionProps = {
   requests: RequestRow[];
   cancellingRequestId: string | null;
   onCancelRequest: (request: RequestRow) => void | Promise<void>;
+  filteredAllDocuments: RhDocumentRow[];
   filteredSalarieDocuments: RhDocumentRow[];
   filteredPendingDocuments: RhDocumentRow[];
   filteredRhDocuments: RhDocumentRow[];
@@ -50,6 +59,7 @@ type RhDocumentsSectionProps = {
   onRhRestoreFolder: (folderId: string) => void | Promise<void>;
   onRhPurgeFolder: (folderId: string) => void | Promise<void>;
   onRhMoveDocumentToFolder: (document: RhDocumentRow, folderId: string) => void | Promise<void>;
+  onRhMoveDocumentToRoot: (document: RhDocumentRow) => void | Promise<void>;
   onViewDocument: (document: RhDocumentRow) => void | Promise<void>;
   onDownloadDocument: (document: RhDocumentRow) => void | Promise<void>;
   onReviewDocument: (document: RhDocumentRow, status: "pending" | "validated" | "rejected") => void | Promise<void>;
@@ -85,6 +95,7 @@ export function RhDocumentsSection({
   requests,
   cancellingRequestId,
   onCancelRequest,
+  filteredAllDocuments,
   filteredSalarieDocuments,
   filteredPendingDocuments,
   filteredRhDocuments,
@@ -101,6 +112,7 @@ export function RhDocumentsSection({
   onRhRestoreFolder,
   onRhPurgeFolder,
   onRhMoveDocumentToFolder,
+  onRhMoveDocumentToRoot,
   onViewDocument,
   onDownloadDocument,
   onReviewDocument,
@@ -151,9 +163,16 @@ export function RhDocumentsSection({
     });
   const [documentsMenuOpen, setDocumentsMenuOpen] = useState(false);
   const documentsMenuRef = useRef<HTMLDivElement | null>(null);
+  const [draggedRhDocumentId, setDraggedRhDocumentId] = useState<string | null>(null);
+  const [reviewDialogDocument, setReviewDialogDocument] = useState<RhDocumentRow | null>(null);
+  const [reviewDialogStatus, setReviewDialogStatus] = useState<"pending" | "validated" | "rejected" | null>(null);
+  const [reviewDialogComment, setReviewDialogComment] = useState("");
   const rhTrashListItems = useMemo<RhDocumentsListItem[]>(
     () =>
       [...trashedRhFolders]
+        .filter((folder) =>
+          documentTypeFilter === "all" || documentTypeFilter === "Dossier",
+        )
         .sort((left, right) => left.name.localeCompare(right.name, "fr"))
         .map((folder) => ({
           rowType: "folder",
@@ -167,31 +186,59 @@ export function RhDocumentsSection({
           subtitle: "Dans la corbeille",
           hideDetailsPanel: true,
         })),
-    [trashedRhFolders],
+    [documentTypeFilter, trashedRhFolders],
   );
   const rhTrashedDocumentItems = useMemo<RhDocumentsListItem[]>(
     () =>
-      trashedRhDocuments.map((document) => ({
-        rowType: "document",
-        document,
-        id: `trash-document:${document.id}`,
-        fileName: document.fileName,
-        typeLabel: document.typeLabel,
-        ownerName: document.uploadedByName,
-        createdAt: document.deletedAt ?? document.updatedAt ?? document.createdAt,
-        statusLabel: formatDocumentStatus(document.status),
-        periodLabel: formatMonth(document.periodMonth),
-        sizeBytes: document.sizeBytes,
-        details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
-      })),
-    [formatDocumentStatus, formatMonth, trashedRhDocuments],
+      trashedRhDocuments
+        .filter((document) =>
+          (documentTypeFilter === "all" || document.typeLabel === documentTypeFilter) &&
+          (documentPeriodFilter === "all" ||
+            (document.periodMonth ?? "__none__") === documentPeriodFilter) &&
+          (documentCreatorFilter === "all" || document.uploadedByName === documentCreatorFilter),
+        )
+        .map((document) => ({
+          rowType: "document",
+          document,
+          id: `trash-document:${document.id}`,
+          fileName: document.fileName,
+          typeLabel: document.typeLabel,
+          ownerName: document.uploadedByName,
+          createdAt: document.deletedAt ?? document.updatedAt ?? document.createdAt,
+          statusLabel: formatDocumentStatus(document.status),
+          periodLabel: formatMonth(document.periodMonth),
+          sizeBytes: document.sizeBytes,
+          details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
+        })),
+    [documentCreatorFilter, documentPeriodFilter, documentTypeFilter, formatDocumentStatus, formatMonth, trashedRhDocuments],
   );
   const rhDocumentsById = useMemo(
-    () => new Map(filteredRhDocuments.map((document) => [document.id, document])),
-    [filteredRhDocuments],
+    () => new Map((currentSubSection === "docs_all" ? filteredAllDocuments : filteredRhDocuments).map((document) => [document.id, document])),
+    [currentSubSection, filteredAllDocuments, filteredRhDocuments],
+  );
+  const getDraggedRhDocument = (event: React.DragEvent<HTMLElement>) => {
+    const draggedId =
+      draggedRhDocumentId ??
+      event.dataTransfer.getData("text/x-dashboard-item-id") ??
+      event.dataTransfer.getData("text/plain");
+    if (!draggedId) return null;
+    return rhDocumentsById.get(draggedId) ?? null;
+  };
+  const folderEnabledDocuments = useMemo(
+    () => (currentSubSection === "docs_all" ? filteredAllDocuments : filteredRhDocuments),
+    [currentSubSection, filteredAllDocuments, filteredRhDocuments],
   );
   const rhListItems = useMemo<RhDocumentsListItem[]>(() => {
-    const documentItems: RhDocumentsListItem[] = filteredRhDocuments.map((document) => ({
+    const folderScopedDocuments =
+      ["docs_tous", "docs_all"].includes(currentSubSection)
+        ? folderEnabledDocuments.filter((document) =>
+            currentRhFolderId
+              ? (document.folderId ?? null) === currentRhFolderId
+              : (document.folderId ?? null) === null,
+          )
+        : folderEnabledDocuments;
+
+    const documentItems: RhDocumentsListItem[] = folderScopedDocuments.map((document) => ({
       rowType: "document",
       document,
       id: document.id,
@@ -205,7 +252,7 @@ export function RhDocumentsSection({
       details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
     }));
 
-    if (currentSubSection !== "docs_tous") {
+    if (!["docs_tous", "docs_all"].includes(currentSubSection)) {
       return documentItems;
     }
 
@@ -229,10 +276,10 @@ export function RhDocumentsSection({
         }));
 
     return [...folderItems, ...documentItems];
-  }, [currentRhFolderId, currentSubSection, documentTypeFilter, filteredRhDocuments, formatDocumentStatus, formatMonth, rhFolders]);
+  }, [currentRhFolderId, currentSubSection, documentTypeFilter, folderEnabledDocuments, formatDocumentStatus, formatMonth, rhFolders]);
 
-  useEffect(() => {
-    if (!documentsMenuOpen) return;
+	  useEffect(() => {
+	    if (!documentsMenuOpen) return;
 
     const handlePointerDown = (event: MouseEvent) => {
       if (!documentsMenuRef.current?.contains(event.target as Node)) {
@@ -252,14 +299,49 @@ export function RhDocumentsSection({
       window.removeEventListener("mousedown", handlePointerDown);
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [documentsMenuOpen]);
+	  }, [documentsMenuOpen]);
+  useEffect(() => {
+    if (!draggedRhDocumentId) return;
+    const clearDraggedItem = () => setDraggedRhDocumentId(null);
+    window.addEventListener("dragend", clearDraggedItem);
+    window.addEventListener("drop", clearDraggedItem);
+    return () => {
+      window.removeEventListener("dragend", clearDraggedItem);
+      window.removeEventListener("drop", clearDraggedItem);
+    };
+  }, [draggedRhDocumentId]);
+
+  const openReviewDialog = (
+    document: RhDocumentRow,
+    status: "pending" | "validated" | "rejected",
+  ) => {
+    setReviewDialogDocument(document);
+    setReviewDialogStatus(status);
+    setReviewDialogComment(reviewDrafts[document.id] ?? document.reviewComment ?? "");
+  };
+
+  const closeReviewDialog = () => {
+    setReviewDialogDocument(null);
+    setReviewDialogStatus(null);
+    setReviewDialogComment("");
+  };
 
   const isRhDocumentsDropdownSection =
-    currentSubSection === "docs_tous" || currentSubSection === "docs_salaries";
-  const isRhFoldersSection = currentSubSection === "docs_tous";
+    currentSubSection === "docs_tous" ||
+    currentSubSection === "docs_salaries" ||
+    currentSubSection === "docs_all";
+  const isRhFoldersSection = currentSubSection === "docs_tous" || currentSubSection === "docs_all";
+  const showImportActionsInMenu =
+    currentSubSection === "docs_tous" || currentSubSection === "docs_all";
+  const showCreateFolderActionInMenu =
+    currentSubSection === "docs_tous" ||
+    currentSubSection === "docs_salaries" ||
+    currentSubSection === "docs_all";
 
   const rhDocumentsTitle =
-    currentSubSection === "docs_tous"
+    currentSubSection === "docs_all"
+      ? "Tous les documents"
+      : currentSubSection === "docs_tous"
       ? "Documents entreprise"
       : currentSubSection === "docs_salaries"
         ? "Documents salaries"
@@ -289,6 +371,20 @@ export function RhDocumentsSection({
                   type="button"
                   onClick={() => onRhNavigateFolder(null)}
                   className="rounded-lg px-2 py-1 transition hover:bg-slate-100"
+                  onDragOver={(event) => {
+                    const draggedDocument = getDraggedRhDocument(event);
+                    if (!draggedDocument) return;
+                    if ((draggedDocument.folderId ?? null) === null) return;
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(event) => {
+                    const draggedDocument = getDraggedRhDocument(event);
+                    if (!draggedDocument) return;
+                    if ((draggedDocument.folderId ?? null) === null) return;
+                    event.preventDefault();
+                    void onRhMoveDocumentToRoot(draggedDocument);
+                  }}
                 >
                   {rhDocumentsTitle}
                 </button>
@@ -304,6 +400,20 @@ export function RhDocumentsSection({
                           className="flex items-center gap-2 rounded-lg px-2 py-1 transition hover:bg-slate-100"
                           aria-haspopup="menu"
                           aria-expanded={documentsMenuOpen}
+                          onDragOver={(event) => {
+                            const draggedDocument = getDraggedRhDocument(event);
+                            if (!draggedDocument) return;
+                            if ((draggedDocument.folderId ?? null) === folder.id) return;
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = "move";
+                          }}
+                          onDrop={(event) => {
+                            const draggedDocument = getDraggedRhDocument(event);
+                            if (!draggedDocument) return;
+                            if ((draggedDocument.folderId ?? null) === folder.id) return;
+                            event.preventDefault();
+                            void onRhMoveDocumentToFolder(draggedDocument, folder.id);
+                          }}
                         >
                           <span>{folder.name}</span>
                           <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
@@ -313,6 +423,20 @@ export function RhDocumentsSection({
                           type="button"
                           onClick={() => onRhNavigateFolder(folder.id)}
                           className="rounded-lg px-2 py-1 transition hover:bg-slate-100"
+                          onDragOver={(event) => {
+                            const draggedDocument = getDraggedRhDocument(event);
+                            if (!draggedDocument) return;
+                            if ((draggedDocument.folderId ?? null) === folder.id) return;
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = "move";
+                          }}
+                          onDrop={(event) => {
+                            const draggedDocument = getDraggedRhDocument(event);
+                            if (!draggedDocument) return;
+                            if ((draggedDocument.folderId ?? null) === folder.id) return;
+                            event.preventDefault();
+                            void onRhMoveDocumentToFolder(draggedDocument, folder.id);
+                          }}
                         >
                           {folder.name}
                         </button>
@@ -337,33 +461,39 @@ export function RhDocumentsSection({
               <div className="absolute left-0 top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2">
                 {!showRhFolderTrash ? (
                   <>
-                    <button
-                      type="button"
-                      className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F]/80 transition hover:bg-slate-50"
-                      onClick={() => {
-                        setDocumentsMenuOpen(false);
-                        void onRhCreateFolder();
-                      }}
-                    >
-                      Nouveau dossier
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F] transition hover:bg-slate-50"
-                      onClick={() => {
-                        setDocumentsMenuOpen(false);
-                        onOpenRhUploadDialog();
-                      }}
-                    >
-                      Importer un fichier
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F]/80 transition hover:bg-slate-50"
-                      onClick={() => setDocumentsMenuOpen(false)}
-                    >
-                      Importer un dossier
-                    </button>
+                    {showCreateFolderActionInMenu ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F]/80 transition hover:bg-slate-50"
+                        onClick={() => {
+                          setDocumentsMenuOpen(false);
+                          void onRhCreateFolder();
+                        }}
+                      >
+                        Nouveau dossier
+                      </button>
+                    ) : null}
+                    {showImportActionsInMenu ? (
+                      <>
+                        <button
+                          type="button"
+                          className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F] transition hover:bg-slate-50"
+                          onClick={() => {
+                            setDocumentsMenuOpen(false);
+                            onOpenRhUploadDialog();
+                          }}
+                        >
+                          Importer un fichier
+                        </button>
+                        <button
+                          type="button"
+                          className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F]/80 transition hover:bg-slate-50"
+                          onClick={() => setDocumentsMenuOpen(false)}
+                        >
+                          Importer un dossier
+                        </button>
+                      </>
+                    ) : null}
                   </>
                 ) : null}
               </div>
@@ -385,11 +515,10 @@ export function RhDocumentsSection({
           ) : null}
         </div>
       </div>
-      {["docs_tous", "docs_salaries", "docs_a_valider"].includes(currentSubSection) &&
-      !(currentSubSection === "docs_tous" && showRhFolderTrash) ? (
+      {["docs_tous", "docs_all", "docs_salaries", "docs_a_valider", "docs_corbeille"].includes(currentSubSection) ? (
         <DocumentFiltersBar
           fields={
-            currentSubSection === "docs_a_valider"
+            currentSubSection === "docs_a_valider" || currentSubSection === "docs_corbeille"
               ? ["type", "period", "owner"]
               : ["type", "period", "status", "owner"]
           }
@@ -411,7 +540,7 @@ export function RhDocumentsSection({
       <div>
         {currentSubSection === "docs_mes_demandes" ? (
           requests.length ? (
-            <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70">
                   <tr>
@@ -473,6 +602,17 @@ export function RhDocumentsSection({
               storageScope={storageScope}
               preferencesAuthToken={preferencesAuthToken}
               columnControlPlacement="inline"
+              onItemDoubleClick={(document) => {
+                if (
+                  document.fileName.toLowerCase().endsWith(".pdf") &&
+                  document.storagePath
+                ) {
+                  void onViewDocument(document);
+                }
+              }}
+              isItemDoubleClickable={(document) =>
+                document.fileName.toLowerCase().endsWith(".pdf") && !!document.storagePath
+              }
               renderActions={(document, closeMenu) => (
                 <>
                   <input
@@ -571,7 +711,9 @@ export function RhDocumentsSection({
               )}
             />
           ) : (
-            <p className="text-sm text-[#0A1A2F]/70">Aucun document salarie pour le moment.</p>
+            <p className="text-sm text-[#0A1A2F]/70">
+              Aucun document salarie pour le moment.
+            </p>
           )
         ) : currentSubSection === "docs_a_valider" ? (
           filteredPendingDocuments.length ? (
@@ -588,81 +730,44 @@ export function RhDocumentsSection({
               storageScope={storageScope}
               preferencesAuthToken={preferencesAuthToken}
               columnControlPlacement="inline"
-              renderActions={(document, closeMenu) => (
-                <>
-                  <input
-                    value={reviewDrafts[document.id] ?? document.reviewComment ?? ""}
-                    onChange={(event) =>
-                      onReviewDraftsChange((prev) => ({ ...prev, [document.id]: event.target.value }))
-                    }
-                    placeholder="Commentaire de validation ou de refus"
-                    className="h-9 w-full min-w-[240px] rounded-md border border-slate-300 px-3 text-sm"
-                  />
-                  {document.fileName.toLowerCase().endsWith(".pdf") ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => {
-                        closeMenu();
-                        void onViewDocument(document);
-                      }}
-                      disabled={
-                        !document.storagePath ||
-                        viewingDocumentId === document.id ||
-                        downloadingDocumentId === document.id
-                      }
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      Visualiser
-                    </Button>
-                  ) : null}
+              onItemDoubleClick={(document) => {
+                if (
+                  document.fileName.toLowerCase().endsWith(".pdf") &&
+                  document.storagePath
+                ) {
+                  void onViewDocument(document);
+                }
+              }}
+              isItemDoubleClickable={(document) =>
+                document.fileName.toLowerCase().endsWith(".pdf") && !!document.storagePath
+              }
+              renderActionCell={(document) => (
+                <div className="flex items-center justify-end gap-1.5">
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      closeMenu();
-                      void onDownloadDocument(document);
-                    }}
-                    disabled={
-                      !document.storagePath ||
-                      downloadingDocumentId === document.id ||
-                      viewingDocumentId === document.id
-                    }
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Télécharger
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      closeMenu();
-                      void onReviewDocument(document, "validated");
-                    }}
+                    size="icon"
+                    className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
+                    onClick={() => openReviewDialog(document, "validated")}
                     disabled={reviewingDocumentId === document.id}
+                    aria-label={`Valider ${document.fileName}`}
+                    title="Valider"
                   >
-                    {reviewingDocumentId === document.id ? "Traitement..." : "Valider"}
+                    <Check className="h-4 w-4" />
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
-                    className="w-full justify-start text-red-600 hover:text-red-700"
-                    onClick={() => {
-                      closeMenu();
-                      void onReviewDocument(document, "rejected");
-                    }}
+                    size="icon"
+                    className="h-8 w-8 text-rose-600 hover:text-rose-700"
+                    onClick={() => openReviewDialog(document, "rejected")}
                     disabled={reviewingDocumentId === document.id}
+                    aria-label={`Refuser ${document.fileName}`}
+                    title="Refuser"
                   >
-                    {reviewingDocumentId === document.id ? "Traitement..." : "Refuser"}
+                    <X className="h-4 w-4" />
                   </Button>
-                </>
+                </div>
               )}
             />
           ) : (
@@ -679,37 +784,38 @@ export function RhDocumentsSection({
                     storageKey="rh-documents-trash-folders-columns"
                     storageScope={storageScope}
                     preferencesAuthToken={preferencesAuthToken}
-                    renderActions={(item, closeMenu) => {
+                    createdAtLabel="Date de mise a la corbeille"
+                    renderActionCell={(item) => {
                       if (item.rowType !== "folder") return null;
                       return (
-                        <>
+                        <div className="flex items-center justify-end gap-1.5">
                           <Button
                             type="button"
                             variant="ghost"
-                            size="sm"
-                            className="w-full justify-start"
+                            size="icon"
+                            className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
                             onClick={() => {
-                              closeMenu();
                               void onRhRestoreFolder(item.folderId);
                             }}
+                            aria-label={`Restaurer ${item.fileName}`}
+                            title="Restaurer"
                           >
-                            <RotateCcw className="mr-2 h-4 w-4" />
-                            Restaurer
+                            <RotateCcw className="h-4 w-4" />
                           </Button>
                           <Button
                             type="button"
                             variant="ghost"
-                            size="sm"
-                            className="w-full justify-start text-red-600 hover:text-red-700"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700"
                             onClick={() => {
-                              closeMenu();
                               void onRhPurgeFolder(item.folderId);
                             }}
+                            aria-label={`Supprimer definitivement ${item.fileName}`}
+                            title="Supprimer definitivement"
                           >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Supprimer definitivement
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                        </>
+                        </div>
                       );
                     }}
                   />
@@ -723,39 +829,40 @@ export function RhDocumentsSection({
                     storageKey="rh-documents-trash-documents-columns"
                     storageScope={storageScope}
                     preferencesAuthToken={preferencesAuthToken}
-                    renderActions={(item, closeMenu) => {
+                    createdAtLabel="Date de mise a la corbeille"
+                    renderActionCell={(item) => {
                       if (item.rowType !== "document") return null;
                       const document = item.document;
                       return (
-                        <>
+                        <div className="flex items-center justify-end gap-1.5">
                           <Button
                             type="button"
                             variant="ghost"
-                            size="sm"
-                            className="w-full justify-start"
+                            size="icon"
+                            className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
                             onClick={() => {
-                              closeMenu();
                               void onRestoreRhDocument(document);
                             }}
+                            aria-label={`Restaurer ${item.fileName}`}
+                            title="Restaurer"
                           >
-                            <RotateCcw className="mr-2 h-4 w-4" />
-                            Restaurer
+                            <RotateCcw className="h-4 w-4" />
                           </Button>
                           <Button
                             type="button"
                             variant="ghost"
-                            size="sm"
-                            className="w-full justify-start text-red-600 hover:text-red-700"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700"
                             onClick={() => {
-                              closeMenu();
                               void onDeleteRhDocumentPermanently(document);
                             }}
                             disabled={deletingRhDocumentId === document.id}
+                            aria-label={`Supprimer definitivement ${item.fileName}`}
+                            title="Supprimer definitivement"
                           >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Supprimer definitivement
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                        </>
+                        </div>
                       );
                     }}
                   />
@@ -775,10 +882,28 @@ export function RhDocumentsSection({
             onItemDoubleClick={(item) => {
               if (item.rowType === "folder") {
                 onRhNavigateFolder(item.folderId);
+                return;
+              }
+              const document = item.document;
+              if (
+                document.fileName.toLowerCase().endsWith(".pdf") &&
+                document.storagePath
+              ) {
+                void onViewDocument(document);
               }
             }}
-            isItemDoubleClickable={(item) => item.rowType === "folder"}
+            isItemDoubleClickable={(item) =>
+              item.rowType === "folder" ||
+              (item.document.fileName.toLowerCase().endsWith(".pdf") && !!item.document.storagePath)
+            }
             getDraggableId={(item) => (item.rowType === "document" ? item.document.id : null)}
+            onDragItemStart={(item) => {
+              if (item.rowType !== "document") return;
+              setDraggedRhDocumentId(item.document.id);
+            }}
+            onDragItemEnd={() => {
+              setDraggedRhDocumentId(null);
+            }}
             canDropOnItem={(targetItem, draggedId) => {
               if (targetItem.rowType !== "folder") return false;
               const draggedDocument = rhDocumentsById.get(draggedId);
@@ -956,6 +1081,67 @@ export function RhDocumentsSection({
           <p className="text-sm text-[#0A1A2F]/70">Aucun document RH pour le moment.</p>
         )}
       </div>
+      <Dialog
+        open={Boolean(reviewDialogDocument && reviewDialogStatus)}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeReviewDialog();
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {reviewDialogStatus === "validated"
+                ? "Valider le document"
+                : reviewDialogStatus === "rejected"
+                  ? "Refuser le document"
+                  : "Remettre en attente"}
+            </DialogTitle>
+            <DialogDescription>
+              {reviewDialogDocument
+                ? `Document : ${reviewDialogDocument.fileName}`
+                : "Saisir un commentaire RH optionnel."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[#0A1A2F]">
+              Commentaire RH (optionnel)
+            </label>
+            <textarea
+              value={reviewDialogComment}
+              onChange={(event) => setReviewDialogComment(event.target.value)}
+              rows={4}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              placeholder="Saisir un commentaire..."
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeReviewDialog}>
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (!reviewDialogDocument || !reviewDialogStatus) return;
+                onReviewDraftsChange((prev) => ({
+                  ...prev,
+                  [reviewDialogDocument.id]: reviewDialogComment,
+                }));
+                void onReviewDocument(reviewDialogDocument, reviewDialogStatus);
+                closeReviewDialog();
+              }}
+              disabled={
+                !reviewDialogDocument ||
+                !reviewDialogStatus ||
+                reviewingDocumentId === reviewDialogDocument.id
+              }
+            >
+              Confirmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

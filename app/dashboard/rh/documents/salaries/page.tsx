@@ -1,7 +1,5 @@
-import RhWorkspace from "../../rh-workspace";
-
-import { RH_WORKSPACE_ROUTES } from "@/features/dashboard/rh/navigation";
+import { redirect } from "next/navigation";
 
 export default function RhDocumentsSalariesPage() {
-  return <RhWorkspace {...RH_WORKSPACE_ROUTES.documentsSalaries} />;
+  redirect("/dashboard/rh/documents/tous");
 }

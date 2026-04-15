@@ -32,13 +32,17 @@ type DashboardDocumentListItem = {
 type DashboardDocumentListProps<T extends DashboardDocumentListItem> = {
   items: T[];
   renderActions?: (item: T, closeMenu: () => void) => ReactNode;
+  renderActionCell?: (item: T) => ReactNode;
   storageKey?: string;
   storageScope?: string | null;
   preferencesAuthToken?: string | null;
+  createdAtLabel?: string;
   columnControlPlacement?: "stacked" | "inline";
   onItemDoubleClick?: (item: T) => void;
   isItemDoubleClickable?: (item: T) => boolean;
   getDraggableId?: (item: T) => string | null;
+  onDragItemStart?: (item: T, draggedId: string) => void;
+  onDragItemEnd?: () => void;
   canDropOnItem?: (targetItem: T, draggedId: string) => boolean;
   onItemDrop?: (targetItem: T, draggedId: string) => void | Promise<void>;
 };
@@ -237,13 +241,17 @@ function getInitialVisibleColumnsWithScope(storageKey?: string, storageScope?: s
 export function DashboardDocumentList<T extends DashboardDocumentListItem>({
   items,
   renderActions,
+  renderActionCell,
   storageKey,
   storageScope,
   preferencesAuthToken,
+  createdAtLabel = "Date de creation",
   columnControlPlacement = "stacked",
   onItemDoubleClick,
   isItemDoubleClickable,
   getDraggableId,
+  onDragItemStart,
+  onDragItemEnd,
   canDropOnItem,
   onItemDrop,
 }: DashboardDocumentListProps<T>) {
@@ -381,8 +389,15 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
   }, [actionMenuId, menuOpen]);
 
   const activeColumns = useMemo(
-    () => columnDefinitions.filter((definition) => visibleColumns.includes(definition.key)),
-    [visibleColumns],
+    () =>
+      columnDefinitions
+        .filter((definition) => visibleColumns.includes(definition.key))
+        .map((definition) =>
+          definition.key === "createdAt"
+            ? { ...definition, label: createdAtLabel }
+            : definition,
+        ),
+    [createdAtLabel, visibleColumns],
   );
 
   const toggleColumn = (columnKey: ColumnKey) => {
@@ -484,11 +499,14 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
                     if (!draggedId) return;
                     setDraggedItemId(draggedId);
                     event.dataTransfer.setData("text/x-dashboard-item-id", draggedId);
+                    event.dataTransfer.setData("text/plain", draggedId);
                     event.dataTransfer.effectAllowed = "move";
+                    onDragItemStart?.(item, draggedId);
                   }}
                   onDragEnd={() => {
                     setDragOverItemId(null);
                     setDraggedItemId(null);
+                    onDragItemEnd?.();
                   }}
                   onDragOver={(event) => {
                     if (!onItemDrop) return;
@@ -595,16 +613,20 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
 
                 <td className="px-4 py-3 align-middle">
                   <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-[#0A1A2F]/70 hover:text-[#0A1A2F]"
-                      onClick={() => setActionMenuId((currentId) => (currentId === item.id ? null : item.id))}
-                      aria-label={`Ouvrir les actions pour ${item.fileName}`}
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
+                    {renderActionCell ? (
+                      renderActionCell(item)
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-[#0A1A2F]/70 hover:text-[#0A1A2F]"
+                        onClick={() => setActionMenuId((currentId) => (currentId === item.id ? null : item.id))}
+                        aria-label={`Ouvrir les actions pour ${item.fileName}`}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>

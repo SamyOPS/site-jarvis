@@ -70,15 +70,19 @@ type SalarieDocumentsSectionProps = {
   currentFolderId: string | null;
   folders: DocumentFolderRow[];
   trashedFolders: DocumentFolderRow[];
+  trashedDocuments: DocumentRow[];
   folderPath: DocumentFolderRow[];
   showFolderTrash: boolean;
   onNavigateFolder: (folderId: string | null) => void;
   onCreateFolder: () => void | Promise<void>;
   onMoveDocumentToFolder: (document: DocumentRow, folderId: string) => void | Promise<void>;
+  onMoveDocumentToRoot: (document: DocumentRow) => void | Promise<void>;
   onRenameFolder: (folderId: string, currentName: string) => void | Promise<void>;
   onDeleteFolder: (folderId: string) => void | Promise<void>;
   onRestoreFolder: (folderId: string) => void | Promise<void>;
   onPurgeFolder: (folderId: string) => void | Promise<void>;
+  onRestoreDocument: (document: DocumentRow) => void | Promise<void>;
+  onPurgeDocument: (document: DocumentRow) => void | Promise<void>;
   formatDate: (value: string | null) => string;
   formatMonth: (value: string | null) => string;
   formatDocumentStatus: (value: DocumentRow["status"]) => string;
@@ -132,15 +136,19 @@ export function SalarieDocumentsSection({
   currentFolderId,
   folders,
   trashedFolders,
+  trashedDocuments,
   folderPath,
   showFolderTrash,
   onNavigateFolder,
   onCreateFolder,
   onMoveDocumentToFolder,
+  onMoveDocumentToRoot,
   onRenameFolder,
   onDeleteFolder,
   onRestoreFolder,
   onPurgeFolder,
+  onRestoreDocument,
+  onPurgeDocument,
   formatDate,
   formatMonth,
   formatDocumentStatus,
@@ -180,9 +188,13 @@ export function SalarieDocumentsSection({
 
   const [documentsMenuOpen, setDocumentsMenuOpen] = useState(false);
   const documentsMenuRef = useRef<HTMLDivElement | null>(null);
-  const trashListItems = useMemo<DocumentsListItem[]>(
+  const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null);
+  const trashFolderItems = useMemo<DocumentsListItem[]>(
     () =>
       [...trashedFolders]
+        .filter((folder) =>
+          documentTypeFilter === "all" || documentTypeFilter === "Dossier",
+        )
         .sort((left, right) => left.name.localeCompare(right.name, "fr"))
         .map((folder) => ({
           rowType: "folder",
@@ -196,12 +208,43 @@ export function SalarieDocumentsSection({
           subtitle: "Dans la corbeille",
           hideDetailsPanel: true,
         })),
-    [trashedFolders],
+    [documentTypeFilter, trashedFolders],
+  );
+  const trashDocumentItems = useMemo<DocumentsListItem[]>(
+    () =>
+      trashedDocuments
+        .filter((document) =>
+          (documentTypeFilter === "all" || document.typeLabel === documentTypeFilter) &&
+          (documentPeriodFilter === "all" ||
+            (document.periodMonth ?? "__none__") === documentPeriodFilter),
+        )
+        .map((document) => ({
+          rowType: "document",
+          document,
+          id: `trash-document:${document.id}`,
+          fileName: document.fileName,
+          typeLabel: document.typeLabel,
+          ownerName: document.uploadedByName,
+          createdAt: document.deletedAt ?? document.updatedAt ?? document.createdAt,
+          statusLabel: formatDocumentStatus(document.status),
+          periodLabel: formatMonth(document.periodMonth),
+          sizeBytes: document.sizeBytes,
+          details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
+        })),
+    [documentPeriodFilter, documentTypeFilter, formatDocumentStatus, formatMonth, trashedDocuments],
   );
   const documentsById = useMemo(
     () => new Map(visibleDocuments.map((document) => [document.id, document])),
     [visibleDocuments],
   );
+  const getDraggedDocument = (event: React.DragEvent<HTMLElement>) => {
+    const draggedId =
+      draggedDocumentId ??
+      event.dataTransfer.getData("text/x-dashboard-item-id") ??
+      event.dataTransfer.getData("text/plain");
+    if (!draggedId) return null;
+    return documentsById.get(draggedId) ?? null;
+  };
   const listItems = useMemo<DocumentsListItem[]>(() => {
     const documentItems: DocumentsListItem[] = visibleDocuments.map((document) => ({
       rowType: "document",
@@ -265,6 +308,16 @@ export function SalarieDocumentsSection({
       window.removeEventListener("keydown", handleEscape);
     };
   }, [documentsMenuOpen]);
+  useEffect(() => {
+    if (!draggedDocumentId) return;
+    const clearDraggedItem = () => setDraggedDocumentId(null);
+    window.addEventListener("dragend", clearDraggedItem);
+    window.addEventListener("drop", clearDraggedItem);
+    return () => {
+      window.removeEventListener("dragend", clearDraggedItem);
+      window.removeEventListener("drop", clearDraggedItem);
+    };
+  }, [draggedDocumentId]);
 
   return (
     <section className="space-y-4">
@@ -299,6 +352,20 @@ export function SalarieDocumentsSection({
                   type="button"
                   onClick={() => onNavigateFolder(null)}
                   className="rounded-lg px-2 py-1 transition hover:bg-slate-100"
+                  onDragOver={(event) => {
+                    const draggedDocument = getDraggedDocument(event);
+                    if (!draggedDocument) return;
+                    if ((draggedDocument.folderId ?? null) === null) return;
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(event) => {
+                    const draggedDocument = getDraggedDocument(event);
+                    if (!draggedDocument) return;
+                    if ((draggedDocument.folderId ?? null) === null) return;
+                    event.preventDefault();
+                    void onMoveDocumentToRoot(draggedDocument);
+                  }}
                 >
                   {documentsCardTitle}
                 </button>
@@ -307,22 +374,50 @@ export function SalarieDocumentsSection({
                   return (
                     <Fragment key={folder.id}>
                       <span className="text-[#0A1A2F]/45">&gt;</span>
-                      {isLast ? (
-                        <button
-                          type="button"
-                          onClick={() => setDocumentsMenuOpen((open) => !open)}
-                          className="flex items-center gap-2 rounded-lg px-2 py-1 transition hover:bg-slate-100"
-                          aria-haspopup="menu"
-                          aria-expanded={documentsMenuOpen}
-                        >
-                          <span>{folder.name}</span>
-                          <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
-                        </button>
-                      ) : (
+	                      {isLast ? (
+	                        <button
+	                          type="button"
+	                          onClick={() => setDocumentsMenuOpen((open) => !open)}
+	                          className="flex items-center gap-2 rounded-lg px-2 py-1 transition hover:bg-slate-100"
+	                          aria-haspopup="menu"
+	                          aria-expanded={documentsMenuOpen}
+	                          onDragOver={(event) => {
+	                            const draggedDocument = getDraggedDocument(event);
+	                            if (!draggedDocument) return;
+	                            if ((draggedDocument.folderId ?? null) === folder.id) return;
+	                            event.preventDefault();
+	                            event.dataTransfer.dropEffect = "move";
+	                          }}
+	                          onDrop={(event) => {
+	                            const draggedDocument = getDraggedDocument(event);
+	                            if (!draggedDocument) return;
+	                            if ((draggedDocument.folderId ?? null) === folder.id) return;
+	                            event.preventDefault();
+	                            void onMoveDocumentToFolder(draggedDocument, folder.id);
+	                          }}
+	                        >
+	                          <span>{folder.name}</span>
+	                          <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
+	                        </button>
+	                      ) : (
                         <button
                           type="button"
                           onClick={() => onNavigateFolder(folder.id)}
                           className="rounded-lg px-2 py-1 transition hover:bg-slate-100"
+                          onDragOver={(event) => {
+                            const draggedDocument = getDraggedDocument(event);
+                            if (!draggedDocument) return;
+                            if ((draggedDocument.folderId ?? null) === folder.id) return;
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = "move";
+                          }}
+                          onDrop={(event) => {
+                            const draggedDocument = getDraggedDocument(event);
+                            if (!draggedDocument) return;
+                            if ((draggedDocument.folderId ?? null) === folder.id) return;
+                            event.preventDefault();
+                            void onMoveDocumentToFolder(draggedDocument, folder.id);
+                          }}
                         >
                           {folder.name}
                         </button>
@@ -636,64 +731,117 @@ export function SalarieDocumentsSection({
           </div>
         ) : (
           <div className="space-y-1">
-            {!showFolderTrash ? (
-              <DocumentFiltersBar
-                fields={["type", "period", "status"]}
-                values={{
-                  type: documentTypeFilter,
-                  period: documentPeriodFilter,
-                  status: documentStatusFilter,
-                  owner: "all",
-                }}
-                options={documentFilterOptions}
-                onChange={(field, value) => {
-                  if (field === "type") onDocumentTypeFilterChange(value);
-                  if (field === "period") onDocumentPeriodFilterChange(value);
-                  if (field === "status") onDocumentStatusFilterChange(value);
-                }}
-              />
-            ) : null}
+            <DocumentFiltersBar
+              fields={showFolderTrash ? ["type", "period"] : ["type", "period", "status"]}
+              values={{
+                type: documentTypeFilter,
+                period: documentPeriodFilter,
+                status: documentStatusFilter,
+                owner: "all",
+              }}
+              options={documentFilterOptions}
+              onChange={(field, value) => {
+                if (field === "type") onDocumentTypeFilterChange(value);
+                if (field === "period") onDocumentPeriodFilterChange(value);
+                if (field === "status") onDocumentStatusFilterChange(value);
+              }}
+            />
             {showFolderTrash ? (
-              trashListItems.length ? (
-                <DashboardDocumentList
-                  items={trashListItems}
-                  storageKey="salarie-documents-trash-columns"
-                  storageScope={storageScope}
-                  preferencesAuthToken={preferencesAuthToken}
-                  renderActions={(item, closeMenu) => {
-                    if (item.rowType !== "folder") return null;
-                    return (
-                      <>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            closeMenu();
-                            void onRestoreFolder(item.folderId);
-                          }}
-                        >
-                          <RotateCcw className="mr-2 h-4 w-4" />
-                          Restaurer
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start text-red-600 hover:text-red-700"
-                          onClick={() => {
-                            closeMenu();
-                            void onPurgeFolder(item.folderId);
-                          }}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Supprimer definitivement
-                        </Button>
-                      </>
-                    );
-                  }}
-                />
+              trashFolderItems.length || trashDocumentItems.length ? (
+                <div className="space-y-5">
+                  {trashFolderItems.length ? (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-[#0A1A2F]/80">Dossiers</p>
+                      <DashboardDocumentList
+                        items={trashFolderItems}
+                        storageKey="salarie-documents-trash-columns"
+                        storageScope={storageScope}
+                        preferencesAuthToken={preferencesAuthToken}
+                        createdAtLabel="Date de mise a la corbeille"
+                        renderActionCell={(item) => {
+                          if (item.rowType !== "folder") return null;
+                          return (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
+                                onClick={() => {
+                                  void onRestoreFolder(item.folderId);
+                                }}
+                                aria-label={`Restaurer ${item.fileName}`}
+                                title="Restaurer"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-600 hover:text-red-700"
+                                onClick={() => {
+                                  void onPurgeFolder(item.folderId);
+                                }}
+                                aria-label={`Supprimer definitivement ${item.fileName}`}
+                                title="Supprimer definitivement"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          );
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                  {trashDocumentItems.length ? (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-[#0A1A2F]/80">Documents</p>
+                      <DashboardDocumentList
+                        items={trashDocumentItems}
+                        storageKey="salarie-documents-trash-documents-columns"
+                        storageScope={storageScope}
+                        preferencesAuthToken={preferencesAuthToken}
+                        createdAtLabel="Date de mise a la corbeille"
+                        renderActionCell={(item) => {
+                          if (item.rowType !== "document") return null;
+                          const document = item.document;
+                          return (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
+                                onClick={() => {
+                                  void onRestoreDocument(document);
+                                }}
+                                aria-label={`Restaurer ${item.fileName}`}
+                                title="Restaurer"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-600 hover:text-red-700"
+                                onClick={() => {
+                                  void onPurgeDocument(document);
+                                }}
+                                disabled={deletingDocumentId === document.id}
+                                aria-label={`Supprimer definitivement ${item.fileName}`}
+                                title="Supprimer definitivement"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          );
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                </div>
               ) : (
                 <p className="text-sm text-[#0A1A2F]/70">La corbeille est vide.</p>
               )
@@ -707,10 +855,28 @@ export function SalarieDocumentsSection({
                 onItemDoubleClick={(item) => {
                   if (item.rowType === "folder") {
                     onNavigateFolder(item.folderId);
+                    return;
+                  }
+                  const document = item.document;
+                  if (
+                    document.fileName.toLowerCase().endsWith(".pdf") &&
+                    document.storagePath
+                  ) {
+                    void onViewDocument(document);
                   }
                 }}
-                isItemDoubleClickable={(item) => item.rowType === "folder"}
+                isItemDoubleClickable={(item) =>
+                  item.rowType === "folder" ||
+                  (item.document.fileName.toLowerCase().endsWith(".pdf") && !!item.document.storagePath)
+                }
                 getDraggableId={(item) => (item.rowType === "document" ? item.document.id : null)}
+                onDragItemStart={(item) => {
+                  if (item.rowType !== "document") return;
+                  setDraggedDocumentId(item.document.id);
+                }}
+                onDragItemEnd={() => {
+                  setDraggedDocumentId(null);
+                }}
                 canDropOnItem={(targetItem, draggedId) => {
                   if (targetItem.rowType !== "folder") return false;
                   const draggedDocument = documentsById.get(draggedId);

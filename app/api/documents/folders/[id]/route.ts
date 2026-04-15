@@ -10,6 +10,35 @@ type UpdateFolderPayload = {
   name?: unknown;
 };
 
+type FolderNode = {
+  id: string;
+  parent_id: string | null;
+};
+
+function collectSubtreeFolderIds(folderId: string, folders: FolderNode[]) {
+  const childrenByParent = new Map<string, string[]>();
+  for (const folder of folders) {
+    const parentId = folder.parent_id ?? "__root__";
+    const children = childrenByParent.get(parentId) ?? [];
+    children.push(folder.id);
+    childrenByParent.set(parentId, children);
+  }
+
+  const visited = new Set<string>();
+  const queue = [folderId];
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current || visited.has(current)) continue;
+    visited.add(current);
+    const children = childrenByParent.get(current) ?? [];
+    for (const childId of children) {
+      queue.push(childId);
+    }
+  }
+
+  return Array.from(visited);
+}
+
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const auth = await getAuthorizedDocumentsContext(request);
@@ -90,6 +119,28 @@ export async function DELETE(request: Request, context: RouteContext) {
     const allowed = await canManageOwner(auth, folder.owner_user_id);
     if (!allowed) {
       return NextResponse.json({ error: "Acces refuse." }, { status: 403 });
+    }
+
+    const { data: ownerFolders, error: ownerFoldersError } = await auth.adminClient
+      .from("document_folders")
+      .select("id,parent_id")
+      .eq("owner_user_id", folder.owner_user_id);
+    if (ownerFoldersError) {
+      return NextResponse.json({ error: ownerFoldersError.message }, { status: 400 });
+    }
+
+    const subtreeFolderIds = collectSubtreeFolderIds(folderId, (ownerFolders ?? []) as FolderNode[]);
+    if (subtreeFolderIds.length) {
+      const now = new Date().toISOString();
+      const { error: moveForeignDocsError } = await auth.adminClient
+        .from("employee_documents")
+        .update({ folder_id: null, updated_at: now })
+        .in("folder_id", subtreeFolderIds)
+        .neq("employee_id", folder.owner_user_id)
+        .is("deleted_at", null);
+      if (moveForeignDocsError) {
+        return NextResponse.json({ error: moveForeignDocsError.message }, { status: 400 });
+      }
     }
 
     const { data, error } = await auth.adminClient.rpc("soft_delete_document_folder", {

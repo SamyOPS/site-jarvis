@@ -586,8 +586,9 @@ export default function RhWorkspace({
 
   const deleteRhFolder = useCallback(async (folderId: string) => {
     if (!profile?.id) return;
-    const confirmed = window.confirm("Supprimer ce dossier et son contenu ?");
+    const confirmed = window.confirm("Supprimer ce dossier ?");
     if (!confirmed) return;
+
     await callRhDocumentsApi(`/api/documents/folders/${encodeURIComponent(folderId)}`, {
       method: "DELETE",
     });
@@ -643,6 +644,30 @@ export default function RhWorkspace({
     );
     setSaveMessage("Document deplace dans le dossier.");
   }, [callRhDocumentsApi, profile?.id]);
+  const moveRhDocumentToRoot = useCallback(async (document: RHDocumentRow) => {
+    if (!profile?.id) return;
+    await callRhDocumentsApi(`/api/documents/items/${encodeURIComponent(document.id)}/move`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ownerUserId: profile.id,
+        folderId: null,
+      }),
+    });
+    setDocuments((current) =>
+      current.map((row) =>
+        row.id === document.id
+          ? {
+            ...row,
+            folderId: null,
+          }
+          : row,
+      ),
+    );
+    setSaveMessage("Document deplace a la racine.");
+  }, [callRhDocumentsApi, profile?.id]);
 
   useEffect(() => {
     if (!profile?.id || !session?.access_token) return;
@@ -674,19 +699,21 @@ export default function RhWorkspace({
   const pendingDocuments = useMemo(() => salarieDocuments.filter((document) => document.status === "pending"), [salarieDocuments]);
   const rhDocumentFilterSource = useMemo(
     () =>
-      currentSubSection === "docs_salaries"
+      currentSubSection === "docs_all"
+        ? activeDocuments
+        : currentSubSection === "docs_salaries"
         ? salarieDocuments
         : currentSubSection === "docs_a_valider"
           ? pendingDocuments
           : currentSubSection === "docs_tous"
             ? rhDocuments
             : [],
-    [currentSubSection, pendingDocuments, rhDocuments, salarieDocuments],
+    [activeDocuments, currentSubSection, pendingDocuments, rhDocuments, salarieDocuments],
   );
   const rhDocumentTypeOptions = useMemo(
     () => {
       const options = new Set(rhDocumentFilterSource.map((document) => document.typeLabel));
-      if (currentSubSection === "docs_tous") {
+      if (currentSubSection === "docs_tous" || currentSubSection === "docs_corbeille") {
         options.add("Dossier");
       }
       return Array.from(options).sort((left, right) => left.localeCompare(right, "fr"));
@@ -752,6 +779,18 @@ export default function RhWorkspace({
         }),
       ),
     [documentCreatorFilter, documentPeriodFilter, documentStatusFilter, documentTypeFilter, rhDocuments],
+  );
+  const filteredAllDocuments = useMemo(
+    () =>
+      activeDocuments.filter((document) =>
+        matchesRhDocumentFilters(document, {
+          type: documentTypeFilter,
+          period: documentPeriodFilter,
+          status: documentStatusFilter,
+          creator: documentCreatorFilter,
+        }),
+      ),
+    [activeDocuments, documentCreatorFilter, documentPeriodFilter, documentStatusFilter, documentTypeFilter],
   );
   const visibleRhDocuments = useMemo(() => {
     if (currentSubSection !== "docs_tous") {
@@ -1225,7 +1264,7 @@ export default function RhWorkspace({
   }, [passwordForm]);
 
   return (
-    <div className="h-screen overflow-hidden bg-[#eaf0fb] text-[#0A1A2F]">
+    <div className="h-screen overflow-hidden bg-[#f3f6fc] text-[#0A1A2F]">
       <div className="relative h-full">
         <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[232px]">
           <div className="flex h-full flex-col gap-4 px-4 py-5">
@@ -1246,8 +1285,7 @@ export default function RhWorkspace({
               <Link href="/dashboard/rh/documents" className={`block px-1 py-2 hover:underline ${currentSection === "documents" ? "font-semibold" : ""}`}>Documents</Link>
               {currentSection === "documents" && (
                 <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
-                  <Link href="/dashboard/rh/documents" className={`block py-1 ${currentSubSection === "docs_tous" ? "font-semibold" : ""}`}>Documents entreprise</Link>
-                  <Link href="/dashboard/rh/documents/salaries" className={`block py-1 ${currentSubSection === "docs_salaries" ? "font-semibold" : ""}`}>Documents salaries</Link>
+                  <Link href="/dashboard/rh/documents/tous" className={`block py-1 ${currentSubSection === "docs_all" ? "font-semibold" : ""}`}>Tous les documents</Link>
                   <Link href="/dashboard/rh/documents/a-valider" className={`block py-1 ${currentSubSection === "docs_a_valider" ? "font-semibold" : ""}`}>A valider</Link>
                   <Link href="/dashboard/rh/documents/mes-demandes" className={`block py-1 ${currentSubSection === "docs_mes_demandes" ? "font-semibold" : ""}`}>Mes demandes</Link>
                   <Link href="/dashboard/rh/documents/corbeille" className={`block py-1 ${currentSubSection === "docs_corbeille" ? "font-semibold" : ""}`}>Corbeille</Link>
@@ -1277,7 +1315,7 @@ export default function RhWorkspace({
         </aside>
 
         <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[48px] lg:px-3 lg:py-3">
-          <div className="hidden lg:flex items-center rounded-[30px] px-2 py-1.5">
+          <div className="hidden lg:flex items-center rounded-[22px] px-2 py-1.5">
             <div className="flex min-w-0 flex-1 items-center">
               <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 backdrop-blur">
                   <Search className="h-4 w-4 text-[#0A1A2F]/55" />
@@ -1299,7 +1337,7 @@ export default function RhWorkspace({
             settingsActive={currentSection === "parametres"}
           />
 
-          <div className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-[30px] border border-white/70 bg-white px-4 py-6 overscroll-contain lg:px-8 lg:py-8">
+          <div className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-[22px] border border-white/70 bg-white px-4 py-6 overscroll-contain lg:px-8 lg:py-8">
           <div className="space-y-4">
           {(!supabase || error) && (
             <StatusNotice
@@ -1406,6 +1444,7 @@ export default function RhWorkspace({
               cancellingRequestId={cancellingRequestId}
               onCancelRequest={handleCancelRequest}
               filteredSalarieDocuments={filteredSalarieDocuments}
+              filteredAllDocuments={filteredAllDocuments}
               filteredPendingDocuments={filteredPendingDocuments}
               filteredRhDocuments={visibleRhDocuments}
               trashedRhDocuments={trashedRhDocuments}
@@ -1421,6 +1460,7 @@ export default function RhWorkspace({
               onRhRestoreFolder={restoreRhFolder}
               onRhPurgeFolder={purgeRhFolder}
               onRhMoveDocumentToFolder={moveRhDocumentToFolder}
+              onRhMoveDocumentToRoot={moveRhDocumentToRoot}
               onViewDocument={handleViewDocument}
               onDownloadDocument={handleDownloadDocument}
               onReviewDocument={handleReviewDocument}
