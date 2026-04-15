@@ -21,6 +21,7 @@ import type { RhWorkspaceRouteProps } from "@/features/dashboard/rh/navigation";
 import type {
   RhApplicationRow as ApplicationRow,
   RhDocumentRow as RHDocumentRow,
+  RhDocumentFolderRow,
   RhDocumentTypeRow as DocumentTypeRow,
   RhEventRow as EventRow,
   RhJobOfferRow as JobOfferRow,
@@ -30,7 +31,7 @@ import type {
   RhRequestStatus as RequestStatus,
 } from "@/features/dashboard/rh/types";
 import { formatDate, formatDocumentStatus, formatMonth, normalizeJoinOne, type DocumentStatus } from "@/lib/dashboard-formatters";
-import { forceClientSignOut } from "@/lib/client-auth";
+import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
 import { browserSupabase as supabase } from "@/lib/supabase-browser";
 
 const defaultRouteProps: RhWorkspaceRouteProps = {
@@ -38,6 +39,32 @@ const defaultRouteProps: RhWorkspaceRouteProps = {
   currentSubSection: "overview",
   selectedEmployeeId: null,
 };
+
+type RhDashboardCache = {
+  profileId: string;
+  timestamp: number;
+  employees: ProfileRow[];
+  documentTypes: DocumentTypeRow[];
+  documents: RHDocumentRow[];
+  requests: RequestRow[];
+  jobOffers: JobOfferRow[];
+  applications: ApplicationRow[];
+  cvsByUser: Record<string, ProfileCvRow>;
+  activityByEmployeeId: Record<
+    string,
+    {
+      userId: string;
+      lastSignInAt: string | null;
+      createdAt: string | null;
+      updatedAt: string | null;
+      emailConfirmedAt: string | null;
+    }
+  >;
+  events: EventRow[];
+};
+
+const RH_DASHBOARD_CACHE_TTL_MS = 2 * 60 * 1000;
+let rhDashboardCache: RhDashboardCache | null = null;
 
 export default function RhWorkspace({
   currentSection = defaultRouteProps.currentSection,
@@ -52,6 +79,9 @@ export default function RhWorkspace({
   const [employees, setEmployees] = useState<ProfileRow[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeRow[]>([]);
   const [documents, setDocuments] = useState<RHDocumentRow[]>([]);
+  const [rhFolders, setRhFolders] = useState<RhDocumentFolderRow[]>([]);
+  const [trashedRhFolders, setTrashedRhFolders] = useState<RhDocumentFolderRow[]>([]);
+  const [currentRhFolderId, setCurrentRhFolderId] = useState<string | null>(null);
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [documentTypeFilter, setDocumentTypeFilter] = useState("all");
@@ -102,7 +132,24 @@ export default function RhWorkspace({
   const [deletingRhDocumentId, setDeletingRhDocumentId] = useState<string | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
-  const loadDashboardData = useCallback(async (rhId: string, accessToken: string) => {
+
+  const applyDashboardCache = useCallback((cache: RhDashboardCache) => {
+    setEmployees(cache.employees);
+    setDocumentTypes(cache.documentTypes);
+    setDocuments(cache.documents);
+    setRequests(cache.requests);
+    setJobOffers(cache.jobOffers);
+    setApplications(cache.applications);
+    setCvsByUser(cache.cvsByUser);
+    setActivityByEmployeeId(cache.activityByEmployeeId);
+    setEvents(cache.events);
+  }, []);
+
+  const loadDashboardData = useCallback(async (
+    rhId: string,
+    accessToken: string,
+    rhIdentity?: { id: string; fullName: string | null; email: string },
+  ) => {
     if (!supabase) return;
 
     const visibilityResponse = await fetch("/api/rh/collaborators/visibility", {
@@ -127,7 +174,7 @@ export default function RhWorkspace({
     const [employeesRes, documentTypesRes, docsRes, requestsRes, offersRes, appsRes, cvsRes, activityResponse] = await Promise.all([
       supabase.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("role", "salarie").order("email", { ascending: true }),
       supabase.from("document_types").select("id,label,requires_period,allowed_uploader_roles").eq("active", true).order("label", { ascending: true }),
-      supabase.from("employee_documents").select("id,status,file_name,period_month,created_at,updated_at,size_bytes,review_comment,uploader_role,storage_bucket,storage_path,source_kind,document_type:document_types(id,label,code),employee:profiles!employee_documents_employee_id_fkey(id,full_name,email,role),uploader:profiles!employee_documents_uploaded_by_fkey(full_name,email)").order("created_at", { ascending: false }),
+      supabase.from("employee_documents").select("id,status,file_name,period_month,created_at,updated_at,size_bytes,review_comment,uploader_role,uploaded_by,storage_bucket,storage_path,source_kind,folder_id,deleted_at,document_type:document_types(id,label,code),employee:profiles!employee_documents_employee_id_fkey(id,full_name,email,role),uploader:profiles!employee_documents_uploaded_by_fkey(full_name,email)").order("created_at", { ascending: false }),
       supabase.from("document_requests").select("id,status,due_at,period_month,note,document_type:document_types(id,label),employee:profiles!document_requests_employee_id_fkey(id,full_name,email)").order("created_at", { ascending: false }),
       supabase.from("job_offers").select("id,title,status,location").order("created_at", { ascending: false }),
       supabase.from("applications").select("id,candidate_id,status,job:job_offers(title),candidate:profiles!applications_candidate_id_fkey(full_name,email)").order("created_at", { ascending: false }),
@@ -145,25 +192,61 @@ export default function RhWorkspace({
       return;
     }
 
-    setEmployees(((employeesRes.data as ProfileRow[]) ?? []).filter((employee) => canAccessEmployee(employee.id)));
-    setDocumentTypes(
-      ((documentTypesRes.data ?? []) as {
-        id: string;
-        label: string;
-        requires_period: boolean | null;
-        allowed_uploader_roles: string[] | null;
-      }[]).map((row) => ({
+    const rhUploaderIds = Array.from(
+      new Set(
+        (docsRes.data ?? [])
+          .map((row) => {
+            const item = row as { uploader_role?: string | null; uploaded_by?: string | null };
+            if (item.uploader_role !== "rh") return null;
+            return item.uploaded_by ?? null;
+          })
+          .filter((value): value is string => Boolean(value)),
+      ),
+    );
+    const rhUploadersById = new Map<string, { fullName: string | null; email: string }>();
+    if (rhUploaderIds.length) {
+      const uploadersResponse = await fetch("/api/rh/documents/uploaders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ ids: rhUploaderIds }),
+      });
+      if (uploadersResponse.ok) {
+        const uploadersPayload = (await uploadersResponse.json().catch(() => null)) as
+          | { items?: { id: string; fullName: string | null; email: string }[] }
+          | null;
+        for (const uploader of uploadersPayload?.items ?? []) {
+          rhUploadersById.set(uploader.id, {
+            fullName: uploader.fullName,
+            email: uploader.email,
+          });
+        }
+      }
+    }
+
+    const mappedEmployees = ((employeesRes.data as ProfileRow[]) ?? []).filter((employee) => canAccessEmployee(employee.id));
+    const mappedDocumentTypes = ((documentTypesRes.data ?? []) as {
+      id: string;
+      label: string;
+      requires_period: boolean | null;
+      allowed_uploader_roles: string[] | null;
+    }[]).map((row) => ({
         id: row.id,
         label: row.label,
         requiresPeriod: Boolean(row.requires_period),
         allowedUploaderRoles: row.allowed_uploader_roles ?? [],
-      })),
-    );
+      }));
 
-    const mappedDocuments = (docsRes.data ?? []).map((row: { id: string; status: DocumentStatus; file_name: string; period_month: string | null; created_at: string | null; updated_at: string | null; size_bytes: number | null; review_comment: string | null; uploader_role: string | null; storage_bucket: string | null; storage_path: string | null; source_kind: string | null; document_type: { id: string; label: string; code: string | null } | { id: string; label: string; code: string | null }[] | null; employee: { id: string; full_name: string | null; email: string; role: string | null } | { id: string; full_name: string | null; email: string; role: string | null }[] | null; uploader: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null }) => {
+    const mappedAllDocuments = (docsRes.data ?? []).map((row: { id: string; status: DocumentStatus; file_name: string; period_month: string | null; created_at: string | null; updated_at: string | null; size_bytes: number | null; review_comment: string | null; uploader_role: string | null; uploaded_by: string | null; storage_bucket: string | null; storage_path: string | null; source_kind: string | null; folder_id: string | null; deleted_at: string | null; document_type: { id: string; label: string; code: string | null } | { id: string; label: string; code: string | null }[] | null; employee: { id: string; full_name: string | null; email: string; role: string | null } | { id: string; full_name: string | null; email: string; role: string | null }[] | null; uploader: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null }) => {
       const employee = normalizeJoinOne(row.employee);
       const type = normalizeJoinOne(row.document_type);
       const uploader = normalizeJoinOne(row.uploader);
+      const uploaderProfile = row.uploaded_by
+        ? rhUploadersById.get(row.uploaded_by)
+        : null;
+      const isCurrentRhUploader = row.uploader_role === "rh" && row.uploaded_by === rhIdentity?.id;
       const employeeName =
         row.uploader_role === "rh" && employee?.role !== "salarie"
           ? "Aucun collaborateur"
@@ -171,10 +254,17 @@ export default function RhWorkspace({
       const uploadedByName =
         uploader?.full_name ??
         uploader?.email ??
+        uploaderProfile?.fullName ??
+        uploaderProfile?.email ??
+        (isCurrentRhUploader
+          ? (rhIdentity?.fullName ?? rhIdentity?.email ?? null)
+          : null) ??
         (row.uploader_role === "salarie" ? employeeName : "Utilisateur");
       return {
         id: row.id,
         employeeId: employee?.id ?? "",
+        folderId: row.folder_id,
+        deletedAt: row.deleted_at,
         employeeRole: employee?.role ?? null,
         documentTypeId: type?.id ?? "",
         documentTypeCode: type?.code ?? "",
@@ -194,14 +284,14 @@ export default function RhWorkspace({
         sourceKind: row.source_kind ?? "uploaded",
       } satisfies RHDocumentRow;
     });
-    const filteredDocuments = mappedDocuments.filter((document) => {
+    const filteredDocuments = mappedAllDocuments.filter((document) => {
       if (!document.employeeId) return false;
       if (document.employeeRole !== "salarie") {
         return document.employeeId === rhId;
       }
       return canAccessEmployee(document.employeeId);
     });
-    setDocuments(filteredDocuments);
+    const mappedDocuments = filteredDocuments;
 
     const mappedRequests = (requestsRes.data ?? []).map((row: { id: string; status: RequestStatus; due_at: string | null; period_month: string | null; note: string | null; document_type: { id: string; label: string } | { id: string; label: string }[] | null; employee: { id: string; full_name: string | null; email: string } | { id: string; full_name: string | null; email: string }[] | null }) => {
       const employee = normalizeJoinOne(row.employee);
@@ -218,17 +308,14 @@ export default function RhWorkspace({
         typeLabel: type?.label ?? "Document",
       } satisfies RequestRow;
     });
-    setRequests(
-      mappedRequests.filter((request) => request.employeeId && canAccessEmployee(request.employeeId)),
-    );
-
-    setJobOffers((offersRes.data ?? []) as JobOfferRow[]);
-    setApplications((appsRes.data ?? []).map((row: { id: string; candidate_id: string; status: ApplicationRow["status"]; job: { title: string | null } | { title: string | null }[] | null; candidate: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null }) => {
+    const filteredRequests = mappedRequests.filter((request) => request.employeeId && canAccessEmployee(request.employeeId));
+    const mappedJobOffers = (offersRes.data ?? []) as JobOfferRow[];
+    const mappedApplications = (appsRes.data ?? []).map((row: { id: string; candidate_id: string; status: ApplicationRow["status"]; job: { title: string | null } | { title: string | null }[] | null; candidate: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null }) => {
       const job = normalizeJoinOne(row.job);
       const candidate = normalizeJoinOne(row.candidate);
       return { id: row.id, candidateId: row.candidate_id, status: row.status, jobTitle: job?.title ?? "Offre", candidateName: candidate?.full_name ?? candidate?.email ?? "Candidat" } satisfies ApplicationRow;
-    }).filter((application) => canAccessEmployee(application.candidateId)));
-    setCvsByUser(Object.fromEntries(((cvsRes.data ?? []) as ProfileCvRow[]).map((row) => [row.user_id, row])));
+    }).filter((application) => canAccessEmployee(application.candidateId));
+    const mappedCvsByUser = Object.fromEntries(((cvsRes.data ?? []) as ProfileCvRow[]).map((row) => [row.user_id, row]));
     const activityPayload = (await activityResponse.json().catch(() => null)) as
       | {
           error?: string;
@@ -241,17 +328,30 @@ export default function RhWorkspace({
           }[];
         }
       | null;
-    if (activityResponse.ok) {
-      setActivityByEmployeeId(
-        Object.fromEntries((activityPayload?.items ?? []).map((item) => [item.userId, item])),
-      );
-    } else if (activityPayload?.error) {
+    const mappedActivityByEmployeeId = activityResponse.ok
+      ? Object.fromEntries((activityPayload?.items ?? []).map((item) => [item.userId, item]))
+      : {};
+    if (!activityResponse.ok && activityPayload?.error) {
       setSaveMessage(activityPayload.error);
     }
 
     const documentIds = filteredDocuments.map((document) => document.id);
     if (!documentIds.length) {
-      setEvents([]);
+      const nextCache: RhDashboardCache = {
+        profileId: rhId,
+        timestamp: Date.now(),
+        employees: mappedEmployees,
+        documentTypes: mappedDocumentTypes,
+        documents: mappedDocuments,
+        requests: filteredRequests,
+        jobOffers: mappedJobOffers,
+        applications: mappedApplications,
+        cvsByUser: mappedCvsByUser,
+        activityByEmployeeId: mappedActivityByEmployeeId,
+        events: [],
+      };
+      applyDashboardCache(nextCache);
+      rhDashboardCache = nextCache;
       return;
     }
 
@@ -261,7 +361,7 @@ export default function RhWorkspace({
       return;
     }
     const documentsById = Object.fromEntries(filteredDocuments.map((document) => [document.id, document]));
-    setEvents((eventsData ?? []).map((row: { id: string; created_at: string; event_type: string; actor: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null; document: { id: string; file_name: string | null; document_type: { label: string } | { label: string }[] | null } | { id: string; file_name: string | null; document_type: { label: string } | { label: string }[] | null }[] | null }) => {
+    const mappedEvents = (eventsData ?? []).map((row: { id: string; created_at: string; event_type: string; actor: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null; document: { id: string; file_name: string | null; document_type: { label: string } | { label: string }[] | null } | { id: string; file_name: string | null; document_type: { label: string } | { label: string }[] | null }[] | null }) => {
       const actor = normalizeJoinOne(row.actor);
       const document = normalizeJoinOne(row.document);
       const type = normalizeJoinOne(document?.document_type);
@@ -274,40 +374,73 @@ export default function RhWorkspace({
         actorName: actor?.full_name ?? actor?.email ?? "Systeme",
         documentLabel: type?.label ?? document?.file_name ?? "Document",
       } satisfies EventRow;
-    }).filter((row) => row.employeeId));
-  }, []);
+    }).filter((row) => row.employeeId);
+
+    const nextCache: RhDashboardCache = {
+      profileId: rhId,
+      timestamp: Date.now(),
+      employees: mappedEmployees,
+      documentTypes: mappedDocumentTypes,
+      documents: mappedDocuments,
+      requests: filteredRequests,
+      jobOffers: mappedJobOffers,
+      applications: mappedApplications,
+      cvsByUser: mappedCvsByUser,
+      activityByEmployeeId: mappedActivityByEmployeeId,
+      events: mappedEvents,
+    };
+    applyDashboardCache(nextCache);
+    rhDashboardCache = nextCache;
+  }, [applyDashboardCache]);
 
   useEffect(() => {
     const client = supabase;
     if (!client) return;
     const load = async () => {
-      setLoading(true);
       setError(null);
-      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      const { session: currentSession, error: sessionError } = await safeGetClientSession(client);
       if (sessionError) {
         setError(sessionError.message);
-        setLoading(false);
         return;
       }
-      if (!sessionData.session) {
-        setLoading(false);
+      if (!currentSession) {
         router.push("/auth");
         return;
       }
-      setSession(sessionData.session);
-      setUser(sessionData.session.user);
-      const { data: profileData, error: profileError } = await client.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("id", sessionData.session.user.id).single();
+      setSession(currentSession);
+      setUser(currentSession.user);
+      const { data: profileData, error: profileError } = await client.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("id", currentSession.user.id).single();
       if (profileError || !profileData || profileData.role !== "rh" || profileData.professional_status !== "verified") {
-        setLoading(false);
         router.push("/auth");
         return;
       }
       setProfile(profileData);
-      await loadDashboardData(profileData.id, sessionData.session.access_token);
-      setLoading(false);
+      const now = Date.now();
+      const canUseCache =
+        rhDashboardCache?.profileId === profileData.id &&
+        now - (rhDashboardCache?.timestamp ?? 0) < RH_DASHBOARD_CACHE_TTL_MS;
+      if (canUseCache && rhDashboardCache) {
+        applyDashboardCache(rhDashboardCache);
+        void loadDashboardData(profileData.id, currentSession.access_token, {
+          id: profileData.id,
+          fullName: profileData.full_name,
+          email: profileData.email,
+        }).catch(() => {});
+        return;
+      }
+      setLoading(true);
+      try {
+        await loadDashboardData(profileData.id, currentSession.access_token, {
+          id: profileData.id,
+          fullName: profileData.full_name,
+          email: profileData.email,
+        });
+      } finally {
+        setLoading(false);
+      }
     };
     void load();
-  }, [loadDashboardData, router]);
+  }, [applyDashboardCache, loadDashboardData, router]);
 
   const displayName = useMemo(() => {
     const meta = (user?.user_metadata ?? {}) as { full_name?: string; name?: string; display_name?: string };
@@ -356,19 +489,188 @@ export default function RhWorkspace({
     return date.toLocaleString();
   }, [activityByEmployeeId]);
   const refreshDashboardData = useCallback(async () => {
+    if (!profile?.id || !profile.email || !session?.access_token) return;
+    await loadDashboardData(profile.id, session.access_token, {
+      id: profile.id,
+      fullName: profile.full_name,
+      email: profile.email,
+    });
+  }, [loadDashboardData, profile?.email, profile?.full_name, profile?.id, session?.access_token]);
+  const callRhDocumentsApi = useCallback(async (path: string, init?: RequestInit) => {
+    if (!session?.access_token) {
+      throw new Error("Session RH manquante.");
+    }
+
+    const response = await fetch(path, {
+      ...init,
+      headers: {
+        ...(init?.headers ?? {}),
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+    const contentType = response.headers.get("content-type") ?? "";
+    const payload = contentType.includes("application/json")
+      ? ((await response.json().catch(() => null)) as { error?: string } | null)
+      : null;
+    const rawMessage = !payload ? (await response.text().catch(() => "")).trim() : "";
+    if (!response.ok) {
+      const fallbackMessage = `Requete RH impossible (${response.status}).`;
+      throw new Error(payload?.error ?? (rawMessage ? `${fallbackMessage} ${rawMessage}` : fallbackMessage));
+    }
+    return payload;
+  }, [session?.access_token]);
+
+  const loadRhFolders = useCallback(async (ownerUserId: string, trash = false) => {
+    const payload = (await callRhDocumentsApi(
+      `/api/documents/folders?ownerUserId=${encodeURIComponent(ownerUserId)}&all=1${trash ? "&trash=1" : ""}`,
+    )) as {
+      items?: {
+        id: string;
+        owner_user_id: string;
+        name: string;
+        parent_id: string | null;
+        deleted_at: string | null;
+        created_at: string | null;
+        updated_at: string | null;
+      }[];
+    };
+    const mapped = (payload.items ?? []).map((row) => ({
+      id: row.id,
+      ownerUserId: row.owner_user_id,
+      name: row.name,
+      parentId: row.parent_id,
+      deletedAt: row.deleted_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+    if (trash) {
+      setTrashedRhFolders(mapped);
+      return;
+    }
+    setRhFolders(mapped);
+  }, [callRhDocumentsApi]);
+
+  const createRhFolder = useCallback(async () => {
+    if (!profile?.id) return;
+    const folderName = window.prompt("Nom du dossier");
+    if (!folderName?.trim()) return;
+    await callRhDocumentsApi("/api/documents/folders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ownerUserId: profile.id,
+        name: folderName.trim(),
+        parentId: currentRhFolderId,
+      }),
+    });
+    await Promise.all([loadRhFolders(profile.id), loadRhFolders(profile.id, true)]);
+    setSaveMessage("Dossier cree.");
+  }, [callRhDocumentsApi, currentRhFolderId, loadRhFolders, profile?.id]);
+
+  const renameRhFolder = useCallback(async (folderId: string, currentName: string) => {
+    if (!profile?.id) return;
+    const nextName = window.prompt("Nouveau nom du dossier", currentName);
+    if (!nextName?.trim() || nextName.trim() === currentName.trim()) return;
+    await callRhDocumentsApi(`/api/documents/folders/${encodeURIComponent(folderId)}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: nextName.trim() }),
+    });
+    await Promise.all([loadRhFolders(profile.id), loadRhFolders(profile.id, true)]);
+    setSaveMessage("Dossier renomme.");
+  }, [callRhDocumentsApi, loadRhFolders, profile?.id]);
+
+  const deleteRhFolder = useCallback(async (folderId: string) => {
+    if (!profile?.id) return;
+    const confirmed = window.confirm("Supprimer ce dossier et son contenu ?");
+    if (!confirmed) return;
+    await callRhDocumentsApi(`/api/documents/folders/${encodeURIComponent(folderId)}`, {
+      method: "DELETE",
+    });
+    await Promise.all([loadRhFolders(profile.id), loadRhFolders(profile.id, true)]);
+    if (currentRhFolderId === folderId) {
+      setCurrentRhFolderId(null);
+    }
+    await refreshDashboardData();
+    setSaveMessage("Dossier supprime.");
+  }, [callRhDocumentsApi, currentRhFolderId, loadRhFolders, profile?.id, refreshDashboardData]);
+
+  const restoreRhFolder = useCallback(async (folderId: string) => {
+    if (!profile?.id) return;
+    await callRhDocumentsApi(`/api/documents/folders/${encodeURIComponent(folderId)}/restore`, {
+      method: "POST",
+    });
+    await Promise.all([loadRhFolders(profile.id), loadRhFolders(profile.id, true)]);
+    setSaveMessage("Dossier restaure.");
+  }, [callRhDocumentsApi, loadRhFolders, profile?.id]);
+
+  const purgeRhFolder = useCallback(async (folderId: string) => {
+    if (!profile?.id) return;
+    const confirmed = window.confirm("Supprimer definitivement ce dossier et tout son contenu ?");
+    if (!confirmed) return;
+    await callRhDocumentsApi(`/api/documents/folders/${encodeURIComponent(folderId)}/purge`, {
+      method: "DELETE",
+    });
+    await Promise.all([loadRhFolders(profile.id), loadRhFolders(profile.id, true)]);
+    setSaveMessage("Dossier supprime definitivement.");
+  }, [callRhDocumentsApi, loadRhFolders, profile?.id]);
+
+  const moveRhDocumentToFolder = useCallback(async (document: RHDocumentRow, folderId: string) => {
+    if (!profile?.id) return;
+    await callRhDocumentsApi(`/api/documents/items/${encodeURIComponent(document.id)}/move`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ownerUserId: profile.id,
+        folderId,
+      }),
+    });
+    setDocuments((current) =>
+      current.map((row) =>
+        row.id === document.id
+          ? {
+            ...row,
+            folderId,
+          }
+          : row,
+      ),
+    );
+    setSaveMessage("Document deplace dans le dossier.");
+  }, [callRhDocumentsApi, profile?.id]);
+
+  useEffect(() => {
     if (!profile?.id || !session?.access_token) return;
-    await loadDashboardData(profile.id, session.access_token);
-  }, [loadDashboardData, profile?.id, session?.access_token]);
+    void Promise.all([loadRhFolders(profile.id), loadRhFolders(profile.id, true)]).catch((loadError) => {
+      setSaveMessage(loadError instanceof Error ? loadError.message : "Chargement des dossiers impossible.");
+    });
+  }, [loadRhFolders, profile?.id, session?.access_token]);
   const activeDraft = useMemo(() => {
     if (!selectedEmployee) return null;
     return employeeDrafts[selectedEmployee.id] ?? { full_name: selectedEmployee.full_name ?? "", phone: selectedEmployee.phone ?? "", company_name: selectedEmployee.company_name ?? "", esn_partenaire: selectedEmployee.esn_partenaire ?? "", employment_status: selectedEmployee.employment_status ?? "active" };
   }, [employeeDrafts, selectedEmployee]);
-  const selectedEmployeeDocuments = useMemo(() => documents.filter((document) => document.employeeId === selectedEmployeeId), [documents, selectedEmployeeId]);
+  const selectedEmployeeDocuments = useMemo(
+    () => documents.filter((document) => document.employeeId === selectedEmployeeId && !document.deletedAt),
+    [documents, selectedEmployeeId],
+  );
   const selectedEmployeeRequests = useMemo(() => requests.filter((request) => request.employeeId === selectedEmployeeId), [requests, selectedEmployeeId]);
   const selectedEmployeeEvents = useMemo(() => events.filter((event) => event.employeeId === selectedEmployeeId), [events, selectedEmployeeId]);
   const selectedEmployeeApplications = useMemo(() => applications.filter((application) => application.candidateId === selectedEmployeeId), [applications, selectedEmployeeId]);
-  const salarieDocuments = useMemo(() => documents.filter((document) => document.uploaderRole === "salarie"), [documents]);
-  const rhDocuments = useMemo(() => documents.filter((document) => document.uploaderRole === "rh"), [documents]);
+  const activeDocuments = useMemo(() => documents.filter((document) => !document.deletedAt), [documents]);
+  const salarieDocuments = useMemo(() => activeDocuments.filter((document) => document.uploaderRole === "salarie"), [activeDocuments]);
+  const rhDocuments = useMemo(
+    () => activeDocuments.filter((document) => document.uploaderRole === "rh"),
+    [activeDocuments],
+  );
+  const trashedRhDocuments = useMemo(
+    () => documents.filter((document) => document.uploaderRole === "rh" && Boolean(document.deletedAt)),
+    [documents],
+  );
   const pendingDocuments = useMemo(() => salarieDocuments.filter((document) => document.status === "pending"), [salarieDocuments]);
   const rhDocumentFilterSource = useMemo(
     () =>
@@ -382,8 +684,14 @@ export default function RhWorkspace({
     [currentSubSection, pendingDocuments, rhDocuments, salarieDocuments],
   );
   const rhDocumentTypeOptions = useMemo(
-    () => Array.from(new Set(rhDocumentFilterSource.map((document) => document.typeLabel))).sort((left, right) => left.localeCompare(right, "fr")),
-    [rhDocumentFilterSource],
+    () => {
+      const options = new Set(rhDocumentFilterSource.map((document) => document.typeLabel));
+      if (currentSubSection === "docs_tous") {
+        options.add("Dossier");
+      }
+      return Array.from(options).sort((left, right) => left.localeCompare(right, "fr"));
+    },
+    [currentSubSection, rhDocumentFilterSource],
   );
   const rhDocumentPeriodOptions = useMemo(
     () => Array.from(new Set(rhDocumentFilterSource.map((document) => document.periodMonth ?? "__none__"))).sort((left, right) => left.localeCompare(right)),
@@ -445,6 +753,40 @@ export default function RhWorkspace({
       ),
     [documentCreatorFilter, documentPeriodFilter, documentStatusFilter, documentTypeFilter, rhDocuments],
   );
+  const visibleRhDocuments = useMemo(() => {
+    if (currentSubSection !== "docs_tous") {
+      return filteredRhDocuments;
+    }
+    if (!currentRhFolderId) {
+      return filteredRhDocuments.filter((document) => (document.folderId ?? null) === null);
+    }
+    return filteredRhDocuments.filter((document) => (document.folderId ?? null) === currentRhFolderId);
+  }, [currentRhFolderId, currentSubSection, filteredRhDocuments]);
+  const showRhFolderTrash = currentSubSection === "docs_corbeille";
+  const rhFolderPath = useMemo(() => {
+    const byId = new Map(rhFolders.map((folder) => [folder.id, folder]));
+    const path: RhDocumentFolderRow[] = [];
+    let cursor = currentRhFolderId;
+    while (cursor) {
+      const folder = byId.get(cursor);
+      if (!folder) break;
+      path.unshift(folder);
+      cursor = folder.parentId ?? null;
+    }
+    return path;
+  }, [currentRhFolderId, rhFolders]);
+
+  useEffect(() => {
+    if (currentRhFolderId && !rhFolders.some((folder) => folder.id === currentRhFolderId)) {
+      setCurrentRhFolderId(null);
+    }
+  }, [currentRhFolderId, rhFolders]);
+
+  useEffect(() => {
+    if (showRhFolderTrash && currentRhFolderId) {
+      setCurrentRhFolderId(null);
+    }
+  }, [currentRhFolderId, showRhFolderTrash]);
   const openRequests = useMemo(() => requests.filter((request) => ["pending", "uploaded", "rejected", "expired"].includes(request.status)), [requests]);
   const currentMonthDocuments = useMemo(() => {
     const now = new Date();
@@ -637,12 +979,15 @@ export default function RhWorkspace({
     await refreshDashboardData();
   }, [refreshDashboardData, resetRhUploadDialog, rhUploadDocumentTypeId, rhUploadEmployeeId, rhUploadFile, rhUploadPeriodMonth, selectedRhUploadType?.requiresPeriod, session]);
 
-  const handleDeleteRhDocument = useCallback(async (document: RHDocumentRow) => {
+  const handleDeleteRhDocument = useCallback(async (document: RHDocumentRow, permanent = false) => {
     if (!session?.access_token) {
       setSaveMessage("Session RH manquante.");
       return;
     }
-    if (!window.confirm(`Supprimer le document RH "${document.fileName}" ?`)) {
+    const confirmationLabel = permanent
+      ? `Supprimer definitivement le document RH "${document.fileName}" ?`
+      : `Deplacer le document RH "${document.fileName}" dans la corbeille ?`;
+    if (!window.confirm(confirmationLabel)) {
       return;
     }
 
@@ -655,18 +1000,44 @@ export default function RhWorkspace({
         Authorization: `Bearer ${session.access_token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ documentId: document.id }),
+      body: JSON.stringify({ documentId: document.id, permanent }),
     });
 
     const payload = (await response.json().catch(() => null)) as { error?: string } | null;
     if (!response.ok) {
-      setSaveMessage(payload?.error ?? "Suppression RH impossible.");
+      setSaveMessage(payload?.error ?? (permanent ? "Suppression definitive RH impossible." : "Suppression RH impossible."));
       setDeletingRhDocumentId(null);
       return;
     }
 
     setDeletingRhDocumentId(null);
-    setSaveMessage("Document RH supprime.");
+    setSaveMessage(permanent ? "Document RH supprime definitivement." : "Document RH deplace dans la corbeille.");
+    await refreshDashboardData();
+  }, [refreshDashboardData, session]);
+
+  const restoreRhDocument = useCallback(async (document: RHDocumentRow) => {
+    if (!session?.access_token) {
+      setSaveMessage("Session RH manquante.");
+      return;
+    }
+    setDeletingRhDocumentId(document.id);
+    setSaveMessage(null);
+    const response = await fetch("/api/rh/documents/upload", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ documentId: document.id }),
+    });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (!response.ok) {
+      setSaveMessage(payload?.error ?? "Restauration RH impossible.");
+      setDeletingRhDocumentId(null);
+      return;
+    }
+    setDeletingRhDocumentId(null);
+    setSaveMessage("Document RH restaure.");
     await refreshDashboardData();
   }, [refreshDashboardData, session]);
 
@@ -879,6 +1250,7 @@ export default function RhWorkspace({
                   <Link href="/dashboard/rh/documents/salaries" className={`block py-1 ${currentSubSection === "docs_salaries" ? "font-semibold" : ""}`}>Documents salaries</Link>
                   <Link href="/dashboard/rh/documents/a-valider" className={`block py-1 ${currentSubSection === "docs_a_valider" ? "font-semibold" : ""}`}>A valider</Link>
                   <Link href="/dashboard/rh/documents/mes-demandes" className={`block py-1 ${currentSubSection === "docs_mes_demandes" ? "font-semibold" : ""}`}>Mes demandes</Link>
+                  <Link href="/dashboard/rh/documents/corbeille" className={`block py-1 ${currentSubSection === "docs_corbeille" ? "font-semibold" : ""}`}>Corbeille</Link>
                 </div>
               )}
 
@@ -1010,6 +1382,8 @@ export default function RhWorkspace({
             </Card>
           )}          {currentSection === "documents" && (
             <RhDocumentsSection
+              storageScope={user?.id ?? profile?.id ?? null}
+              preferencesAuthToken={session?.access_token ?? null}
               currentSubSection={currentSubSection}
               documentTypeFilter={documentTypeFilter}
               documentPeriodFilter={documentPeriodFilter}
@@ -1033,11 +1407,26 @@ export default function RhWorkspace({
               onCancelRequest={handleCancelRequest}
               filteredSalarieDocuments={filteredSalarieDocuments}
               filteredPendingDocuments={filteredPendingDocuments}
-              filteredRhDocuments={filteredRhDocuments}
+              filteredRhDocuments={visibleRhDocuments}
+              trashedRhDocuments={trashedRhDocuments}
+              rhFolders={rhFolders}
+              trashedRhFolders={trashedRhFolders}
+              currentRhFolderId={currentRhFolderId}
+              rhFolderPath={rhFolderPath}
+              showRhFolderTrash={showRhFolderTrash}
+              onRhNavigateFolder={setCurrentRhFolderId}
+              onRhCreateFolder={createRhFolder}
+              onRhRenameFolder={renameRhFolder}
+              onRhDeleteFolder={deleteRhFolder}
+              onRhRestoreFolder={restoreRhFolder}
+              onRhPurgeFolder={purgeRhFolder}
+              onRhMoveDocumentToFolder={moveRhDocumentToFolder}
               onViewDocument={handleViewDocument}
               onDownloadDocument={handleDownloadDocument}
               onReviewDocument={handleReviewDocument}
               onDeleteRhDocument={handleDeleteRhDocument}
+              onRestoreRhDocument={restoreRhDocument}
+              onDeleteRhDocumentPermanently={(document) => handleDeleteRhDocument(document, true)}
               viewingDocumentId={viewingDocumentId}
               downloadingDocumentId={downloadingDocumentId}
               reviewingDocumentId={reviewingDocumentId}

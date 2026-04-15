@@ -1,7 +1,7 @@
 ﻿import { ChevronDown, ChevronLeft, ChevronRight, Download, Eye, MessageSquareText, Pencil, Trash2 } from "lucide-react";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, RotateCcw } from "lucide-react";
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,8 @@ type FilterOption = {
 };
 
 type SalarieDocumentsSectionProps = {
+  storageScope?: string | null;
+  preferencesAuthToken?: string | null;
   currentSubSection: string;
   documentsCardTitle: string;
   billingProfileReady: boolean;
@@ -67,18 +69,24 @@ type SalarieDocumentsSectionProps = {
   openUploadDialog: (requestId?: string) => void;
   currentFolderId: string | null;
   folders: DocumentFolderRow[];
+  trashedFolders: DocumentFolderRow[];
   folderPath: DocumentFolderRow[];
+  showFolderTrash: boolean;
   onNavigateFolder: (folderId: string | null) => void;
   onCreateFolder: () => void | Promise<void>;
   onMoveDocumentToFolder: (document: DocumentRow, folderId: string) => void | Promise<void>;
   onRenameFolder: (folderId: string, currentName: string) => void | Promise<void>;
   onDeleteFolder: (folderId: string) => void | Promise<void>;
+  onRestoreFolder: (folderId: string) => void | Promise<void>;
+  onPurgeFolder: (folderId: string) => void | Promise<void>;
   formatDate: (value: string | null) => string;
   formatMonth: (value: string | null) => string;
   formatDocumentStatus: (value: DocumentRow["status"]) => string;
 };
 
 export function SalarieDocumentsSection({
+  storageScope,
+  preferencesAuthToken,
   currentSubSection,
   documentsCardTitle,
   billingProfileReady,
@@ -123,12 +131,16 @@ export function SalarieDocumentsSection({
   openUploadDialog,
   currentFolderId,
   folders,
+  trashedFolders,
   folderPath,
+  showFolderTrash,
   onNavigateFolder,
   onCreateFolder,
   onMoveDocumentToFolder,
   onRenameFolder,
   onDeleteFolder,
+  onRestoreFolder,
+  onPurgeFolder,
   formatDate,
   formatMonth,
   formatDocumentStatus,
@@ -168,6 +180,24 @@ export function SalarieDocumentsSection({
 
   const [documentsMenuOpen, setDocumentsMenuOpen] = useState(false);
   const documentsMenuRef = useRef<HTMLDivElement | null>(null);
+  const trashListItems = useMemo<DocumentsListItem[]>(
+    () =>
+      [...trashedFolders]
+        .sort((left, right) => left.name.localeCompare(right.name, "fr"))
+        .map((folder) => ({
+          rowType: "folder",
+          folderId: folder.id,
+          id: `trash-folder:${folder.id}`,
+          fileName: folder.name,
+          typeLabel: "Dossier",
+          ownerName: "-",
+          createdAt: folder.deletedAt ?? folder.updatedAt ?? folder.createdAt,
+          sizeBytes: null,
+          subtitle: "Dans la corbeille",
+          hideDetailsPanel: true,
+        })),
+    [trashedFolders],
+  );
   const documentsById = useMemo(
     () => new Map(visibleDocuments.map((document) => [document.id, document])),
     [visibleDocuments],
@@ -241,7 +271,18 @@ export function SalarieDocumentsSection({
       <div className="flex flex-row items-center justify-between gap-3">
         {currentSubSection === "docs_tous" ? (
           <div ref={documentsMenuRef} className="relative">
-            {folderPath.length === 0 ? (
+            {showFolderTrash ? (
+              <button
+                type="button"
+                onClick={() => setDocumentsMenuOpen((open) => !open)}
+                className="flex items-center gap-2 rounded-lg px-2 py-1 text-lg font-semibold text-[#0A1A2F] transition hover:bg-slate-100"
+                aria-haspopup="menu"
+                aria-expanded={documentsMenuOpen}
+              >
+                <span>Corbeille</span>
+                <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
+              </button>
+            ) : folderPath.length === 0 ? (
               <button
                 type="button"
                 onClick={() => setDocumentsMenuOpen((open) => !open)}
@@ -293,33 +334,37 @@ export function SalarieDocumentsSection({
             )}
             {documentsMenuOpen ? (
               <div className="absolute left-0 top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2">
-                <button
-                  type="button"
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F]/80 transition hover:bg-slate-50"
-                  onClick={() => {
-                    setDocumentsMenuOpen(false);
-                    void onCreateFolder();
-                  }}
-                >
-                  Nouveau dossier
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F] transition hover:bg-slate-50"
-                  onClick={() => {
-                    setDocumentsMenuOpen(false);
-                    openUploadDialog();
-                  }}
-                >
-                  Importer un fichier
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F]/80 transition hover:bg-slate-50"
-                  onClick={() => setDocumentsMenuOpen(false)}
-                >
-                  Importer un dossier
-                </button>
+                {!showFolderTrash ? (
+                  <>
+                    <button
+                      type="button"
+                      className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F]/80 transition hover:bg-slate-50"
+                      onClick={() => {
+                        setDocumentsMenuOpen(false);
+                        void onCreateFolder();
+                      }}
+                    >
+                      Nouveau dossier
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F] transition hover:bg-slate-50"
+                      onClick={() => {
+                        setDocumentsMenuOpen(false);
+                        openUploadDialog();
+                      }}
+                    >
+                      Importer un fichier
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F]/80 transition hover:bg-slate-50"
+                      onClick={() => setDocumentsMenuOpen(false)}
+                    >
+                      Importer un dossier
+                    </button>
+                  </>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -590,26 +635,75 @@ export function SalarieDocumentsSection({
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
-            <DocumentFiltersBar
-              fields={["type", "period", "status"]}
-              values={{
-                type: documentTypeFilter,
-                period: documentPeriodFilter,
-                status: documentStatusFilter,
-                owner: "all",
-              }}
-              options={documentFilterOptions}
-              onChange={(field, value) => {
-                if (field === "type") onDocumentTypeFilterChange(value);
-                if (field === "period") onDocumentPeriodFilterChange(value);
-                if (field === "status") onDocumentStatusFilterChange(value);
-              }}
-            />
-            {listItems.length ? (
+          <div className="space-y-1">
+            {!showFolderTrash ? (
+              <DocumentFiltersBar
+                fields={["type", "period", "status"]}
+                values={{
+                  type: documentTypeFilter,
+                  period: documentPeriodFilter,
+                  status: documentStatusFilter,
+                  owner: "all",
+                }}
+                options={documentFilterOptions}
+                onChange={(field, value) => {
+                  if (field === "type") onDocumentTypeFilterChange(value);
+                  if (field === "period") onDocumentPeriodFilterChange(value);
+                  if (field === "status") onDocumentStatusFilterChange(value);
+                }}
+              />
+            ) : null}
+            {showFolderTrash ? (
+              trashListItems.length ? (
+                <DashboardDocumentList
+                  items={trashListItems}
+                  storageKey="salarie-documents-trash-columns"
+                  storageScope={storageScope}
+                  preferencesAuthToken={preferencesAuthToken}
+                  renderActions={(item, closeMenu) => {
+                    if (item.rowType !== "folder") return null;
+                    return (
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            closeMenu();
+                            void onRestoreFolder(item.folderId);
+                          }}
+                        >
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Restaurer
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start text-red-600 hover:text-red-700"
+                          onClick={() => {
+                            closeMenu();
+                            void onPurgeFolder(item.folderId);
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Supprimer definitivement
+                        </Button>
+                      </>
+                    );
+                  }}
+                />
+              ) : (
+                <p className="text-sm text-[#0A1A2F]/70">La corbeille est vide.</p>
+              )
+            ) : listItems.length ? (
               <DashboardDocumentList
                 items={listItems}
                 storageKey="salarie-documents-columns"
+                storageScope={storageScope}
+                preferencesAuthToken={preferencesAuthToken}
+                columnControlPlacement="inline"
                 onItemDoubleClick={(item) => {
                   if (item.rowType === "folder") {
                     onNavigateFolder(item.folderId);

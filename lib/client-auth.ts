@@ -21,9 +21,32 @@ function clearSupabaseClientStorage() {
   clearStorage(window.sessionStorage);
 }
 
+function isRefreshTokenMissingError(message: string | undefined) {
+  const normalized = (message ?? "").toLowerCase();
+  return (
+    normalized.includes("invalid refresh token") ||
+    normalized.includes("refresh token not found")
+  );
+}
+
 export async function forceClientSignOut(client: SupabaseClient) {
-  await client.auth.signOut({ scope: "global" });
-  await client.auth.signOut({ scope: "local" });
+  const globalResult = await client.auth.signOut({ scope: "global" });
+  if (globalResult.error && !isRefreshTokenMissingError(globalResult.error.message)) {
+    throw globalResult.error;
+  }
+  const localResult = await client.auth.signOut({ scope: "local" });
+  if (localResult.error && !isRefreshTokenMissingError(localResult.error.message)) {
+    throw localResult.error;
+  }
   clearSupabaseClientStorage();
 }
 
+export async function safeGetClientSession(client: SupabaseClient) {
+  const { data, error } = await client.auth.getSession();
+  if (error && isRefreshTokenMissingError(error.message)) {
+    await client.auth.signOut({ scope: "local" });
+    clearSupabaseClientStorage();
+    return { session: null, error: null };
+  }
+  return { session: data.session, error };
+}

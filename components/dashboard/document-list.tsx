@@ -33,6 +33,9 @@ type DashboardDocumentListProps<T extends DashboardDocumentListItem> = {
   items: T[];
   renderActions?: (item: T, closeMenu: () => void) => ReactNode;
   storageKey?: string;
+  storageScope?: string | null;
+  preferencesAuthToken?: string | null;
+  columnControlPlacement?: "stacked" | "inline";
   onItemDoubleClick?: (item: T) => void;
   isItemDoubleClickable?: (item: T) => boolean;
   getDraggableId?: (item: T) => string | null;
@@ -88,6 +91,35 @@ function formatActionDetails(details: string | null | undefined) {
   if (!details) return null;
 
   return details.replace(/^Commentaire RH\s*:\s*/i, "").trim() || null;
+}
+
+function getStatusBadgeClass(statusLabel: string | null | undefined) {
+  const normalized = (statusLabel ?? "").trim().toLowerCase();
+
+  if (
+    normalized.includes("valide") ||
+    normalized.includes("validé") ||
+    normalized.includes("validated")
+  ) {
+    return "bg-emerald-100 text-emerald-700";
+  }
+
+  if (
+    normalized.includes("refuse") ||
+    normalized.includes("refusé") ||
+    normalized.includes("rejected")
+  ) {
+    return "bg-rose-100 text-rose-700";
+  }
+
+  if (
+    normalized.includes("en attente") ||
+    normalized.includes("pending")
+  ) {
+    return "bg-amber-100 text-amber-700";
+  }
+
+  return "bg-slate-100 text-[#0A1A2F]/75";
 }
 
 function getHiddenColumnValues<T extends DashboardDocumentListItem>(
@@ -154,14 +186,14 @@ function getFileIcon(fileName: string, typeLabel?: string) {
   return <File className="h-5 w-5 text-[#2563eb]" />;
 }
 
-function getInitialVisibleColumns(storageKey?: string) {
+function readStoredVisibleColumns(storageKey?: string) {
   if (!storageKey || typeof window === "undefined") {
-    return defaultVisibleColumns;
+    return null;
   }
 
   const savedValue = window.localStorage.getItem(storageKey);
   if (!savedValue) {
-    return defaultVisibleColumns;
+    return null;
   }
 
   try {
@@ -169,16 +201,46 @@ function getInitialVisibleColumns(storageKey?: string) {
     const allowedValues = parsedValue.filter((value) =>
       columnDefinitions.some((definition) => definition.key === value),
     );
-    return allowedValues.length ? allowedValues : defaultVisibleColumns;
+    return allowedValues.length ? allowedValues : null;
   } catch {
+    return null;
+  }
+}
+
+function buildScopedStorageKey(storageKey?: string, storageScope?: string | null) {
+  if (!storageKey) return null;
+  if (!storageScope) return storageKey;
+  return `${storageScope}:${storageKey}`;
+}
+
+function getInitialVisibleColumnsWithScope(storageKey?: string, storageScope?: string | null) {
+  const scopedStorageKey = buildScopedStorageKey(storageKey, storageScope);
+  if (!scopedStorageKey || typeof window === "undefined") {
     return defaultVisibleColumns;
   }
+
+  const fromScoped = readStoredVisibleColumns(scopedStorageKey);
+  if (fromScoped) {
+    return fromScoped;
+  }
+
+  if (storageScope) {
+    const fromLegacy = readStoredVisibleColumns(storageKey);
+    if (fromLegacy) {
+      return fromLegacy;
+    }
+  }
+
+  return defaultVisibleColumns;
 }
 
 export function DashboardDocumentList<T extends DashboardDocumentListItem>({
   items,
   renderActions,
   storageKey,
+  storageScope,
+  preferencesAuthToken,
+  columnControlPlacement = "stacked",
   onItemDoubleClick,
   isItemDoubleClickable,
   getDraggableId,
@@ -188,20 +250,110 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
   const [menuOpen, setMenuOpen] = useState(false);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(defaultVisibleColumns);
+  const [columnsInitialized, setColumnsInitialized] = useState(false);
+  const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const scopedStorageKey = useMemo(
+    () => buildScopedStorageKey(storageKey, storageScope),
+    [storageKey, storageScope],
+  );
 
   useEffect(() => {
-    setVisibleColumns(getInitialVisibleColumns(storageKey));
-  }, [storageKey]);
+    setColumnsInitialized(false);
+    setVisibleColumns(getInitialVisibleColumnsWithScope(storageKey, storageScope));
+    setColumnsInitialized(true);
+  }, [storageKey, storageScope]);
 
   useEffect(() => {
-    if (!storageKey || typeof window === "undefined") {
+    if (!columnsInitialized) {
+      return;
+    }
+    if (!scopedStorageKey || !preferencesAuthToken) {
+      setPreferencesHydrated(true);
       return;
     }
 
-    window.localStorage.setItem(storageKey, JSON.stringify(visibleColumns));
-  }, [storageKey, visibleColumns]);
+    let cancelled = false;
+    setPreferencesHydrated(false);
+
+    const hydrate = async () => {
+      try {
+        const response = await fetch(
+          `/api/dashboard/preferences?key=${encodeURIComponent(scopedStorageKey)}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${preferencesAuthToken}`,
+            },
+          },
+        );
+        if (!response.ok) return;
+        const payload = (await response.json().catch(() => null)) as
+          | { value?: { visibleColumns?: unknown } | null }
+          | null;
+        const remoteColumns = payload?.value?.visibleColumns;
+        if (!Array.isArray(remoteColumns) || cancelled) return;
+        const nextColumns = remoteColumns.filter((value): value is ColumnKey =>
+          columnDefinitions.some((definition) => definition.key === value),
+        );
+        if (nextColumns.length) {
+          setVisibleColumns(nextColumns);
+        }
+      } finally {
+        if (!cancelled) {
+          setPreferencesHydrated(true);
+        }
+      }
+    };
+
+    void hydrate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [columnsInitialized, preferencesAuthToken, scopedStorageKey]);
+
+  useEffect(() => {
+    if (!columnsInitialized) {
+      return;
+    }
+    if (!scopedStorageKey || typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(scopedStorageKey, JSON.stringify(visibleColumns));
+  }, [columnsInitialized, scopedStorageKey, visibleColumns]);
+
+  useEffect(() => {
+    if (
+      !columnsInitialized ||
+      !scopedStorageKey ||
+      !preferencesAuthToken ||
+      !preferencesHydrated
+    ) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void fetch("/api/dashboard/preferences", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${preferencesAuthToken}`,
+        },
+        body: JSON.stringify({
+          key: scopedStorageKey,
+          value: { visibleColumns },
+        }),
+      }).catch(() => null);
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [columnsInitialized, preferencesAuthToken, preferencesHydrated, scopedStorageKey, visibleColumns]);
 
   useEffect(() => {
     if (!menuOpen && !actionMenuId) return;
@@ -244,18 +396,33 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
     });
   };
 
+  if (!columnsInitialized) {
+    return <div className="h-12 bg-white" />;
+  }
+
   return (
-    <div className="bg-white">
-      <div className="mb-2 flex justify-end" ref={menuRef}>
+    <div className="relative bg-white">
+      <div
+        className={
+          columnControlPlacement === "inline"
+            ? "absolute right-0 -top-9 z-20"
+            : "mb-2 flex justify-end"
+        }
+        ref={menuRef}
+      >
         <div className="relative">
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="gap-2 text-[#0A1A2F]/75 hover:text-[#0A1A2F]"
+            className={
+              columnControlPlacement === "inline"
+                ? "h-8 px-2 text-xs font-medium text-[#0A1A2F]/75 hover:text-[#0A1A2F]"
+                : "gap-2 text-[#0A1A2F]/75 hover:text-[#0A1A2F]"
+            }
             onClick={() => setMenuOpen((open) => !open)}
           >
-            <SlidersHorizontal className="h-4 w-4" />
+            <SlidersHorizontal className={columnControlPlacement === "inline" ? "h-3.5 w-3.5" : "h-4 w-4"} />
             Libellés
           </Button>
           {menuOpen ? (
@@ -315,13 +482,18 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
                   onDragStart={(event) => {
                     const draggedId = getDraggableId?.(item);
                     if (!draggedId) return;
+                    setDraggedItemId(draggedId);
                     event.dataTransfer.setData("text/x-dashboard-item-id", draggedId);
                     event.dataTransfer.effectAllowed = "move";
                   }}
-                  onDragEnd={() => setDragOverItemId(null)}
+                  onDragEnd={() => {
+                    setDragOverItemId(null);
+                    setDraggedItemId(null);
+                  }}
                   onDragOver={(event) => {
                     if (!onItemDrop) return;
-                    const draggedId = event.dataTransfer.getData("text/x-dashboard-item-id");
+                    const draggedId =
+                      draggedItemId ?? event.dataTransfer.getData("text/x-dashboard-item-id");
                     if (!draggedId) return;
                     const allowed = canDropOnItem ? canDropOnItem(item, draggedId) : true;
                     if (!allowed) return;
@@ -338,8 +510,10 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
                   }}
                   onDrop={(event) => {
                     if (!onItemDrop) return;
-                    const draggedId = event.dataTransfer.getData("text/x-dashboard-item-id");
+                    const draggedId =
+                      draggedItemId ?? event.dataTransfer.getData("text/x-dashboard-item-id");
                     setDragOverItemId(null);
+                    setDraggedItemId(null);
                     if (!draggedId) return;
                     const allowed = canDropOnItem ? canDropOnItem(item, draggedId) : true;
                     if (!allowed) return;
@@ -382,8 +556,16 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
                 ) : null}
 
                 {visibleColumns.includes("status") ? (
-                  <td className="px-4 py-3 align-middle text-[#0A1A2F]/80">
-                    {item.statusLabel ?? "-"}
+                  <td className="px-4 py-3 align-middle">
+                    {item.statusLabel ? (
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusBadgeClass(item.statusLabel)}`}
+                      >
+                        {item.statusLabel}
+                      </span>
+                    ) : (
+                      <span className="text-[#0A1A2F]/80">-</span>
+                    )}
                   </td>
                 ) : null}
 

@@ -30,6 +30,8 @@ export type RhDocumentTypeRow = {
 export type RhDocumentRow = {
   id: string;
   employeeId: string;
+  folderId: string | null;
+  deletedAt: string | null;
   employeeRole: string | null;
   documentTypeId: string;
   documentTypeCode: string;
@@ -47,6 +49,16 @@ export type RhDocumentRow = {
   storageBucket: string;
   storagePath: string;
   sourceKind: string;
+};
+
+export type RhDocumentFolderRow = {
+  id: string;
+  ownerUserId: string;
+  name: string;
+  parentId: string | null;
+  deletedAt?: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 };
 
 export type RhRequestRow = {

@@ -24,10 +24,10 @@ const fieldLabels: Record<FilterFieldKey, string> = {
 };
 
 const fieldWidths: Record<FilterFieldKey, string> = {
-  type: "min-w-[120px]",
-  period: "min-w-[170px]",
-  status: "min-w-[130px]",
-  owner: "min-w-[170px]",
+  type: "min-w-[100px]",
+  period: "min-w-[145px]",
+  status: "min-w-[115px]",
+  owner: "min-w-[145px]",
 };
 
 export function DocumentFiltersBar({
@@ -37,13 +37,13 @@ export function DocumentFiltersBar({
   onChange,
 }: DocumentFiltersBarProps) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {fields.map((field) => (
         <div key={field} className="relative">
           <select
             value={values[field]}
             onChange={(event) => onChange(field, event.target.value)}
-            className={`h-10 appearance-none rounded-lg border border-[#c7d7ea] bg-white px-4 pr-10 text-sm font-medium text-[#0A1A2F] outline-none transition focus:border-[#9bb8da] ${fieldWidths[field]}`}
+            className={`h-8 appearance-none rounded-md border border-[#c7d7ea] bg-white px-3 pr-8 text-xs font-medium text-[#0A1A2F] outline-none transition focus:border-[#9bb8da] ${fieldWidths[field]}`}
           >
             <option value="all">{fieldLabels[field]}</option>
             {options[field].map((option) => (
@@ -52,7 +52,7 @@ export function DocumentFiltersBar({
               </option>
             ))}
           </select>
-          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#0A1A2F]/55" />
+          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#0A1A2F]/55" />
         </div>
       ))}
     </div>

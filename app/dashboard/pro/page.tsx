@@ -20,7 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { forceClientSignOut } from "@/lib/client-auth";
+import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -112,20 +112,19 @@ export default function ProDashboardPage() {
       setLoading(true);
       setError(null);
 
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const { session: currentSession, error: sessionError } = await safeGetClientSession(supabase);
       if (sessionError) {
         setError(sessionError.message);
         setLoading(false);
         return;
       }
 
-      if (!sessionData.session) {
+      if (!currentSession) {
         setError("Aucune session active. Merci de te connecter.");
         setLoading(false);
         return;
       }
 
-      const currentSession = sessionData.session;
       setSession(currentSession);
       setUser(currentSession.user);
 

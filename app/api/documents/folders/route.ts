@@ -17,6 +17,7 @@ export async function GET(request: Request) {
     const ownerUserId = (url.searchParams.get("ownerUserId") ?? "").trim();
     const parentIdParam = url.searchParams.get("parentId");
     const all = url.searchParams.get("all") === "1";
+    const trash = url.searchParams.get("trash") === "1";
     const parentId =
       parentIdParam && parentIdParam !== "null" && parentIdParam !== ""
         ? parentIdParam
@@ -33,10 +34,11 @@ export async function GET(request: Request) {
 
     let query = context.adminClient
       .from("document_folders")
-      .select("id,owner_user_id,name,parent_id,created_at,updated_at")
+      .select("id,owner_user_id,name,parent_id,deleted_at,created_at,updated_at")
       .eq("owner_user_id", ownerUserId)
-      .is("deleted_at", null)
       .order("name", { ascending: true });
+
+    query = trash ? query.not("deleted_at", "is", null) : query.is("deleted_at", null);
 
     if (!all) {
       query = parentId ? query.eq("parent_id", parentId) : query.is("parent_id", null);

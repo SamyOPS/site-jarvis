@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { User } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/supabase-js";
 import { LogOut, Search, SlidersHorizontal } from "lucide-react";
 
 import type { BillingProfileFormState } from "@/components/dashboard/billing-profile-card";
@@ -39,7 +39,7 @@ import type {
 import { formatDate, formatDocumentStatus, formatMonth, normalizeJoinOne, type DocumentStatus } from "@/lib/dashboard-formatters";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { browserSupabase as supabase } from "@/lib/supabase-browser";
-import { forceClientSignOut } from "@/lib/client-auth";
+import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
 
 const emptyBillingProfileForm = (): BillingProfileFormState => ({
   firstName: "",
@@ -66,17 +66,33 @@ const defaultRouteProps: SalarieWorkspaceRouteProps = {
   currentSubSection: "offres_toutes",
 };
 
+type SalarieDashboardCache = {
+  profileId: string;
+  timestamp: number;
+  documentTypes: DocumentTypeRow[];
+  requests: RequestRow[];
+  documents: DocumentRow[];
+  applicationsCount: number;
+  offersCount: number;
+  hasCv: boolean;
+};
+
+const SALARIE_DASHBOARD_CACHE_TTL_MS = 2 * 60 * 1000;
+let salarieDashboardCache: SalarieDashboardCache | null = null;
+
 export default function SalarieWorkspace({
   currentSection = defaultRouteProps.currentSection,
   currentSubSection = defaultRouteProps.currentSubSection,
 }: SalarieWorkspaceRouteProps) {
   const router = useRouter();
+  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeRow[]>([]);
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
   const [folders, setFolders] = useState<DocumentFolderRow[]>([]);
+  const [trashedFolders, setTrashedFolders] = useState<DocumentFolderRow[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [documentTypeFilter, setDocumentTypeFilter] = useState("all");
   const [documentPeriodFilter, setDocumentPeriodFilter] = useState("all");
@@ -123,7 +139,16 @@ export default function SalarieWorkspace({
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
-  const loadDashboardData = useCallback(async (profileId: string) => {
+  const applyDashboardCache = useCallback((cache: SalarieDashboardCache) => {
+    setDocumentTypes(cache.documentTypes);
+    setRequests(cache.requests);
+    setDocuments(cache.documents);
+    setApplicationsCount(cache.applicationsCount);
+    setOffersCount(cache.offersCount);
+    setHasCv(cache.hasCv);
+  }, []);
+
+  const loadDashboardData = useCallback(async (profileId: string, accessToken?: string) => {
     if (!supabase) return;
 
     const [documentTypesRes, requestsRes, documentsRes, applicationsRes, offersRes, cvRes] = await Promise.all([
@@ -139,7 +164,7 @@ export default function SalarieWorkspace({
         .order("created_at", { ascending: false }),
       supabase
         .from("employee_documents")
-        .select("id,status,file_name,created_at,updated_at,size_bytes,period_month,review_comment,storage_bucket,storage_path,folder_id,document_type:document_types(id,label),uploader:profiles!employee_documents_uploaded_by_fkey(full_name,email)")
+        .select("id,status,file_name,created_at,updated_at,size_bytes,period_month,review_comment,storage_bucket,storage_path,folder_id,deleted_at,uploader_role,document_type:document_types(id,label),uploader:profiles!employee_documents_uploaded_by_fkey(full_name,email),folder:document_folders(id,deleted_at)")
         .eq("employee_id", profileId)
         .order("created_at", { ascending: false }),
       supabase.from("applications").select("id", { count: "exact", head: true }).eq("candidate_id", profileId),
@@ -151,23 +176,45 @@ export default function SalarieWorkspace({
       throw new Error(documentTypesRes.error?.message ?? requestsRes.error?.message ?? documentsRes.error?.message ?? applicationsRes.error?.message ?? offersRes.error?.message ?? cvRes.error?.message ?? "Erreur de chargement");
     }
 
-    setDocumentTypes(
-      ((documentTypesRes.data ?? []) as {
-        id: string;
-        label: string;
-        requires_period: boolean | null;
-        allowed_uploader_roles: string[] | null;
-      }[])
-        .map((row) => ({
-          id: row.id,
-          label: row.label,
-          requiresPeriod: Boolean(row.requires_period),
-          allowedUploaderRoles: row.allowed_uploader_roles ?? [],
-        }))
-        .filter((row) => row.allowedUploaderRoles.length === 0 || row.allowedUploaderRoles.includes("salarie")),
-    );
+    const effectiveAccessToken = accessToken ?? session?.access_token ?? null;
+    const documentUploaderNamesByDocumentId = new Map<string, string>();
+    const documentIds = (documentsRes.data ?? [])
+      .map((row) => (row as { id: string }).id)
+      .filter(Boolean);
+    if (effectiveAccessToken && documentIds.length) {
+      const uploadersResponse = await fetch("/api/salarie/documents/uploaders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${effectiveAccessToken}`,
+        },
+        body: JSON.stringify({ documentIds }),
+      });
+      if (uploadersResponse.ok) {
+        const uploadersPayload = (await uploadersResponse.json().catch(() => null)) as
+          | { items?: { documentId: string; uploaderName: string }[] }
+          | null;
+        for (const item of uploadersPayload?.items ?? []) {
+          documentUploaderNamesByDocumentId.set(item.documentId, item.uploaderName);
+        }
+      }
+    }
 
-    setRequests((requestsRes.data ?? []).map((row: {
+    const mappedDocumentTypes = ((documentTypesRes.data ?? []) as {
+      id: string;
+      label: string;
+      requires_period: boolean | null;
+      allowed_uploader_roles: string[] | null;
+    }[])
+      .map((row) => ({
+        id: row.id,
+        label: row.label,
+        requiresPeriod: Boolean(row.requires_period),
+        allowedUploaderRoles: row.allowed_uploader_roles ?? [],
+      }))
+      .filter((row) => row.allowedUploaderRoles.length === 0 || row.allowedUploaderRoles.includes("salarie"));
+
+    const mappedRequests = (requestsRes.data ?? []).map((row: {
       id: string;
       status: RequestStatus;
       due_at: string | null;
@@ -185,9 +232,9 @@ export default function SalarieWorkspace({
         note: row.note,
         typeLabel: documentType?.label ?? "Document",
       } satisfies RequestRow;
-    }));
+    });
 
-    setDocuments((documentsRes.data ?? []).map((row: {
+    const mappedDocuments = (documentsRes.data ?? []).map((row: {
       id: string;
       status: DocumentStatus;
       file_name: string;
@@ -199,17 +246,28 @@ export default function SalarieWorkspace({
       storage_bucket: string | null;
       storage_path: string | null;
       folder_id: string | null;
+      deleted_at: string | null;
+      uploader_role: string | null;
+      folder: { id: string; deleted_at: string | null } | { id: string; deleted_at: string | null }[] | null;
       document_type: { id: string; label: string } | { id: string; label: string }[] | null;
       uploader: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null;
     }) => {
       const documentType = normalizeJoinOne(row.document_type);
       const uploader = normalizeJoinOne(row.uploader);
+      const folder = normalizeJoinOne(row.folder);
       return {
         id: row.id,
         documentTypeId: documentType?.id ?? "",
         folderId: row.folder_id,
+        folderDeletedAt: folder?.deleted_at ?? null,
+        deletedAt: row.deleted_at,
+        uploaderRole: row.uploader_role,
         status: row.status,
-        uploadedByName: uploader?.full_name ?? uploader?.email ?? "Utilisateur",
+        uploadedByName:
+          uploader?.full_name ??
+          uploader?.email ??
+          documentUploaderNamesByDocumentId.get(row.id) ??
+          "Utilisateur",
         fileName: row.file_name,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
@@ -220,40 +278,58 @@ export default function SalarieWorkspace({
         storageBucket: row.storage_bucket ?? "employee-documents",
         storagePath: row.storage_path ?? "",
       } satisfies DocumentRow;
-    }));
+    });
 
-    setApplicationsCount(applicationsRes.count ?? 0);
-    setOffersCount(offersRes.count ?? 0);
-    setHasCv(Boolean((cvRes.data as { user_id?: string } | null)?.user_id));
-  }, []);
+    const nextCache: SalarieDashboardCache = {
+      profileId,
+      timestamp: Date.now(),
+      documentTypes: mappedDocumentTypes,
+      requests: mappedRequests,
+      documents: mappedDocuments,
+      applicationsCount: applicationsRes.count ?? 0,
+      offersCount: offersRes.count ?? 0,
+      hasCv: Boolean((cvRes.data as { user_id?: string } | null)?.user_id),
+    };
+
+    applyDashboardCache(nextCache);
+    salarieDashboardCache = nextCache;
+  }, [applyDashboardCache, session?.access_token]);
 
   useEffect(() => {
     const client = supabase;
     if (!client) return;
     const load = async () => {
-      setLoading(true);
       setError(null);
-      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      const { session, error: sessionError } = await safeGetClientSession(client);
       if (sessionError) {
         setError(sessionError.message);
-        setLoading(false);
         return;
       }
-      if (!sessionData.session) {
-        setLoading(false);
+      if (!session) {
         router.push("/auth");
         return;
       }
-      setUser(sessionData.session.user);
-      const { data: profileData, error: profileError } = await client.from("profiles").select("id,email,full_name,role,professional_status").eq("id", sessionData.session.user.id).single();
+      setSession(session);
+      setUser(session.user);
+      const { data: profileData, error: profileError } = await client.from("profiles").select("id,email,full_name,role,professional_status").eq("id", session.user.id).single();
       if (profileError || !profileData || profileData.role !== "salarie" || profileData.professional_status !== "verified") {
-        setLoading(false);
         router.push("/auth");
         return;
       }
       setProfile(profileData);
+
+      const now = Date.now();
+      const canUseCache =
+        salarieDashboardCache?.profileId === profileData.id &&
+        now - (salarieDashboardCache?.timestamp ?? 0) < SALARIE_DASHBOARD_CACHE_TTL_MS;
+      if (canUseCache && salarieDashboardCache) {
+        applyDashboardCache(salarieDashboardCache);
+        void loadDashboardData(profileData.id, session.access_token).catch(() => {});
+        return;
+      }
+      setLoading(true);
       try {
-        await loadDashboardData(profileData.id);
+        await loadDashboardData(profileData.id, session.access_token);
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Erreur de chargement");
       } finally {
@@ -261,15 +337,15 @@ export default function SalarieWorkspace({
       }
     };
     void load();
-  }, [loadDashboardData, router]);
+  }, [applyDashboardCache, loadDashboardData, router]);
 
   const callSalarieApi = useCallback(async (path: string, init?: RequestInit) => {
     if (!supabase) {
       throw new Error("Configuration Supabase manquante.");
     }
 
-    const { data, error } = await supabase.auth.getSession();
-    const accessToken = data.session?.access_token;
+    const { session, error } = await safeGetClientSession(supabase);
+    const accessToken = session?.access_token;
     if (error || !accessToken) {
       throw new Error(error?.message ?? "Session salarie manquante.");
     }
@@ -298,29 +374,34 @@ export default function SalarieWorkspace({
     return payload;
   }, []);
 
-  const loadFolders = useCallback(async (ownerUserId: string) => {
+  const loadFolders = useCallback(async (ownerUserId: string, trash = false) => {
     const payload = (await callSalarieApi(
-      `/api/documents/folders?ownerUserId=${encodeURIComponent(ownerUserId)}&all=1`,
+      `/api/documents/folders?ownerUserId=${encodeURIComponent(ownerUserId)}&all=1${trash ? "&trash=1" : ""}`,
     )) as {
       items?: {
         id: string;
         owner_user_id: string;
         name: string;
         parent_id: string | null;
+        deleted_at: string | null;
         created_at: string | null;
         updated_at: string | null;
       }[];
     };
-    setFolders(
-      (payload.items ?? []).map((row) => ({
-        id: row.id,
-        ownerUserId: row.owner_user_id,
-        name: row.name,
-        parentId: row.parent_id,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      })),
-    );
+    const mapped = (payload.items ?? []).map((row) => ({
+      id: row.id,
+      ownerUserId: row.owner_user_id,
+      name: row.name,
+      parentId: row.parent_id,
+      deletedAt: row.deleted_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+    if (trash) {
+      setTrashedFolders(mapped);
+      return;
+    }
+    setFolders(mapped);
   }, [callSalarieApi]);
 
   const createFolder = useCallback(async () => {
@@ -338,7 +419,7 @@ export default function SalarieWorkspace({
         parentId: null,
       }),
     });
-    await loadFolders(profile.id);
+    await Promise.all([loadFolders(profile.id), loadFolders(profile.id, true)]);
     setActionMessage("Dossier cree.");
   }, [callSalarieApi, loadFolders, profile?.id]);
 
@@ -388,7 +469,7 @@ export default function SalarieWorkspace({
         }),
       });
 
-      await loadFolders(profile.id);
+      await Promise.all([loadFolders(profile.id), loadFolders(profile.id, true)]);
       setActionMessage("Dossier renomme.");
     },
     [callSalarieApi, loadFolders, profile?.id],
@@ -404,7 +485,7 @@ export default function SalarieWorkspace({
         method: "DELETE",
       });
 
-      await loadFolders(profile.id);
+      await Promise.all([loadFolders(profile.id), loadFolders(profile.id, true)]);
       if (currentFolderId === folderId) {
         setCurrentFolderId(null);
       }
@@ -413,9 +494,35 @@ export default function SalarieWorkspace({
     [callSalarieApi, currentFolderId, loadFolders, profile?.id],
   );
 
+  const restoreFolder = useCallback(
+    async (folderId: string) => {
+      if (!profile?.id) return;
+      await callSalarieApi(`/api/documents/folders/${encodeURIComponent(folderId)}/restore`, {
+        method: "POST",
+      });
+      await Promise.all([loadFolders(profile.id), loadFolders(profile.id, true)]);
+      setActionMessage("Dossier restaure.");
+    },
+    [callSalarieApi, loadFolders, profile?.id],
+  );
+
+  const purgeFolder = useCallback(
+    async (folderId: string) => {
+      if (!profile?.id) return;
+      const confirmed = window.confirm("Supprimer definitivement ce dossier et tout son contenu ?");
+      if (!confirmed) return;
+      await callSalarieApi(`/api/documents/folders/${encodeURIComponent(folderId)}/purge`, {
+        method: "DELETE",
+      });
+      await Promise.all([loadFolders(profile.id), loadFolders(profile.id, true)]);
+      setActionMessage("Dossier supprime definitivement.");
+    },
+    [callSalarieApi, loadFolders, profile?.id],
+  );
+
   useEffect(() => {
     if (!profile?.id) return;
-    void loadFolders(profile.id).catch((loadError) => {
+    void Promise.all([loadFolders(profile.id), loadFolders(profile.id, true)]).catch((loadError) => {
       setActionMessage(loadError instanceof Error ? loadError.message : "Chargement des dossiers impossible.");
     });
   }, [loadFolders, profile?.id]);
@@ -1172,21 +1279,29 @@ export default function SalarieWorkspace({
     }
     return path;
   }, [currentFolderId, folders]);
+  const activeDocuments = useMemo(
+    () => documents.filter((document) => !document.deletedAt && !document.folderDeletedAt),
+    [documents],
+  );
   const filteredDocuments = useMemo(() => {
     if (currentSubSection === "docs_cra_facture") {
-      return documents.filter((document) => {
+      return activeDocuments.filter((document) => {
         const normalizedLabel = normalizeDocumentLabel(document.typeLabel);
         return normalizedLabel.includes("cra") || normalizedLabel.includes("facture");
       });
     }
     if (currentSubSection === "docs_tous") {
       if (!currentFolderId) {
-        return documents;
+        return activeDocuments.filter(
+          (document) => (document.folderId ?? null) === null || document.uploaderRole === "rh",
+        );
       }
-      return documents.filter((document) => (document.folderId ?? null) === currentFolderId);
+      return activeDocuments.filter(
+        (document) => (document.folderId ?? null) === currentFolderId && document.uploaderRole !== "rh",
+      );
     }
-    return documents;
-  }, [currentFolderId, currentSubSection, documents]);
+    return activeDocuments;
+  }, [activeDocuments, currentFolderId, currentSubSection]);
   const documentTypeOptions = useMemo(
     () => {
       const options = new Set(filteredDocuments.map((document) => document.typeLabel));
@@ -1233,7 +1348,10 @@ export default function SalarieWorkspace({
       ? "Documents a deposer"
       : currentSubSection === "docs_cra_facture"
         ? "CRA & Facture"
+        : currentSubSection === "docs_corbeille"
+          ? "Corbeille"
           : "Mes documents";
+  const showFolderTrash = currentSubSection === "docs_corbeille";
   const selectedCraSummary = useMemo(
     () => craItems.find((item) => item.id === selectedCraId) ?? null,
     [craItems, selectedCraId],
@@ -1284,9 +1402,18 @@ export default function SalarieWorkspace({
     }
   }, [currentFolderId, folders]);
 
+  useEffect(() => {
+    if (showFolderTrash && currentFolderId) {
+      setCurrentFolderId(null);
+    }
+  }, [currentFolderId, showFolderTrash]);
+
   const handleSignOut = useCallback(async () => {
     if (!supabase) return;
     setProfileMenuOpen(false);
+    setSession(null);
+    setUser(null);
+    setProfile(null);
     await forceClientSignOut(supabase);
     router.push("/auth?logged_out=1");
   }, [router]);
@@ -1323,6 +1450,7 @@ export default function SalarieWorkspace({
                   <Link href="/dashboard/salarie/documents/a-deposer" className={`block py-1 ${currentSubSection === "docs_a_deposer" ? "font-semibold" : ""}`}>A deposer</Link>
                   <Link href="/dashboard/salarie/documents" className={`block py-1 ${currentSubSection === "docs_tous" ? "font-semibold" : ""}`}>Tous mes documents</Link>
                   <Link href="/dashboard/salarie/documents/cra-facture" className={`block py-1 ${currentSubSection === "docs_cra_facture" ? "font-semibold" : ""}`}>CRA & Facture</Link>
+                  <Link href="/dashboard/salarie/documents/corbeille" className={`block py-1 ${currentSubSection === "docs_corbeille" ? "font-semibold" : ""}`}>Corbeille</Link>
                 </div>
               )}
               <Link href="/dashboard/salarie/offres" className={`block px-1 py-2 hover:underline ${currentSection === "offres" ? "font-semibold" : ""}`}>Offres d&apos;emploi</Link>
@@ -1385,8 +1513,8 @@ export default function SalarieWorkspace({
           {currentSection === "overview" && (
             <SalarieOverviewSection
               pendingRequestsCount={pendingRequests.length}
-              documentsCount={documents.length}
-              validatedDocumentsCount={documents.filter((document) => document.status === "validated").length}
+              documentsCount={activeDocuments.length}
+              validatedDocumentsCount={activeDocuments.filter((document) => document.status === "validated").length}
               pendingRequests={pendingRequests}
               formatDate={formatDate}
               formatMonth={formatMonth}
@@ -1398,6 +1526,8 @@ export default function SalarieWorkspace({
             />
           )}          {currentSection === "documents" && (
             <SalarieDocumentsSection
+              storageScope={user?.id ?? profile?.id ?? null}
+              preferencesAuthToken={session?.access_token ?? null}
               currentSubSection={currentSubSection}
               documentsCardTitle={documentsCardTitle}
               billingProfileReady={billingProfileReady}
@@ -1442,12 +1572,16 @@ export default function SalarieWorkspace({
               openUploadDialog={openUploadDialog}
               currentFolderId={currentFolderId}
               folders={folderList}
+              trashedFolders={trashedFolders}
               folderPath={folderPath}
+              showFolderTrash={showFolderTrash}
               onNavigateFolder={setCurrentFolderId}
               onCreateFolder={createFolder}
               onMoveDocumentToFolder={moveDocumentToFolder}
               onRenameFolder={renameFolder}
               onDeleteFolder={deleteFolder}
+              onRestoreFolder={restoreFolder}
+              onPurgeFolder={purgeFolder}
               formatDate={formatDate}
               formatMonth={formatMonth}
               formatDocumentStatus={formatDocumentStatus}
