@@ -23,18 +23,15 @@ export async function POST(request: Request, context: RouteContext) {
     const folderIdRaw = String(payload?.folderId ?? "").trim();
     const folderId = folderIdRaw ? folderIdRaw : null;
 
-    if (!documentId || !ownerUserId) {
-      return NextResponse.json(
-        { error: "id et ownerUserId sont requis." },
-        { status: 400 },
-      );
+    if (!documentId) {
+      return NextResponse.json({ error: "id requis." }, { status: 400 });
     }
-
-    const allowed = await canManageOwner(auth, ownerUserId);
-    if (!allowed) {
+    const payloadOwnerAllowed = ownerUserId ? await canManageOwner(auth, ownerUserId) : false;
+    if (ownerUserId && !payloadOwnerAllowed) {
       return NextResponse.json({ error: "Acces refuse." }, { status: 403 });
     }
 
+    let targetFolderOwnerUserId: string | null = null;
     if (folderId) {
       const { data: folder, error: folderError } = await auth.adminClient
         .from("document_folders")
@@ -42,9 +39,10 @@ export async function POST(request: Request, context: RouteContext) {
         .eq("id", folderId)
         .is("deleted_at", null)
         .single();
-      if (folderError || !folder || folder.owner_user_id !== ownerUserId) {
+      if (folderError || !folder) {
         return NextResponse.json({ error: "Dossier cible invalide." }, { status: 400 });
       }
+      targetFolderOwnerUserId = folder.owner_user_id;
     }
 
     const { data: employeeDocument, error: employeeDocumentError } = await auth.adminClient
@@ -62,14 +60,23 @@ export async function POST(request: Request, context: RouteContext) {
         return NextResponse.json({ error: "Document place dans la corbeille." }, { status: 400 });
       }
 
-      const ownsDocument = employeeDocument.employee_id === ownerUserId;
+      const sourceOwnerUserId = employeeDocument.employee_id;
+      const canManageSourceOwner = await canManageOwner(auth, sourceOwnerUserId);
       const isRhOwnDocumentMove =
         employeeDocument.uploader_role === "rh" &&
         employeeDocument.uploaded_by === auth.actorId &&
-        ownerUserId === auth.actorId;
+        auth.actorRole === "rh";
 
-      if (!ownsDocument && !isRhOwnDocumentMove && auth.actorRole !== "admin") {
+      if (!canManageSourceOwner && !isRhOwnDocumentMove && auth.actorRole !== "admin") {
         return NextResponse.json({ error: "Acces refuse." }, { status: 403 });
+      }
+      if (folderId && targetFolderOwnerUserId && auth.actorRole !== "admin") {
+        const movingToOwnRhFolder =
+          auth.actorRole === "rh" && targetFolderOwnerUserId === auth.actorId;
+        const movingToSourceOwnerFolder = targetFolderOwnerUserId === sourceOwnerUserId;
+        if (!movingToOwnRhFolder && !movingToSourceOwnerFolder) {
+          return NextResponse.json({ error: "Acces refuse." }, { status: 403 });
+        }
       }
 
       const employeeUpdate = await auth.adminClient

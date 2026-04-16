@@ -452,6 +452,34 @@ export default function SalarieWorkspace({
     },
     [callSalarieApi, profile?.id],
   );
+  const moveDocumentToRoot = useCallback(
+    async (document: DocumentRow) => {
+      if (!profile?.id) return;
+      await callSalarieApi(`/api/documents/items/${encodeURIComponent(document.id)}/move`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ownerUserId: profile.id,
+          folderId: null,
+        }),
+      });
+
+      setDocuments((current) =>
+        current.map((row) =>
+          row.id === document.id
+            ? {
+              ...row,
+              folderId: null,
+            }
+            : row,
+        ),
+      );
+      setActionMessage("Document deplace a la racine.");
+    },
+    [callSalarieApi, profile?.id],
+  );
 
   const renameFolder = useCallback(
     async (folderId: string, currentName: string) => {
@@ -965,55 +993,92 @@ export default function SalarieWorkspace({
   }, [documents, documentTypes, editDocumentTypeId, editFile, editFileName, editPeriodMonth, editingDocumentId, findMatchingRequest, loadDashboardData, profile, resetEditDialog, user]);
 
   const handleDeleteDocument = useCallback(async (document: DocumentRow) => {
-    if (!supabase || !profile) return;
+    if (!profile) return;
     if (document.status === "validated") {
       setActionMessage("Ce document est valide par le RH et ne peut plus etre supprime.");
       return;
     }
-    if (!window.confirm(`Supprimer le document "${document.fileName}" ?`)) {
+    if (!window.confirm(`Deplacer le document "${document.fileName}" dans la corbeille ?`)) {
       return;
     }
 
     setDeletingDocumentId(document.id);
     setActionMessage(null);
 
-    const matchingRequest = findMatchingRequest(document.documentTypeId, document.periodMonth);
-    const { error: eventsDeleteError } = await supabase.from("document_events").delete().eq("document_id", document.id);
+    try {
+      await callSalarieApi(`/api/salarie/documents/${encodeURIComponent(document.id)}/trash`, {
+        method: "POST",
+      });
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Suppression du document impossible.");
+      setDeletingDocumentId(null);
+      return;
+    }
+
+    setActionMessage("Document deplace dans la corbeille.");
+    setDeletingDocumentId(null);
+    await loadDashboardData(profile.id);
+  }, [callSalarieApi, loadDashboardData, profile]);
+
+  const handleRestoreDocument = useCallback(async (document: DocumentRow) => {
+    if (!supabase || !profile) return;
+
+    setDeletingDocumentId(document.id);
+    setActionMessage(null);
+
+    const { error } = await supabase
+      .from("employee_documents")
+      .update({ deleted_at: null, updated_at: new Date().toISOString() })
+      .eq("id", document.id);
+
+    if (error) {
+      setActionMessage(error.message);
+      setDeletingDocumentId(null);
+      return;
+    }
+
+    setActionMessage("Document restaure.");
+    setDeletingDocumentId(null);
+    await loadDashboardData(profile.id);
+  }, [loadDashboardData, profile]);
+
+  const handlePurgeDocument = useCallback(async (document: DocumentRow) => {
+    if (!supabase || !profile) return;
+    if (!window.confirm(`Supprimer definitivement le document "${document.fileName}" ?`)) {
+      return;
+    }
+
+    setDeletingDocumentId(document.id);
+    setActionMessage(null);
+
+    const { error: eventsDeleteError } = await supabase
+      .from("document_events")
+      .delete()
+      .eq("document_id", document.id);
     if (eventsDeleteError) {
       setActionMessage(eventsDeleteError.message);
       setDeletingDocumentId(null);
       return;
     }
 
-    const { error: documentDeleteError } = await supabase.from("employee_documents").delete().eq("id", document.id);
+    const { error: documentDeleteError } = await supabase
+      .from("employee_documents")
+      .delete()
+      .eq("id", document.id);
     if (documentDeleteError) {
       setActionMessage(documentDeleteError.message);
       setDeletingDocumentId(null);
       return;
     }
 
-    if (matchingRequest && matchingRequest.status === "uploaded") {
-      const { error: requestError } = await supabase
-        .from("document_requests")
-        .update({ status: "pending", updated_at: new Date().toISOString() })
-        .eq("id", matchingRequest.id);
-
-      if (requestError) {
-        setActionMessage(requestError.message);
-        setDeletingDocumentId(null);
-        await loadDashboardData(profile.id);
-        return;
-      }
-    }
-
     if (document.storagePath) {
       await supabase.storage.from(document.storageBucket).remove([document.storagePath]);
     }
 
-    setActionMessage("Document supprime.");
+    setActionMessage("Document supprime definitivement.");
     setDeletingDocumentId(null);
     await loadDashboardData(profile.id);
-  }, [findMatchingRequest, loadDashboardData, profile]);
+  }, [loadDashboardData, profile]);
 
   const getSignedDocumentUrl = useCallback(async (document: DocumentRow) => {
     if (!supabase || !document.storagePath) return;
@@ -1283,6 +1348,10 @@ export default function SalarieWorkspace({
     () => documents.filter((document) => !document.deletedAt && !document.folderDeletedAt),
     [documents],
   );
+  const trashedDocuments = useMemo(
+    () => documents.filter((document) => Boolean(document.deletedAt)),
+    [documents],
+  );
   const filteredDocuments = useMemo(() => {
     if (currentSubSection === "docs_cra_facture") {
       return activeDocuments.filter((document) => {
@@ -1305,7 +1374,7 @@ export default function SalarieWorkspace({
   const documentTypeOptions = useMemo(
     () => {
       const options = new Set(filteredDocuments.map((document) => document.typeLabel));
-      if (currentSubSection === "docs_tous") {
+      if (currentSubSection === "docs_tous" || currentSubSection === "docs_corbeille") {
         options.add("Dossier");
       }
       return Array.from(options).sort((left, right) => left.localeCompare(right, "fr"));
@@ -1435,7 +1504,7 @@ export default function SalarieWorkspace({
   }, [currentSection, currentSubSection, loadBillingProfile, loadCraItems, profile]);
 
   return (
-    <div className="h-screen overflow-hidden bg-[#eaf0fb] text-[#0A1A2F]">
+    <div className="h-screen overflow-hidden bg-[#f3f6fc] text-[#0A1A2F]">
       <div className="relative h-full">
         <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[232px]">
           <div className="flex h-full flex-col gap-4 px-4 py-5">
@@ -1476,7 +1545,7 @@ export default function SalarieWorkspace({
         </aside>
 
         <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[48px] lg:px-3 lg:py-3">
-          <div className="hidden lg:flex items-center rounded-[30px] px-2 py-1.5">
+          <div className="hidden lg:flex items-center rounded-[22px] px-2 py-1.5">
             <div className="flex min-w-0 flex-1 items-center">
               <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 backdrop-blur">
                   <Search className="h-4 w-4 text-[#0A1A2F]/55" />
@@ -1498,7 +1567,7 @@ export default function SalarieWorkspace({
             settingsActive={currentSection === "parametres"}
           />
 
-          <div className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-[30px] border border-white/70 bg-white px-4 py-6 overscroll-contain lg:px-8 lg:py-8">
+          <div className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-[22px] border border-white/70 bg-white px-4 py-6 overscroll-contain lg:px-8 lg:py-8">
           <div className="space-y-4">
           {(!supabase || error) && (
             <StatusNotice
@@ -1573,15 +1642,19 @@ export default function SalarieWorkspace({
               currentFolderId={currentFolderId}
               folders={folderList}
               trashedFolders={trashedFolders}
+              trashedDocuments={trashedDocuments}
               folderPath={folderPath}
               showFolderTrash={showFolderTrash}
               onNavigateFolder={setCurrentFolderId}
               onCreateFolder={createFolder}
               onMoveDocumentToFolder={moveDocumentToFolder}
+              onMoveDocumentToRoot={moveDocumentToRoot}
               onRenameFolder={renameFolder}
               onDeleteFolder={deleteFolder}
               onRestoreFolder={restoreFolder}
               onPurgeFolder={purgeFolder}
+              onRestoreDocument={handleRestoreDocument}
+              onPurgeDocument={handlePurgeDocument}
               formatDate={formatDate}
               formatMonth={formatMonth}
               formatDocumentStatus={formatDocumentStatus}
