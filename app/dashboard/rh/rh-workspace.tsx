@@ -4,9 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Session, User } from "@supabase/supabase-js";
-import { LogOut, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, LogOut, Pencil, Search, SlidersHorizontal } from "lucide-react";
 
 import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
+import { DashboardDocumentList } from "@/components/dashboard/document-list";
+import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { RhOffersSection } from "@/components/dashboard/rh-offers-section";
 import { RhDocumentsSection } from "@/components/dashboard/rh-documents-section";
 import { DashboardProfileMenu } from "@/components/dashboard/profile-menu";
@@ -123,6 +125,12 @@ export default function RhWorkspace({
   const [requestNote, setRequestNote] = useState("");
   const [creatingRequest, setCreatingRequest] = useState(false);
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null);
+  const [collabDetailSection, setCollabDetailSection] = useState<"demandes" | "documents" | "candidatures">("documents");
+  const [collabDocumentsMenuOpen, setCollabDocumentsMenuOpen] = useState(false);
+  const [collabDocTypeFilter, setCollabDocTypeFilter] = useState("all");
+  const [collabDocPeriodFilter, setCollabDocPeriodFilter] = useState("all");
+  const [collabDocStatusFilter, setCollabDocStatusFilter] = useState("all");
+  const [collabDocOwnerFilter, setCollabDocOwnerFilter] = useState("all");
   const [rhUploadDialogOpen, setRhUploadDialogOpen] = useState(false);
   const [rhUploadEmployeeId, setRhUploadEmployeeId] = useState("");
   const [rhUploadDocumentTypeId, setRhUploadDocumentTypeId] = useState("");
@@ -130,8 +138,10 @@ export default function RhWorkspace({
   const [rhUploadFile, setRhUploadFile] = useState<File | null>(null);
   const [uploadingRhDocument, setUploadingRhDocument] = useState(false);
   const [deletingRhDocumentId, setDeletingRhDocumentId] = useState<string | null>(null);
+  const [isEmployeeEditMode, setIsEmployeeEditMode] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const collabDocumentsMenuRef = useRef<HTMLDivElement | null>(null);
 
   const applyDashboardCache = useCallback((cache: RhDashboardCache) => {
     setEmployees(cache.employees);
@@ -450,6 +460,19 @@ export default function RhWorkspace({
   useEffect(() => {
     setProfileMenuOpen(false);
   }, [currentSection, currentSubSection, selectedEmployeeId]);
+  useEffect(() => {
+    setIsEmployeeEditMode(false);
+  }, [currentSubSection, selectedEmployeeId]);
+  useEffect(() => {
+    setCollabDetailSection("documents");
+    setCollabDocumentsMenuOpen(false);
+  }, [selectedEmployeeId]);
+  useEffect(() => {
+    setCollabDocTypeFilter("all");
+    setCollabDocPeriodFilter("all");
+    setCollabDocStatusFilter("all");
+    setCollabDocOwnerFilter("all");
+  }, [selectedEmployeeId]);
 
   useEffect(() => {
     if (!profileMenuOpen) return;
@@ -472,8 +495,39 @@ export default function RhWorkspace({
       window.removeEventListener("keydown", handleEscape);
     };
   }, [profileMenuOpen]);
+  useEffect(() => {
+    if (!collabDocumentsMenuOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!collabDocumentsMenuRef.current?.contains(event.target as Node)) {
+        setCollabDocumentsMenuOpen(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setCollabDocumentsMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [collabDocumentsMenuOpen]);
 
   const selectedEmployee = useMemo(() => employees.find((employee) => employee.id === selectedEmployeeId) ?? null, [employees, selectedEmployeeId]);
+  const resetEmployeeDraft = useCallback((employee: ProfileRow) => {
+    setEmployeeDrafts((prev) => ({
+      ...prev,
+      [employee.id]: {
+        full_name: employee.full_name ?? "",
+        phone: employee.phone ?? "",
+        company_name: employee.company_name ?? "",
+        esn_partenaire: employee.esn_partenaire ?? "",
+        employment_status: employee.employment_status ?? "active",
+      },
+    }));
+  }, []);
   const isRecentlyActive = useCallback((employeeId: string) => {
     const lastSignInAt = activityByEmployeeId[employeeId]?.lastSignInAt;
     if (!lastSignInAt) return false;
@@ -682,6 +736,54 @@ export default function RhWorkspace({
   const selectedEmployeeDocuments = useMemo(
     () => documents.filter((document) => document.employeeId === selectedEmployeeId && !document.deletedAt),
     [documents, selectedEmployeeId],
+  );
+  const selectedEmployeeDocumentFilterOptions = useMemo(
+    () => ({
+      type: Array.from(new Set(selectedEmployeeDocuments.map((document) => document.typeLabel)))
+        .sort((left, right) => left.localeCompare(right, "fr"))
+        .map((value) => ({ value, label: value })),
+      period: Array.from(
+        new Set(selectedEmployeeDocuments.map((document) => document.periodMonth ?? "__none__")),
+      )
+        .sort((left, right) => left.localeCompare(right))
+        .map((value) => ({
+          value,
+          label: value === "__none__" ? "Sans periode" : formatMonth(value),
+        })),
+      status: [
+        { value: "pending", label: "En attente" },
+        { value: "validated", label: "Valide" },
+        { value: "rejected", label: "Refuse" },
+      ],
+      owner: Array.from(new Set(selectedEmployeeDocuments.map((document) => document.uploadedByName)))
+        .sort((left, right) => left.localeCompare(right, "fr"))
+        .map((value) => ({ value, label: value })),
+    }),
+    [formatMonth, selectedEmployeeDocuments],
+  );
+  const filteredSelectedEmployeeDocuments = useMemo(
+    () =>
+      selectedEmployeeDocuments.filter((document) =>
+        matchesRhDocumentFilters(document, {
+          type: collabDocTypeFilter,
+          period: collabDocPeriodFilter,
+          status: collabDocStatusFilter,
+          creator: collabDocOwnerFilter,
+        }),
+      ),
+    [collabDocOwnerFilter, collabDocPeriodFilter, collabDocStatusFilter, collabDocTypeFilter, selectedEmployeeDocuments],
+  );
+  const selectedEmployeeDocumentListItems = useMemo(
+    () =>
+      filteredSelectedEmployeeDocuments.map((document) => ({
+        ...document,
+        ownerName: document.uploadedByName,
+        createdAt: document.createdAt,
+        statusLabel: formatDocumentStatus(document.status),
+        periodLabel: formatMonth(document.periodMonth),
+        details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
+      })),
+    [filteredSelectedEmployeeDocuments, formatDocumentStatus, formatMonth],
   );
   const selectedEmployeeRequests = useMemo(() => requests.filter((request) => request.employeeId === selectedEmployeeId), [requests, selectedEmployeeId]);
   const selectedEmployeeEvents = useMemo(() => events.filter((event) => event.employeeId === selectedEmployeeId), [events, selectedEmployeeId]);
@@ -1367,46 +1469,335 @@ export default function RhWorkspace({
               <CardContent>
                 {currentSubSection === "collab_detail" && selectedEmployee && activeDraft ? (
                   <div className="space-y-4 text-sm">
-                    <Button asChild variant="outline" size="sm"><Link href="/dashboard/rh/collaborateurs">Retour</Link></Button>
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                      <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">Nom</p><input value={activeDraft.full_name} onChange={(event) => setEmployeeDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeDraft, full_name: event.target.value } }))} className="mt-1 h-9 w-full border border-slate-300 px-2 text-sm" /></div>
-                      <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">Email</p><p className="font-medium">{selectedEmployee.email}</p></div>
-                      <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">Telephone</p><input value={activeDraft.phone} onChange={(event) => setEmployeeDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeDraft, phone: event.target.value } }))} className="mt-1 h-9 w-full border border-slate-300 px-2 text-sm" /></div>
-                      <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">Entreprise</p><input value={activeDraft.company_name} onChange={(event) => setEmployeeDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeDraft, company_name: event.target.value } }))} className="mt-1 h-9 w-full border border-slate-300 px-2 text-sm" placeholder="Nom de l'entreprise" /></div>
-                      <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">ESN partenaire</p><input value={activeDraft.esn_partenaire} onChange={(event) => setEmployeeDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeDraft, esn_partenaire: event.target.value } }))} className="mt-1 h-9 w-full border border-slate-300 px-2 text-sm" placeholder="Nom de l'ESN partenaire" /></div>
-                      <div className="rounded border border-slate-200 p-3"><p className="text-xs text-[#0A1A2F]/60">Statut</p><select value={activeDraft.employment_status} onChange={(event) => setEmployeeDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeDraft, employment_status: event.target.value } }))} className="mt-1 h-9 w-full border border-slate-300 px-2 text-sm"><option value="active">active</option><option value="inactive">inactive</option><option value="exited">exited</option></select></div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button onClick={() => void handleSaveEmployee()} disabled={savingEmployee}>{savingEmployee ? "Enregistrement..." : "Enregistrer"}</Button>
-                      <Button type="button" variant="outline" onClick={() => openRequestDialog(selectedEmployee.id)}>
-                        Demander un document
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-base font-semibold text-[#0A1A2F]">Fiche collaborateur</h3>
+                      <Button asChild variant="outline" size="sm">
+                        <Link href="/dashboard/rh/collaborateurs">Retour</Link>
                       </Button>
-                      {saveMessage && <p className="text-sm text-[#0A1A2F]/70">{saveMessage}</p>}
                     </div>
-                    <div className="grid gap-4 xl:grid-cols-2">
-                      <div className="rounded border border-slate-200 p-3"><p className="mb-2 font-medium">Demandes ({selectedEmployeeRequests.length})</p>{selectedEmployeeRequests.length ? selectedEmployeeRequests.map((request) => <p key={request.id} className="text-[#0A1A2F]/80">{request.typeLabel} - {request.status}</p>) : <p className="text-[#0A1A2F]/70">Aucune demande.</p>}</div>
-                      <div className="rounded border border-slate-200 p-3"><p className="mb-2 font-medium">CV</p><p className="text-[#0A1A2F]/80">{cvsByUser[selectedEmployee.id]?.file_name ?? "Aucun CV"}</p></div>
-                    </div>
-                    <div className="rounded border border-slate-200 p-3">
-                      <p className="mb-2 font-medium">Documents ({selectedEmployeeDocuments.length})</p>
-                      {selectedEmployeeDocuments.length ? selectedEmployeeDocuments.map((document) => (
-                        <div key={document.id} className="mb-2 flex items-center justify-between gap-2 text-[#0A1A2F]/80 last:mb-0">
-                          <p>{document.typeLabel} - {document.fileName} ({document.status})</p>
-                          <div className="flex items-center gap-2">
-                            {document.fileName.toLowerCase().endsWith(".pdf") && (
-                              <Button type="button" variant="outline" size="sm" onClick={() => void handleViewDocument(document)} disabled={!document.storagePath || viewingDocumentId === document.id || downloadingDocumentId === document.id}>
-                                {viewingDocumentId === document.id ? "Ouverture..." : "Visualiser"}
-                              </Button>
+
+                    <div className="overflow-hidden rounded-xl bg-[#f8fafc]">
+	                      <div className="flex items-center justify-between px-4 py-3">
+	                        <p className="text-base font-medium text-[#0A1A2F]">Information</p>
+	                        {!isEmployeeEditMode ? (
+	                          <Button
+	                            type="button"
+	                            variant="ghost"
+	                            size="icon"
+	                            className="h-8 w-8 text-[#0A1A2F]/70 hover:text-[#0A1A2F]"
+	                            onClick={() => setIsEmployeeEditMode(true)}
+	                            aria-label="Modifier les informations"
+	                            title="Modifier"
+	                          >
+	                            <Pencil className="h-4 w-4" />
+	                          </Button>
+	                        ) : (
+	                          <div className="flex items-center gap-2">
+	                            <Button
+	                              size="sm"
+	                              onClick={async () => {
+	                                await handleSaveEmployee();
+	                                setIsEmployeeEditMode(false);
+	                              }}
+	                              disabled={savingEmployee}
+	                            >
+	                              {savingEmployee ? "Enregistrement..." : "Enregistrer"}
+	                            </Button>
+	                            <Button
+	                              type="button"
+	                              variant="outline"
+	                              size="sm"
+	                              onClick={() => {
+	                                resetEmployeeDraft(selectedEmployee);
+	                                setIsEmployeeEditMode(false);
+	                              }}
+	                              disabled={savingEmployee}
+	                            >
+	                              Annuler
+	                            </Button>
+	                          </div>
+	                        )}
+	                      </div>
+                      <div className="grid gap-6 p-4 md:grid-cols-[160px_minmax(0,1fr)]">
+                        <div className="space-y-3">
+                          <div className="flex h-[132px] w-[132px] items-center justify-center rounded border border-slate-300 bg-white text-3xl font-semibold text-[#0A1A2F]/60">
+                            {(activeDraft.full_name ?? selectedEmployee.email ?? "?").trim().charAt(0).toUpperCase()}
+                          </div>
+                          <p className="text-xs text-[#0A1A2F]/60">Profil collaborateur</p>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+	                          <div>
+	                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Nom et prenom</p>
+		                            {isEmployeeEditMode ? (
+		                              <input
+		                                value={activeDraft.full_name}
+		                                onChange={(event) =>
+		                                  setEmployeeDrafts((prev) => ({
+		                                    ...prev,
+	                                    [selectedEmployee.id]: { ...activeDraft, full_name: event.target.value },
+	                                  }))
+		                                }
+		                                className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm"
+		                              />
+		                            ) : (
+		                              <p className="mt-1 text-[#0A1A2F]/80">{activeDraft.full_name || "-"}</p>
+		                            )}
+	                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Email</p>
+                            <p className="mt-1 break-all text-[#0A1A2F]">{selectedEmployee.email}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">N° mobile</p>
+                            {isEmployeeEditMode ? (
+                              <input
+                                value={activeDraft.phone}
+                                onChange={(event) =>
+                                  setEmployeeDrafts((prev) => ({
+                                    ...prev,
+                                    [selectedEmployee.id]: { ...activeDraft, phone: event.target.value },
+                                  }))
+                                }
+                                className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm"
+                              />
+                            ) : (
+                              <p className="mt-1 text-[#0A1A2F]/80">{activeDraft.phone || "-"}</p>
                             )}
-                            <Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDocument(document)} disabled={!document.storagePath || downloadingDocumentId === document.id || viewingDocumentId === document.id}>
-                              {downloadingDocumentId === document.id ? "Telechargement..." : "Telecharger"}
-                            </Button>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Entreprise</p>
+                            {isEmployeeEditMode ? (
+                              <input
+                                value={activeDraft.company_name}
+                                onChange={(event) =>
+                                  setEmployeeDrafts((prev) => ({
+                                    ...prev,
+                                    [selectedEmployee.id]: { ...activeDraft, company_name: event.target.value },
+                                  }))
+                                }
+                                className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm"
+                                placeholder="Nom de l'entreprise"
+                              />
+                            ) : (
+                              <p className="mt-1 text-[#0A1A2F]/80">{activeDraft.company_name || "-"}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">ESN partenaire</p>
+                            {isEmployeeEditMode ? (
+                              <input
+                                value={activeDraft.esn_partenaire}
+                                onChange={(event) =>
+                                  setEmployeeDrafts((prev) => ({
+                                    ...prev,
+                                    [selectedEmployee.id]: { ...activeDraft, esn_partenaire: event.target.value },
+                                  }))
+                                }
+                                className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm"
+                                placeholder="Nom de l'ESN partenaire"
+                              />
+                            ) : (
+                              <p className="mt-1 text-[#0A1A2F]/80">{activeDraft.esn_partenaire || "-"}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Statut</p>
+                            {isEmployeeEditMode ? (
+                              <select
+                                value={activeDraft.employment_status}
+                                onChange={(event) =>
+                                  setEmployeeDrafts((prev) => ({
+                                    ...prev,
+                                    [selectedEmployee.id]: { ...activeDraft, employment_status: event.target.value },
+                                  }))
+                                }
+                                className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm"
+                              >
+                                <option value="active">active</option>
+                                <option value="inactive">inactive</option>
+                                <option value="exited">exited</option>
+                              </select>
+                            ) : (
+                              <p className="mt-1 text-[#0A1A2F]/80">{activeDraft.employment_status || "-"}</p>
+                            )}
                           </div>
                         </div>
-                      )) : <p className="text-[#0A1A2F]/70">Aucun document.</p>}
-                    </div>
-                    <div className="rounded border border-slate-200 p-3"><p className="mb-2 font-medium">Historique ({selectedEmployeeEvents.length})</p>{selectedEmployeeEvents.length ? selectedEmployeeEvents.map((event) => <p key={event.id} className="text-[#0A1A2F]/80">{event.documentLabel} - {event.eventType}</p>) : <p className="text-[#0A1A2F]/70">Aucun evenement.</p>}</div>
-                    <div className="rounded border border-slate-200 p-3"><p className="mb-2 font-medium">Candidatures ({selectedEmployeeApplications.length})</p>{selectedEmployeeApplications.length ? selectedEmployeeApplications.map((application) => <p key={application.id} className="text-[#0A1A2F]/80">{application.jobTitle} - {application.status}</p>) : <p className="text-[#0A1A2F]/70">Aucune candidature.</p>}</div>
+                      </div>
+	                    </div>
+	                    <div className="flex items-center gap-2">
+	                      {saveMessage && <p className="text-sm text-[#0A1A2F]/70">{saveMessage}</p>}
+	                    </div>
+	                    <div className="w-full border-b border-slate-200 bg-white">
+	                      <div className="flex items-end gap-1 px-2 text-sm">
+	                        <button
+	                          type="button"
+	                          className={`rounded-t-md px-4 py-2 font-medium transition ${
+	                            collabDetailSection === "demandes"
+	                              ? "border-b-2 border-[#0A1A2F] bg-slate-50 text-[#0A1A2F]"
+	                              : "text-[#0A1A2F]/65 hover:bg-slate-50 hover:text-[#0A1A2F]"
+	                          }`}
+	                          onClick={() => {
+	                            setCollabDetailSection("demandes");
+	                            setCollabDocumentsMenuOpen(false);
+	                          }}
+	                        >
+	                          Demandes
+	                        </button>
+	                        <button
+	                          type="button"
+	                          className={`rounded-t-md px-4 py-2 font-medium transition ${
+	                            collabDetailSection === "documents"
+	                              ? "border-b-2 border-[#0A1A2F] bg-slate-50 text-[#0A1A2F]"
+	                              : "text-[#0A1A2F]/65 hover:bg-slate-50 hover:text-[#0A1A2F]"
+	                          }`}
+	                          onClick={() => {
+	                            setCollabDetailSection("documents");
+	                            setCollabDocumentsMenuOpen(false);
+	                          }}
+	                        >
+	                          Documents
+	                        </button>
+	                        <button
+	                          type="button"
+	                          className={`rounded-t-md px-4 py-2 font-medium transition ${
+	                            collabDetailSection === "candidatures"
+	                              ? "border-b-2 border-[#0A1A2F] bg-slate-50 text-[#0A1A2F]"
+	                              : "text-[#0A1A2F]/65 hover:bg-slate-50 hover:text-[#0A1A2F]"
+	                          }`}
+	                          onClick={() => {
+	                            setCollabDetailSection("candidatures");
+	                            setCollabDocumentsMenuOpen(false);
+	                          }}
+	                        >
+	                          Candidatures
+	                        </button>
+	                      </div>
+	                    </div>
+
+	                    {collabDetailSection === "demandes" ? (
+	                      <div className="rounded p-3">
+	                        <p className="mb-2 font-medium">Demandes ({selectedEmployeeRequests.length})</p>
+	                        {selectedEmployeeRequests.length ? selectedEmployeeRequests.map((request) => (
+	                          <p key={request.id} className="text-[#0A1A2F]/80">{request.typeLabel} - {request.status}</p>
+	                        )) : <p className="text-[#0A1A2F]/70">Aucune demande.</p>}
+	                      </div>
+	                    ) : null}
+	                    {collabDetailSection === "documents" ? (
+	                      <>
+		                        <div className="rounded p-3">
+		                          <div ref={collabDocumentsMenuRef} className="relative mb-2 flex items-center gap-2">
+		                            <p className="font-medium">Documents ({filteredSelectedEmployeeDocuments.length})</p>
+		                            <button
+		                              type="button"
+		                              className="rounded-md p-1 text-[#0A1A2F]/70 hover:bg-slate-100 hover:text-[#0A1A2F]"
+		                              aria-label="Options documents"
+		                              onClick={() => setCollabDocumentsMenuOpen((open) => !open)}
+		                            >
+		                              <ChevronDown className={`h-4 w-4 transition ${collabDocumentsMenuOpen ? "rotate-180" : ""}`} />
+		                            </button>
+		                            {collabDocumentsMenuOpen ? (
+		                              <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+		                                <button
+		                                  type="button"
+		                                  className="w-full rounded-md px-3 py-2 text-left text-sm text-[#0A1A2F] hover:bg-slate-50"
+		                                  onClick={() => {
+		                                    resetRhUploadDialog();
+		                                    setRhUploadEmployeeId(selectedEmployee.id);
+		                                    setSaveMessage(null);
+		                                    setRhUploadDialogOpen(true);
+		                                    setCollabDocumentsMenuOpen(false);
+		                                  }}
+		                                >
+		                                  Importer un fichier
+		                                </button>
+		                              </div>
+		                            ) : null}
+		                          </div>
+		                          <DocumentFiltersBar
+	                            fields={["type", "period", "status", "owner"]}
+	                            values={{
+	                              type: collabDocTypeFilter,
+	                              period: collabDocPeriodFilter,
+	                              status: collabDocStatusFilter,
+	                              owner: collabDocOwnerFilter,
+	                            }}
+	                            options={selectedEmployeeDocumentFilterOptions}
+	                            onChange={(field, value) => {
+	                              if (field === "type") setCollabDocTypeFilter(value);
+	                              if (field === "period") setCollabDocPeriodFilter(value);
+	                              if (field === "status") setCollabDocStatusFilter(value);
+	                              if (field === "owner") setCollabDocOwnerFilter(value);
+	                            }}
+	                          />
+	                          {filteredSelectedEmployeeDocuments.length ? (
+		                            <DashboardDocumentList
+		                              items={selectedEmployeeDocumentListItems}
+		                              storageKey="rh-collab-detail-documents-columns"
+		                              storageScope={user?.id ?? profile?.id ?? null}
+		                              preferencesAuthToken={session?.access_token ?? null}
+		                              columnControlPlacement="inline"
+		                              onItemDoubleClick={(document) => {
+		                                if (
+		                                  document.fileName.toLowerCase().endsWith(".pdf") &&
+		                                  document.storagePath
+		                                ) {
+		                                  void handleViewDocument(document);
+		                                }
+		                              }}
+		                              isItemDoubleClickable={(document) =>
+		                                document.fileName.toLowerCase().endsWith(".pdf") && !!document.storagePath
+		                              }
+		                              renderActions={(document) => (
+		                                <>
+		                                  {document.fileName.toLowerCase().endsWith(".pdf") ? (
+		                                    <Button
+		                                      type="button"
+		                                      variant="ghost"
+		                                      size="sm"
+		                                      className="w-full justify-start"
+		                                      onClick={() => {
+		                                        void handleViewDocument(document);
+		                                      }}
+		                                      disabled={
+		                                        !document.storagePath ||
+		                                        viewingDocumentId === document.id ||
+		                                        downloadingDocumentId === document.id
+		                                      }
+		                                    >
+		                                      Visualiser
+		                                    </Button>
+		                                  ) : null}
+		                                  <Button
+		                                    type="button"
+		                                    variant="ghost"
+		                                    size="sm"
+		                                    className="w-full justify-start"
+		                                    onClick={() => {
+		                                      void handleDownloadDocument(document);
+		                                    }}
+		                                    disabled={
+		                                      !document.storagePath ||
+		                                      downloadingDocumentId === document.id ||
+		                                      viewingDocumentId === document.id
+		                                    }
+		                                  >
+		                                    Télécharger
+		                                  </Button>
+		                                </>
+		                              )}
+	                            />
+	                          ) : <p className="text-[#0A1A2F]/70">Aucun document.</p>}
+	                        </div>
+	                      </>
+	                    ) : null}
+	                    {collabDetailSection === "candidatures" ? (
+	                      <div className="rounded p-3">
+	                        <p className="mb-2 font-medium">Candidatures ({selectedEmployeeApplications.length})</p>
+	                        {selectedEmployeeApplications.length ? selectedEmployeeApplications.map((application) => (
+	                          <p key={application.id} className="text-[#0A1A2F]/80">{application.jobTitle} - {application.status}</p>
+	                        )) : <p className="text-[#0A1A2F]/70">Aucune candidature.</p>}
+	                      </div>
+	                    ) : null}
                   </div>
                 ) : (
                   <div className="overflow-x-auto rounded-lg">
@@ -1638,6 +2029,9 @@ export default function RhWorkspace({
     </div>
   );
 }
+
+
+
 
 
 

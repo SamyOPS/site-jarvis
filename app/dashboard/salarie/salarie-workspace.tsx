@@ -993,7 +993,7 @@ export default function SalarieWorkspace({
   }, [documents, documentTypes, editDocumentTypeId, editFile, editFileName, editPeriodMonth, editingDocumentId, findMatchingRequest, loadDashboardData, profile, resetEditDialog, user]);
 
   const handleDeleteDocument = useCallback(async (document: DocumentRow) => {
-    if (!supabase || !profile) return;
+    if (!profile) return;
     if (document.status === "validated") {
       setActionMessage("Ce document est valide par le RH et ne peut plus etre supprime.");
       return;
@@ -1005,36 +1005,20 @@ export default function SalarieWorkspace({
     setDeletingDocumentId(document.id);
     setActionMessage(null);
 
-    const matchingRequest = findMatchingRequest(document.documentTypeId, document.periodMonth);
-    const now = new Date().toISOString();
-    const { error: documentDeleteError } = await supabase
-      .from("employee_documents")
-      .update({ deleted_at: now, updated_at: now })
-      .eq("id", document.id);
-    if (documentDeleteError) {
-      setActionMessage(documentDeleteError.message);
+    try {
+      await callSalarieApi(`/api/salarie/documents/${encodeURIComponent(document.id)}/trash`, {
+        method: "POST",
+      });
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Suppression du document impossible.");
       setDeletingDocumentId(null);
       return;
-    }
-
-    if (matchingRequest && matchingRequest.status === "uploaded") {
-      const { error: requestError } = await supabase
-        .from("document_requests")
-        .update({ status: "pending", updated_at: new Date().toISOString() })
-        .eq("id", matchingRequest.id);
-
-      if (requestError) {
-        setActionMessage(requestError.message);
-        setDeletingDocumentId(null);
-        await loadDashboardData(profile.id);
-        return;
-      }
     }
 
     setActionMessage("Document deplace dans la corbeille.");
     setDeletingDocumentId(null);
     await loadDashboardData(profile.id);
-  }, [findMatchingRequest, loadDashboardData, profile]);
+  }, [callSalarieApi, loadDashboardData, profile]);
 
   const handleRestoreDocument = useCallback(async (document: DocumentRow) => {
     if (!supabase || !profile) return;
