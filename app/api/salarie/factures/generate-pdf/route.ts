@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
-import { buildInvoicePdfBuffer } from "@/lib/invoice-pdf";
+import { buildInvoicePdfBuffer } from "@/public/partenaire/invoice-pdf";
 import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toDocumentDate, toIsoMonthStart } from "@/lib/server-supabase";
 
 type InvoiceEntryInput = {

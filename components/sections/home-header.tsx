@@ -146,14 +146,13 @@ export function HomeHeader() {
             <img
               src="/logo jarvis.png"
               alt="Jarvis Connect"
-              className="h-25 w-25 object-contain"
+              className="h-15 w-15 object-contain"
             />
             <span className="text-sm font-bold uppercase tracking-[0.28em] text-white">
               Jarvis Connect
             </span>
           </Link>
 
-          {/* Nav desktop */}
           <nav className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
               <Link
@@ -166,7 +165,6 @@ export function HomeHeader() {
             ))}
           </nav>
 
-          {/* Actions */}
           <div className="flex items-center gap-3">
             {userLabel ? (
               <div className="relative" ref={menuRef}>
@@ -217,7 +215,6 @@ export function HomeHeader() {
           </div>
         </div>
 
-        {/* Menu mobile */}
         {mobileOpen && (
           <div className="md:hidden border-t border-white/10 bg-[#0A1A2F]/95 backdrop-blur-md pb-4">
             {navLinks.map((link) => (

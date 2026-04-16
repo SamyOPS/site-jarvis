@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
 import { Footer } from "@/components/sections/footer";
+import { HomeHeader } from "@/components/sections/home-header";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -20,73 +21,57 @@ type NewsItem = {
 };
 
 function NewsCard({ item, idx }: { item: NewsItem; idx: number }) {
-  const [isHovered, setIsHovered] = useState(false);
-
   return (
     <motion.div
+      className="group"
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: idx * 0.1 }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{ position: "relative", overflow: "hidden", cursor: "pointer", borderRadius: "10px", height: "380px" }}
+      transition={{ duration: 0.5, delay: idx * 0.08 }}
+      style={{ position: "relative", cursor: "pointer", borderRadius: "10px", overflow: "hidden" }}
     >
-      {/* Image de fond */}
+      {/* Image */}
       <img
         src={item.cover_image ?? "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800"}
         alt={item.title}
+        className="group-hover:scale-105 transition-transform duration-500"
         style={{ width: "100%", height: "260px", objectFit: "cover", display: "block", borderRadius: "10px" }}
       />
 
-      {/* État Normal : Titre et bouton gris */}
-      <motion.div
-        animate={{ opacity: isHovered ? 0 : 1, y: isHovered ? 20 : 0 }}
-        transition={{ duration: 0.4 }}
+      {/* Label visible par défaut */}
+      <div
+        className="transition-all duration-300 group-hover:opacity-0 group-hover:translate-y-4"
         style={{ marginTop: "-30px", textAlign: "center", position: "relative", zIndex: 2 }}
       >
-        <div style={{ background: "#1a3a5c", borderRadius: "10px", padding: "16px 20px", margin: "0 25px shadow-lg" }}>
-          <span style={{ color: "#fff", fontSize: "16px", fontWeight: 600 }}>{item.title}</span>
+        <div style={{ background: "#0A1A2F", borderRadius: "10px", padding: "16px 20px", margin: "0 30px" }}>
+          <span style={{ color: "#fff", fontSize: "17px", fontWeight: 600 }}>{item.title}</span>
         </div>
-        <div
-          style={{ display: "inline-block", marginTop: "12px", borderRadius: "50px", background: "#f0f0f0", color: "#e8335a", padding: "8px 24px", fontSize: "13px", fontWeight: 600 }}
-        >
+        <div style={{ display: "inline-block", marginTop: "12px", marginBottom: "8px", borderRadius: "50px", background: "#f0f0f0", color: "#2aa0dd", padding: "10px 32px", fontSize: "14px", fontWeight: 600 }}>
           En savoir plus
         </div>
-      </motion.div>
+      </div>
 
-      {/* État Hover : Panel bleu qui monte */}
-      <motion.div
-        animate={{ bottom: isHovered ? "0%" : "-100%", opacity: isHovered ? 1 : 0 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        style={{
-          position: "absolute",
-          left: "25px",
-          right: "25px",
-          background: "#1a3a5c",
-          borderRadius: "10px",
-          padding: "20px 15px",
-          textAlign: "center",
-          zIndex: 3,
-        }}
+      {/* Overlay CSS pur — pas de flickering */}
+      <div
+        className="absolute left-[30px] right-[30px] translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 ease-out"
+        style={{ bottom: "0px", background: "#0A1A2F", borderRadius: "10px", padding: "24px 20px", textAlign: "center", zIndex: 3 }}
       >
-        <h4 style={{ color: "#fff", fontSize: "17px", fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "10px", marginBottom: "10px" }}>
+        <h4 style={{ color: "#fff", fontSize: "18px", fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px", marginBottom: "12px", marginTop: 0 }}>
           {item.title}
         </h4>
-        <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "13px", lineHeight: 1.5, marginBottom: "15px" }} className="line-clamp-4">
+        <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "14px", lineHeight: 1.6, marginBottom: "20px", marginTop: 0 }} className="line-clamp-3">
           {item.excerpt ?? "Découvrez notre dernier article."}
         </p>
         <a
           href={`/actus/${item.slug}`}
-          style={{ display: "inline-block", borderRadius: "50px", background: "#e8335a", color: "#fff", padding: "8px 24px", fontSize: "13px", fontWeight: 600, textDecoration: "none" }}
+          style={{ display: "inline-block", borderRadius: "50px", background: "#2aa0dd", color: "#fff", padding: "10px 32px", fontSize: "14px", fontWeight: 600, textDecoration: "none" }}
         >
           Lire l'article
         </a>
-      </motion.div>
+      </div>
     </motion.div>
   );
 }
 
-// --- PAGE PRINCIPALE ---
 export default function ActusPage() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,72 +90,64 @@ export default function ActusPage() {
           .select("id,title,slug,excerpt,cover_image,published_at,created_at")
           .eq("status", "published")
           .order("published_at", { ascending: false });
-
         if (fetchError) throw fetchError;
         setItems(data ?? []);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Erreur inconnue");
       } finally {
         setLoading(false);
       }
     };
-
     fetchNews();
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#F4F7FA] text-[#0A1A2F]">
-      <main className="mx-auto max-w-6xl px-6 py-16 lg:px-10 lg:py-20">
-        
-        {/* Header de la page */}
-        <div className="mb-16 text-center">
-          <motion.p 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="text-xs uppercase tracking-[0.3em] text-[#e8335a] font-bold mb-3"
-          >
-            Actualités
-          </motion.p>
-          <motion.h1 
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="text-4xl font-semibold md:text-5xl mb-6"
-          >
-            Toutes les actus
-          </motion.h1>
-          <div className="mx-auto w-20 h-1 bg-[#1a3a5c] mb-6"></div>
-          <p className="mx-auto max-w-2xl text-gray-500">
-            Analyses, projets, annonces et points de vue de Jarvis Connect.
+    <>
+      <div className="min-h-screen bg-white text-[#0A1A2F]">
+        <HomeHeader />
+
+        {/* Hero */}
+        <div className="bg-[#0A1A2F] py-24 px-6 text-center">
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white mb-4">
+            Actualités de Jarvis Connect
+          </h1>
+          <div className="mt-2 mb-6 mx-auto w-12 h-1 rounded-full bg-[#2aa0dd]" />
+          <p className="mx-auto max-w-2xl text-base text-white/60 leading-relaxed">
+            Analyses, projets, annonces et points de vue de l'équipe Jarvis Connect.
           </p>
         </div>
 
-        {/* Gestion des états (Loading / Error) */}
-        {loading && (
-          <div className="flex justify-center py-20">
-            <p className="animate-pulse text-gray-400">Chargement de la veille technologique...</p>
-          </div>
-        )}
+        <main className="mx-auto max-w-6xl px-6 py-16 lg:px-10 lg:py-20">
 
-        {error && (
-          <div className="rounded-lg bg-red-50 p-4 text-center text-red-700 border border-red-100">
-            {error}
-          </div>
-        )}
+          {loading && (
+            <div className="flex justify-center py-20">
+              <p className="animate-pulse text-gray-400">Chargement des actualités...</p>
+            </div>
+          )}
 
-        {/* Grille d'actualités (Même style que l'accueil) */}
-        <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
-          <AnimatePresence>
-            {!loading && items.map((item, idx) => (
-              <NewsCard key={item.id} item={item} idx={idx} />
-            ))}
-          </AnimatePresence>
-        </div>
+          {error && (
+            <div className="rounded-lg bg-red-50 p-4 text-center text-red-700 border border-red-100">
+              {error}
+            </div>
+          )}
 
-        {!loading && items.length === 0 && !error && (
-          <div className="text-center py-20 text-gray-500 italic">
-            Aucun article n'est disponible pour le moment.
+          <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+            <AnimatePresence>
+              {!loading && items.map((item, idx) => (
+                <NewsCard key={item.id} item={item} idx={idx} />
+              ))}
+            </AnimatePresence>
           </div>
-        )}
-      </main>
+
+          {!loading && items.length === 0 && !error && (
+            <div className="text-center py-20 text-gray-500 italic">
+              Aucun article disponible pour le moment.
+            </div>
+          )}
+
+        </main>
+      </div>
       <Footer />
-    </div>
+    </>
   );
 }

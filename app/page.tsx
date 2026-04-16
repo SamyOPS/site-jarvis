@@ -212,6 +212,8 @@ export default function Home() {
     { src: "/partenaire/tds.png", alt: "TDS" },
 
     { src: "/partenaire/spie.png", alt: "SPIE" },
+    { src: "/partenaire/inetumbis.png", alt: "Inetum" },
+
 
   ];
 
@@ -252,14 +254,15 @@ export default function Home() {
       imageSrc:
 
         index === 0
+        
 
-          ? "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
+          ? "https://www.micro-concept.fr/2024/wp-content/uploads/2025/04/A_modern_office_scene_showcasing_web_development_e-1744789188802-scaled.png"
 
           : index === 1
 
             ? "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80"
 
-            : "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80",
+            : "https://www.pwc.fr/fr/assets/images/2021/09/the-new-equation/fr-france-670x377-GettyImages-1185878317.jpg",
 
       imageAlt: item.title,
 
@@ -351,7 +354,6 @@ export default function Home() {
 
         </section>
 
-        {/* ✅ CORRIGÉ : id="clients" sur la section Clients */}
         <section id="clients">
 
           <Clients
@@ -368,7 +370,6 @@ export default function Home() {
 
               <>
 
-                {/* eslint-disable-next-line react/no-unescaped-entities */}
                 "Nous travaillons depuis quelques mois avec la société <em>Jarvis Connect</em> et j'en suis pleinement satisfait.
 
                 <br />
@@ -404,7 +405,6 @@ export default function Home() {
 
         </section>
 
-        {/* ✅ CORRIGÉ : id="offres" sur la section OffresEmploi */}
         <section id="offres" className="text-[#2aa0dd]">
           <OffresEmploi
 
