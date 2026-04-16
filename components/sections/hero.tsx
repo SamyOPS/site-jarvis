@@ -54,6 +54,7 @@ export function Hero(props: HeroProps) {
     fontFamily || fontWeight
       ? { fontFamily, fontWeight }
       : undefined;
+
   const handleScrollClick = () => {
     if (!scrollTargetId) return;
     const target = document.getElementById(scrollTargetId);
@@ -65,28 +66,34 @@ export function Hero(props: HeroProps) {
 
   return (
     <div className={`relative w-full overflow-hidden ${className}`}>
-      <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{
-          backgroundImage:
-            "url(https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)",
-        }}
+
+      <video
+        className="absolute inset-0 h-full w-full object-cover"
+        src="/images/block/backg.mp4"        autoPlay
+        loop
+        muted
+        playsInline
         aria-hidden
       />
-      <div className={`absolute inset-0 ${veilOpacity}`} aria-hidden />
+
+
+      {veilOpacity && (
+        <div className={`absolute inset-0 ${veilOpacity}`} aria-hidden />
+      )}
+
       <div className="relative mx-auto flex min-h-screen w-full items-center px-6">
         <div className={`mx-auto w-full ${maxWidth} text-center`} style={typographyStyle}>
           <h1
             className={`text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl ${titleClassName}`}
           >
             {title}
-            {highlightText ? <span className="opacity-90"> {highlightText}</span> : null}
+            {highlightText ? (
+              <span className="opacity-90"> {highlightText}</span>
+            ) : null}
           </h1>
 
           {description ? (
-            <p
-              className={`mt-6 text-base sm:text-lg ${descriptionClassName}`}
-            >
+            <p className={`mt-6 text-base sm:text-lg ${descriptionClassName}`}>
               {description}
             </p>
           ) : null}
@@ -133,7 +140,9 @@ export function Hero(props: HeroProps) {
                     <path d="m19 12-7 7-7-7" />
                   </svg>
                 </span>
-                {scrollText ? <span className="cursor-pointer">{scrollText}</span> : null}
+                {scrollText ? (
+                  <span className="cursor-pointer">{scrollText}</span>
+                ) : null}
               </button>
             ) : null}
           </div>

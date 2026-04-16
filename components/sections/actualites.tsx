@@ -33,50 +33,37 @@ const fallbackItems: GalleryItem[] = [
 ];
 
 function ServiceCard({ item, idx }: { item: GalleryItem; idx: number }) {
-  const [isHovered, setIsHovered] = useState(false);
-
   return (
     <motion.div
+      className="group"
       initial={{ opacity: 0, y: 60 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.15 }}
       transition={{ duration: 0.5, delay: idx * 0.1, ease: [0.33, 1, 0.68, 1] }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{ position: "relative", cursor: "pointer", borderRadius: "10px", width: "100%" }}
+      style={{ position: "relative", cursor: "pointer", borderRadius: "10px", width: "100%", overflow: "hidden" }}
     >
       <img
         src={item.image}
         alt={item.title}
+        className="group-hover:scale-105 transition-transform duration-500"
         style={{ width: "100%", height: "260px", objectFit: "cover", display: "block", borderRadius: "10px" }}
       />
 
-      <motion.div
-        animate={{ opacity: isHovered ? 0 : 1, y: isHovered ? 20 : 0 }}
-        transition={{ duration: 0.4 }}
+      <div
+        className="transition-all duration-300 group-hover:opacity-0 group-hover:translate-y-4"
         style={{ marginTop: "-30px", textAlign: "center", position: "relative", zIndex: 2 }}
       >
-        <div style={{ background: "#1a3a5c", borderRadius: "10px", padding: "16px 20px", margin: "0 30px" }}>
+        <div style={{ background: "#0A1A2F", borderRadius: "10px", padding: "16px 20px", margin: "0 30px" }}>
           <span style={{ color: "#fff", fontSize: "17px", fontWeight: 600 }}>{item.title}</span>
         </div>
         <div style={{ display: "inline-block", marginTop: "12px", marginBottom: "8px", borderRadius: "50px", background: "#f0f0f0", color: "#2aa0dd", padding: "10px 32px", fontSize: "14px", fontWeight: 600 }}>
-          {"En savoir plus"}
+          En savoir plus
         </div>
-      </motion.div>
+      </div>
 
-      <motion.div
-        animate={{ bottom: isHovered ? "0px" : "-320px", opacity: isHovered ? 1 : 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        style={{
-          position: "absolute",
-          left: "30px",
-          right: "30px",
-          background: "#1a3a5c",
-          borderRadius: "10px",
-          padding: "24px 20px",
-          textAlign: "center",
-          zIndex: 3,
-        }}
+      <div
+        className="absolute left-[30px] right-[30px] translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 ease-out"
+        style={{ bottom: "0px", background: "#0A1A2F", borderRadius: "10px", padding: "24px 20px", textAlign: "center", zIndex: 3 }}
       >
         <h4 style={{ color: "#fff", fontSize: "18px", fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px", marginBottom: "12px", marginTop: 0 }}>
           {item.title}
@@ -88,9 +75,9 @@ function ServiceCard({ item, idx }: { item: GalleryItem; idx: number }) {
           href={item.url}
           style={{ display: "inline-block", borderRadius: "50px", background: "#2aa0dd", color: "#fff", padding: "10px 32px", fontSize: "14px", fontWeight: 600, textDecoration: "none" }}
         >
-          {"En savoir plus"}
+          En savoir plus
         </a>
-      </motion.div>
+      </div>
     </motion.div>
   );
 }
@@ -144,8 +131,8 @@ const Actualites = ({
   }, [items, remoteItems, loading]);
 
   return (
-<section className="bg-white py-16 text-[#0A1A2F] md:py-20">
-        <div className="mx-auto max-w-6xl px-6 lg:px-10">
+    <section className="bg-white py-16 text-[#0A1A2F] md:py-20">
+      <div className="mx-auto max-w-6xl px-6 lg:px-10">
 
         <div className="mb-12 text-center">
           <motion.h2
@@ -168,28 +155,25 @@ const Actualites = ({
           </motion.p>
           <motion.a
             href={demoUrl}
-            className="inline-flex items-center gap-1 text-sm font-medium text-[#0A1A2F] hover:underline"
+            className="inline-flex items-center gap-1 rounded-full bg-[#0A1A2F] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2aa0dd]"
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.4, delay: 0.1 }}
           >
-            {"Voir toutes les actus"}
+            Voir toutes les actus
           </motion.a>
         </div>
 
         <AnimatePresence mode="wait">
           {loading ? (
             <div className="py-20 text-center">
-              <p className="text-gray-400">{"Chargement des actualites..."}</p>
+              <p className="text-gray-400">Chargement des actualites...</p>
             </div>
           ) : (
             <div className="flex flex-wrap justify-center gap-8">
               {displayItems.map((item, idx) => (
-                <div
-                  key={item.id}
-                  style={{ width: "100%", maxWidth: "360px" }}
-                >
+                <div key={item.id} style={{ width: "100%", maxWidth: "360px" }}>
                   <ServiceCard item={item} idx={idx} />
                 </div>
               ))}

@@ -184,7 +184,7 @@ export function Clients({
 
           {highlightLogo && (
             <motion.div
-              className="hidden lg:flex items-center justify-center bg-white p-4 rounded-2xl shadow-2xl w-[280px] h-[280px] shrink-0 self-center overflow-hidden"
+className="flex items-center justify-center bg-white p-4 rounded-2xl shadow-2xl w-[180px] h-[180px] mx-auto shrink-0 overflow-hidden lg:w-[280px] lg:h-[280px]"
               initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
               whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(42,160,221,0.2)" }}
             >

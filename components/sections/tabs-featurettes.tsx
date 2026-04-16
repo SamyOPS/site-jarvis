@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Tabs, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
 import { motion, AnimatePresence } from "motion/react";
 import { useState } from "react";
-import { clipPathVariants } from "@/components/animated-slideshow";
 
 interface TabContent {
   title: string;
@@ -45,42 +44,17 @@ const TabsFeaturettes = ({
       viewport={{ once: true, amount: 0.15 }}
       transition={{ duration: 0.5, ease: [0.33, 1, 0.68, 1] }}
     >
-      <div style={{
-        position: "absolute",
-        top: "-15%",
-        right: "-10%",
-        width: "400px",
-        height: "400px",
-        background: "radial-gradient(circle, rgba(42,160,221,0.05) 0%, transparent 70%)",
-        borderRadius: "50%",
-        pointerEvents: "none",
-        animation: "float 8s ease-in-out infinite",
-      }} />
-      <div style={{
-        position: "absolute",
-        bottom: "-20%",
-        left: "-15%",
-        width: "350px",
-        height: "350px",
-        background: "radial-gradient(circle, rgba(42,160,221,0.03) 0%, transparent 70%)",
-        borderRadius: "50%",
-        pointerEvents: "none",
-        animation: "float 10s ease-in-out infinite reverse",
-      }} />
+      <div style={{ position: "absolute", top: "-15%", right: "-10%", width: "400px", height: "400px", background: "radial-gradient(circle, rgba(42,160,221,0.05) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none", animation: "float 8s ease-in-out infinite" }} />
+      <div style={{ position: "absolute", bottom: "-20%", left: "-15%", width: "350px", height: "350px", background: "radial-gradient(circle, rgba(42,160,221,0.03) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none", animation: "float 10s ease-in-out infinite reverse" }} />
 
       <style>{`
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(30px); }
         }
-        @keyframes slideInUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
       `}</style>
 
       <div className="container mx-auto px-6 lg:px-10 relative z-10">
-        {/* Header Section */}
         <div className="mb-8 flex flex-col items-center gap-2 text-center max-w-3xl mx-auto">
           <motion.h2
             className="text-3xl md:text-4xl font-bold text-[#0A1A2F] tracking-tight"
@@ -103,7 +77,6 @@ const TabsFeaturettes = ({
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          {/* Tabs Navigation */}
           <div className="flex flex-col items-center justify-center mb-8">
             <TabsList className="flex flex-col sm:flex-row gap-2 bg-transparent flex-wrap justify-center">
               {tabs.map((tab, index) => (
@@ -118,12 +91,12 @@ const TabsFeaturettes = ({
                     value={tab.value}
                     className="relative group px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-300 flex items-center gap-2"
                     style={{
-                      background: activeTab === tab.value 
-                        ? "linear-gradient(135deg, rgba(42,160,221,0.12) 0%, rgba(42,160,221,0.05) 100%)"
+                      background: activeTab === tab.value
+                        ? "rgba(10,26,47,0.08)"
                         : "transparent",
-                      color: activeTab === tab.value ? "#2aa0dd" : "#64748b",
-                      border: activeTab === tab.value 
-                        ? "1px solid rgba(42,160,221,0.3)"
+                      color: activeTab === tab.value ? "#0A1A2F" : "#64748b",
+                      border: activeTab === tab.value
+                        ? "1px solid rgba(10,26,47,0.2)"
                         : "1px solid transparent",
                     }}
                   >
@@ -138,13 +111,11 @@ const TabsFeaturettes = ({
           </div>
 
           <div className="relative">
-            {/* Glass morphism background */}
             <div className="absolute -inset-6 bg-gradient-to-br from-blue-50/50 via-white to-cyan-50/30 rounded-3xl blur-3xl opacity-40 -z-10" />
-            
             <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg overflow-hidden">
               <div className="p-6 lg:p-8">
                 <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-8 min-h-[240px]">
-                  {/* Content Column */}
+
                   <motion.div
                     key={`${active.value}-content`}
                     className="flex flex-col gap-5"
@@ -190,20 +161,17 @@ const TabsFeaturettes = ({
                       >
                         <Link
                           href={active.content.buttonUrl ?? "#"}
-                          className="inline-flex items-center gap-2 bg-gradient-to-r from-[#2aa0dd] to-blue-500 hover:from-[#1f8cc5] hover:to-blue-600 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 group"
+                          className="inline-flex items-center gap-2 rounded-full bg-[#0A1A2F] px-8 py-3 text-sm font-semibold text-white transition hover:bg-[#2aa0dd] active:scale-95 group"
                         >
                           {active.content.buttonText}
-                          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="group-hover:translate-x-1 transition-transform">
+                          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" className="group-hover:translate-x-1 transition-transform">
                             <path d="M3 9h12M11 5l4 4-4 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         </Link>
                       </motion.div>
                     </AnimatePresence>
-
-
                   </motion.div>
 
-                  {/* Image Column */}
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={`${active.value}-img`}
@@ -213,7 +181,7 @@ const TabsFeaturettes = ({
                       exit={{ opacity: 0, scale: 0.95, x: -20 }}
                       transition={{ duration: 0.4 }}
                     >
-                      <div className="absolute -inset-1 bg-gradient-to-r from-[#2aa0dd]/20 to-blue-400/20 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                      <div className="absolute -inset-1 bg-gradient-to-r from-[#0A1A2F]/10 to-[#2aa0dd]/10 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                       <div className="relative rounded-xl overflow-hidden border border-white/20 shadow-lg group-hover:shadow-2xl transition-shadow duration-300">
                         <img
                           src={active.content.imageSrc}
@@ -224,6 +192,7 @@ const TabsFeaturettes = ({
                       </div>
                     </motion.div>
                   </AnimatePresence>
+
                 </div>
               </div>
             </div>
