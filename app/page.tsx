@@ -155,16 +155,21 @@ export default function Home() {
     { name: "Etypharm", logo: "/client/etypharm.png" },
     { name: "Foncia", logo: "/client/Foncia.png" },
     { name: "HP", logo: "/client/HP.png" },
-    { name: "TP ICAP", logo: "/client/icap.png", logoScale: 1.16 },
+    { name: "TP ICAP", logo: "/client/icap.png", logoScale: 1.0 },
     { name: "Les Mousquetaires", logo: "/client/lesmousquetaires.png" },
     { name: "Linxens", logo: "/client/LINXENS.png", logoScale: 1.18 },
-    { name: "LVMH", logo: "/client/LVMH.png" },
-    { name: "Ministere de la Justice", logo: "/client/Ministere.png", logoScale: 1.25 },
-    { name: "Ricco", logo: "/client/Ricco.png", logoScale: 1.2 },
+    { name: "LVMH", logo: "/client/LVMH.png",logoScale: 0.9 },
+    { name: "Ministere de la Justice", logo: "/client/Ministere.png", logoScale: 1.2 },
+    { name: "Ricco", logo: "/client/Ricco.png", logoScale: 1.0 },
     { name: "RSA", logo: "/client/rsa.png" },
     { name: "Sisley", logo: "/client/sisley.png" },
+    { name: "3M", logo: "/client/3M.png", logoScale: 1.5},
+
     { name: "SNCF", logo: "/client/SNCF.png", logoScale: 0.86 },
     { name: "Sogeprom", logo: "/client/SOGEPROM.png", logoScale: 1.3 },
+    { name: "Uniqlo", logo: "/client/Uniqlo.png", logoScale: 1.0 },
+
+
   ];
 
   const aboutMainImage = {

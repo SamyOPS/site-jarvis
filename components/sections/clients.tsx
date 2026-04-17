@@ -8,13 +8,15 @@ interface ClientsProps { tag?: string; title?: string; description?: string; cli
 interface ClientsRowProps { items: ClientLogo[]; rowKey: string; direction: "left" | "right"; speed: number; }
 
 function ClientCard({ client }: { client: ClientLogo }) {
+  const scale = client.logoScale ?? 1;
   return (
     <motion.div
-      className="group relative flex h-16 w-44 shrink-0 items-center justify-center rounded-xl transition-all duration-300 sm:h-20 sm:w-52 overflow-hidden"
+      className="group relative flex h-16 w-44 shrink-0 items-center justify-center rounded-xl transition-all duration-300 sm:h-20 sm:w-52"
       style={{
         background: "rgba(255,255,255,0.85)",
         border: "1px solid rgba(42,160,221,0.12)",
         backdropFilter: "blur(8px)",
+        overflow: scale > 1.5 ? "visible" : "hidden",
       }}
       whileHover={{ scale: 1.04, boxShadow: "0 4px 24px rgba(42,160,221,0.15)" }}
     >
@@ -22,7 +24,13 @@ function ClientCard({ client }: { client: ClientLogo }) {
         src={client.logo}
         alt={client.name}
         className="pointer-events-none relative z-10 w-auto h-auto object-contain select-none"
-        style={{ maxHeight: "52px", maxWidth: "78%", display: "block" }}
+        style={{
+          maxHeight: `${Math.min(52 * scale, 64)}px`,
+          maxWidth: `${Math.min(78 * scale, 92)}%`,
+          display: "block",
+          transform: scale > 1 ? `scale(${scale})` : undefined,
+          transformOrigin: "center",
+        }}
         draggable={false}
       />
     </motion.div>
@@ -184,7 +192,7 @@ export function Clients({
 
           {highlightLogo && (
             <motion.div
-className="flex items-center justify-center bg-white p-4 rounded-2xl shadow-2xl w-[180px] h-[180px] mx-auto shrink-0 overflow-hidden lg:w-[280px] lg:h-[280px]"
+              className="hidden lg:flex items-center justify-center bg-white p-4 rounded-2xl shadow-2xl w-[280px] h-[280px] shrink-0 self-center overflow-hidden"
               initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
               whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(42,160,221,0.2)" }}
             >
