@@ -67,6 +67,7 @@ export function Hero(props: HeroProps) {
   return (
     <div className={`relative w-full overflow-hidden ${className}`}>
 
+      {/* Vidéo de fond */}
       <video
         className="absolute inset-0 h-full w-full object-cover"
         src="/images/block/backg.mp4"        autoPlay
