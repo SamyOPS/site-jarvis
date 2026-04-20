@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import { Footer } from "@/components/sections/footer";
 import { HomeHeader } from "@/components/sections/home-header";
 
@@ -45,20 +46,20 @@ function NewsCard({ item, idx }: { item: NewsItem; idx: number }) {
         <div style={{ background: "#0A1A2F", borderRadius: "10px", padding: "16px 20px", margin: "0 30px" }}>
           <span style={{ color: "#fff", fontSize: "17px", fontWeight: 600 }}>{item.title}</span>
         </div>
-        <div style={{ display: "inline-block", marginTop: "12px", marginBottom: "8px", borderRadius: "50px", background: "#f0f0f0", color: "#2aa0dd", padding: "10px 32px", fontSize: "14px", fontWeight: 600 }}>
+        <Link href={`/actus/${item.slug}`} style={{ display: "inline-block", marginTop: "12px", marginBottom: "8px", borderRadius: "50px", background: "#f0f0f0", color: "#2aa0dd", padding: "10px 32px", fontSize: "14px", fontWeight: 600, textDecoration: "none" }}>
           En savoir plus
-        </div>
+        </Link>
       </div>
 
       {/* Overlay CSS pur — pas de flickering */}
       <div
-        className="absolute left-[30px] right-[30px] translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 ease-out"
-        style={{ bottom: "0px", background: "#0A1A2F", borderRadius: "10px", padding: "24px 20px", textAlign: "center", zIndex: 3 }}
+        className="absolute left-[30px] right-[30px] translate-y-0 opacity-100 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 ease-out md:translate-y-full md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 overflow-y-auto md:overflow-visible"
+        style={{ bottom: "0px", background: "#0A1A2F", borderRadius: "10px", padding: "24px 20px", textAlign: "center", zIndex: 3, maxHeight: '300px' }}
       >
         <h4 style={{ color: "#fff", fontSize: "18px", fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px", marginBottom: "12px", marginTop: 0 }}>
           {item.title}
         </h4>
-        <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "14px", lineHeight: 1.6, marginBottom: "20px", marginTop: 0 }} className="line-clamp-3">
+        <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "14px", lineHeight: 1.6, marginBottom: "20px", marginTop: 0 }} className="line-clamp-none md:line-clamp-3">
           {item.excerpt ?? "Découvrez notre dernier article."}
         </p>
         <a

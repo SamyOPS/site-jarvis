@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowLeft } from "lucide-react";
+import { HomeHeader } from "@/components/sections/home-header";
 
 import { Footer } from "@/components/sections/footer";
 
@@ -199,6 +200,7 @@ export default function ActuDetailPage() {
 
   return (
     <div className="min-h-screen bg-white text-[#0A1A2F]">
+       <HomeHeader />
       <main className="particle-readability">
         <div className="mx-auto max-w-3xl px-6 py-16 lg:px-8 lg:py-20">
           <a href="/actus" className="inline-flex items-center text-sm text-[#000080]">
