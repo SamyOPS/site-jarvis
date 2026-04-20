@@ -38,7 +38,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <head>
-        <link rel="icon" href="/favicon.jpeg" type="image/jpeg" />
+        <link rel="icon" href="/logonoir.png" type="image/jpeg" />
       </head>
       <body
         className={`${inter.variable} ${interDisplay.variable} ${geistMono.variable} antialiased`}
