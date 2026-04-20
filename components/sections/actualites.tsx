@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@supabase/supabase-js";
+import { HomeHeader } from "@/components/sections/home-header";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -34,13 +35,14 @@ const fallbackItems: GalleryItem[] = [
 
 function ServiceCard({ item, idx }: { item: GalleryItem; idx: number }) {
   return (
-    <motion.div
-      className="group"
+    <motion.a
+      href={item.url}
+      className="group block"
       initial={{ opacity: 0, y: 60 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.15 }}
       transition={{ duration: 0.5, delay: idx * 0.1, ease: [0.33, 1, 0.68, 1] }}
-      style={{ position: "relative", cursor: "pointer", borderRadius: "10px", width: "100%", overflow: "hidden" }}
+      style={{ position: "relative", cursor: "pointer", borderRadius: "10px", width: "100%", overflow: "hidden", display: "block", textDecoration: "none" }}
     >
       <img
         src={item.image}
@@ -71,14 +73,11 @@ function ServiceCard({ item, idx }: { item: GalleryItem; idx: number }) {
         <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "14px", lineHeight: 1.6, marginBottom: "20px", marginTop: 0 }}>
           {item.summary}
         </p>
-        <a
-          href={item.url}
-          style={{ display: "inline-block", borderRadius: "50px", background: "#2aa0dd", color: "#fff", padding: "10px 32px", fontSize: "14px", fontWeight: 600, textDecoration: "none" }}
-        >
+        <span style={{ display: "inline-block", borderRadius: "50px", background: "#2aa0dd", color: "#fff", padding: "10px 32px", fontSize: "14px", fontWeight: 600 }}>
           En savoir plus
-        </a>
+        </span>
       </div>
-    </motion.div>
+    </motion.a>
   );
 }
 

@@ -34,11 +34,11 @@ type ProfileRow = {
 };
 
 const navLinks = [
-  { label: "Expertises", href: "#expertises" },
-  { label: "Clients", href: "#clients" },
-  { label: "Actualités", href: "#actualites" },
-  { label: "Formations", href: "#formations" },
-  { label: "Offres", href: "#offres" },
+  { label: "Expertises", href: "/#expertises" },
+  { label: "Clients", href: "/#clients" },
+  { label: "Actualités", href: "/#actualites" },
+  { label: "Formations", href: "/#formations" },
+  { label: "Offres", href: "/#offres" },
 ];
 
 export function HomeHeader() {

@@ -163,11 +163,13 @@ export default function Home() {
     { name: "Ricco", logo: "/client/Ricco.png", logoScale: 1.0 },
     { name: "RSA", logo: "/client/rsa.png" },
     { name: "Sisley", logo: "/client/sisley.png" },
-    { name: "3M", logo: "/client/3M.png", logoScale: 1.5},
+    { name: "3M", logo: "/client/3M.png", logoScale: 1.8},
 
     { name: "SNCF", logo: "/client/SNCF.png", logoScale: 0.86 },
     { name: "Sogeprom", logo: "/client/SOGEPROM.png", logoScale: 1.3 },
     { name: "Uniqlo", logo: "/client/Uniqlo.png", logoScale: 1.0 },
+    { name: "in'li logo", logo: "/client/in'li logo.png", logoScale: 1.3 },
+
 
 
   ];
@@ -267,7 +269,7 @@ export default function Home() {
 
             ? "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80"
 
-            : "https://www.pwc.fr/fr/assets/images/2021/09/the-new-equation/fr-france-670x377-GettyImages-1185878317.jpg",
+            : "https://images.pexels.com/photos/9783815/pexels-photo-9783815.jpeg",
 
       imageAlt: item.title,
 

@@ -25,9 +25,12 @@ function ClientCard({ client }: { client: ClientLogo }) {
         alt={client.name}
         className="pointer-events-none relative z-10 w-auto h-auto object-contain select-none"
         style={{
-          maxHeight: `${Math.min(52 * scale, 64)}px`,
-          maxWidth: `${Math.min(78 * scale, 92)}%`,
-          display: "block",
+       height: "auto",
+  maxHeight: `${Math.min(36 * scale, 56)}px`,
+  maxWidth: `${Math.min(85 * scale, 95)}%`,
+  display: "block",
+  objectFit: "contain",
+
           transform: scale > 1 ? `scale(${scale})` : undefined,
           transformOrigin: "center",
         }}
