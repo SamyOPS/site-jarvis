@@ -25,8 +25,8 @@ export const metadata: Metadata = {
   title: "Jarvis Connect",
   description: "Description de Jarvis",
   icons: {
-    icon: "/favicon.jpeg",
-    shortcut: "/favicon.jpeg",
+    icon: [{ url: "/favicon.ico", type: "image/x-icon" }],
+    shortcut: "/favicon.ico",
   },
 };
 
@@ -38,7 +38,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <head>
-        <link rel="icon" href="/logonoir.png" type="image/jpeg" />
+        <link rel="icon" href="/logonoir.jpeg" />
       </head>
       <body
         className={`${inter.variable} ${interDisplay.variable} ${geistMono.variable} antialiased`}
