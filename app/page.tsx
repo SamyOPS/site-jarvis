@@ -202,7 +202,7 @@ export default function Home() {
 
   const aboutCompanies = [
 
-    { src: "/partenaire/nxo.png", alt: "NXO" },
+    { src: "/partenaire/CGI.png", alt: "CGI", scale: 0.7  },
 
     { src: "/partenaire/scc.png", alt: "SCC" },
 
