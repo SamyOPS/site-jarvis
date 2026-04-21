@@ -249,15 +249,16 @@ export default function ActuDetailPage() {
               {item.excerpt && (
                 <p className="mt-4 text-base text-slate-600">{item.excerpt}</p>
               )}
+              {item.video_url && (
 
               <div className="mt-6 flex justify-center">
                 <video
-                src={item.video_url ?? undefined}
+                src={item.video_url }
                   controls
                   className="rounded-lg max-w-xs w-full"
                 />
               </div>
-
+              )}
               {item.pdf_url && (
                 <div className="mt-6">
                   <div className="border border-slate-200 bg-slate-50">

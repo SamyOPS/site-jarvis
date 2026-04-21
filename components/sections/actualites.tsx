@@ -14,7 +14,7 @@ interface GalleryItem {
   summary: string;
   url: string;
   image: string;
-  video_url?: string; 
+  video_url?: string;
 }
 
 interface ActualitesProps {
@@ -33,103 +33,8 @@ const fallbackItems: GalleryItem[] = [
   { id: "item-6", title: "IA et automatisation", summary: "Integration de l IA dans vos processus metiers pour gagner en productivite et fiabilite.", url: "#", image: "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?auto=format&fit=crop&w=800&q=80" },
 ];
 
-function toEmbedUrl(url: string): string {
-  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=0&rel=0`;
-  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-  if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
-  return url;
-}
-
-function isDirectVideo(url: string): boolean {
-  const cleanUrl = url.split("?")[0].toLowerCase();
-  return /\.(mp4|webm|ogg)$/.test(cleanUrl);
-}
-
-function VideoThumbnail({ item }: { item: GalleryItem }) {
-  const [playing, setPlaying] = useState(false);
-  if (!item.video_url) {
-    return (
-      <div style={{ position: "relative", width: "100%", height: "260px", borderRadius: "10px", overflow: "hidden", background: "#000" }}>
-        <div style={{ color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-          Vidéo introuvable
-        </div>
-      </div>
-    );
-  }
-
-  const embedUrl = toEmbedUrl(item.video_url);
-  const direct = isDirectVideo(item.video_url);
-
-  return (
-    <div style={{ position: "relative", width: "100%", height: "260px", borderRadius: "10px", overflow: "hidden", background: "#000" }}>
-      {!playing ? (
-        <>
-          <img
-            src={item.image}
-            alt={item.title}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          />
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)" }} />
-          <button
-            onClick={() => setPlaying(true)}
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              width: "64px",
-              height: "64px",
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.92)",
-              border: "none",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
-              transition: "transform 0.2s, background 0.2s",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = "#2aa0dd")}
-            onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.92)")}
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: "3px", color: "#0A1A2F" }}>
-              <polygon points="5,3 19,12 5,21" />
-            </svg>
-          </button>
-          <div style={{
-            position: "absolute", top: "12px", left: "12px",
-            background: "#2aa0dd", color: "#fff",
-            borderRadius: "6px", padding: "3px 10px",
-            fontSize: "11px", fontWeight: 700, letterSpacing: "0.05em"
-          }}>
-            VIDÉO
-          </div>
-        </>
-      ) : direct ? (
-        <video
-          src={item.video_url}
-          controls
-          autoPlay
-          muted
-          poster={item.image}
-          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", backgroundColor: "#000" }}
-        />
-      ) : (
-        <iframe
-          src={embedUrl + "&autoplay=1"}
-          allow="autoplay; fullscreen"
-          allowFullScreen
-          style={{ width: "100%", height: "100%", border: "none", display: "block" }}
-        />
-      )}
-    </div>
-  );
-}
-
+// Toutes les cartes s'affichent comme articles normaux — la vidéo est dans le détail
 function ServiceCard({ item, idx }: { item: GalleryItem; idx: number }) {
-  const isVideo = !!item.video_url;
-
   return (
     <motion.div
       className="group block"
@@ -139,58 +44,39 @@ function ServiceCard({ item, idx }: { item: GalleryItem; idx: number }) {
       transition={{ duration: 0.5, delay: idx * 0.1, ease: [0.33, 1, 0.68, 1] }}
       style={{ position: "relative", borderRadius: "10px", width: "100%", overflow: "hidden" }}
     >
-      {isVideo ? (
-        <>
-          <VideoThumbnail item={item} />
-          <div style={{ marginTop: "12px", textAlign: "center" }}>
-            <div style={{ background: "#0A1A2F", borderRadius: "10px", padding: "16px 20px", margin: "0 30px" }}>
-              <span style={{ color: "#fff", fontSize: "17px", fontWeight: 600 }}>{item.title}</span>
-            </div>
-            {item.summary && (
-              <p style={{ color: "#4B5563", fontSize: "13px", margin: "10px 30px 0", lineHeight: 1.5 }}>{item.summary}</p>
-            )}
-          </div>
-        </>
-      ) : (
-        <a
-          href={item.url}
-          style={{ display: "block", textDecoration: "none", cursor: "pointer" }}
+      <a href={item.url} style={{ display: "block", textDecoration: "none", cursor: "pointer" }}>
+        <img
+          src={item.image}
+          alt={item.title}
+          className="group-hover:scale-105 transition-transform duration-500"
+          style={{ width: "100%", height: "260px", objectFit: "cover", display: "block", borderRadius: "10px" }}
+        />
+        <div
+          className="transition-all duration-300 group-hover:opacity-0 group-hover:translate-y-4"
+          style={{ marginTop: "-30px", textAlign: "center", position: "relative", zIndex: 2 }}
         >
-          <img
-            src={item.image}
-            alt={item.title}
-            className="group-hover:scale-105 transition-transform duration-500"
-            style={{ width: "100%", height: "260px", objectFit: "cover", display: "block", borderRadius: "10px" }}
-          />
-
-          <div
-            className="transition-all duration-300 group-hover:opacity-0 group-hover:translate-y-4"
-            style={{ marginTop: "-30px", textAlign: "center", position: "relative", zIndex: 2 }}
-          >
-            <div style={{ background: "#0A1A2F", borderRadius: "10px", padding: "16px 20px", margin: "0 30px" }}>
-              <span style={{ color: "#fff", fontSize: "17px", fontWeight: 600 }}>{item.title}</span>
-            </div>
-            <div style={{ display: "inline-block", marginTop: "12px", marginBottom: "8px", borderRadius: "50px", background: "#f0f0f0", color: "#2aa0dd", padding: "10px 32px", fontSize: "14px", fontWeight: 600 }}>
-              En savoir plus
-            </div>
+          <div style={{ background: "#0A1A2F", borderRadius: "10px", padding: "16px 20px", margin: "0 30px" }}>
+            <span style={{ color: "#fff", fontSize: "17px", fontWeight: 600 }}>{item.title}</span>
           </div>
-
-          <div
-            className="absolute left-[30px] right-[30px] translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 ease-out"
-            style={{ bottom: "0px", background: "#0A1A2F", borderRadius: "10px", padding: "24px 20px", textAlign: "center", zIndex: 3 }}
-          >
-            <h4 style={{ color: "#fff", fontSize: "18px", fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px", marginBottom: "12px", marginTop: 0 }}>
-              {item.title}
-            </h4>
-            <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "14px", lineHeight: 1.6, marginBottom: "20px", marginTop: 0 }}>
-              {item.summary}
-            </p>
-            <span style={{ display: "inline-block", borderRadius: "50px", background: "#2aa0dd", color: "#fff", padding: "10px 32px", fontSize: "14px", fontWeight: 600 }}>
-              En savoir plus
-            </span>
+          <div style={{ display: "inline-block", marginTop: "12px", marginBottom: "8px", borderRadius: "50px", background: "#f0f0f0", color: "#2aa0dd", padding: "10px 32px", fontSize: "14px", fontWeight: 600 }}>
+            En savoir plus
           </div>
-        </a>
-      )}
+        </div>
+        <div
+          className="absolute left-[30px] right-[30px] translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 ease-out"
+          style={{ bottom: "0px", background: "#0A1A2F", borderRadius: "10px", padding: "24px 20px", textAlign: "center", zIndex: 3 }}
+        >
+          <h4 style={{ color: "#fff", fontSize: "18px", fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px", marginBottom: "12px", marginTop: 0 }}>
+            {item.title}
+          </h4>
+          <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "14px", lineHeight: 1.6, marginBottom: "20px", marginTop: 0 }}>
+            {item.summary}
+          </p>
+          <span style={{ display: "inline-block", borderRadius: "50px", background: "#2aa0dd", color: "#fff", padding: "10px 32px", fontSize: "14px", fontWeight: 600 }}>
+            En savoir plus
+          </span>
+        </div>
+      </a>
     </motion.div>
   );
 }
@@ -238,15 +124,14 @@ const Actualites = ({
     fetchNews();
   }, [items]);
 
+  // Toutes les actus s'affichent, pas de filtre — la vidéo est uniquement dans le détail
   const displayItems = useMemo(() => {
-    const raw = items && items.length > 0 ? items : remoteItems.length > 0 ? remoteItems : loading ? [] : fallbackItems;
-    return raw.filter(item => !item.video_url); // ← seul changement : exclut les actus vidéo de la page d'accueil
+    return items && items.length > 0 ? items : remoteItems.length > 0 ? remoteItems : loading ? [] : fallbackItems;
   }, [items, remoteItems, loading]);
 
   return (
     <section className="bg-white py-16 text-[#0A1A2F] md:py-20">
       <div className="mx-auto max-w-6xl px-6 lg:px-10">
-
         <div className="mb-12 text-center">
           <motion.h2
             className="mb-4 text-3xl font-semibold md:text-4xl lg:text-5xl"
@@ -293,7 +178,6 @@ const Actualites = ({
             </div>
           )}
         </AnimatePresence>
-
       </div>
     </section>
   );
