@@ -18,8 +18,14 @@ import { StatusNotice } from "@/components/dashboard/status-notice";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  buildCalendarCells,
+  currentMonthInputValue,
+  sortCraEntries,
+} from "@/features/dashboard/salarie/cra";
 import { matchesRhDocumentFilters } from "@/features/dashboard/rh/document-filters";
 import type { RhWorkspaceRouteProps } from "@/features/dashboard/rh/navigation";
+import type { CraEntryDraft } from "@/features/dashboard/salarie/types";
 import type {
   RhApplicationRow as ApplicationRow,
   RhDocumentRow as RHDocumentRow,
@@ -137,6 +143,16 @@ export default function RhWorkspace({
   const [rhUploadPeriodMonth, setRhUploadPeriodMonth] = useState("");
   const [rhUploadFile, setRhUploadFile] = useState<File | null>(null);
   const [uploadingRhDocument, setUploadingRhDocument] = useState(false);
+  const [generateEmployeeId, setGenerateEmployeeId] = useState("");
+  const [generateBillingProfileEmployeeId, setGenerateBillingProfileEmployeeId] = useState("");
+  const [craPeriodMonth, setCraPeriodMonth] = useState(currentMonthInputValue());
+  const [craNotes, setCraNotes] = useState("");
+  const [craEntries, setCraEntries] = useState<CraEntryDraft[]>([]);
+  const [craGenerating, setCraGenerating] = useState(false);
+  const [invoiceGenerating, setInvoiceGenerating] = useState(false);
+  const [billingProfiles, setBillingProfiles] = useState<
+    { employeeId: string; profileLabel: string; employeeName: string; dailyRate: number; updatedAt: string | null }[]
+  >([]);
   const [deletingRhDocumentId, setDeletingRhDocumentId] = useState<string | null>(null);
   const [isEmployeeEditMode, setIsEmployeeEditMode] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -473,6 +489,19 @@ export default function RhWorkspace({
     setCollabDocStatusFilter("all");
     setCollabDocOwnerFilter("all");
   }, [selectedEmployeeId]);
+  useEffect(() => {
+    if (!generateEmployeeId) return;
+    const hasCurrent = billingProfiles.some(
+      (profileItem) => profileItem.employeeId === generateBillingProfileEmployeeId,
+    );
+    if (hasCurrent) return;
+    const employeeDefault = billingProfiles.find(
+      (profileItem) => profileItem.employeeId === generateEmployeeId,
+    );
+    if (employeeDefault) {
+      setGenerateBillingProfileEmployeeId(employeeDefault.employeeId);
+    }
+  }, [billingProfiles, generateBillingProfileEmployeeId, generateEmployeeId]);
 
   useEffect(() => {
     if (!profileMenuOpen) return;
@@ -573,6 +602,18 @@ export default function RhWorkspace({
     }
     return payload;
   }, [session?.access_token]);
+  const loadBillingProfiles = useCallback(async () => {
+    const payload = (await callRhDocumentsApi("/api/rh/billing-profiles")) as {
+      items?: {
+        employeeId: string;
+        profileLabel: string;
+        employeeName: string;
+        dailyRate: number;
+        updatedAt: string | null;
+      }[];
+    };
+    setBillingProfiles(payload.items ?? []);
+  }, [callRhDocumentsApi]);
 
   const loadRhFolders = useCallback(async (ownerUserId: string, trash = false) => {
     const payload = (await callRhDocumentsApi(
@@ -729,6 +770,12 @@ export default function RhWorkspace({
       setSaveMessage(loadError instanceof Error ? loadError.message : "Chargement des dossiers impossible.");
     });
   }, [loadRhFolders, profile?.id, session?.access_token]);
+  useEffect(() => {
+    if (currentSection !== "documents" || !session?.access_token) return;
+    void loadBillingProfiles().catch((error) => {
+      setSaveMessage(error instanceof Error ? error.message : "Chargement des profils de facturation impossible.");
+    });
+  }, [currentSection, loadBillingProfiles, session?.access_token]);
   const activeDraft = useMemo(() => {
     if (!selectedEmployee) return null;
     return employeeDrafts[selectedEmployee.id] ?? { full_name: selectedEmployee.full_name ?? "", phone: selectedEmployee.phone ?? "", company_name: selectedEmployee.company_name ?? "", esn_partenaire: selectedEmployee.esn_partenaire ?? "", employment_status: selectedEmployee.employment_status ?? "active" };
@@ -904,6 +951,15 @@ export default function RhWorkspace({
     return filteredRhDocuments.filter((document) => (document.folderId ?? null) === currentRhFolderId);
   }, [currentRhFolderId, currentSubSection, filteredRhDocuments]);
   const showRhFolderTrash = currentSubSection === "docs_corbeille";
+  const craEntriesByDate = useMemo(
+    () => new Map(craEntries.map((entry) => [entry.workDate, entry])),
+    [craEntries],
+  );
+  const craDraftTotalDays = useMemo(
+    () => craEntries.reduce((total, entry) => total + (Number(entry.dayQuantity) || 0), 0),
+    [craEntries],
+  );
+  const craCalendarCells = useMemo(() => buildCalendarCells(craPeriodMonth), [craPeriodMonth]);
   const rhFolderPath = useMemo(() => {
     const byId = new Map(rhFolders.map((folder) => [folder.id, folder]));
     const path: RhDocumentFolderRow[] = [];
@@ -973,6 +1029,45 @@ export default function RhWorkspace({
     setRhUploadDocumentTypeId("");
     setRhUploadPeriodMonth("");
     setRhUploadFile(null);
+  }, []);
+  const resetCraEditor = useCallback(() => {
+    setGenerateEmployeeId(selectedEmployeeId ?? "");
+    setGenerateBillingProfileEmployeeId("");
+    setCraPeriodMonth(currentMonthInputValue());
+    setCraNotes("");
+    setCraEntries([]);
+  }, [selectedEmployeeId]);
+
+  const handleCraPeriodMonthChange = useCallback((nextPeriodMonth: string) => {
+    setCraPeriodMonth(nextPeriodMonth);
+    setCraEntries((previousEntries) =>
+      sortCraEntries(previousEntries.filter((entry) => entry.workDate.startsWith(`${nextPeriodMonth}-`))),
+    );
+  }, []);
+
+  const toggleCraWorkDate = useCallback((workDate: string) => {
+    setCraEntries((previousEntries) => {
+      const existingEntry = previousEntries.find((entry) => entry.workDate === workDate);
+      if (existingEntry) {
+        return previousEntries.filter((entry) => entry.workDate !== workDate);
+      }
+      return sortCraEntries([
+        ...previousEntries,
+        {
+          workDate,
+          dayQuantity: "1",
+          label: "",
+        },
+      ]);
+    });
+  }, []);
+
+  const updateCraEntry = useCallback((workDate: string, patch: Partial<CraEntryDraft>) => {
+    setCraEntries((previousEntries) =>
+      sortCraEntries(
+        previousEntries.map((entry) => (entry.workDate === workDate ? { ...entry, ...patch } : entry)),
+      ),
+    );
   }, []);
 
   const handleSaveEmployee = async () => {
@@ -1119,6 +1214,78 @@ export default function RhWorkspace({
     setSaveMessage("Document RH depose.");
     await refreshDashboardData();
   }, [refreshDashboardData, resetRhUploadDialog, rhUploadDocumentTypeId, rhUploadEmployeeId, rhUploadFile, rhUploadPeriodMonth, selectedRhUploadType?.requiresPeriod, session]);
+  const buildRhGeneratePayload = useCallback((kind: "cra" | "facture") => {
+    if (!generateEmployeeId || !generateBillingProfileEmployeeId || !craPeriodMonth) {
+      setSaveMessage("Choisis un collaborateur, un profil de facturation et une periode.");
+      return null;
+    }
+    const entriesPayload = craEntries
+      .filter((entry) => entry.workDate.trim())
+      .map((entry) => ({
+        workDate: entry.workDate,
+        dayQuantity: Number(entry.dayQuantity || 0),
+        label: entry.label,
+      }))
+      .filter((entry) => Number.isFinite(entry.dayQuantity) && entry.dayQuantity > 0);
+    if (!entriesPayload.length) {
+      setSaveMessage("Selectionne au moins un jour travaille.");
+      return null;
+    }
+    const workedDaysCount = entriesPayload.reduce((total, entry) => total + entry.dayQuantity, 0);
+    return {
+      kind,
+      employeeId: generateEmployeeId,
+      billingProfileEmployeeId: generateBillingProfileEmployeeId,
+      periodMonth: craPeriodMonth,
+      workedDaysCount,
+      notes: craNotes,
+      entries: entriesPayload,
+    };
+  }, [craEntries, craNotes, craPeriodMonth, generateBillingProfileEmployeeId, generateEmployeeId]);
+
+  const handleGenerateRhCraPdf = useCallback(async () => {
+    const payload = buildRhGeneratePayload("cra");
+    if (!payload) return;
+    setCraGenerating(true);
+    setSaveMessage(null);
+    try {
+      await callRhDocumentsApi("/api/rh/generated-documents", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      setSaveMessage("CRA genere avec succes.");
+      await refreshDashboardData();
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "Generation impossible.");
+    } finally {
+      setCraGenerating(false);
+    }
+  }, [buildRhGeneratePayload, callRhDocumentsApi, refreshDashboardData]);
+
+  const handleGenerateRhInvoicePdf = useCallback(async () => {
+    const payload = buildRhGeneratePayload("facture");
+    if (!payload) return;
+    setInvoiceGenerating(true);
+    setSaveMessage(null);
+    try {
+      await callRhDocumentsApi("/api/rh/generated-documents", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      setSaveMessage("Facture generee avec succes.");
+      await refreshDashboardData();
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "Generation impossible.");
+    } finally {
+      setInvoiceGenerating(false);
+    }
+  }, [buildRhGeneratePayload, callRhDocumentsApi, refreshDashboardData]);
 
   const handleDeleteRhDocument = useCallback(async (document: RHDocumentRow, permanent = false) => {
     if (!session?.access_token) {
@@ -1385,14 +1552,15 @@ export default function RhWorkspace({
                 </div>
               )}
               <Link href="/dashboard/rh/documents" className={`block px-1 py-2 hover:underline ${currentSection === "documents" ? "font-semibold" : ""}`}>Documents</Link>
-              {currentSection === "documents" && (
-                <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
-                  <Link href="/dashboard/rh/documents/tous" className={`block py-1 ${currentSubSection === "docs_all" ? "font-semibold" : ""}`}>Tous les documents</Link>
-                  <Link href="/dashboard/rh/documents/a-valider" className={`block py-1 ${currentSubSection === "docs_a_valider" ? "font-semibold" : ""}`}>A valider</Link>
-                  <Link href="/dashboard/rh/documents/mes-demandes" className={`block py-1 ${currentSubSection === "docs_mes_demandes" ? "font-semibold" : ""}`}>Mes demandes</Link>
-                  <Link href="/dashboard/rh/documents/corbeille" className={`block py-1 ${currentSubSection === "docs_corbeille" ? "font-semibold" : ""}`}>Corbeille</Link>
-                </div>
-              )}
+	              {currentSection === "documents" && (
+	                <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
+	                  <Link href="/dashboard/rh/documents/tous" className={`block py-1 ${currentSubSection === "docs_all" ? "font-semibold" : ""}`}>Tous les documents</Link>
+	                  <Link href="/dashboard/rh/documents/cra-facture" className={`block py-1 ${currentSubSection === "docs_cra_facture" ? "font-semibold" : ""}`}>CRA & Facture</Link>
+	                  <Link href="/dashboard/rh/documents/a-valider" className={`block py-1 ${currentSubSection === "docs_a_valider" ? "font-semibold" : ""}`}>A valider</Link>
+	                  <Link href="/dashboard/rh/documents/mes-demandes" className={`block py-1 ${currentSubSection === "docs_mes_demandes" ? "font-semibold" : ""}`}>Mes demandes</Link>
+	                  <Link href="/dashboard/rh/documents/corbeille" className={`block py-1 ${currentSubSection === "docs_corbeille" ? "font-semibold" : ""}`}>Corbeille</Link>
+	                </div>
+	              )}
 
           {currentSection === "offres" && (
                 <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
@@ -1810,7 +1978,8 @@ export default function RhWorkspace({
               </CardContent>
             </Card>
           )}          {currentSection === "documents" && (
-            <RhDocumentsSection
+            <div className="space-y-3">
+              <RhDocumentsSection
               storageScope={user?.id ?? profile?.id ?? null}
               preferencesAuthToken={session?.access_token ?? null}
               currentSubSection={currentSubSection}
@@ -1831,6 +2000,27 @@ export default function RhWorkspace({
                 setSaveMessage(null);
                 openRequestDialog();
               }}
+              generateEmployeeId={generateEmployeeId}
+              generateBillingProfileEmployeeId={generateBillingProfileEmployeeId}
+              billingProfiles={billingProfiles}
+              employees={employees}
+              craGenerating={craGenerating}
+              invoiceGenerating={invoiceGenerating}
+              craPeriodMonth={craPeriodMonth}
+              craDraftTotalDays={craDraftTotalDays}
+              craNotes={craNotes}
+              craCalendarCells={craCalendarCells}
+              craEntriesByDate={craEntriesByDate}
+              craEntries={craEntries}
+              onGenerateEmployeeIdChange={setGenerateEmployeeId}
+              onGenerateBillingProfileEmployeeIdChange={setGenerateBillingProfileEmployeeId}
+              onCraPeriodMonthChange={handleCraPeriodMonthChange}
+              onCraNotesChange={setCraNotes}
+              onGenerateCraPdf={handleGenerateRhCraPdf}
+              onGenerateInvoicePdf={handleGenerateRhInvoicePdf}
+              resetCraEditor={resetCraEditor}
+              toggleCraWorkDate={toggleCraWorkDate}
+              updateCraEntry={updateCraEntry}
               requests={requests}
               cancellingRequestId={cancellingRequestId}
               onCancelRequest={handleCancelRequest}
@@ -1867,7 +2057,8 @@ export default function RhWorkspace({
               formatMonth={formatMonth}
               formatDate={formatDate}
               formatDocumentStatus={formatDocumentStatus}
-            />
+              />
+            </div>
           )}
 
           {currentSection === "offres" && (

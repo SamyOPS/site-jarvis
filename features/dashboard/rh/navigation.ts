@@ -12,6 +12,7 @@ export type RhDashboardSubSection =
   | "collab_inactifs"
   | "collab_detail"
   | "docs_all"
+  | "docs_cra_facture"
   | "docs_tous"
   | "docs_a_valider"
   | "docs_mes_demandes"
@@ -52,6 +53,10 @@ export const RH_WORKSPACE_ROUTES = {
   documentsTous: {
     currentSection: "documents",
     currentSubSection: "docs_all",
+  },
+  documentsCraFacture: {
+    currentSection: "documents",
+    currentSubSection: "docs_cra_facture",
   },
   documentsAValider: {
     currentSection: "documents",
