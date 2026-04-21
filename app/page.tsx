@@ -168,6 +168,8 @@ export default function Home() {
     { name: "Sogeprom", logo: "/client/SOGEPROM.png", logoScale: 1.4 },
     { name: "Uniqlo", logo: "/client/Uniqlo.png", logoScale: 1.0 },
     { name: "in'li logo", logo: "/client/in'li logo.png", logoScale: 1.0 },
+    { name: "Bureauveritas", logo: "/client/BV.png", logoScale: 1.1 },
+
   ];
 
   const aboutMainImage = {

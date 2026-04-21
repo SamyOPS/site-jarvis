@@ -70,13 +70,16 @@ export function Hero(props: HeroProps) {
       {/* Vidéo de fond */}
       <video
         className="absolute inset-0 h-full w-full object-cover"
-        src="/images/block/backg.mp4"        autoPlay
+        autoPlay
         loop
         muted
         playsInline
+        preload="auto"
         aria-hidden
-      />
-
+      >
+        <source src="/images/block/backg.mp4" type="video/mp4" />
+        Votre navigateur ne prend pas en charge la lecture de cette vidéo.
+      </video>
 
       {veilOpacity && (
         <div className={`absolute inset-0 ${veilOpacity}`} aria-hidden />

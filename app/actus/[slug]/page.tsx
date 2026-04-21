@@ -5,9 +5,7 @@ import { useParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowLeft } from "lucide-react";
 import { HomeHeader } from "@/components/sections/home-header";
-
 import { Footer } from "@/components/sections/footer";
-
 
 function renderMarkdown(content: string) {
   const lines = content.split(/\r?\n/);
@@ -18,7 +16,6 @@ function renderMarkdown(content: string) {
     if (!listItems.length) return;
     const items = listItems.slice();
     listItems = [];
-    
     blocks.push(
       <ul key={`list-${blocks.length}`} className="my-4 list-disc space-y-2 pl-6 text-sm text-slate-700">
         {items.map((item, idx) => (
@@ -102,8 +99,7 @@ function renderMarkdown(content: string) {
       continue;
     }
     if (trimmed.startsWith("- ")) {
-      
-      listItems.push(trimmed.replace(/^-\s+/, ""))
+      listItems.push(trimmed.replace(/^-\s+/, ""));
       continue;
     }
     flushList();
@@ -117,6 +113,7 @@ function renderMarkdown(content: string) {
   flushList();
   return blocks;
 }
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -200,7 +197,7 @@ export default function ActuDetailPage() {
 
   return (
     <div className="min-h-screen bg-white text-[#0A1A2F]">
-       <HomeHeader />
+      <HomeHeader />
       <main className="particle-readability">
         <div className="mx-auto max-w-3xl px-6 py-16 lg:px-8 lg:py-20">
           <a href="/actus" className="inline-flex items-center text-sm text-[#000080]">
@@ -226,12 +223,13 @@ export default function ActuDetailPage() {
 
           {!loading && !error && !item && (
             <div className="mt-6 rounded-none border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
-              Article introuvable ou non publi?.
+              Article introuvable ou non publié.
             </div>
           )}
 
           {item && (
             <article className="mt-6">
+
               {item.cover_image && (
                 <div className="mb-6 aspect-[16/9] overflow-hidden border border-slate-200 bg-slate-100 rounded-lg">
                   <img
@@ -241,6 +239,7 @@ export default function ActuDetailPage() {
                   />
                 </div>
               )}
+
               <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                 {item.published_at
                   ? new Date(item.published_at).toLocaleDateString("fr-FR")
@@ -250,15 +249,15 @@ export default function ActuDetailPage() {
               {item.excerpt && (
                 <p className="mt-4 text-base text-slate-600">{item.excerpt}</p>
               )}
-              {item.video_url && (
-                <div className="mt-6 border border-slate-200 bg-slate-100">
-                  <video
-                    src={item.video_url}
-                    controls
-                    className="w-full"
-                  />
-                </div>
-              )}
+
+              <div className="mt-6 flex justify-center">
+                <video
+                src={item.video_url ?? undefined}
+                  controls
+                  className="rounded-lg max-w-xs w-full"
+                />
+              </div>
+
               {item.pdf_url && (
                 <div className="mt-6">
                   <div className="border border-slate-200 bg-slate-50">
