@@ -33,7 +33,7 @@ function normalizePdfText(value: string) {
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/€/g, euroToken)
+    .replace(/\u20AC/g, euroToken)
     .replace(/[^\x20-\x7E]/g, " ")
     .replace(/[()\\]/g, "\\$&")
     .replace(new RegExp(euroToken, "g"), "\\200");
@@ -63,11 +63,19 @@ function formatPeriodLabel(value: string) {
 }
 
 function formatQuantity(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toLocaleString("fr-FR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 }
 
 function formatAmount(value: number) {
-  return `${value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+  return `${value.toLocaleString("fr-FR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} \u20AC`;
 }
 
 function buildInvoicePdfContent(input: InvoicePdfInput) {

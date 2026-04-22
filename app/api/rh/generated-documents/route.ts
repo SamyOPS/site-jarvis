@@ -5,7 +5,7 @@ import path from "node:path";
 import { canManageOwner, getAuthorizedDocumentsContext } from "@/app/api/documents/_shared";
 import { buildCraPdfBuffer } from "@/lib/cra-pdf";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
-import { buildInvoicePdfBuffer } from "@/lib/invoice-pdf";
+import { buildInvoicePdfBuffer } from "@/public/partenaire/invoice-pdf";
 import { toDocumentDate, toIsoMonthStart } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
