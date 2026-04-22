@@ -100,7 +100,7 @@ export async function POST(request: Request) {
 
     const { data: existingDocuments, error: existingDocumentsError } = await adminClient
       .from("employee_documents")
-      .select("id,status,storage_bucket,storage_path,file_name")
+      .select("id,status,storage_bucket,storage_path,file_name,deleted_at")
       .eq("employee_id", profile.id)
       .eq("document_type_id", documentType.id)
       .eq("period_month", periodMonth)
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
     }
 
     const existingDocument = (existingDocuments ?? [])[0] ?? null;
-    if (existingDocument?.status === "validated") {
+    if (existingDocument?.status === "validated" && !existingDocument?.deleted_at) {
       return NextResponse.json({ error: "La facture de cette periode est deja validee et ne peut plus etre remplacee." }, { status: 400 });
     }
 
@@ -193,6 +193,7 @@ export async function POST(request: Request) {
           reviewed_by: null,
           reviewed_at: null,
           review_comment: null,
+          deleted_at: null,
           request_id: requestRow?.id ?? null,
           updated_at: now,
         })

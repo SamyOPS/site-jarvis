@@ -29,11 +29,14 @@ function binaryStringToBytes(value: string) {
 }
 
 function normalizePdfText(value: string) {
+  const euroToken = "__EURO__";
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/€/g, euroToken)
     .replace(/[^\x20-\x7E]/g, " ")
-    .replace(/[()\\]/g, "\\$&");
+    .replace(/[()\\]/g, "\\$&")
+    .replace(new RegExp(euroToken, "g"), "\\200");
 }
 
 function createTextCommand(text: string, x: number, y: number, font: "F1" | "F2", size: number) {
@@ -64,7 +67,7 @@ function formatQuantity(value: number) {
 }
 
 function formatAmount(value: number) {
-  return value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 }
 
 function buildInvoicePdfContent(input: InvoicePdfInput) {
