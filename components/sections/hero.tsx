@@ -67,20 +67,12 @@ export function Hero(props: HeroProps) {
   return (
     <div className={`relative w-full overflow-hidden ${className}`}>
 
-      {/* Vidéo de fond */}
-      <video
-        className="absolute inset-0 h-full w-full object-cover"
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="auto"
-        aria-hidden
-      >
-        <source src="/images/block/backg.mp4" type="video/mp4" />
-        Votre navigateur ne prend pas en charge la lecture de cette vidéo.
-      </video>
-
+      <img
+  className="absolute inset-0 h-full w-full object-cover"
+  src="https://i.pinimg.com/1200x/4b/b3/33/4bb333a0a54c0f5b7dae507119527a30.jpg"
+  alt=""
+  aria-hidden
+/>
       {veilOpacity && (
         <div className={`absolute inset-0 ${veilOpacity}`} aria-hidden />
       )}
