@@ -25,56 +25,38 @@ import "leaflet/dist/leaflet.css";
 export default function Home() {
 
   const expertises = [
-
-    {
-
-      title: "Support & Infogérance IT",
-
-      description:
-
-        "Assistance utilisateurs et supervision 24/7, maintenance proactive, sécurité renforcée et pilotage complet du parc informatique. Nous prenons en charge N1 à N3, mettons en place des SLA mesurables, un reporting clair et un plan d'amélioration continue pour une disponibilité maximale.",
-
-      href: "/expertises/support",
-
-    },
-
-    {
-
-      title: "Développement ",
-
-      description:
-
-        "Applications web, mobiles et metiers concues pour generer de la valeur. De la discovery a la mise en production, nos equipes UX/UI et dev full stack livrent vite, avec tests, CI/CD et qualite produit. Objectif: un MVP convaincant puis un produit robuste, evolutif et performant.",
-
-      href: "/expertises/developpement",
-
-    },
-
-    {
-
-      title: "Conseil & Transformation Digitale",
-
-      description:
-
-        "Architecture, audit, cloud et cybersecurite pour transformer votre SI en levier business. Nous definissons une roadmap claire, un business case solide et une gouvernance efficace, puis pilotons les chantiers avec vos equipes pour accelerer la transformation et reduire les risques.",
-
-      href: "/expertises/conseil",
-
-    },
-    {
-  title: "Réseaux & Systèmes",
-  description:
-    "Déploiement, administration et supervision d'infrastructures réseau et systèmes pour PME, ETI et grands comptes. Nous intervenons sur la conception d'architectures LAN/WAN, la gestion des équipements, la virtualisation et l'administration système. En parallèle, nous proposons un accompagnement consulting adapté aux structures plus légères qui souhaitent structurer leur SI sans internaliser une équipe dédiée.",
-  href: "/expertises/Reseau",
-},
-{
-  title: "Sécurité",
-  description:
-    "Audit de sécurité, SOC managé, tests d'intrusion et mise en conformité pour protéger vos actifs critiques. Nous évaluons votre exposition aux risques, détectons les vulnérabilités et mettons en œuvre les contre-mesures adaptées : pentest applicatif et infrastructure, analyse de code, durcissement des systèmes, gouvernance et plan de remédiation. Une approche outillée, structurée et orientée résultats concrets.",
-  href: "/expertises/Securite",
-},
-
-  ];
+  {
+    title: "Support & Infogérance IT",
+    description:
+      "Nos experts certifiés ITIL assurent un support N1 à N3, une supervision 24/7 et une infogérance complète de votre parc. Helpdesk, ITSM, patch management, Active Directory, MDM, sauvegardes et PRA/PCA : nos consultants maîtrisent les outils leaders du marché (ServiceNow, Jira, Intune, Zabbix) pour garantir disponibilité maximale et SLA mesurables.",
+    href: "/expertises/support",
+  },
+  {
+    title: "Développement",
+    description:
+      "Nos ingénieurs full stack conçoivent et livrent vos applications web, mobiles et métiers. De la discovery au run en production, nos experts maîtrisent React, Next.js, Node.js, TypeScript, Python et les architectures API-first. CI/CD, tests automatisés, DevSecOps et observabilité sont intégrés dès le départ pour des produits robustes et évolutifs.",
+    href: "/expertises/developpement",
+  },
+  {
+    title: "Conseil & Transformation Digitale",
+    description:
+      "Nos consultants seniors accompagnent votre transformation SI de l'audit à l'exécution. Architecture cloud (Azure, AWS, GCP), FinOps, gouvernance des données, modernisation applicative et conduite du changement : nos experts définissent une roadmap actionnable et pilotent les chantiers avec vos équipes pour réduire les risques et accélérer la valeur.",
+    href: "/expertises/conseil",
+  },
+  {
+    title: "Réseaux & Systèmes",
+    description:
+      "Nos ingénieurs réseau et systèmes déploient et administrent vos infrastructures LAN/WAN, SD-WAN, VPN et Wi-Fi entreprise. Experts Cisco, Fortinet, VMware et Hyper-V, ils prennent en charge la virtualisation, Active Directory, GPO, supervision (Zabbix, PRTG) et le maintien en condition opérationnelle pour des SI stables et documentés.",
+    href: "/expertises/Reseau",
+  },
+  {
+    title: "Sécurité",
+    description:
+      "Nos experts en cybersécurité protègent vos actifs critiques grâce à des audits techniques, des pentests applicatifs et infrastructure, et un SOC managé 24/7. Certifiés OSCP, ISO 27001 et CISSP, ils interviennent sur le durcissement des systèmes, la conformité NIS2/RGPD/DORA, la réponse à incident et la mise en place de politiques de sécurité adaptées à votre secteur.",
+    href: "/expertises/Securite",
+  },
+];
+  
 
   const jobOffers = [
 
