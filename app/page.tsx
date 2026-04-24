@@ -16,7 +16,7 @@ import { Footer } from "@/components/sections/footer";
 import { FormationsSupport } from "@/components/sections/formations-support";
 import { HomeHeader } from "@/components/sections/home-header";
 
-import { Shield, Code2, Sparkles } from "lucide-react";
+import { Shield, Code2, Sparkles , Network, ShieldCheck} from "lucide-react";
 import { FranceMap } from "@/components/sections/carte_presence";
 import "leaflet/dist/leaflet.css";
 
@@ -237,22 +237,18 @@ export default function Home() {
   const expertiseTabs = expertises.map((item, index) => ({
 
     value: `tab-${index + 1}`,
-
-    icon:
-
-      index === 0 ? (
-
-        <Shield className="h-4 w-4" />
-
-      ) : index === 1 ? (
-
-        <Code2 className="h-4 w-4" />
-
-      ) : (
-
-        <Sparkles className="h-4 w-4" />
-
-      ),
+icon:
+  index === 0 ? (
+    <Shield className="h-4 w-4" />
+  ) : index === 1 ? (
+    <Code2 className="h-4 w-4" />
+  ) : index === 2 ? (
+    <Sparkles className="h-4 w-4" />
+  ) : index === 3 ? (
+    <Network className="h-4 w-4" />
+  ) : (
+    <ShieldCheck className="h-4 w-4" />
+  ),
 
     label: item.title,
 
@@ -269,18 +265,15 @@ export default function Home() {
       buttonUrl: item.href,
 
       imageSrc:
-
-        index === 0
-        
-
-          ? "https://www.micro-concept.fr/2024/wp-content/uploads/2025/04/A_modern_office_scene_showcasing_web_development_e-1744789188802-scaled.png"
-
-          : index === 1
-
-            ? "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80"
-
-            : "https://images.pexels.com/photos/9783815/pexels-photo-9783815.jpeg",
-
+  index === 0
+    ? "https://www.micro-concept.fr/2024/wp-content/uploads/2025/04/A_modern_office_scene_showcasing_web_development_e-1744789188802-scaled.png"
+    : index === 1
+      ? "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80"
+      : index === 2
+        ? "https://images.pexels.com/photos/9783815/pexels-photo-9783815.jpeg"
+        : index === 3
+           ? "https://i.pinimg.com/736x/a0/e9/f5/a0e9f56bcc5aca5c0abf27d99776624f.jpg"
+          : "https://i.pinimg.com/736x/3f/90/20/3f90209d3b4709178ac07d3f464c801f.jpg",
       imageAlt: item.title,
 
     },
