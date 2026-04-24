@@ -40,7 +40,7 @@ export default function Home() {
 
     {
 
-      title: "Développement d'applications",
+      title: "Développement ",
 
       description:
 
@@ -61,6 +61,18 @@ export default function Home() {
       href: "/expertises/conseil",
 
     },
+    {
+  title: "Réseaux & Systèmes",
+  description:
+    "Déploiement, administration et supervision d'infrastructures réseau et systèmes pour PME, ETI et grands comptes. Nous intervenons sur la conception d'architectures LAN/WAN, la gestion des équipements, la virtualisation et l'administration système. En parallèle, nous proposons un accompagnement consulting adapté aux structures plus légères qui souhaitent structurer leur SI sans internaliser une équipe dédiée.",
+  href: "/expertises/Reseau",
+},
+{
+  title: "Sécurité",
+  description:
+    "Audit de sécurité, SOC managé, tests d'intrusion et mise en conformité pour protéger vos actifs critiques. Nous évaluons votre exposition aux risques, détectons les vulnérabilités et mettons en œuvre les contre-mesures adaptées : pentest applicatif et infrastructure, analyse de code, durcissement des systèmes, gouvernance et plan de remédiation. Une approche outillée, structurée et orientée résultats concrets.",
+  href: "/expertises/Securite",
+},
 
   ];
 
@@ -332,7 +344,7 @@ export default function Home() {
 
             title="Jarvis Connect, partenaire IT & digital"
 
-            description="Nous combinons support, développement applicatif et sécurité pour accompagner la croissance des PME et ETI."
+            description="Nous combinons expertise en support, développement applicatif, sécurité et réseaux pour accompagner la croissance des PME, ETI et  organisations à grande échelle."
 
             mainImage={aboutMainImage}
 
