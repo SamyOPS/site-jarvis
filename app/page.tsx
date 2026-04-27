@@ -255,7 +255,7 @@ icon:
         ? "https://images.pexels.com/photos/9783815/pexels-photo-9783815.jpeg"
         : index === 3
            ? "https://i.pinimg.com/736x/a0/e9/f5/a0e9f56bcc5aca5c0abf27d99776624f.jpg"
-          : "https://i.pinimg.com/736x/3f/90/20/3f90209d3b4709178ac07d3f464c801f.jpg",
+          : "https://i.pinimg.com/1200x/3d/55/94/3d55940a5f1f7c326517a8607c99336f.jpg",
       imageAlt: item.title,
 
     },
