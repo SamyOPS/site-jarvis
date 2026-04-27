@@ -114,7 +114,7 @@ const TabsFeaturettes = ({
             <div className="absolute -inset-6 bg-gradient-to-br from-blue-50/50 via-white to-cyan-50/30 rounded-3xl blur-3xl opacity-40 -z-10" />
             <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg overflow-hidden">
               <div className="p-6 lg:p-8">
-                <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-8 min-h-[240px]">
+                <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-8 min-h-[320px]">
 
                   <motion.div
                     key={`${active.value}-content`}
@@ -186,8 +186,7 @@ const TabsFeaturettes = ({
                         <img
                           src={active.content.imageSrc}
                           alt={active.content.imageAlt}
-                          className="w-full h-[280px] object-cover group-hover:scale-110 transition-transform duration-500"
-                        />
+className="w-full h-[320px] object-cover object-center group-hover:scale-110 transition-transform duration-500"                        />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
                     </motion.div>
