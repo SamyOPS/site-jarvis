@@ -34,7 +34,7 @@ export default function Home() {
   {
     title: "Développement",
     description:
-      "Nos ingénieurs full stack conçoivent et livrent vos applications web, mobiles et métiers. De la discovery au run en production, nos experts maîtrisent React, Next.js, Node.js, TypeScript, Python et les architectures API-first. CI/CD, tests automatisés, DevSecOps et observabilité sont intégrés dès le départ pour des produits robustes et évolutifs.",
+      "Nos experts en développement couvrent un large éventail de métiers : développeurs front-end, back-end et full stack, ingénieurs logiciels, développeurs mobiles, architectes techniques, DevOps, ingénieurs QA et test, ainsi que chefs de projet techniques. Ils interviennent sur la conception d’architectures, le développement d’applications, l’intégration de systèmes, la qualité logicielle et le déploiement. De l’analyse des besoins à la maintenance, ils accompagnent chaque étape pour garantir des solutions performantes, fiables et adaptées à vos enjeux métiers.",
     href: "/expertises/developpement",
   },
   {
