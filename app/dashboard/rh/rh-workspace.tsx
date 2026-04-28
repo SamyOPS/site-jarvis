@@ -149,6 +149,7 @@ export default function RhWorkspace({
   const [craNotes, setCraNotes] = useState("");
   const [craEntries, setCraEntries] = useState<CraEntryDraft[]>([]);
   const [invoiceDiscountGranted, setInvoiceDiscountGranted] = useState(false);
+  const [invoiceVatEnabled, setInvoiceVatEnabled] = useState(false);
   const [invoiceAmountAlreadyPaid, setInvoiceAmountAlreadyPaid] = useState("");
   const [craGenerating, setCraGenerating] = useState(false);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
@@ -1039,6 +1040,7 @@ export default function RhWorkspace({
     setCraNotes("");
     setCraEntries([]);
     setInvoiceDiscountGranted(false);
+    setInvoiceVatEnabled(false);
     setInvoiceAmountAlreadyPaid("");
   }, [selectedEmployeeId]);
 
@@ -1245,9 +1247,10 @@ export default function RhWorkspace({
       notes: craNotes,
       entries: entriesPayload,
       discountGranted: invoiceDiscountGranted,
+      vatEnabled: invoiceVatEnabled,
       amountAlreadyPaid: invoiceAmountAlreadyPaid.trim() === "" ? 0 : Number(invoiceAmountAlreadyPaid),
     };
-  }, [craEntries, craNotes, craPeriodMonth, generateBillingProfileEmployeeId, generateEmployeeId, invoiceAmountAlreadyPaid, invoiceDiscountGranted]);
+  }, [craEntries, craNotes, craPeriodMonth, generateBillingProfileEmployeeId, generateEmployeeId, invoiceAmountAlreadyPaid, invoiceDiscountGranted, invoiceVatEnabled]);
 
   const handleGenerateRhCraPdf = useCallback(async () => {
     const payload = buildRhGeneratePayload("cra");
@@ -2017,6 +2020,8 @@ export default function RhWorkspace({
 	              craNotes={craNotes}
 	              invoiceDiscountGranted={invoiceDiscountGranted}
 	              onInvoiceDiscountGrantedChange={setInvoiceDiscountGranted}
+	              invoiceVatEnabled={invoiceVatEnabled}
+	              onInvoiceVatEnabledChange={setInvoiceVatEnabled}
 	              invoiceAmountAlreadyPaid={invoiceAmountAlreadyPaid}
 	              onInvoiceAmountAlreadyPaidChange={setInvoiceAmountAlreadyPaid}
 	              craCalendarCells={craCalendarCells}

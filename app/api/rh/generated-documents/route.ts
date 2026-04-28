@@ -21,6 +21,7 @@ type GeneratePayload = {
   notes?: unknown;
   entries?: unknown;
   discountGranted?: unknown;
+  vatEnabled?: unknown;
   amountAlreadyPaid?: unknown;
 };
 
@@ -87,6 +88,7 @@ export async function POST(request: Request) {
     const periodMonthRaw = String(body?.periodMonth ?? "").trim();
     const notes = String(body?.notes ?? "").trim() || null;
     const discountGranted = body?.discountGranted === true;
+    const vatEnabled = body?.vatEnabled === true;
     let amountAlreadyPaid = 0;
     try {
       amountAlreadyPaid = parseAmountAlreadyPaid(body?.amountAlreadyPaid);
@@ -450,6 +452,7 @@ export async function POST(request: Request) {
       quantity: workedDaysCount,
       dailyRate,
       discountGranted,
+      vatEnabled,
       amountAlreadyPaid,
     });
 
@@ -547,6 +550,8 @@ export async function POST(request: Request) {
         daily_rate: dailyRate,
         discount_granted: discountGranted,
         discount_rate: discountGranted ? 0.02 : 0,
+        vat_enabled: vatEnabled,
+        vat_rate: vatEnabled ? 0.2 : 0,
         amount_already_paid: amountAlreadyPaid,
         billing_profile_employee_id: billingProfileEmployeeId,
       },
