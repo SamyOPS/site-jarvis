@@ -63,6 +63,8 @@ type RhDocumentsSectionProps = {
   craNotes: string;
   invoiceDiscountGranted: boolean;
   onInvoiceDiscountGrantedChange: (value: boolean) => void;
+  invoiceVatEnabled: boolean;
+  onInvoiceVatEnabledChange: (value: boolean) => void;
   invoiceAmountAlreadyPaid: string;
   onInvoiceAmountAlreadyPaidChange: (value: string) => void;
   craCalendarCells: CraCalendarCell[];
@@ -141,6 +143,8 @@ export function RhDocumentsSection({
   craNotes,
   invoiceDiscountGranted,
   onInvoiceDiscountGrantedChange,
+  invoiceVatEnabled,
+  onInvoiceVatEnabledChange,
   invoiceAmountAlreadyPaid,
   onInvoiceAmountAlreadyPaidChange,
   craCalendarCells,
@@ -716,14 +720,24 @@ export function RhDocumentsSection({
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
-                    <label className="flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={invoiceDiscountGranted}
-                        onChange={(event) => onInvoiceDiscountGrantedChange(event.target.checked)}
-                      />
-                      Escompte accorde (2%)
-                    </label>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={invoiceDiscountGranted}
+                          onChange={(event) => onInvoiceDiscountGrantedChange(event.target.checked)}
+                        />
+                        Escompte accorde (2%)
+                      </label>
+                      <label className="flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={invoiceVatEnabled}
+                          onChange={(event) => onInvoiceVatEnabledChange(event.target.checked)}
+                        />
+                        TVA appliquee (20%)
+                      </label>
+                    </div>
                     <div className="space-y-1">
                       <label className="text-sm font-medium">Montant deja paye</label>
                       <input

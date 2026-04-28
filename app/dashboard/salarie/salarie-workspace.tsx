@@ -135,6 +135,7 @@ export default function SalarieWorkspace({
   const [craNotes, setCraNotes] = useState("");
   const [craEntries, setCraEntries] = useState<CraEntryDraft[]>([]);
   const [invoiceDiscountGranted, setInvoiceDiscountGranted] = useState(false);
+  const [invoiceVatEnabled, setInvoiceVatEnabled] = useState(false);
   const [invoiceAmountAlreadyPaid, setInvoiceAmountAlreadyPaid] = useState("");
   const [craGenerating, setCraGenerating] = useState(false);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
@@ -1142,6 +1143,7 @@ export default function SalarieWorkspace({
     setCraNotes("");
     setCraEntries([]);
     setInvoiceDiscountGranted(false);
+    setInvoiceVatEnabled(false);
     setInvoiceAmountAlreadyPaid("");
   }, []);
 
@@ -1257,6 +1259,7 @@ export default function SalarieWorkspace({
         label: entry.label,
       })),
       discountGranted: invoiceDiscountGranted,
+      vatEnabled: invoiceVatEnabled,
       amountAlreadyPaid: invoiceAmountAlreadyPaid.trim() === "" ? 0 : Number(invoiceAmountAlreadyPaid),
     };
 
@@ -1279,7 +1282,7 @@ export default function SalarieWorkspace({
     };
 
     void run();
-  }, [callSalarieApi, craEntries, craPeriodMonth, invoiceAmountAlreadyPaid, invoiceDiscountGranted, loadDashboardData, profile]);
+  }, [callSalarieApi, craEntries, craPeriodMonth, invoiceAmountAlreadyPaid, invoiceDiscountGranted, invoiceVatEnabled, loadDashboardData, profile]);
 
   const handlePasswordUpdate = useCallback(async () => {
     if (!supabase) return;
@@ -1621,6 +1624,8 @@ export default function SalarieWorkspace({
               onCraNotesChange={setCraNotes}
               invoiceDiscountGranted={invoiceDiscountGranted}
               onInvoiceDiscountGrantedChange={setInvoiceDiscountGranted}
+              invoiceVatEnabled={invoiceVatEnabled}
+              onInvoiceVatEnabledChange={setInvoiceVatEnabled}
               invoiceAmountAlreadyPaid={invoiceAmountAlreadyPaid}
               onInvoiceAmountAlreadyPaidChange={setInvoiceAmountAlreadyPaid}
               weekdayLabels={weekdayLabels}

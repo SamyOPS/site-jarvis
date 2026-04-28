@@ -17,6 +17,7 @@ type InvoicePdfInput = {
   quantity: number;
   dailyRate: number;
   discountGranted?: boolean;
+  vatEnabled?: boolean;
   amountAlreadyPaid?: number;
 };
 
@@ -207,8 +208,10 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
   const discountRate = input.discountGranted ? 0.02 : 0;
   const discountAmount = totalHt * discountRate;
   const totalAfterDiscount = Math.max(0, totalHt - discountAmount);
+  const vatRate = input.vatEnabled ? 0.2 : 0;
+  const vatAmount = totalAfterDiscount * vatRate;
   const amountAlreadyPaid = Math.max(0, Number(input.amountAlreadyPaid) || 0);
-  const totalTtc = totalAfterDiscount;
+  const totalTtc = totalAfterDiscount + vatAmount;
   const remainingToPay = Math.max(0, totalTtc - amountAlreadyPaid);
   const description = `Service IT chez ${input.companyName || "Client"}`;
   const descriptionFontSize = 9;
@@ -278,7 +281,7 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
   pushSummaryRow("Total HT :", formatAmount(totalHt));
   pushSummaryRow("Escompte :", input.discountGranted ? `${formatAmount(discountAmount)} (2%)` : "0,00");
   pushSummaryRow("Total HT apres escompte :", formatAmount(totalAfterDiscount));
-  pushSummaryRow("TVA :", "0,00 (0%)");
+  pushSummaryRow("TVA :", input.vatEnabled ? `${formatAmount(vatAmount)} (20%)` : "0,00 (0%)");
   pushSummaryRow("Deja paye :", formatAmount(amountAlreadyPaid));
   pushSummaryRow("Total TTC :", formatAmount(totalTtc));
   pushSummaryRow("Net a payer :", formatAmount(remainingToPay));
