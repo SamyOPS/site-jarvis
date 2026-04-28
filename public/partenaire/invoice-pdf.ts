@@ -109,14 +109,7 @@ function formatQuantity(value: number) {
 }
 
 function formatAmount(value: number) {
-<<<<<<< HEAD:public/partenaire/invoice-pdf.ts
-  return `${value.toLocaleString("fr-FR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })} \u20AC`;
-=======
   return `${value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} \u20AC`;
->>>>>>> design:lib/invoice-pdf.ts
 }
 
 
