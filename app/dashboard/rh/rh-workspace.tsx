@@ -154,8 +154,52 @@ export default function RhWorkspace({
   const [craGenerating, setCraGenerating] = useState(false);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
   const [billingProfiles, setBillingProfiles] = useState<
-    { employeeId: string; profileLabel: string; employeeName: string; dailyRate: number; updatedAt: string | null }[]
+    {
+      employeeId: string;
+      profileLabel: string;
+      employeeName: string;
+      firstName: string | null;
+      lastName: string | null;
+      companyName: string | null;
+      esnPartenaire: string | null;
+      addressLine1: string | null;
+      addressLine2: string | null;
+      postalCode: string | null;
+      city: string | null;
+      country: string | null;
+      phone: string | null;
+      email: string | null;
+      siret: string | null;
+      iban: string | null;
+      bic: string | null;
+      dailyRate: number;
+      updatedAt: string | null;
+    }[]
   >([]);
+  const [billingProfileDrafts, setBillingProfileDrafts] = useState<
+    Record<
+      string,
+      {
+        firstName: string;
+        lastName: string;
+        companyName: string;
+        esnPartenaire: string;
+        addressLine1: string;
+        addressLine2: string;
+        postalCode: string;
+        city: string;
+        country: string;
+        phone: string;
+        email: string;
+        siret: string;
+        iban: string;
+        bic: string;
+        dailyRate: string;
+      }
+    >
+  >({});
+  const [isBillingProfileEditMode, setIsBillingProfileEditMode] = useState(false);
+  const [billingProfileSaving, setBillingProfileSaving] = useState(false);
   const [deletingRhDocumentId, setDeletingRhDocumentId] = useState<string | null>(null);
   const [isEmployeeEditMode, setIsEmployeeEditMode] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -548,6 +592,58 @@ export default function RhWorkspace({
   }, [collabDocumentsMenuOpen]);
 
   const selectedEmployee = useMemo(() => employees.find((employee) => employee.id === selectedEmployeeId) ?? null, [employees, selectedEmployeeId]);
+  const selectedEmployeeBillingProfile = useMemo(
+    () => billingProfiles.find((item) => item.employeeId === selectedEmployeeId) ?? null,
+    [billingProfiles, selectedEmployeeId],
+  );
+  const resetBillingProfileDraft = useCallback((employeeId: string, source?: (typeof billingProfiles)[number] | null) => {
+    const item = source ?? billingProfiles.find((profileItem) => profileItem.employeeId === employeeId) ?? null;
+    setBillingProfileDrafts((prev) => ({
+      ...prev,
+      [employeeId]: {
+        firstName: item?.firstName ?? "",
+        lastName: item?.lastName ?? "",
+        companyName: item?.companyName ?? "",
+        esnPartenaire: item?.esnPartenaire ?? "",
+        addressLine1: item?.addressLine1 ?? "",
+        addressLine2: item?.addressLine2 ?? "",
+        postalCode: item?.postalCode ?? "",
+        city: item?.city ?? "",
+        country: item?.country ?? "France",
+        phone: item?.phone ?? "",
+        email: item?.email ?? "",
+        siret: item?.siret ?? "",
+        iban: item?.iban ?? "",
+        bic: item?.bic ?? "",
+        dailyRate: item?.dailyRate != null ? String(item.dailyRate) : "",
+      },
+    }));
+  }, [billingProfiles]);
+  const activeBillingProfileDraft = useMemo(() => {
+    if (!selectedEmployee) return null;
+    return (
+      billingProfileDrafts[selectedEmployee.id] ?? {
+        firstName: selectedEmployeeBillingProfile?.firstName ?? "",
+        lastName: selectedEmployeeBillingProfile?.lastName ?? "",
+        companyName: selectedEmployeeBillingProfile?.companyName ?? "",
+        esnPartenaire: selectedEmployeeBillingProfile?.esnPartenaire ?? "",
+        addressLine1: selectedEmployeeBillingProfile?.addressLine1 ?? "",
+        addressLine2: selectedEmployeeBillingProfile?.addressLine2 ?? "",
+        postalCode: selectedEmployeeBillingProfile?.postalCode ?? "",
+        city: selectedEmployeeBillingProfile?.city ?? "",
+        country: selectedEmployeeBillingProfile?.country ?? "France",
+        phone: selectedEmployeeBillingProfile?.phone ?? "",
+        email: selectedEmployeeBillingProfile?.email ?? "",
+        siret: selectedEmployeeBillingProfile?.siret ?? "",
+        iban: selectedEmployeeBillingProfile?.iban ?? "",
+        bic: selectedEmployeeBillingProfile?.bic ?? "",
+        dailyRate:
+          selectedEmployeeBillingProfile?.dailyRate != null
+            ? String(selectedEmployeeBillingProfile.dailyRate)
+            : "",
+      }
+    );
+  }, [billingProfileDrafts, selectedEmployee, selectedEmployeeBillingProfile]);
   const resetEmployeeDraft = useCallback((employee: ProfileRow) => {
     setEmployeeDrafts((prev) => ({
       ...prev,
@@ -611,6 +707,20 @@ export default function RhWorkspace({
         employeeId: string;
         profileLabel: string;
         employeeName: string;
+        firstName: string | null;
+        lastName: string | null;
+        companyName: string | null;
+        esnPartenaire: string | null;
+        addressLine1: string | null;
+        addressLine2: string | null;
+        postalCode: string | null;
+        city: string | null;
+        country: string | null;
+        phone: string | null;
+        email: string | null;
+        siret: string | null;
+        iban: string | null;
+        bic: string | null;
         dailyRate: number;
         updatedAt: string | null;
       }[];
@@ -774,11 +884,13 @@ export default function RhWorkspace({
     });
   }, [loadRhFolders, profile?.id, session?.access_token]);
   useEffect(() => {
-    if (currentSection !== "documents" || !session?.access_token) return;
+    const shouldLoadBillingProfiles =
+      currentSection === "documents" || currentSubSection === "collab_detail";
+    if (!shouldLoadBillingProfiles || !session?.access_token) return;
     void loadBillingProfiles().catch((error) => {
       setSaveMessage(error instanceof Error ? error.message : "Chargement des profils de facturation impossible.");
     });
-  }, [currentSection, loadBillingProfiles, session?.access_token]);
+  }, [currentSection, currentSubSection, loadBillingProfiles, session?.access_token]);
   const activeDraft = useMemo(() => {
     if (!selectedEmployee) return null;
     return employeeDrafts[selectedEmployee.id] ?? { full_name: selectedEmployee.full_name ?? "", phone: selectedEmployee.phone ?? "", company_name: selectedEmployee.company_name ?? "", esn_partenaire: selectedEmployee.esn_partenaire ?? "", employment_status: selectedEmployee.employment_status ?? "active" };
@@ -1090,6 +1202,51 @@ export default function RhWorkspace({
     setSaveMessage("Informations mises a jour.");
     setSavingEmployee(false);
   };
+
+  const handleSaveBillingProfile = useCallback(async () => {
+    if (!supabase || !selectedEmployee || !activeBillingProfileDraft || !activeDraft) return;
+    setBillingProfileSaving(true);
+    setSaveMessage(null);
+    try {
+      const { error: updateStatusError } = await supabase
+        .from("profiles")
+        .update({ employment_status: activeDraft.employment_status })
+        .eq("id", selectedEmployee.id);
+      if (updateStatusError) {
+        throw new Error(updateStatusError.message);
+      }
+      await callRhDocumentsApi("/api/rh/billing-profiles", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: selectedEmployee.id,
+          firstName: activeBillingProfileDraft.firstName,
+          lastName: activeBillingProfileDraft.lastName,
+          companyName: activeBillingProfileDraft.companyName,
+          esnPartenaire: activeBillingProfileDraft.esnPartenaire,
+          addressLine1: activeBillingProfileDraft.addressLine1,
+          addressLine2: activeBillingProfileDraft.addressLine2,
+          postalCode: activeBillingProfileDraft.postalCode,
+          city: activeBillingProfileDraft.city,
+          country: activeBillingProfileDraft.country,
+          phone: activeBillingProfileDraft.phone,
+          email: activeBillingProfileDraft.email,
+          siret: activeBillingProfileDraft.siret,
+          iban: activeBillingProfileDraft.iban,
+          bic: activeBillingProfileDraft.bic,
+          dailyRate: Number(activeBillingProfileDraft.dailyRate || 0),
+        }),
+      });
+      await loadBillingProfiles();
+      await refreshDashboardData();
+      setIsBillingProfileEditMode(false);
+      setSaveMessage("Profil de facturation mis a jour.");
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "Enregistrement du profil de facturation impossible.");
+    } finally {
+      setBillingProfileSaving(false);
+    }
+  }, [activeBillingProfileDraft, activeDraft, callRhDocumentsApi, loadBillingProfiles, refreshDashboardData, selectedEmployee, supabase]);
 
   const findMatchingRequest = useCallback((employeeId: string, documentTypeId: string, periodMonth: string | null) => {
     return (
@@ -1653,136 +1810,97 @@ export default function RhWorkspace({
                       </Button>
                     </div>
 
-                    <div className="overflow-hidden rounded-xl bg-[#f8fafc]">
-	                      <div className="flex items-center justify-between px-4 py-3">
-	                        <p className="text-base font-medium text-[#0A1A2F]">Information</p>
-	                        {!isEmployeeEditMode ? (
-	                          <Button
-	                            type="button"
-	                            variant="ghost"
-	                            size="icon"
-	                            className="h-8 w-8 text-[#0A1A2F]/70 hover:text-[#0A1A2F]"
-	                            onClick={() => setIsEmployeeEditMode(true)}
-	                            aria-label="Modifier les informations"
-	                            title="Modifier"
-	                          >
-	                            <Pencil className="h-4 w-4" />
-	                          </Button>
-	                        ) : (
-	                          <div className="flex items-center gap-2">
-	                            <Button
-	                              size="sm"
-	                              onClick={async () => {
-	                                await handleSaveEmployee();
-	                                setIsEmployeeEditMode(false);
-	                              }}
-	                              disabled={savingEmployee}
-	                            >
-	                              {savingEmployee ? "Enregistrement..." : "Enregistrer"}
-	                            </Button>
-	                            <Button
-	                              type="button"
-	                              variant="outline"
-	                              size="sm"
-	                              onClick={() => {
-	                                resetEmployeeDraft(selectedEmployee);
-	                                setIsEmployeeEditMode(false);
-	                              }}
-	                              disabled={savingEmployee}
-	                            >
-	                              Annuler
-	                            </Button>
-	                          </div>
-	                        )}
-	                      </div>
-                      <div className="grid gap-6 p-4 md:grid-cols-[160px_minmax(0,1fr)]">
-                        <div className="space-y-3">
-                          <div className="flex h-[132px] w-[132px] items-center justify-center rounded border border-slate-300 bg-white text-3xl font-semibold text-[#0A1A2F]/60">
-                            {(activeDraft.full_name ?? selectedEmployee.email ?? "?").trim().charAt(0).toUpperCase()}
-                          </div>
-                          <p className="text-xs text-[#0A1A2F]/60">Profil collaborateur</p>
-                        </div>
-                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-	                          <div>
-	                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Nom et prenom</p>
-		                            {isEmployeeEditMode ? (
-		                              <input
-		                                value={activeDraft.full_name}
-		                                onChange={(event) =>
-		                                  setEmployeeDrafts((prev) => ({
-		                                    ...prev,
-	                                    [selectedEmployee.id]: { ...activeDraft, full_name: event.target.value },
-	                                  }))
-		                                }
-		                                className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm"
-		                              />
-		                            ) : (
-		                              <p className="mt-1 text-[#0A1A2F]/80">{activeDraft.full_name || "-"}</p>
-		                            )}
-	                          </div>
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Email</p>
-                            <p className="mt-1 break-all text-[#0A1A2F]">{selectedEmployee.email}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">N° mobile</p>
-                            {isEmployeeEditMode ? (
-                              <input
-                                value={activeDraft.phone}
-                                onChange={(event) =>
-                                  setEmployeeDrafts((prev) => ({
-                                    ...prev,
-                                    [selectedEmployee.id]: { ...activeDraft, phone: event.target.value },
-                                  }))
+                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      <div className="flex items-center justify-between px-4 py-3">
+                        <p className="text-base font-medium text-[#0A1A2F]">Information</p>
+                        {!isBillingProfileEditMode ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-[#0A1A2F]/70 hover:text-[#0A1A2F]"
+                            onClick={() => {
+                              if (selectedEmployee) {
+                                resetBillingProfileDraft(selectedEmployee.id, selectedEmployeeBillingProfile);
+                                resetEmployeeDraft(selectedEmployee);
+                              }
+                              setIsBillingProfileEditMode(true);
+                            }}
+                            aria-label="Modifier le profil de facturation"
+                            title="Modifier"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => void handleSaveBillingProfile()}
+                              disabled={billingProfileSaving}
+                            >
+                              {billingProfileSaving ? "Enregistrement..." : "Enregistrer"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (selectedEmployee) {
+                                  resetBillingProfileDraft(selectedEmployee.id, selectedEmployeeBillingProfile);
+                                  resetEmployeeDraft(selectedEmployee);
                                 }
-                                className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm"
-                              />
+                                setIsBillingProfileEditMode(false);
+                              }}
+                              disabled={billingProfileSaving}
+                            >
+                              Annuler
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      {activeBillingProfileDraft ? (
+                        <div className="grid gap-6 border-t border-slate-200 p-4 md:grid-cols-[160px_minmax(0,1fr)]">
+                          <div className="space-y-3">
+                            <div className="flex h-[132px] w-[132px] items-center justify-center rounded border border-slate-300 bg-white text-3xl font-semibold text-[#0A1A2F]/60">
+                              {`${activeBillingProfileDraft.firstName ?? ""} ${activeBillingProfileDraft.lastName ?? ""}`.trim().charAt(0).toUpperCase() || "F"}
+                            </div>
+                            <p className="text-xs text-[#0A1A2F]/60">Profil de facturation</p>
+                          </div>
+                          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Nom</p>
+                            {isBillingProfileEditMode ? (
+                              <div className="mt-1 grid grid-cols-2 gap-2">
+                                <input value={activeBillingProfileDraft.firstName} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, firstName: event.target.value } }))} className="h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" placeholder="Prenom" />
+                                <input value={activeBillingProfileDraft.lastName} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, lastName: event.target.value } }))} className="h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" placeholder="Nom" />
+                              </div>
                             ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{activeDraft.phone || "-"}</p>
+                              <p className="mt-1 text-[#0A1A2F]/80">{`${activeBillingProfileDraft.firstName ?? ""} ${activeBillingProfileDraft.lastName ?? ""}`.trim() || "-"}</p>
                             )}
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Entreprise</p>
-                            {isEmployeeEditMode ? (
-                              <input
-                                value={activeDraft.company_name}
-                                onChange={(event) =>
-                                  setEmployeeDrafts((prev) => ({
-                                    ...prev,
-                                    [selectedEmployee.id]: { ...activeDraft, company_name: event.target.value },
-                                  }))
-                                }
-                                className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm"
-                                placeholder="Nom de l'entreprise"
-                              />
+                            {isBillingProfileEditMode ? (
+                              <input value={activeBillingProfileDraft.companyName} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, companyName: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
                             ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{activeDraft.company_name || "-"}</p>
+                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.companyName || "-"}</p>
                             )}
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">ESN partenaire</p>
-                            {isEmployeeEditMode ? (
-                              <input
-                                value={activeDraft.esn_partenaire}
-                                onChange={(event) =>
-                                  setEmployeeDrafts((prev) => ({
-                                    ...prev,
-                                    [selectedEmployee.id]: { ...activeDraft, esn_partenaire: event.target.value },
-                                  }))
-                                }
-                                className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm"
-                                placeholder="Nom de l'ESN partenaire"
-                              />
+                            {isBillingProfileEditMode ? (
+                              <input value={activeBillingProfileDraft.esnPartenaire} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, esnPartenaire: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
                             ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{activeDraft.esn_partenaire || "-"}</p>
+                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.esnPartenaire || "-"}</p>
                             )}
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Statut</p>
-                            {isEmployeeEditMode ? (
+                            {isBillingProfileEditMode ? (
                               <select
                                 value={activeDraft.employment_status}
                                 onChange={(event) =>
+                                  selectedEmployee &&
                                   setEmployeeDrafts((prev) => ({
                                     ...prev,
                                     [selectedEmployee.id]: { ...activeDraft, employment_status: event.target.value },
@@ -1798,12 +1916,93 @@ export default function RhWorkspace({
                               <p className="mt-1 text-[#0A1A2F]/80">{activeDraft.employment_status || "-"}</p>
                             )}
                           </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Adresse</p>
+                            {isBillingProfileEditMode ? (
+                              <input value={activeBillingProfileDraft.addressLine1} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, addressLine1: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                            ) : (
+                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.addressLine1 || "-"}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Complement d'adresse</p>
+                            {isBillingProfileEditMode ? (
+                              <input value={activeBillingProfileDraft.addressLine2} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, addressLine2: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                            ) : (
+                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.addressLine2 || "-"}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Ville / Code postal / Pays</p>
+                            {isBillingProfileEditMode ? (
+                              <div className="mt-1 grid grid-cols-3 gap-2">
+                                <input value={activeBillingProfileDraft.postalCode} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, postalCode: event.target.value } }))} className="h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" placeholder="Code postal" />
+                                <input value={activeBillingProfileDraft.city} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, city: event.target.value } }))} className="h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" placeholder="Ville" />
+                                <input value={activeBillingProfileDraft.country} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, country: event.target.value } }))} className="h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" placeholder="Pays" />
+                              </div>
+                            ) : (
+                              <p className="mt-1 text-[#0A1A2F]/80">{`${activeBillingProfileDraft.postalCode ?? ""} ${activeBillingProfileDraft.city ?? ""} ${activeBillingProfileDraft.country ?? ""}`.trim() || "-"}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Email de facturation</p>
+                            {isBillingProfileEditMode ? (
+                              <input value={activeBillingProfileDraft.email} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, email: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                            ) : (
+                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.email || "-"}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Telephone</p>
+                            {isBillingProfileEditMode ? (
+                              <input value={activeBillingProfileDraft.phone} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, phone: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                            ) : (
+                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.phone || "-"}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">SIRET</p>
+                            {isBillingProfileEditMode ? (
+                              <input value={activeBillingProfileDraft.siret} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, siret: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                            ) : (
+                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.siret || "-"}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">IBAN</p>
+                            {isBillingProfileEditMode ? (
+                              <input value={activeBillingProfileDraft.iban} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, iban: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                            ) : (
+                              <p className="mt-1 break-all text-[#0A1A2F]/80">{activeBillingProfileDraft.iban || "-"}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">BIC</p>
+                            {isBillingProfileEditMode ? (
+                              <input value={activeBillingProfileDraft.bic} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, bic: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                            ) : (
+                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.bic || "-"}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Tarif journalier</p>
+                            {isBillingProfileEditMode ? (
+                              <input value={activeBillingProfileDraft.dailyRate} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, dailyRate: event.target.value } }))} type="number" min="0" step="0.01" className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                            ) : (
+                              <p className="mt-1 text-[#0A1A2F]/80">{Number(activeBillingProfileDraft.dailyRate || 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR</p>
+                            )}
+                          </div>
+                          </div>
                         </div>
-                      </div>
-	                    </div>
-	                    <div className="flex items-center gap-2">
-	                      {saveMessage && <p className="text-sm text-[#0A1A2F]/70">{saveMessage}</p>}
-	                    </div>
+                      ) : (
+                        <div className="border-t border-slate-200 px-4 py-4 text-sm text-[#0A1A2F]/70">
+                          Aucun profil de facturation trouve pour ce collaborateur.
+                        </div>
+                      )}
+                    </div>
+		                    <div className="flex items-center gap-2">
+		                      {saveMessage && <p className="text-sm text-[#0A1A2F]/70">{saveMessage}</p>}
+		                    </div>
 	                    <div className="w-full border-b border-slate-200 bg-white">
 	                      <div className="flex items-end gap-1 px-2 text-sm">
 	                        <button
@@ -2235,6 +2434,8 @@ export default function RhWorkspace({
     </div>
   );
 }
+
+
 
 
 

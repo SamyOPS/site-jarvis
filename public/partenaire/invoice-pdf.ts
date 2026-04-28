@@ -1,4 +1,4 @@
-type InvoicePdfInput = {
+﻿type InvoicePdfInput = {
   invoiceNumber: string;
   issueDate: string;
   dueDate: string;
@@ -109,10 +109,14 @@ function formatQuantity(value: number) {
 }
 
 function formatAmount(value: number) {
+<<<<<<< HEAD:public/partenaire/invoice-pdf.ts
   return `${value.toLocaleString("fr-FR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} \u20AC`;
+=======
+  return `${value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} \u20AC`;
+>>>>>>> design:lib/invoice-pdf.ts
 }
 
 
@@ -279,9 +283,9 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
   };
 
   pushSummaryRow("Total HT :", formatAmount(totalHt));
-  pushSummaryRow("Escompte :", input.discountGranted ? `${formatAmount(discountAmount)} (2%)` : "0,00");
+  pushSummaryRow("Escompte :", input.discountGranted ? `${formatAmount(discountAmount)} (2%)` : formatAmount(0));
   pushSummaryRow("Total HT apres escompte :", formatAmount(totalAfterDiscount));
-  pushSummaryRow("TVA :", input.vatEnabled ? `${formatAmount(vatAmount)} (20%)` : "0,00 (0%)");
+  pushSummaryRow("TVA :", input.vatEnabled ? `${formatAmount(vatAmount)} (20%)` : `${formatAmount(0)} (0%)`);
   pushSummaryRow("Deja paye :", formatAmount(amountAlreadyPaid));
   pushSummaryRow("Total TTC :", formatAmount(totalTtc));
   pushSummaryRow("Net a payer :", formatAmount(remainingToPay));
@@ -327,8 +331,8 @@ function createPdfString(content: string) {
     "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>",
     `<< /Length ${byteLength(content)} >>\nstream\n${content}\nendstream`,
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>",
   ];
 
   let pdf = "%PDF-1.4\n";
@@ -357,4 +361,7 @@ export function buildInvoicePdfBytes(input: InvoicePdfInput) {
 export function buildInvoicePdfBuffer(input: InvoicePdfInput) {
   return Buffer.from(buildInvoicePdfBytes(input));
 }
+
+
+
 
