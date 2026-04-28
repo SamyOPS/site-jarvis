@@ -43,6 +43,40 @@ function createTextCommand(text: string, x: number, y: number, font: "F1" | "F2"
   return `BT /${font} ${size} Tf ${x} ${y} Td (${normalizePdfText(text)}) Tj ET`;
 }
 
+function estimateTextWidth(text: string, size: number) {
+  return text.length * size * 0.5;
+}
+
+function wrapText(text: string, maxWidth: number, size: number) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [""];
+
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (const word of words) {
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
+    if (estimateTextWidth(candidate, size) <= maxWidth) {
+      currentLine = candidate;
+      continue;
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      lines.push(word);
+      currentLine = "";
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+
 function formatDate(value: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -101,6 +135,14 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
   const dailyRate = Number(input.dailyRate) || 0;
   const totalHt = quantity * dailyRate;
   const description = `Service IT chez ${input.companyName || "Client"}`;
+  const descriptionFontSize = 9;
+  const descriptionLines = wrapText(description, 114, descriptionFontSize);
+  const dataLineHeight = 10;
+  const dataPadding = 4;
+  const dataAreaHeight = Math.max(14, descriptionLines.length * dataLineHeight + dataPadding);
+  const headerAreaHeight = 14;
+  const tableRowHeight = dataAreaHeight + headerAreaHeight;
+  const tableDividerY = dataAreaHeight;
   const issuerStartY = 700;
   const recipientStartY = 612;
   const lineGap = 16;
@@ -109,6 +151,8 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
   const contentBottomY = Math.min(issuerBottomY, recipientBottomY);
   const titleBarY = contentBottomY - 56;
   const tableY = titleBarY - 42;
+  const descriptionStartY = tableY + dataAreaHeight - 9;
+  const valueStartY = descriptionStartY;
   const summaryStartY = tableY - 74;
 
   const commands = [
@@ -141,22 +185,24 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
     "1 1 1 rg",
     createTextCommand(`FACTURE ${periodLabel}`, 222, titleBarY + 13, "F2", 12),
     "0 0 0 rg",
-    `54 ${tableY} 122 28 re S`,
-    `176 ${tableY} 66 28 re S`,
-    `242 ${tableY} 102 28 re S`,
-    `344 ${tableY} 108 28 re S`,
-    `452 ${tableY} 89 28 re S`,
-    `54 ${tableY + 14} 487 0 re S`,
-    createTextCommand("Description", 58, tableY + 16, "F2", 9),
-    createTextCommand("Quantite", 180, tableY + 16, "F2", 9),
-    createTextCommand("Tarif / journee HT", 246, tableY + 16, "F2", 9),
-    createTextCommand("Montant", 348, tableY + 16, "F2", 9),
-    createTextCommand("TVA", 456, tableY + 16, "F2", 9),
-    createTextCommand(description, 58, tableY + 3, "F1", 9),
-    createTextCommand(formatQuantity(quantity), 180, tableY + 3, "F1", 9),
-    createTextCommand(formatAmount(dailyRate), 246, tableY + 3, "F1", 9),
-    createTextCommand(formatAmount(totalHt), 348, tableY + 3, "F1", 9),
-    createTextCommand("0%", 456, tableY + 3, "F1", 9),
+    `54 ${tableY} 122 ${tableRowHeight} re S`,
+    `176 ${tableY} 66 ${tableRowHeight} re S`,
+    `242 ${tableY} 102 ${tableRowHeight} re S`,
+    `344 ${tableY} 108 ${tableRowHeight} re S`,
+    `452 ${tableY} 89 ${tableRowHeight} re S`,
+    `54 ${tableY + tableDividerY} 487 0 re S`,
+    createTextCommand("Description", 58, tableY + tableDividerY + 2, "F2", 9),
+    createTextCommand("Quantite", 180, tableY + tableDividerY + 2, "F2", 9),
+    createTextCommand("Tarif / journee HT", 246, tableY + tableDividerY + 2, "F2", 9),
+    createTextCommand("Montant", 348, tableY + tableDividerY + 2, "F2", 9),
+    createTextCommand("TVA", 456, tableY + tableDividerY + 2, "F2", 9),
+    ...descriptionLines.map((line, index) =>
+      createTextCommand(line, 58, descriptionStartY - index * dataLineHeight, "F1", descriptionFontSize)
+    ),
+    createTextCommand(formatQuantity(quantity), 180, valueStartY, "F1", 9),
+    createTextCommand(formatAmount(dailyRate), 246, valueStartY, "F1", 9),
+    createTextCommand(formatAmount(totalHt), 348, valueStartY, "F1", 9),
+    createTextCommand("0%", 456, valueStartY, "F1", 9),
     createTextCommand("Total HT :", 300, summaryStartY, "F2", 10),
     createTextCommand(formatAmount(totalHt), 420, summaryStartY, "F1", 10),
     createTextCommand("Escompte :", 300, summaryStartY - 16, "F2", 10),
