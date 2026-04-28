@@ -61,7 +61,7 @@ function renderMarkdown(content: string) {
           key={`img-${blocks.length}`}
           src={imageMatch[2]}
           alt={imageMatch[1] || "Image"}
-          className="my-5 w-full border border-slate-200 object-cover rounded-lg"
+  className="my-5 w-2/3 mx-auto border border-slate-300 object-cover rounded-lg"
         />
       );
       continue;
