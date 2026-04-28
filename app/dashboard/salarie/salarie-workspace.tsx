@@ -134,6 +134,8 @@ export default function SalarieWorkspace({
   const [craPeriodMonth, setCraPeriodMonth] = useState(currentMonthInputValue);
   const [craNotes, setCraNotes] = useState("");
   const [craEntries, setCraEntries] = useState<CraEntryDraft[]>([]);
+  const [invoiceDiscountGranted, setInvoiceDiscountGranted] = useState(false);
+  const [invoiceAmountAlreadyPaid, setInvoiceAmountAlreadyPaid] = useState("");
   const [craGenerating, setCraGenerating] = useState(false);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -1139,6 +1141,8 @@ export default function SalarieWorkspace({
     setCraPeriodMonth(currentMonthInputValue());
     setCraNotes("");
     setCraEntries([]);
+    setInvoiceDiscountGranted(false);
+    setInvoiceAmountAlreadyPaid("");
   }, []);
 
   const handleCraPeriodMonthChange = useCallback((nextPeriodMonth: string) => {
@@ -1252,6 +1256,8 @@ export default function SalarieWorkspace({
         dayQuantity: Number(entry.dayQuantity || 0),
         label: entry.label,
       })),
+      discountGranted: invoiceDiscountGranted,
+      amountAlreadyPaid: invoiceAmountAlreadyPaid.trim() === "" ? 0 : Number(invoiceAmountAlreadyPaid),
     };
 
     const run = async () => {
@@ -1273,7 +1279,7 @@ export default function SalarieWorkspace({
     };
 
     void run();
-  }, [callSalarieApi, craEntries, craPeriodMonth, loadDashboardData, profile]);
+  }, [callSalarieApi, craEntries, craPeriodMonth, invoiceAmountAlreadyPaid, invoiceDiscountGranted, loadDashboardData, profile]);
 
   const handlePasswordUpdate = useCallback(async () => {
     if (!supabase) return;
@@ -1613,6 +1619,10 @@ export default function SalarieWorkspace({
               craDraftTotalDays={craDraftTotalDays}
               craNotes={craNotes}
               onCraNotesChange={setCraNotes}
+              invoiceDiscountGranted={invoiceDiscountGranted}
+              onInvoiceDiscountGrantedChange={setInvoiceDiscountGranted}
+              invoiceAmountAlreadyPaid={invoiceAmountAlreadyPaid}
+              onInvoiceAmountAlreadyPaidChange={setInvoiceAmountAlreadyPaid}
               weekdayLabels={weekdayLabels}
               craCalendarCells={craCalendarCells}
               craEntriesByDate={craEntriesByDate}

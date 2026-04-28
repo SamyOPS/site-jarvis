@@ -61,6 +61,10 @@ type RhDocumentsSectionProps = {
   craPeriodMonth: string;
   craDraftTotalDays: number;
   craNotes: string;
+  invoiceDiscountGranted: boolean;
+  onInvoiceDiscountGrantedChange: (value: boolean) => void;
+  invoiceAmountAlreadyPaid: string;
+  onInvoiceAmountAlreadyPaidChange: (value: string) => void;
   craCalendarCells: CraCalendarCell[];
   craEntriesByDate: Map<string, CraEntryDraft>;
   craEntries: CraEntryDraft[];
@@ -135,6 +139,10 @@ export function RhDocumentsSection({
   craPeriodMonth,
   craDraftTotalDays,
   craNotes,
+  invoiceDiscountGranted,
+  onInvoiceDiscountGrantedChange,
+  invoiceAmountAlreadyPaid,
+  onInvoiceAmountAlreadyPaidChange,
   craCalendarCells,
   craEntriesByDate,
   craEntries,
@@ -704,6 +712,29 @@ export function RhDocumentsSection({
                       <div className="flex h-10 items-center rounded-md bg-slate-50 px-3 text-sm">
                         {craDraftTotalDays.toFixed(2)} jour(s)
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={invoiceDiscountGranted}
+                        onChange={(event) => onInvoiceDiscountGrantedChange(event.target.checked)}
+                      />
+                      Escompte accorde (2%)
+                    </label>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">Montant deja paye</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={invoiceAmountAlreadyPaid}
+                        onChange={(event) => onInvoiceAmountAlreadyPaidChange(event.target.value)}
+                        className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
+                        placeholder="0.00"
+                      />
                     </div>
                   </div>
 

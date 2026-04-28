@@ -20,6 +20,8 @@ type GeneratePayload = {
   workedDaysCount?: unknown;
   notes?: unknown;
   entries?: unknown;
+  discountGranted?: unknown;
+  amountAlreadyPaid?: unknown;
 };
 
 type GenerateEntryPayload = {
@@ -59,6 +61,17 @@ function buildWorkEntries(periodMonth: string, workedDaysCount: number) {
   return entries;
 }
 
+function parseAmountAlreadyPaid(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return 0;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error("Le champ \"montant deja paye\" doit etre un nombre positif ou nul.");
+  }
+  return parsed;
+}
+
 export async function POST(request: Request) {
   try {
     const auth = await getAuthorizedDocumentsContext(request);
@@ -73,6 +86,13 @@ export async function POST(request: Request) {
     const billingProfileEmployeeId = String(body?.billingProfileEmployeeId ?? "").trim();
     const periodMonthRaw = String(body?.periodMonth ?? "").trim();
     const notes = String(body?.notes ?? "").trim() || null;
+    const discountGranted = body?.discountGranted === true;
+    let amountAlreadyPaid = 0;
+    try {
+      amountAlreadyPaid = parseAmountAlreadyPaid(body?.amountAlreadyPaid);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Montant deja paye invalide." }, { status: 400 });
+    }
 
     if (!["cra", "facture"].includes(kind)) {
       return NextResponse.json({ error: "Type de document invalide." }, { status: 400 });
@@ -429,6 +449,8 @@ export async function POST(request: Request) {
       periodMonth: periodStart,
       quantity: workedDaysCount,
       dailyRate,
+      discountGranted,
+      amountAlreadyPaid,
     });
 
     const { error: uploadError } = await auth.adminClient.storage
@@ -523,6 +545,9 @@ export async function POST(request: Request) {
         period_month: periodStart,
         worked_days_count: workedDaysCount,
         daily_rate: dailyRate,
+        discount_granted: discountGranted,
+        discount_rate: discountGranted ? 0.02 : 0,
+        amount_already_paid: amountAlreadyPaid,
         billing_profile_employee_id: billingProfileEmployeeId,
       },
     });
