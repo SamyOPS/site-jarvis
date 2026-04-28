@@ -13,6 +13,8 @@ type InvoiceEntryInput = {
 type InvoiceGeneratePayload = {
   periodMonth?: unknown;
   entries?: InvoiceEntryInput[];
+  discountGranted?: unknown;
+  amountAlreadyPaid?: unknown;
 };
 
 function parseEntries(entries: InvoiceEntryInput[] | undefined) {
@@ -39,6 +41,17 @@ function formatInvoiceNumber(periodMonth: string) {
   return periodMonth.replace(/-/g, "");
 }
 
+function parseAmountAlreadyPaid(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return 0;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error("Le montant deja paye doit etre un nombre positif ou nul.");
+  }
+  return parsed;
+}
+
 export async function POST(request: Request) {
   try {
     const accessToken = getAccessTokenFromRequest(request);
@@ -60,6 +73,13 @@ export async function POST(request: Request) {
     const periodMonth = toIsoMonthStart(String(body.periodMonth));
     const entries = parseEntries(body.entries);
     const workedDaysCount = entries.reduce((total, entry) => total + entry.dayQuantity, 0);
+    const discountGranted = body.discountGranted === true;
+    let amountAlreadyPaid = 0;
+    try {
+      amountAlreadyPaid = parseAmountAlreadyPaid(body.amountAlreadyPaid);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Montant deja paye invalide." }, { status: 400 });
+    }
 
     if (!entries.length || workedDaysCount <= 0) {
       return NextResponse.json({ error: "Ajoute au moins un jour travaille pour generer la facture." }, { status: 400 });
@@ -147,6 +167,8 @@ export async function POST(request: Request) {
       periodMonth,
       quantity: workedDaysCount,
       dailyRate,
+      discountGranted,
+      amountAlreadyPaid,
     });
 
     const { error: uploadError } = await adminClient.storage.from(storageBucket).upload(storagePath, pdfBuffer, {
@@ -250,6 +272,9 @@ export async function POST(request: Request) {
         quantity: workedDaysCount,
         daily_rate: dailyRate,
         total_ht: workedDaysCount * dailyRate,
+        discount_granted: discountGranted,
+        discount_rate: discountGranted ? 0.02 : 0,
+        amount_already_paid: amountAlreadyPaid,
       },
     });
 

@@ -148,6 +148,8 @@ export default function RhWorkspace({
   const [craPeriodMonth, setCraPeriodMonth] = useState(currentMonthInputValue());
   const [craNotes, setCraNotes] = useState("");
   const [craEntries, setCraEntries] = useState<CraEntryDraft[]>([]);
+  const [invoiceDiscountGranted, setInvoiceDiscountGranted] = useState(false);
+  const [invoiceAmountAlreadyPaid, setInvoiceAmountAlreadyPaid] = useState("");
   const [craGenerating, setCraGenerating] = useState(false);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
   const [billingProfiles, setBillingProfiles] = useState<
@@ -1036,6 +1038,8 @@ export default function RhWorkspace({
     setCraPeriodMonth(currentMonthInputValue());
     setCraNotes("");
     setCraEntries([]);
+    setInvoiceDiscountGranted(false);
+    setInvoiceAmountAlreadyPaid("");
   }, [selectedEmployeeId]);
 
   const handleCraPeriodMonthChange = useCallback((nextPeriodMonth: string) => {
@@ -1240,8 +1244,10 @@ export default function RhWorkspace({
       workedDaysCount,
       notes: craNotes,
       entries: entriesPayload,
+      discountGranted: invoiceDiscountGranted,
+      amountAlreadyPaid: invoiceAmountAlreadyPaid.trim() === "" ? 0 : Number(invoiceAmountAlreadyPaid),
     };
-  }, [craEntries, craNotes, craPeriodMonth, generateBillingProfileEmployeeId, generateEmployeeId]);
+  }, [craEntries, craNotes, craPeriodMonth, generateBillingProfileEmployeeId, generateEmployeeId, invoiceAmountAlreadyPaid, invoiceDiscountGranted]);
 
   const handleGenerateRhCraPdf = useCallback(async () => {
     const payload = buildRhGeneratePayload("cra");
@@ -2006,10 +2012,14 @@ export default function RhWorkspace({
               employees={employees}
               craGenerating={craGenerating}
               invoiceGenerating={invoiceGenerating}
-              craPeriodMonth={craPeriodMonth}
-              craDraftTotalDays={craDraftTotalDays}
-              craNotes={craNotes}
-              craCalendarCells={craCalendarCells}
+	              craPeriodMonth={craPeriodMonth}
+	              craDraftTotalDays={craDraftTotalDays}
+	              craNotes={craNotes}
+	              invoiceDiscountGranted={invoiceDiscountGranted}
+	              onInvoiceDiscountGrantedChange={setInvoiceDiscountGranted}
+	              invoiceAmountAlreadyPaid={invoiceAmountAlreadyPaid}
+	              onInvoiceAmountAlreadyPaidChange={setInvoiceAmountAlreadyPaid}
+	              craCalendarCells={craCalendarCells}
               craEntriesByDate={craEntriesByDate}
               craEntries={craEntries}
               onGenerateEmployeeIdChange={setGenerateEmployeeId}
