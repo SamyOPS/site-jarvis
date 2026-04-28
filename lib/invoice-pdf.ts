@@ -70,6 +70,74 @@ function formatAmount(value: number) {
   return `${value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 }
 
+
+function estimatePdfTextWidth(text: string, fontSize: number) {
+  let units = 0;
+  for (const char of text) {
+    if ("ilI.,:;|!'` ".includes(char)) {
+      units += 0.28;
+    } else if ("mwMW@%#&".includes(char)) {
+      units += 0.9;
+    } else if ("0123456789".includes(char)) {
+      units += 0.56;
+    } else {
+      units += 0.56;
+    }
+  }
+  return units * fontSize;
+}
+
+function wrapTextToCell(text: string, maxWidth: number, fontSize: number) {
+  const clean = (text ?? "").trim();
+  if (!clean) {
+    return [""];
+  }
+
+  const words = clean.split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+
+  const pushCurrentLine = () => {
+    if (current) {
+      lines.push(current);
+      current = "";
+    }
+  };
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (estimatePdfTextWidth(candidate, fontSize) <= maxWidth) {
+      current = candidate;
+      continue;
+    }
+
+    if (!current) {
+      let segment = "";
+      for (const char of word) {
+        const next = `${segment}${char}`;
+        if (estimatePdfTextWidth(next, fontSize) > maxWidth) {
+          if (segment) {
+            lines.push(segment);
+            segment = char;
+          } else {
+            lines.push(char);
+            segment = "";
+          }
+        } else {
+          segment = next;
+        }
+      }
+      current = segment;
+      continue;
+    }
+
+    pushCurrentLine();
+    current = word;
+  }
+
+  pushCurrentLine();
+  return lines.length ? lines : [clean];
+}
 function buildInvoicePdfContent(input: InvoicePdfInput) {
   const fullName = `${input.firstName} ${input.lastName}`.trim() || "-";
   const issuerLines = [
@@ -93,6 +161,12 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
   const dailyRate = Number(input.dailyRate) || 0;
   const totalHt = quantity * dailyRate;
   const description = `Service IT chez ${input.companyName || "Client"}`;
+  const descriptionFontSize = 9;
+  const descriptionLines = wrapTextToCell(description, 114, descriptionFontSize);
+  const descriptionLineHeight = 10;
+  const tableBodyHeight = Math.max(14, descriptionLines.length * descriptionLineHeight + 4);
+  const tableHeaderHeight = 14;
+  const tableHeight = tableBodyHeight + tableHeaderHeight;
   const issuerStartY = 700;
   const recipientStartY = 612;
   const lineGap = 16;
@@ -100,7 +174,8 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
   const recipientBottomY = recipientStartY - (recipientLines.length - 1) * lineGap;
   const contentBottomY = Math.min(issuerBottomY, recipientBottomY);
   const titleBarY = contentBottomY - 56;
-  const tableY = titleBarY - 42;
+  const tableTopY = titleBarY - 14;
+  const tableY = tableTopY - tableHeight;
   const summaryStartY = tableY - 74;
 
   const commands = [
@@ -127,40 +202,59 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
     recipientY -= 16;
   });
 
+  const tableHeaderTextY = tableY + tableBodyHeight + 2;
+  const descriptionFirstLineY = tableY + tableBodyHeight - 11;
+  const descriptionCommands = descriptionLines.map((line, index) =>
+    createTextCommand(line, 58, descriptionFirstLineY - index * descriptionLineHeight, "F1", descriptionFontSize),
+  );
+  const summaryLabelX = 300;
+  const summaryValueX = 420;
+  const summaryLabelWidth = 116;
+  const summaryFontSize = 10;
+  const summaryLineHeight = 10;
+  const summaryRowGap = 6;
+  let summaryCursorY = summaryStartY;
+  const summaryCommands: string[] = [];
+
+  const pushSummaryRow = (label: string, value: string, font: "F1" | "F2" = "F2") => {
+    const labelLines = wrapTextToCell(label, summaryLabelWidth, summaryFontSize);
+    labelLines.forEach((line, index) => {
+      summaryCommands.push(createTextCommand(line, summaryLabelX, summaryCursorY - index * summaryLineHeight, font, summaryFontSize));
+    });
+    summaryCommands.push(createTextCommand(value, summaryValueX, summaryCursorY, "F1", summaryFontSize));
+    summaryCursorY -= labelLines.length * summaryLineHeight + summaryRowGap;
+  };
+
+  pushSummaryRow("Total HT :", formatAmount(totalHt));
+  pushSummaryRow("Escompte :", "0,00");
+  pushSummaryRow("Total HT apres escompte :", formatAmount(totalHt));
+  pushSummaryRow("TVA :", "0,00 (0%)");
+  pushSummaryRow("Deja paye :", "0,00");
+  pushSummaryRow("Total TTC :", formatAmount(totalHt));
+
   commands.push(
     "0.05 0.36 0.67 rg",
     `${54} ${titleBarY} 487 34 re f`,
     "1 1 1 rg",
     createTextCommand(`FACTURE ${periodLabel}`, 222, titleBarY + 13, "F2", 12),
     "0 0 0 rg",
-    `54 ${tableY} 122 28 re S`,
-    `176 ${tableY} 66 28 re S`,
-    `242 ${tableY} 102 28 re S`,
-    `344 ${tableY} 108 28 re S`,
-    `452 ${tableY} 89 28 re S`,
-    `54 ${tableY + 14} 487 0 re S`,
-    createTextCommand("Description", 58, tableY + 16, "F2", 9),
-    createTextCommand("Quantite", 180, tableY + 16, "F2", 9),
-    createTextCommand("Tarif / journee HT", 246, tableY + 16, "F2", 9),
-    createTextCommand("Montant", 348, tableY + 16, "F2", 9),
-    createTextCommand("TVA", 456, tableY + 16, "F2", 9),
-    createTextCommand(description, 58, tableY + 3, "F1", 9),
-    createTextCommand(formatQuantity(quantity), 180, tableY + 3, "F1", 9),
-    createTextCommand(formatAmount(dailyRate), 246, tableY + 3, "F1", 9),
-    createTextCommand(formatAmount(totalHt), 348, tableY + 3, "F1", 9),
-    createTextCommand("0%", 456, tableY + 3, "F1", 9),
-    createTextCommand("Total HT :", 300, summaryStartY, "F2", 10),
-    createTextCommand(formatAmount(totalHt), 420, summaryStartY, "F1", 10),
-    createTextCommand("Escompte :", 300, summaryStartY - 16, "F2", 10),
-    createTextCommand("0,00", 420, summaryStartY - 16, "F1", 10),
-    createTextCommand("Total HT apres escompte :", 300, summaryStartY - 32, "F2", 10),
-    createTextCommand(formatAmount(totalHt), 420, summaryStartY - 32, "F1", 10),
-    createTextCommand("TVA :", 300, summaryStartY - 48, "F2", 10),
-    createTextCommand("0,00 (0%)", 420, summaryStartY - 48, "F1", 10),
-    createTextCommand("Deja paye :", 300, summaryStartY - 64, "F2", 10),
-    createTextCommand("0,00", 420, summaryStartY - 64, "F1", 10),
-    createTextCommand("Total TTC :", 300, summaryStartY - 80, "F2", 10),
-    createTextCommand(formatAmount(totalHt), 420, summaryStartY - 80, "F1", 10),
+    `54 ${tableY} 122 ${tableHeight} re S`,
+    `176 ${tableY} 66 ${tableHeight} re S`,
+    `242 ${tableY} 102 ${tableHeight} re S`,
+    `344 ${tableY} 108 ${tableHeight} re S`,
+    `452 ${tableY} 89 ${tableHeight} re S`,
+    `54 ${tableY + tableBodyHeight} 487 0 re S`,
+    createTextCommand("Description", 58, tableHeaderTextY, "F2", 9),
+    createTextCommand("Quantite", 180, tableHeaderTextY, "F2", 9),
+    createTextCommand("Tarif / journee HT", 246, tableHeaderTextY, "F2", 9),
+    createTextCommand("Montant", 348, tableHeaderTextY, "F2", 9),
+    createTextCommand("TVA", 456, tableHeaderTextY, "F2", 9),
+    ...descriptionCommands,
+    createTextCommand(formatQuantity(quantity), 180, descriptionFirstLineY, "F1", 9),
+    createTextCommand(formatAmount(dailyRate), 246, descriptionFirstLineY, "F1", 9),
+    createTextCommand(formatAmount(totalHt), 348, descriptionFirstLineY, "F1", 9),
+    createTextCommand("0%", 456, descriptionFirstLineY, "F1", 9),
+    ...summaryCommands,
     createTextCommand("Condition de paiement :", 54, 288, "F2", 10),
     createTextCommand("Paiement a 30 jours fin de mois par virement.", 54, 272, "F1", 10),
     createTextCommand(`IBAN: ${input.iban || "-"}`, 54, 256, "F1", 10),
@@ -209,3 +303,4 @@ export function buildInvoicePdfBytes(input: InvoicePdfInput) {
 export function buildInvoicePdfBuffer(input: InvoicePdfInput) {
   return Buffer.from(buildInvoicePdfBytes(input));
 }
+
