@@ -9,7 +9,7 @@ interface AboutProps {
   mainImage?: { src: string; alt: string };
   breakout?: { title?: string; description?: string; extra?: string };
   companiesTitle?: string;
-  companies?: Array<{ src: string; alt: string }>;
+  companies?: Array<{ src: string; alt: string; scale?: number }>;
 }
 
 const defaultCompanies = [
@@ -140,10 +140,14 @@ export const About = ({
                   transition={{ duration: 0.4, delay: idx * 0.05 }}
                 >
                   <img
-                    src={company.src}
-                    alt={company.alt}
-                    className="max-h-14 max-w-[80%] object-contain"
-                  />
+  src={company.src}
+  alt={company.alt}
+  style={{
+    width: `${(company.scale ?? 1) * 100}%`,
+    height: `${(company.scale ?? 1) * 100}%`,
+    objectFit: "contain",
+  }}
+/>
                 </motion.div>
               ))}
             </div>

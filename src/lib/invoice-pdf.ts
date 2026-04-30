@@ -46,6 +46,40 @@ function createTextCommand(text: string, x: number, y: number, font: "F1" | "F2"
   return `BT /${font} ${size} Tf ${x} ${y} Td (${normalizePdfText(text)}) Tj ET`;
 }
 
+function estimateTextWidth(text: string, size: number) {
+  return text.length * size * 0.5;
+}
+
+function wrapText(text: string, maxWidth: number, size: number) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [""];
+
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (const word of words) {
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
+    if (estimateTextWidth(candidate, size) <= maxWidth) {
+      currentLine = candidate;
+      continue;
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      lines.push(word);
+      currentLine = "";
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+
 function formatDate(value: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -66,7 +100,12 @@ function formatPeriodLabel(value: string) {
 }
 
 function formatQuantity(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toLocaleString("fr-FR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 }
 
 function formatAmount(value: number) {

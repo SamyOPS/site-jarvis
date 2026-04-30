@@ -12,7 +12,7 @@ import {
   TextStaggerHover,
 } from "@/components/animated-slideshow";
 
-export type ExpertiseKey = "support" | "developpement" | "conseil";
+export type ExpertiseKey = "support" | "developpement" | "conseil" | "Reseau" | "Securite";
 
 type Card = {
   title: string;
@@ -60,8 +60,7 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
     services: [
       {
         title: "Support utilisateurs N1 a N3",
-        description:
-          "Service desk, diagnostic et resolution avec connaissance metier partagee.",
+        description: "Service desk, diagnostic et resolution avec connaissance metier partagee.",
         items: [
           "Service desk FR/EN et ITSM documente",
           "Base de connaissance et scripts",
@@ -70,8 +69,7 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
       },
       {
         title: "Supervision et MCO",
-        description:
-          "Monitoring reseau, infra et applicatif avec remediations automatisees.",
+        description: "Monitoring reseau, infra et applicatif avec remediations automatisees.",
         items: [
           "Patch management, sauvegardes, PRA/PCA",
           "Alerting temps reel et filtrage du bruit",
@@ -80,8 +78,7 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
       },
       {
         title: "Infogerance securisee",
-        description:
-          "Pilotage du run, conformite et securite operationnelle sur la duree.",
+        description: "Pilotage du run, conformite et securite operationnelle sur la duree.",
         items: [
           "Gestion identites, MFA, acces a privilege",
           "Inventaire, CMDB et gestion du cycle de vie",
@@ -92,36 +89,18 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
     differentiators: [
       {
         title: "Gouvernance et SLA visibles",
-        description:
-          "Reporting mensuel, comites et plans d'action bases sur des indicateurs cles.",
+        description: "Reporting mensuel, comites et plans d'action bases sur des indicateurs cles.",
       },
       {
         title: "Onboarding rapide et structure",
-        description:
-          "Reprise du run en moins de 4 semaines avec runbooks, scripts et inventaires a jour.",
+        description: "Reprise du run en moins de 4 semaines avec runbooks, scripts et inventaires a jour.",
       },
     ],
     steps: [
-      {
-        title: "Audit express",
-        detail:
-          "Cartographie des flux, inventaire des assets et verification des niveaux de service actuels.",
-      },
-      {
-        title: "Mise a niveau",
-        detail:
-          "Runbooks, patchs prioritaires, renforcement des alertes et continuites critiques.",
-      },
-      {
-        title: "Supervision active",
-        detail:
-          "Pilotage quotidien, escalade structuree et communication continue avec vos equipes.",
-      },
-      {
-        title: "Amelioration continue",
-        detail:
-          "Tableaux de bord, revues de tendance et automatisations pour reduire MTTD et MTTR.",
-      },
+      { title: "Audit express", detail: "Cartographie des flux, inventaire des assets et verification des niveaux de service actuels." },
+      { title: "Mise a niveau", detail: "Runbooks, patchs prioritaires, renforcement des alertes et continuites critiques." },
+      { title: "Supervision active", detail: "Pilotage quotidien, escalade structuree et communication continue avec vos equipes." },
+      { title: "Amelioration continue", detail: "Tableaux de bord, revues de tendance et automatisations pour reduire MTTD et MTTR." },
     ],
     deliverables: [
       "Runbooks et processus d'escalade documentes",
@@ -129,31 +108,17 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
       "Plan de continuites et consignes PRA/PCA a jour",
       "Rapport trimestriel de securite et actions correctives",
     ],
-    seoDescription:
-      "Support utilisateurs, supervision, infogerance et securite operationnelle pour des SI disponibles 24/7.",
+    seoDescription: "Support utilisateurs, supervision, infogerance et securite operationnelle pour des SI disponibles 24/7.",
     slides: [
-      {
-        title: "Support utilisateur 24/7",
-        image:
-          "https://images.unsplash.com/photo-1525182008055-f88b95ff7980?auto=format&fit=crop&w=1200&q=80",
-      },
-      {
-        title: "Supervision et MCO",
-        image:
-          "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
-      },
-      {
-        title: "Securite operationnelle",
-        image:
-          "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80",
-      },
+      { title: "Support utilisateur 24/7", image: "https://images.unsplash.com/photo-1525182008055-f88b95ff7980?auto=format&fit=crop&w=1200&q=80" },
+      { title: "Supervision et MCO", image: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80" },
+      { title: "Securite operationnelle", image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80" },
     ],
   },
   developpement: {
     badge: "Developpement",
     heroTitle: "Developpement applicatif et produit",
-    heroDescription:
-      "Squads seniors pour livrer vos produits web et mobiles, de la discovery au run en production.",
+    heroDescription: "Squads seniors pour livrer vos produits web et mobiles, de la discovery au run en production.",
     heroNote: "Design, dev, QA et securite integrees avec accompagnement produit.",
     actions: [
       { label: "Lancer un projet", href: "/contact", variant: "primary" },
@@ -167,8 +132,7 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
     services: [
       {
         title: "Discovery et cadrage produit",
-        description:
-          "Ateliers metier, priorisation et KPI pour aligner solution et enjeux business.",
+        description: "Ateliers metier, priorisation et KPI pour aligner solution et enjeux business.",
         items: [
           "Backlog priorise et roadmap 90 jours",
           "User journeys, maquettes et design system",
@@ -177,8 +141,7 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
       },
       {
         title: "Engineering full stack",
-        description:
-          "Architecture evolutive, developpement front/back et APIs ouvertes.",
+        description: "Architecture evolutive, developpement front/back et APIs ouvertes.",
         items: [
           "React/Next, Node/TypeScript, architectures API first",
           "Performances, accessibilite et securite par defaut",
@@ -187,8 +150,7 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
       },
       {
         title: "Qualite, securite et run",
-        description:
-          "CI/CD, observabilite et support applicatif pour tenir la promesse produit.",
+        description: "CI/CD, observabilite et support applicatif pour tenir la promesse produit.",
         items: [
           "Tests auto (unitaires, e2e) et revues de code",
           "SLO, alerting et journaux centralises",
@@ -197,34 +159,14 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
       },
     ],
     differentiators: [
-      {
-        title: "Design to delivery",
-        description:
-          "La meme equipe couvre discovery, UX/UI, build et mise en production sans rupture.",
-      },
-      {
-        title: "Culture produit",
-        description:
-          "Pilotage par la valeur, increments courts, mesure continue de l'adoption et des usages.",
-      },
+      { title: "Design to delivery", description: "La meme equipe couvre discovery, UX/UI, build et mise en production sans rupture." },
+      { title: "Culture produit", description: "Pilotage par la valeur, increments courts, mesure continue de l'adoption et des usages." },
     ],
     steps: [
-      {
-        title: "Immersion",
-        detail: "Entretiens metier, diagnostic technique et cadrage des objectifs mesurables.",
-      },
-      {
-        title: "Architecture et backlog",
-        detail: "Choix techniques, plan de release et creation du backlog priorise.",
-      },
-      {
-        title: "Sprints de build",
-        detail: "Sprints courts, demos frequentes, tests auto et mises en production controlees.",
-      },
-      {
-        title: "Run et transfert",
-        detail: "Pilotage post-lancement, optimisation et transfert de competences.",
-      },
+      { title: "Immersion", detail: "Entretiens metier, diagnostic technique et cadrage des objectifs mesurables." },
+      { title: "Architecture et backlog", detail: "Choix techniques, plan de release et creation du backlog priorise." },
+      { title: "Sprints de build", detail: "Sprints courts, demos frequentes, tests auto et mises en production controlees." },
+      { title: "Run et transfert", detail: "Pilotage post-lancement, optimisation et transfert de competences." },
     ],
     deliverables: [
       "Backlog priorise, roadmap et KPI produit",
@@ -232,31 +174,17 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
       "CI/CD, jeux de tests et observabilite",
       "Dossier d'exploitation et support applicatif",
     ],
-    seoDescription:
-      "Equipes produit pour concevoir et livrer vos applications web et mobiles avec un run industrialise.",
+    seoDescription: "Equipes produit pour concevoir et livrer vos applications web et mobiles avec un run industrialise.",
     slides: [
-      {
-        title: "Discovery produit",
-        image:
-          "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80",
-      },
-      {
-        title: "Engineering full stack",
-        image:
-          "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80",
-      },
-      {
-        title: "Run et observabilite",
-        image:
-          "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1200&q=80",
-      },
+      { title: "Discovery produit", image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80" },
+      { title: "Engineering full stack", image: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80" },
+      { title: "Run et observabilite", image: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1200&q=80" },
     ],
   },
   conseil: {
     badge: "Conseil",
     heroTitle: "Conseil et transformation digitale",
-    heroDescription:
-      "Architecture cible, modernisation cloud, cyber et gouvernance pour un SI plus robuste et agile.",
+    heroDescription: "Architecture cible, modernisation cloud, cyber et gouvernance pour un SI plus robuste et agile.",
     heroNote: "Une approche pragmatique, pilotee par la valeur et le risque.",
     actions: [
       { label: "Planifier un cadrage", href: "/contact", variant: "primary" },
@@ -270,8 +198,7 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
     services: [
       {
         title: "Audit et cible SI",
-        description:
-          "Etat des lieux, risques, debt technique et trajectoire cible alignee metier.",
+        description: "Etat des lieux, risques, debt technique et trajectoire cible alignee metier.",
         items: [
           "Cartographie des applications et dependances",
           "Analyse de maturite ITSM, SecOps et data",
@@ -280,8 +207,7 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
       },
       {
         title: "Architecture cloud et data",
-        description:
-          "Blueprints cloud, securite, reseau et data pour industrialiser vos produits.",
+        description: "Blueprints cloud, securite, reseau et data pour industrialiser vos produits.",
         items: [
           "Landing zone, IAM, reseau et observabilite",
           "Strategie data, gouvernance et conformite",
@@ -290,8 +216,7 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
       },
       {
         title: "Pilotage et conduite du changement",
-        description:
-          "PMO, gouvernance, coaching des equipes et accompagnement a l'adoption.",
+        description: "PMO, gouvernance, coaching des equipes et accompagnement a l'adoption.",
         items: [
           "Comites et indicateurs operationnels",
           "Plan de communication et formations cibles",
@@ -300,34 +225,14 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
       },
     ],
     differentiators: [
-      {
-        title: "Alignement metier",
-        description:
-          "Trajectoire fondee sur la valeur business, les risques et la capacite de delivery de vos equipes.",
-      },
-      {
-        title: "Execution pragmatique",
-        description:
-          "Feuilles de route actionnables, priorisation par paliers et accompagnement jusqu'au run.",
-      },
+      { title: "Alignement metier", description: "Trajectoire fondee sur la valeur business, les risques et la capacite de delivery de vos equipes." },
+      { title: "Execution pragmatique", description: "Feuilles de route actionnables, priorisation par paliers et accompagnement jusqu'au run." },
     ],
     steps: [
-      {
-        title: "Diagnostic 360",
-        detail: "Interviews, analyse des usages, securite et operations pour quantifier les risques.",
-      },
-      {
-        title: "Roadmap et business case",
-        detail: "Trajectoire 12-18 mois, gains attendus, capacite et budget cible.",
-      },
-      {
-        title: "Pilotes et migrations",
-        detail: "Chantiers pilotes, preuves de valeur et plan de deploiement etape.",
-      },
-      {
-        title: "Transition et transfert",
-        detail: "Gouvernance, playbooks et passage de relais vers vos equipes internes.",
-      },
+      { title: "Diagnostic 360", detail: "Interviews, analyse des usages, securite et operations pour quantifier les risques." },
+      { title: "Roadmap et business case", detail: "Trajectoire 12-18 mois, gains attendus, capacite et budget cible." },
+      { title: "Pilotes et migrations", detail: "Chantiers pilotes, preuves de valeur et plan de deploiement etape." },
+      { title: "Transition et transfert", detail: "Gouvernance, playbooks et passage de relais vers vos equipes internes." },
     ],
     deliverables: [
       "Roadmap cible 12-18 mois et plan d'action priorise",
@@ -335,24 +240,119 @@ export const expertises: Record<ExpertiseKey, ExpertiseContent> = {
       "Kit de gouvernance (comites, indicateurs, budget)",
       "Playbooks securite, PRA/PCA et transferts de competences",
     ],
-    seoDescription:
-      "Conseil, architecture cible, modernisation cloud et securite pour transformer votre SI en maitrisant le risque.",
+    seoDescription: "Conseil, architecture cible, modernisation cloud et securite pour transformer votre SI en maitrisant le risque.",
     slides: [
+      { title: "Diagnostic 360", image: "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80" },
+      { title: "Architecture cloud & data", image: "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=1200&q=80" },
+      { title: "Gouvernance et pilotage", image: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80" },
+    ],
+  },
+  Reseau: {
+    badge: "Reseaux & Systemes",
+    heroTitle: "Reseaux et systemes d'information",
+    heroDescription: "Deploiement, administration et supervision d'infrastructures reseau et systemes pour PME, ETI et grands comptes.",
+    heroNote: "Architecture LAN/WAN, virtualisation, supervision et consulting reseau.",
+    actions: [
+      { label: "Parler a un expert", href: "/contact", variant: "primary" },
+      { label: "Voir nos expertises", href: "/#expertises", variant: "secondary" },
+    ],
+    highlights: [
+      { value: "LAN/WAN", label: "Architecture", detail: "Conception et deploiement multi-sites" },
+      { value: "24/7", label: "Supervision", detail: "Monitoring reseau et alerting temps reel" },
+      { value: "PME/ETI", label: "Consulting", detail: "Accompagnement sans equipe interne" },
+    ],
+    services: [
       {
-        title: "Diagnostic 360",
-        image:
-          "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80",
+        title: "Conception & Architecture",
+        description: "Conception d'architectures reseau robustes et evolutives adaptees a vos contraintes.",
+        items: ["Architecture LAN/WAN/SD-WAN", "Segmentation et VLAN", "Plans d'adressage IP"],
       },
       {
-        title: "Architecture cloud & data",
-        image:
-          "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=1200&q=80",
+        title: "Administration Systeme",
+        description: "Administration quotidienne des serveurs, annuaires et middlewares.",
+        items: ["Active Directory & GPO", "Virtualisation VMware / Hyper-V", "Gestion des patchs et mises a jour"],
       },
       {
-        title: "Gouvernance et pilotage",
-        image:
-          "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80",
+        title: "Supervision & Monitoring",
+        description: "Detection proactive des incidents avant qu'ils impactent les utilisateurs.",
+        items: ["Monitoring reseau (Zabbix, PRTG)", "Alerting et escalades", "Tableaux de bord temps reel"],
       },
+    ],
+    differentiators: [
+      { title: "Infrastructure stable et documentee", description: "Chaque intervention est documentee pour garantir la continuite et faciliter les evolutions." },
+      { title: "Consulting adapte aux PME", description: "Pour les structures sans equipe reseau, nous proposons un accompagnement flexible et operationnel." },
+    ],
+    steps: [
+      { title: "Audit", detail: "Cartographie de l'existant, identification des risques et axes d'amelioration." },
+      { title: "Conception", detail: "Architecture cible, choix technologiques et planification." },
+      { title: "Deploiement", detail: "Mise en oeuvre avec gestion rigoureuse des phases de bascule." },
+      { title: "Exploitation", detail: "Supervision, maintenance et amelioration continue." },
+    ],
+    deliverables: [
+      "Schema d'architecture reseau a jour",
+      "Documentation des equipements et configurations",
+      "Tableaux de bord supervision (disponibilite, latence)",
+      "Plan de maintenance et recommandations evolutives",
+    ],
+    seoDescription: "Deploiement, administration et supervision d'infrastructures reseau et systemes pour PME, ETI et grands comptes.",
+    slides: [
+      { title: "Architecture reseau", image: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80" },
+      { title: "Administration systeme", image: "https://images.unsplash.com/photo-1629654297299-c8506221ca97?auto=format&fit=crop&w=1200&q=80" },
+      { title: "Supervision & monitoring", image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80" },
+    ],
+  },
+  Securite: {
+    badge: "Cybersecurite",
+    heroTitle: "Cybersecurite et protection des SI",
+    heroDescription: "Audit, SOC manage, tests d'intrusion et mise en conformite pour proteger vos actifs critiques.",
+    heroNote: "Pentest, ISO 27001, NIS2, RGPD et reponse a incident.",
+    actions: [
+      { label: "Parler a un expert", href: "/contact", variant: "primary" },
+      { label: "Voir nos expertises", href: "/#expertises", variant: "secondary" },
+    ],
+    highlights: [
+      { value: "Pentest", label: "Tests d'intrusion", detail: "Applicatif, infrastructure et red team" },
+      { value: "SOC", label: "Surveillance 24/7", detail: "Detection, qualification et reponse aux incidents" },
+      { value: "ISO/NIS2", label: "Conformite", detail: "Mise en conformite et gouvernance" },
+    ],
+    services: [
+      {
+        title: "Audit de securite",
+        description: "Evaluation complete de votre niveau de securite et plan de remediation priorise.",
+        items: ["Audit organisationnel et technique", "Analyse de risques (ISO 27005)", "Rapport et plan d'action"],
+      },
+      {
+        title: "Tests d'intrusion",
+        description: "Simulation d'attaques reelles pour identifier les vulnerabilites avant exploitation.",
+        items: ["Pentest applicatif (web, mobile, API)", "Pentest infrastructure et reseau", "Red team et ingenierie sociale"],
+      },
+      {
+        title: "SOC & Reponse a incident",
+        description: "Surveillance continue et intervention rapide en cas de cyberattaque.",
+        items: ["Detection et correlation d'alertes", "Reponse a incident et forensique", "Plan de reprise et post-mortem"],
+      },
+    ],
+    differentiators: [
+      { title: "Approche outillee et structuree", description: "Des livrables concrets et actionnables a chaque etape, de l'audit a la remediaiton." },
+      { title: "Conformite reglementaire", description: "Accompagnement ISO 27001, NIS2, RGPD et DORA pour les secteurs reglementes." },
+    ],
+    steps: [
+      { title: "Evaluer", detail: "Audit, analyse de risques et identification des vulnerabilites." },
+      { title: "Proteger", detail: "Durcissement, conformite et mise en place des controles." },
+      { title: "Surveiller", detail: "SOC, detection continue et reponse aux incidents." },
+      { title: "Ameliorer", detail: "Revues periodiques, tests de regression et mise a jour des plans." },
+    ],
+    deliverables: [
+      "Rapport d'audit et plan de remediation priorise",
+      "Rapport de pentest avec vulnerabilites et correctifs",
+      "Politiques et procedures de securite",
+      "Plan de reponse a incident et playbooks",
+    ],
+    seoDescription: "Audit de securite, SOC manage, tests d'intrusion et conformite pour proteger vos actifs critiques.",
+    slides: [
+      { title: "Audit de securite", image: "https://images.unsplash.com/photo-1555949963-ff9fe0537a8e?auto=format&fit=crop&w=1200&q=80" },
+      { title: "Tests d'intrusion", image: "https://images.unsplash.com/photo-1614064641938-3bbee52942c7?auto=format&fit=crop&w=1200&q=80" },
+      { title: "SOC & surveillance", image: "https://images.unsplash.com/photo-1590065707046-4fde65275b2e?auto=format&fit=crop&w=1200&q=80" },
     ],
   },
 };
@@ -389,9 +389,7 @@ export const ExpertisePageView = ({ expertise }: { expertise: ExpertiseContent }
                   {expertise.heroTitle}
                 </h1>
                 <p className="text-lg text-[#0A1A2F]/80 md:text-xl">{expertise.heroDescription}</p>
-                <p className="text-sm uppercase tracking-[0.22em] text-[#000080]">
-                  {expertise.heroNote}
-                </p>
+                <p className="text-sm uppercase tracking-[0.22em] text-[#000080]">{expertise.heroNote}</p>
                 <div className="flex flex-wrap items-center gap-3 pt-4">
                   {expertise.actions.map((action) => (
                     <Button
@@ -415,14 +413,9 @@ export const ExpertisePageView = ({ expertise }: { expertise: ExpertiseContent }
 
               <div className="grid gap-4 rounded-none border border-[#0A1A2F]/10 bg-[#0A1A2F]/02 p-5 sm:grid-cols-2">
                 {expertise.highlights.map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex flex-col gap-2 border border-[#0A1A2F]/10 bg-white px-4 py-3 shadow-sm"
-                  >
+                  <div key={item.label} className="flex flex-col gap-2 border border-[#0A1A2F]/10 bg-white px-4 py-3 shadow-sm">
                     <span className="text-3xl font-semibold text-[#0A1A2F]">{item.value}</span>
-                    <span className="text-sm font-semibold uppercase tracking-[0.14em] text-[#000080]">
-                      {item.label}
-                    </span>
+                    <span className="text-sm font-semibold uppercase tracking-[0.14em] text-[#000080]">{item.label}</span>
                     <p className="text-sm text-[#0A1A2F]/80">{item.detail}</p>
                   </div>
                 ))}
@@ -442,13 +435,8 @@ export const ExpertisePageView = ({ expertise }: { expertise: ExpertiseContent }
             </h2>
             <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {expertise.services.map((service) => (
-                <div
-                  key={service.title}
-                  className="flex h-full flex-col gap-4 border border-[#0A1A2F]/10 bg-white p-5 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="text-xl font-semibold text-[#0A1A2F]">{service.title}</h3>
-                  </div>
+                <div key={service.title} className="flex h-full flex-col gap-4 border border-[#0A1A2F]/10 bg-white p-5 shadow-sm">
+                  <h3 className="text-xl font-semibold text-[#0A1A2F]">{service.title}</h3>
                   <p className="text-[#0A1A2F]/80">{service.description}</p>
                   {service.items && (
                     <ul className="space-y-2 text-sm text-[#0A1A2F]">
@@ -472,13 +460,8 @@ export const ExpertisePageView = ({ expertise }: { expertise: ExpertiseContent }
               <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-center">
                 <div className="space-y-4">
                   <p className="text-sm uppercase tracking-[0.2em] text-[#000080]">En images</p>
-                  <h2 className="text-3xl font-semibold text-[#0A1A2F] md:text-4xl">
-                    Apercu de nos interventions
-                  </h2>
-                  <p className="text-[#0A1A2F]/80">
-                    Passez la souris sur chaque ligne pour faire defiler les visuels. Nous affinerons
-                    ces contenus pour chaque page.
-                  </p>
+                  <h2 className="text-3xl font-semibold text-[#0A1A2F] md:text-4xl">Apercu de nos interventions</h2>
+                  <p className="text-[#0A1A2F]/80">Passez la souris sur chaque ligne pour faire defiler les visuels.</p>
                 </div>
                 <HoverSlider className="grid gap-6">
                   <div className="flex flex-wrap gap-3 text-lg font-semibold text-[#0A1A2F] md:text-xl">
@@ -516,19 +499,11 @@ export const ExpertisePageView = ({ expertise }: { expertise: ExpertiseContent }
                   <Sparkles className="h-4 w-4" />
                   Differenciation Jarvis
                 </div>
-                <h2 className="text-3xl font-semibold text-[#0A1A2F] md:text-4xl">
-                  Gouvernance, transparence et execution senior
-                </h2>
-                <p className="text-[#0A1A2F]/80">
-                  Nous intervenons avec des equipes seniors, des indicateurs clairs et une communication
-                  reguliere pour que vos projets avancent sans friction.
-                </p>
+                <h2 className="text-3xl font-semibold text-[#0A1A2F] md:text-4xl">Gouvernance, transparence et execution senior</h2>
+                <p className="text-[#0A1A2F]/80">Nous intervenons avec des equipes seniors, des indicateurs clairs et une communication reguliere.</p>
                 <div className="grid gap-4 md:grid-cols-2">
                   {expertise.differentiators.map((item) => (
-                    <div
-                      key={item.title}
-                      className="border border-[#0A1A2F]/10 bg-white p-5 shadow-sm"
-                    >
+                    <div key={item.title} className="border border-[#0A1A2F]/10 bg-white p-5 shadow-sm">
                       <h3 className="text-lg font-semibold text-[#0A1A2F]">{item.title}</h3>
                       <p className="mt-2 text-sm text-[#0A1A2F]/80">{item.description}</p>
                     </div>
@@ -542,9 +517,7 @@ export const ExpertisePageView = ({ expertise }: { expertise: ExpertiseContent }
                 <div className="mt-6 space-y-4">
                   {expertise.steps.map((step, index) => (
                     <div key={step.title} className="flex gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center bg-[#000080] text-white">
-                        {index + 1}
-                      </div>
+                      <div className="flex h-9 w-9 items-center justify-center bg-[#000080] text-white">{index + 1}</div>
                       <div className="space-y-1">
                         <p className="text-base font-semibold text-[#0A1A2F]">{step.title}</p>
                         <p className="text-sm text-[#0A1A2F]/80">{step.detail}</p>
@@ -565,20 +538,12 @@ export const ExpertisePageView = ({ expertise }: { expertise: ExpertiseContent }
                   <Sparkles className="h-4 w-4" />
                   Livrables
                 </div>
-                <h2 className="text-3xl font-semibold text-[#0A1A2F] md:text-4xl">
-                  Ce que vous obtenez
-                </h2>
-                <p className="text-[#0A1A2F]/80">
-                  Des livrables concrets, reutilisables par vos equipes et aligne sur vos objectifs
-                  business.
-                </p>
+                <h2 className="text-3xl font-semibold text-[#0A1A2F] md:text-4xl">Ce que vous obtenez</h2>
+                <p className="text-[#0A1A2F]/80">Des livrables concrets, reutilisables par vos equipes et alignes sur vos objectifs business.</p>
               </div>
               <div className="grid gap-3">
                 {expertise.deliverables.map((deliverable) => (
-                  <div
-                    key={deliverable}
-                    className="flex items-start gap-3 rounded-none border border-[#0A1A2F]/10 bg-[#0A1A2F]/5 px-4 py-3"
-                  >
+                  <div key={deliverable} className="flex items-start gap-3 rounded-none border border-[#0A1A2F]/10 bg-[#0A1A2F]/5 px-4 py-3">
                     <Check className="mt-1 h-5 w-5 text-[#000080]" />
                     <span className="text-[#0A1A2F]">{deliverable}</span>
                   </div>
@@ -592,30 +557,17 @@ export const ExpertisePageView = ({ expertise }: { expertise: ExpertiseContent }
           <div className="mx-auto flex max-w-6xl flex-col gap-6 border-t border-[#0A1A2F]/10 px-6 py-14 lg:flex-row lg:items-center lg:justify-between lg:px-8">
             <div className="space-y-3">
               <p className="text-sm uppercase tracking-[0.2em] text-[#000080]">Parlons-en</p>
-              <h2 className="text-3xl font-semibold text-[#0A1A2F] md:text-4xl">
-                Planifions un point avec un expert Jarvis
-              </h2>
-              <p className="text-[#0A1A2F]/80">
-                Partagez vos enjeux, nous revenons avec une proposition ciblee et un premier plan
-                d'action.
-              </p>
+              <h2 className="text-3xl font-semibold text-[#0A1A2F] md:text-4xl">Planifions un point avec un expert Jarvis</h2>
+              <p className="text-[#0A1A2F]/80">Partagez vos enjeux, nous revenons avec une proposition ciblee et un premier plan d'action.</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button
-                asChild
-                size="lg"
-                className="rounded-none bg-[#000080] text-white hover:bg-[#000080]/90"
-              >
+              <Button asChild size="lg" className="rounded-none bg-[#000080] text-white hover:bg-[#000080]/90">
                 <Link href="/contact" className="inline-flex items-center gap-2">
                   Etre contacte
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
-              <Button
-                asChild
-                size="lg"
-                className="rounded-none border border-[#000080]/30 bg-transparent text-[#000080] hover:bg-[#000080]/5"
-              >
+              <Button asChild size="lg" className="rounded-none border border-[#000080]/30 bg-transparent text-[#000080] hover:bg-[#000080]/5">
                 <Link href="/#expertises">Retour aux expertises</Link>
               </Button>
             </div>

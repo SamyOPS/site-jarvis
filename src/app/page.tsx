@@ -16,7 +16,7 @@ import { Footer } from "@/components/sections/footer";
 import { FormationsSupport } from "@/components/sections/formations-support";
 import { HomeHeader } from "@/components/sections/home-header";
 
-import { Shield, Code2, Sparkles } from "lucide-react";
+import { Shield, Code2, Sparkles , Network, ShieldCheck} from "lucide-react";
 import { FranceMap } from "@/components/sections/carte_presence";
 
 
@@ -24,44 +24,38 @@ import { FranceMap } from "@/components/sections/carte_presence";
 export default function Home() {
 
   const expertises = [
-
-    {
-
-      title: "Support & Infogérance IT",
-
-      description:
-
-        "Assistance utilisateurs et supervision 24/7, maintenance proactive, sécurité renforcée et pilotage complet du parc informatique. Nous prenons en charge N1 à N3, mettons en place des SLA mesurables, un reporting clair et un plan d'amélioration continue pour une disponibilité maximale.",
-
-      href: "/expertises/support",
-
-    },
-
-    {
-
-      title: "Développement d'applications",
-
-      description:
-
-        "Applications web, mobiles et metiers concues pour generer de la valeur. De la discovery a la mise en production, nos equipes UX/UI et dev full stack livrent vite, avec tests, CI/CD et qualite produit. Objectif: un MVP convaincant puis un produit robuste, evolutif et performant.",
-
-      href: "/expertises/developpement",
-
-    },
-
-    {
-
-      title: "Conseil & Transformation Digitale",
-
-      description:
-
-        "Architecture, audit, cloud et cybersecurite pour transformer votre SI en levier business. Nous definissons une roadmap claire, un business case solide et une gouvernance efficace, puis pilotons les chantiers avec vos equipes pour accelerer la transformation et reduire les risques.",
-
-      href: "/expertises/conseil",
-
-    },
-
-  ];
+  {
+    title: "Support & Infogérance IT",
+    description:
+      "Nos experts certifiés ITIL assurent un support N1 à N3, une supervision 24/7 et une infogérance complète de votre parc. Helpdesk, ITSM, patch management, Active Directory, MDM, sauvegardes et PRA/PCA : nos consultants maîtrisent les outils leaders du marché (ServiceNow, Jira, Intune, Zabbix) pour garantir disponibilité maximale et SLA mesurables.",
+    href: "/expertises/support",
+  },
+  {
+    title: "Développement",
+    description:
+      "Nos experts en développement couvrent un large éventail de métiers : développeurs front-end, back-end et full stack, ingénieurs logiciels, développeurs mobiles, architectes techniques, DevOps, ingénieurs QA et test, ainsi que chefs de projet techniques. Ils interviennent sur la conception d’architectures, le développement d’applications, l’intégration de systèmes, la qualité logicielle et le déploiement. De l’analyse des besoins à la maintenance, ils accompagnent chaque étape pour garantir des solutions performantes, fiables et adaptées à vos enjeux métiers.",
+    href: "/expertises/developpement",
+  },
+  {
+    title: "Conseil & Transformation Digitale",
+    description:
+      "Nos consultants seniors accompagnent votre transformation SI de l'audit à l'exécution. Architecture cloud (Azure, AWS, GCP), FinOps, gouvernance des données, modernisation applicative et conduite du changement : nos experts définissent une roadmap actionnable et pilotent les chantiers avec vos équipes pour réduire les risques et accélérer la valeur.",
+    href: "/expertises/conseil",
+  },
+  {
+    title: "Réseaux & Systèmes",
+    description:
+      "Nos ingénieurs réseau et systèmes déploient et administrent vos infrastructures LAN/WAN, SD-WAN, VPN et Wi-Fi entreprise. Experts Cisco, Fortinet, VMware et Hyper-V, ils prennent en charge la virtualisation, Active Directory, GPO, supervision (Zabbix, PRTG) et le maintien en condition opérationnelle pour des SI stables et documentés.",
+    href: "/expertises/Reseau",
+  },
+  {
+    title: "Sécurité",
+    description:
+      "Nos experts en cybersécurité protègent vos actifs critiques grâce à des audits techniques, des pentests applicatifs et infrastructure, et un SOC managé 24/7. Certifiés OSCP, ISO 27001 et CISSP, ils interviennent sur le durcissement des systèmes, la conformité NIS2/RGPD/DORA, la réponse à incident et la mise en place de politiques de sécurité adaptées à votre secteur.",
+    href: "/expertises/Securite",
+  },
+];
+  
 
   const jobOffers = [
 
@@ -140,30 +134,35 @@ export default function Home() {
   ];
 
   const clients = [
-    { name: "ALD Automotive", logo: "/client/ald.png" },
-    { name: "Aramis", logo: "/client/aramisa.svg", logoScale: 1.4 },
-    { name: "Barrire", logo: "/client/Barriere.png" },
-    { name: "BNP Paribas", logo: "/client/bnp.png" },
-    { name: "BPCE", logo: "/client/bpce.png" },
-    { name: "Burberry", logo: "/client/burberry.png" },
-    { name: "CGI", logo: "/client/CGI.png", logoScale: 0.86 },
-    { name: "Curie", logo: "/client/Curie.png" },
-    { name: "Engie", logo: "/client/engie.png" },
-    { name: "Erasteel", logo: "/client/Erasteel.png", logoScale: 1.08 },
-    { name: "Essilor", logo: "/client/Essilor.png", logoScale: 1.25 },
-    { name: "Etypharm", logo: "/client/etypharm.png" },
-    { name: "Foncia", logo: "/client/Foncia.png" },
-    { name: "HP", logo: "/client/HP.png" },
-    { name: "TP ICAP", logo: "/client/icap.png", logoScale: 1.16 },
-    { name: "Les Mousquetaires", logo: "/client/lesmousquetaires.png" },
-    { name: "Linxens", logo: "/client/LINXENS.png", logoScale: 1.18 },
-    { name: "LVMH", logo: "/client/LVMH.png" },
-    { name: "Ministere de la Justice", logo: "/client/Ministere.png", logoScale: 1.25 },
-    { name: "Ricco", logo: "/client/Ricco.png", logoScale: 1.2 },
-    { name: "RSA", logo: "/client/rsa.png" },
-    { name: "Sisley", logo: "/client/sisley.png" },
-    { name: "SNCF", logo: "/client/SNCF.png", logoScale: 0.86 },
-    { name: "Sogeprom", logo: "/client/SOGEPROM.png", logoScale: 1.3 },
+    { name: "ALD Automotive", logo: "/client/ald.png", logoScale: 0.95 },
+    { name: "Aramis", logo: "/client/aramisa.svg", logoScale: 1.1 },
+    { name: "Barrire", logo: "/client/Barriere.png", logoScale: 1.05},
+    { name: "BNP Paribas", logo: "/client/bnp.png", logoScale: 1.0 },
+    { name: "BPCE", logo: "/client/bpce.png", logoScale: 1.0 },
+    { name: "Burberry", logo: "/client/burberry.png", logoScale: 0.95 },
+    { name: "CGI", logo: "/client/CGI.png", logoScale: 0.7 },
+    { name: "Curie", logo: "/client/Curie.png", logoScale: 1.0 },
+    { name: "Engie", logo: "/client/engie.png", logoScale: 0.7 },
+    { name: "Erasteel", logo: "/client/Erasteel.png", logoScale: 0.8 },
+    { name: "Essilor", logo: "/client/Essilor.png", logoScale: 1.0 },
+    { name: "Etypharm", logo: "/client/etypharm.png", logoScale: 1.0 },
+    { name: "Foncia", logo: "/client/Foncia.png", logoScale: 1.0 },
+    { name: "HP", logo: "/client/HP.png", logoScale: 1.0 },
+    { name: "TP ICAP", logo: "/client/icap.png", logoScale: 0.8 },
+    { name: "Les Mousquetaires", logo: "/client/lesmousquetaires.png", logoScale: 0.9 },
+    { name: "Linxens", logo: "/client/LINXENS.png", logoScale: 0.9 },
+    { name: "LVMH", logo: "/client/LVMH.png", logoScale: 0.8 },
+    { name: "Ministere de la Justice", logo: "/client/Ministere.png", logoScale: 1.0 },
+    { name: "Ricco", logo: "/client/Ricco.png", logoScale: 0.8},
+    { name: "RSA", logo: "/client/rsa.png", logoScale: 0.8 , logoOffsetX: -5, logoOffsetY: -5},
+    { name: "Sisley", logo: "/client/sisley.png", logoScale: 1.0 },
+    { name: "3M", logo: "/client/3M.png", logoScale: 1.4 },
+    { name: "SNCF", logo: "/client/SNCF.png", logoScale: 1.0 },
+    { name: "Sogeprom", logo: "/client/SOGEPROM.png", logoScale: 1.4 },
+    { name: "Uniqlo", logo: "/client/Uniqlo.png", logoScale: 1.0 },
+    { name: "in'li logo", logo: "/client/in'li logo.png", logoScale: 1.0 },
+    { name: "Bureauveritas", logo: "/client/BV.png", logoScale: 1.1 },
+
   ];
 
   const aboutMainImage = {
@@ -198,7 +197,7 @@ export default function Home() {
 
   const aboutCompanies = [
 
-    { src: "/partenaire/nxo.png", alt: "NXO" },
+    { src: "/partenaire/CGI.png", alt: "CGI", scale: 0.7  },
 
     { src: "/partenaire/scc.png", alt: "SCC" },
 
@@ -211,28 +210,26 @@ export default function Home() {
     { src: "/partenaire/tds.png", alt: "TDS" },
 
     { src: "/partenaire/spie.png", alt: "SPIE" },
+    { src: "/partenaire/inetumbis.png", alt: "Inetum" },
+
 
   ];
 
   const expertiseTabs = expertises.map((item, index) => ({
 
     value: `tab-${index + 1}`,
-
-    icon:
-
-      index === 0 ? (
-
-        <Shield className="h-4 w-4" />
-
-      ) : index === 1 ? (
-
-        <Code2 className="h-4 w-4" />
-
-      ) : (
-
-        <Sparkles className="h-4 w-4" />
-
-      ),
+icon:
+  index === 0 ? (
+    <Shield className="h-4 w-4" />
+  ) : index === 1 ? (
+    <Code2 className="h-4 w-4" />
+  ) : index === 2 ? (
+    <Sparkles className="h-4 w-4" />
+  ) : index === 3 ? (
+    <Network className="h-4 w-4" />
+  ) : (
+    <ShieldCheck className="h-4 w-4" />
+  ),
 
     label: item.title,
 
@@ -249,17 +246,15 @@ export default function Home() {
       buttonUrl: item.href,
 
       imageSrc:
-
-        index === 0
-
-          ? "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
-
-          : index === 1
-
-            ? "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80"
-
-            : "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80",
-
+  index === 0
+    ? "https://www.micro-concept.fr/2024/wp-content/uploads/2025/04/A_modern_office_scene_showcasing_web_development_e-1744789188802-scaled.png"
+    : index === 1
+      ? "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80"
+      : index === 2
+        ? "https://images.pexels.com/photos/9783815/pexels-photo-9783815.jpeg"
+        : index === 3
+           ? "https://i.pinimg.com/736x/a0/e9/f5/a0e9f56bcc5aca5c0abf27d99776624f.jpg"
+          : "https://i.pinimg.com/1200x/3d/55/94/3d55940a5f1f7c326517a8607c99336f.jpg",
       imageAlt: item.title,
 
     },
@@ -323,7 +318,7 @@ export default function Home() {
 
             title="Jarvis Connect, partenaire IT & digital"
 
-            description="Nous combinons support, développement applicatif et sécurité pour accompagner la croissance des PME et ETI."
+            description="Nous combinons expertise en support, développement applicatif, sécurité et réseaux pour accompagner la croissance des PME, ETI et  organisations à grande échelle."
 
             mainImage={aboutMainImage}
 
@@ -350,7 +345,6 @@ export default function Home() {
 
         </section>
 
-        {/* ✅ CORRIGÉ : id="clients" sur la section Clients */}
         <section id="clients">
 
           <Clients
@@ -367,7 +361,6 @@ export default function Home() {
 
               <>
 
-                {/* eslint-disable-next-line react/no-unescaped-entities */}
                 "Nous travaillons depuis quelques mois avec la société <em>Jarvis Connect</em> et j'en suis pleinement satisfait.
 
                 <br />
@@ -403,7 +396,6 @@ export default function Home() {
 
         </section>
 
-        {/* ✅ CORRIGÉ : id="offres" sur la section OffresEmploi */}
         <section id="offres" className="text-[#2aa0dd]">
           <OffresEmploi
 

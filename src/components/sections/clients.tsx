@@ -3,26 +3,44 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 
-interface ClientLogo { name: string; logo: string; url?: string; logoScale?: number; }
+interface ClientLogo {
+  name: string;
+  logo: string;
+  url?: string;
+  logoScale?: number;
+  logoOffsetX?: number;
+  logoOffsetY?: number;
+}
 interface ClientsProps { tag?: string; title?: string; description?: string; clients?: ClientLogo[]; highlightLogo?: string; quote?: ReactNode; author?: string; }
 interface ClientsRowProps { items: ClientLogo[]; rowKey: string; direction: "left" | "right"; speed: number; }
 
 function ClientCard({ client }: { client: ClientLogo }) {
+  const scale = (client.logoScale ?? 1.0) * 100;
+  const offsetX = client.logoOffsetX ?? 0;
+  const offsetY = client.logoOffsetY ?? 0;
+
   return (
     <motion.div
-      className="group relative flex h-16 w-44 shrink-0 items-center justify-center rounded-xl transition-all duration-300 sm:h-20 sm:w-52 overflow-hidden"
+      className="group relative flex h-16 w-44 shrink-0 items-center justify-center rounded-xl transition-all duration-300 sm:h-20 sm:w-52"
       style={{
         background: "rgba(255,255,255,0.85)",
         border: "1px solid rgba(42,160,221,0.12)",
         backdropFilter: "blur(8px)",
+        padding: "8px",
       }}
       whileHover={{ scale: 1.04, boxShadow: "0 4px 24px rgba(42,160,221,0.15)" }}
     >
       <img
         src={client.logo}
         alt={client.name}
-        className="pointer-events-none relative z-10 w-auto h-auto object-contain select-none"
-        style={{ maxHeight: "52px", maxWidth: "78%", display: "block" }}
+        className="pointer-events-none select-none"
+        style={{
+          display: "block",
+          width: `${scale}%`,
+          height: `${scale}%`,
+          objectFit: "contain",
+          transform: `translate(${offsetX}px, ${offsetY}px)`,
+        }}
         draggable={false}
       />
     </motion.div>
@@ -109,7 +127,7 @@ function ClientsRow({ items, rowKey, direction, speed }: ClientsRowProps) {
   };
 
   return (
-    <div className="overflow-x-hidden py-1">
+    <div className="overflow-hidden py-1">
       <div
         className={`cursor-grab ${isDragging ? "cursor-grabbing" : ""}`}
         onPointerDown={handlePointerDown}
@@ -184,8 +202,7 @@ export function Clients({
 
           {highlightLogo && (
             <motion.div
-              className="hidden lg:flex items-center justify-center bg-white p-4 rounded-2xl shadow-2xl w-[280px] h-[280px] shrink-0 self-center overflow-hidden"
-              initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
+className="flex items-center justify-center bg-white p-4 rounded-2xl shadow-2xl w-[280px] h-[280px] shrink-0 overflow-hidden mx-auto"              initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
               whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(42,160,221,0.2)" }}
             >
               <img
