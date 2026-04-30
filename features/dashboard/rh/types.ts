@@ -101,3 +101,21 @@ export type RhProfileCvRow = {
   user_id: string;
   file_name: string | null;
 };
+
+type RhDocumentsListItemBase = {
+  id: string;
+  fileName: string;
+  typeLabel: string;
+  statusLabel?: string | null;
+  periodLabel?: string | null;
+  ownerName: string;
+  createdAt: string | null;
+  sizeBytes: number | null;
+  subtitle?: string | null;
+  details?: string | null;
+  hideDetailsPanel?: boolean;
+};
+
+export type RhDocumentsListItem =
+  | (RhDocumentsListItemBase & { rowType: "folder"; folderId: string })
+  | (RhDocumentsListItemBase & { rowType: "document"; document: RhDocumentRow });

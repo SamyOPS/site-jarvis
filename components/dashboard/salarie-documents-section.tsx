@@ -1,21 +1,21 @@
-﻿import { ChevronDown, ChevronLeft, ChevronRight, Download, Eye, MessageSquareText, Pencil, Trash2 } from "lucide-react";
+﻿import { ChevronDown, Download, Eye, FolderOpen, MessageSquareText, Pencil, RotateCcw, Trash2 } from "lucide-react";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { FolderOpen, RotateCcw } from "lucide-react";
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
-import { Badge } from "@/components/ui/badge";
+import { SalarieCraInvoiceEditor } from "@/components/dashboard/salarie/cra-invoice-editor";
+import { SalarieDocumentsListView } from "@/components/dashboard/salarie/documents-list-view";
+import { SalariePendingRequests } from "@/components/dashboard/salarie/pending-requests";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type {
   CraCalendarCell,
   CraEntryDraft,
   CraSummaryRow,
   DocumentFolderRow,
   SalarieDocumentRow as DocumentRow,
+  SalarieDocumentsListItem,
   SalarieRequestRow as RequestRow,
 } from "@/features/dashboard/salarie/types";
-import { cn } from "@/lib/utils";
 
 type FilterOption = {
   value: string;
@@ -165,43 +165,10 @@ export function SalarieDocumentsSection({
   formatMonth,
   formatDocumentStatus,
 }: SalarieDocumentsSectionProps) {
-  type DocumentsListItem =
-    | {
-      rowType: "folder";
-      folderId: string;
-      id: string;
-      fileName: string;
-      typeLabel: string;
-      statusLabel?: string | null;
-      periodLabel?: string | null;
-      ownerName: string;
-      createdAt: string | null;
-      sizeBytes: number | null;
-      subtitle?: string | null;
-      details?: string | null;
-      hideDetailsPanel?: boolean;
-    }
-    | ({
-      rowType: "document";
-      document: DocumentRow;
-    } & {
-      id: string;
-      fileName: string;
-      typeLabel: string;
-      statusLabel?: string | null;
-      periodLabel?: string | null;
-      ownerName: string;
-      createdAt: string | null;
-      sizeBytes: number | null;
-      subtitle?: string | null;
-      details?: string | null;
-      hideDetailsPanel?: boolean;
-    });
-
   const [documentsMenuOpen, setDocumentsMenuOpen] = useState(false);
   const documentsMenuRef = useRef<HTMLDivElement | null>(null);
   const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null);
-  const trashFolderItems = useMemo<DocumentsListItem[]>(
+  const trashFolderItems = useMemo<SalarieDocumentsListItem[]>(
     () =>
       [...trashedFolders]
         .filter((folder) =>
@@ -222,7 +189,7 @@ export function SalarieDocumentsSection({
         })),
     [documentTypeFilter, trashedFolders],
   );
-  const trashDocumentItems = useMemo<DocumentsListItem[]>(
+  const trashDocumentItems = useMemo<SalarieDocumentsListItem[]>(
     () =>
       trashedDocuments
         .filter((document) =>
@@ -257,8 +224,8 @@ export function SalarieDocumentsSection({
     if (!draggedId) return null;
     return documentsById.get(draggedId) ?? null;
   };
-  const listItems = useMemo<DocumentsListItem[]>(() => {
-    const documentItems: DocumentsListItem[] = visibleDocuments.map((document) => ({
+  const listItems = useMemo<SalarieDocumentsListItem[]>(() => {
+    const documentItems: SalarieDocumentsListItem[] = visibleDocuments.map((document) => ({
       rowType: "document",
       document,
       id: document.id,
@@ -279,7 +246,7 @@ export function SalarieDocumentsSection({
     const shouldShowFoldersByType =
       documentTypeFilter === "all" || documentTypeFilter === "Dossier";
 
-    const folderItems: DocumentsListItem[] = currentFolderId || !shouldShowFoldersByType
+    const folderItems: SalarieDocumentsListItem[] = currentFolderId || !shouldShowFoldersByType
       ? []
       : [...folders]
         .sort((left, right) => left.name.localeCompare(right.name, "fr"))
@@ -481,616 +448,81 @@ export function SalarieDocumentsSection({
       </div>
       <div>
         {currentSubSection === "docs_cra_facture" ? (
-          <div className="space-y-6">
-            <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-[#0A1A2F]/80">
-              Cette page permet de generer un CRA et une facture PDF a partir de la meme periode de travail.
-            </div>
-
-            <div className="max-w-5xl">
-              <Card className="border-0 shadow-none">
-                <CardHeader className="flex flex-row items-center justify-between gap-3">
-                  <div>
-                    <CardTitle className="text-base">
-                      {selectedCraId ? "CRA en cours" : "Nouveau CRA"}
-                    </CardTitle>
-                    <p className="mt-1 text-sm text-[#0A1A2F]/70">
-                      {selectedCraSummary
-                        ? `Statut actuel: ${selectedCraSummary.status} | PDF v${selectedCraSummary.pdf_version}`
-                        : "Selectionne tes jours, puis genere directement le PDF depuis cette page."}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={resetCraEditor}>
-                      Remettre a 0
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => void onGenerateCraPdf()}
-                      disabled={craGenerating || invoiceGenerating}
-                    >
-                      {craGenerating ? "Generation..." : "Generer un CRA"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void onGenerateInvoicePdf()}
-                      disabled={invoiceGenerating || craGenerating}
-                    >
-                      {invoiceGenerating ? "Generation..." : "Generer une facture"}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  {!billingProfileReady ? (
-                    <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                      Enregistre d&apos;abord ton profil de facturation pour pouvoir creer un CRA.
-                    </div>
-                  ) : null}
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium">Periode</label>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => onCraPeriodMonthChange(shiftMonthInputValue(craPeriodMonth, -1))}
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <input
-                          type="month"
-                          value={craPeriodMonth}
-                          onChange={(event) => onCraPeriodMonthChange(event.target.value)}
-                          className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => onCraPeriodMonthChange(shiftMonthInputValue(craPeriodMonth, 1))}
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium">Total saisi</label>
-                      <div className="flex h-10 items-center rounded-md bg-slate-50 px-3 text-sm">
-                        {craDraftTotalDays.toFixed(2)} jour(s)
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={invoiceDiscountGranted}
-                          onChange={(event) => onInvoiceDiscountGrantedChange(event.target.checked)}
-                        />
-                        Escompte accorde (2%)
-                      </label>
-                      <label className="flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={invoiceVatEnabled}
-                          onChange={(event) => onInvoiceVatEnabledChange(event.target.checked)}
-                        />
-                        TVA appliquee (20%)
-                      </label>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium">Montant deja paye</label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={invoiceAmountAlreadyPaid}
-                        onChange={(event) => onInvoiceAmountAlreadyPaidChange(event.target.value)}
-                        className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
-                        placeholder="0.00"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">Notes</label>
-                    <textarea
-                      value={craNotes}
-                      onChange={(event) => onCraNotesChange(event.target.value)}
-                      rows={4}
-                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                      placeholder="Commentaire interne, precision de mission, etc."
-                    />
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-medium">Journees travaillees</p>
-                        <p className="text-sm text-[#0A1A2F]/70">
-                          Clique sur les jours travailles dans le calendrier pour les ajouter ou les retirer.
-                        </p>
-                      </div>
-                      <Badge variant="outline">{craEntries.length} selection(s)</Badge>
-                    </div>
-                    <div className="rounded-xl bg-slate-50/70 p-4">
-                      <div className="mb-3 grid grid-cols-7 gap-2">
-                        {weekdayLabels.map((label) => (
-                          <div
-                            key={label}
-                            className="px-1 text-center text-xs font-medium uppercase tracking-wide text-[#0A1A2F]/50"
-                          >
-                            {label}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-7 gap-2">
-                        {craCalendarCells.map((cell, index) => {
-                          const isoDate = cell.isoDate;
-                          const dayNumber = cell.dayNumber;
-
-                          if (!isoDate || !dayNumber) {
-                            return (
-                              <div
-                                key={`empty-${index}`}
-                                className="aspect-square rounded-lg bg-slate-50/60"
-                              />
-                            );
-                          }
-
-                          const parsedDate = new Date(`${isoDate}T00:00:00`);
-                          const isWeekend = [0, 6].includes(parsedDate.getDay());
-                          const isSelected = craEntriesByDate.has(isoDate);
-
-                          return (
-                            <button
-                              key={isoDate}
-                              type="button"
-                              onClick={() => toggleCraWorkDate(isoDate)}
-                              className={cn(
-                                "aspect-square rounded-lg border border-transparent text-sm transition-colors",
-                                isSelected
-                                  ? "border-[#2aa0dd] bg-[#2aa0dd] text-white"
-                                  : "bg-white text-[#0A1A2F] hover:bg-slate-100",
-                                isWeekend && !isSelected ? "text-[#0A1A2F]/55" : "",
-                              )}
-                              aria-pressed={isSelected}
-                            >
-                              {dayNumber}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <p className="text-sm font-medium">Jours selectionnes</p>
-                      {craEntries.length ? (
-                        craEntries.map((entry) => (
-                          <div
-                            key={entry.workDate}
-                            className="grid gap-3 rounded-lg bg-slate-50 p-3 md:grid-cols-[1.1fr_120px_1.3fr_auto]"
-                          >
-                            <div className="space-y-1">
-                              <label className="text-xs font-medium text-[#0A1A2F]/70">Date</label>
-                              <div className="flex h-10 items-center rounded-md bg-white px-3 text-sm capitalize">
-                                {formatCraEntryDateLabel(entry.workDate)}
-                              </div>
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-xs font-medium text-[#0A1A2F]/70">Jours</label>
-                              <input
-                                type="number"
-                                min="0.25"
-                                max="1"
-                                step="0.25"
-                                value={entry.dayQuantity}
-                                onChange={(event) =>
-                                  updateCraEntry(entry.workDate, { dayQuantity: event.target.value })
-                                }
-                                className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-xs font-medium text-[#0A1A2F]/70">Libelle</label>
-                              <input
-                                value={entry.label}
-                                onChange={(event) =>
-                                  updateCraEntry(entry.workDate, { label: event.target.value })
-                                }
-                                className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
-                                placeholder="Mission client, support, intervention..."
-                              />
-                            </div>
-                            <div className="flex items-end">
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => toggleCraWorkDate(entry.workDate)}
-                              >
-                                Retirer
-                              </Button>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="rounded-lg bg-slate-50 px-4 py-6 text-sm text-[#0A1A2F]/65">
-                          Aucun jour selectionne pour cette periode.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-          </div>
+          <SalarieCraInvoiceEditor
+            billingProfileReady={billingProfileReady}
+            selectedCraId={selectedCraId}
+            selectedCraSummary={selectedCraSummary}
+            resetCraEditor={resetCraEditor}
+            onGenerateCraPdf={onGenerateCraPdf}
+            onGenerateInvoicePdf={onGenerateInvoicePdf}
+            craGenerating={craGenerating}
+            invoiceGenerating={invoiceGenerating}
+            craPeriodMonth={craPeriodMonth}
+            onCraPeriodMonthChange={onCraPeriodMonthChange}
+            shiftMonthInputValue={shiftMonthInputValue}
+            craDraftTotalDays={craDraftTotalDays}
+            craNotes={craNotes}
+            onCraNotesChange={onCraNotesChange}
+            invoiceDiscountGranted={invoiceDiscountGranted}
+            onInvoiceDiscountGrantedChange={onInvoiceDiscountGrantedChange}
+            invoiceVatEnabled={invoiceVatEnabled}
+            onInvoiceVatEnabledChange={onInvoiceVatEnabledChange}
+            invoiceAmountAlreadyPaid={invoiceAmountAlreadyPaid}
+            onInvoiceAmountAlreadyPaidChange={onInvoiceAmountAlreadyPaidChange}
+            weekdayLabels={weekdayLabels}
+            craCalendarCells={craCalendarCells}
+            craEntriesByDate={craEntriesByDate}
+            craEntries={craEntries}
+            toggleCraWorkDate={toggleCraWorkDate}
+            formatCraEntryDateLabel={formatCraEntryDateLabel}
+            updateCraEntry={updateCraEntry}
+          />
         ) : currentSubSection === "docs_a_deposer" ? (
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="font-medium">Demandes RH ouvertes</p>
-                <Badge variant="outline">{pendingRequests.length}</Badge>
-              </div>
-              {pendingRequests.length ? (
-                pendingRequests.map((request) => (
-                  <div key={request.id} className="rounded-lg border border-slate-200 p-4">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                      <div className="space-y-1">
-                        <p className="font-medium">{request.typeLabel}</p>
-                        <p className="text-sm text-[#0A1A2F]/70">
-                          Periode: {formatMonth(request.periodMonth)}
-                        </p>
-                        <p className="text-sm text-[#0A1A2F]/70">
-                          Echeance: {formatDate(request.dueAt)}
-                        </p>
-                        <p className="text-sm text-[#0A1A2F]/70">Note: {request.note ?? "-"}</p>
-                      </div>
-                      <Badge variant="outline">{request.status}</Badge>
-                    </div>
-                    <div className="mt-4">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openUploadDialog(request.id)}
-                      >
-                        Utiliser cette demande
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-[#0A1A2F]/70">
-                  Aucune demande RH ouverte pour le moment.
-                </p>
-              )}
-            </div>
-          </div>
+          <SalariePendingRequests
+            pendingRequests={pendingRequests}
+            openUploadDialog={openUploadDialog}
+            formatMonth={formatMonth}
+            formatDate={formatDate}
+          />
         ) : (
-          <div className="space-y-1">
-            <DocumentFiltersBar
-              fields={showFolderTrash ? ["type", "period"] : ["type", "period", "status"]}
-              values={{
-                type: documentTypeFilter,
-                period: documentPeriodFilter,
-                status: documentStatusFilter,
-                owner: "all",
-              }}
-              options={documentFilterOptions}
-              onChange={(field, value) => {
-                if (field === "type") onDocumentTypeFilterChange(value);
-                if (field === "period") onDocumentPeriodFilterChange(value);
-                if (field === "status") onDocumentStatusFilterChange(value);
-              }}
-            />
-            {showFolderTrash ? (
-              trashFolderItems.length || trashDocumentItems.length ? (
-                <div className="space-y-5">
-                  {trashFolderItems.length ? (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-[#0A1A2F]/80">Dossiers</p>
-                      <DashboardDocumentList
-                        items={trashFolderItems}
-                        storageKey="salarie-documents-trash-columns"
-                        storageScope={storageScope}
-                        preferencesAuthToken={preferencesAuthToken}
-                        createdAtLabel="Date de mise a la corbeille"
-                        renderActionCell={(item) => {
-                          if (item.rowType !== "folder") return null;
-                          return (
-                            <div className="flex items-center justify-end gap-1.5">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
-                                onClick={() => {
-                                  void onRestoreFolder(item.folderId);
-                                }}
-                                aria-label={`Restaurer ${item.fileName}`}
-                                title="Restaurer"
-                              >
-                                <RotateCcw className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-red-600 hover:text-red-700"
-                                onClick={() => {
-                                  void onPurgeFolder(item.folderId);
-                                }}
-                                aria-label={`Supprimer definitivement ${item.fileName}`}
-                                title="Supprimer definitivement"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          );
-                        }}
-                      />
-                    </div>
-                  ) : null}
-                  {trashDocumentItems.length ? (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-[#0A1A2F]/80">Documents</p>
-                      <DashboardDocumentList
-                        items={trashDocumentItems}
-                        storageKey="salarie-documents-trash-documents-columns"
-                        storageScope={storageScope}
-                        preferencesAuthToken={preferencesAuthToken}
-                        createdAtLabel="Date de mise a la corbeille"
-                        renderActionCell={(item) => {
-                          if (item.rowType !== "document") return null;
-                          const document = item.document;
-                          return (
-                            <div className="flex items-center justify-end gap-1.5">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
-                                onClick={() => {
-                                  void onRestoreDocument(document);
-                                }}
-                                aria-label={`Restaurer ${item.fileName}`}
-                                title="Restaurer"
-                              >
-                                <RotateCcw className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-red-600 hover:text-red-700"
-                                onClick={() => {
-                                  void onPurgeDocument(document);
-                                }}
-                                disabled={deletingDocumentId === document.id}
-                                aria-label={`Supprimer definitivement ${item.fileName}`}
-                                title="Supprimer definitivement"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          );
-                        }}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="text-sm text-[#0A1A2F]/70">La corbeille est vide.</p>
-              )
-            ) : listItems.length ? (
-              <DashboardDocumentList
-                items={listItems}
-                storageKey="salarie-documents-columns"
-                storageScope={storageScope}
-                preferencesAuthToken={preferencesAuthToken}
-                columnControlPlacement="inline"
-                onItemDoubleClick={(item) => {
-                  if (item.rowType === "folder") {
-                    onNavigateFolder(item.folderId);
-                    return;
-                  }
-                  const document = item.document;
-                  if (
-                    document.fileName.toLowerCase().endsWith(".pdf") &&
-                    document.storagePath
-                  ) {
-                    void onViewDocument(document);
-                  }
-                }}
-                isItemDoubleClickable={(item) =>
-                  item.rowType === "folder" ||
-                  (item.document.fileName.toLowerCase().endsWith(".pdf") && !!item.document.storagePath)
-                }
-                getDraggableId={(item) => (item.rowType === "document" ? item.document.id : null)}
-                onDragItemStart={(item) => {
-                  if (item.rowType !== "document") return;
-                  setDraggedDocumentId(item.document.id);
-                }}
-                onDragItemEnd={() => {
-                  setDraggedDocumentId(null);
-                }}
-                canDropOnItem={(targetItem, draggedId) => {
-                  if (targetItem.rowType !== "folder") return false;
-                  const draggedDocument = documentsById.get(draggedId);
-                  if (!draggedDocument) return false;
-                  return (draggedDocument.folderId ?? null) !== targetItem.folderId;
-                }}
-                onItemDrop={async (targetItem, draggedId) => {
-                  if (targetItem.rowType !== "folder") return;
-                  const draggedDocument = documentsById.get(draggedId);
-                  if (!draggedDocument) return;
-                  await onMoveDocumentToFolder(draggedDocument, targetItem.folderId);
-                }}
-                renderActions={(item, closeMenu) => {
-                  if (item.rowType === "folder") {
-                    return (
-                      <>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            closeMenu();
-                            onNavigateFolder(item.folderId);
-                          }}
-                          disabled={currentFolderId === item.folderId}
-                        >
-                          <FolderOpen className="mr-2 h-4 w-4" />
-                          Ouvrir le dossier
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            closeMenu();
-                            void onRenameFolder(item.folderId, item.fileName);
-                          }}
-                        >
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Renommer
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start text-red-600 hover:text-red-700"
-                          onClick={() => {
-                            closeMenu();
-                            void onDeleteFolder(item.folderId);
-                          }}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Supprimer
-                        </Button>
-                      </>
-                    );
-                  }
-
-                  const document = item.document;
-
-                  return (
-                    <>
-                      {document.fileName.toLowerCase().endsWith(".pdf") ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            closeMenu();
-                            void onViewDocument(document);
-                          }}
-                          disabled={
-                            !document.storagePath ||
-                            viewingDocumentId === document.id ||
-                            downloadingDocumentId === document.id
-                          }
-                        >
-                          <Eye className="mr-2 h-4 w-4" />
-                          Visualiser
-                        </Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
-                        onClick={() => {
-                          closeMenu();
-                          void onDownloadDocument(document);
-                        }}
-                        disabled={
-                          !document.storagePath ||
-                          downloadingDocumentId === document.id ||
-                          viewingDocumentId === document.id
-                        }
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Télécharger
-                      </Button>
-                      {document.reviewComment ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            closeMenu();
-                            onOpenCommentDialog(document);
-                          }}
-                        >
-                          <MessageSquareText className="mr-2 h-4 w-4" />
-                          Voir commentaire RH
-                        </Button>
-                      ) : null}
-                      {document.status !== "validated" ? (
-                        <>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-start"
-                            onClick={() => {
-                              closeMenu();
-                              void onRenameDocument(document);
-                            }}
-                            disabled={
-                              deletingDocumentId === document.id || savingDocumentId === document.id
-                            }
-                          >
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Renommer
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-start text-red-600 hover:text-red-700"
-                            onClick={() => {
-                              closeMenu();
-                              void onDeleteDocument(document);
-                            }}
-                            disabled={
-                              deletingDocumentId === document.id || savingDocumentId === document.id
-                            }
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Supprimer
-                          </Button>
-                        </>
-                      ) : (
-                        <Badge variant="outline">Verrouillé</Badge>
-                      )}
-                    </>
-                  );
-                }}
-              />
-            ) : (
-              <p className="text-sm text-[#0A1A2F]/70">Aucun document depose pour le moment.</p>
-            )}
-          </div>
+          <SalarieDocumentsListView
+            storageScope={storageScope}
+            preferencesAuthToken={preferencesAuthToken}
+            showFolderTrash={showFolderTrash}
+            documentTypeFilter={documentTypeFilter}
+            documentPeriodFilter={documentPeriodFilter}
+            documentStatusFilter={documentStatusFilter}
+            documentFilterOptions={documentFilterOptions}
+            onDocumentTypeFilterChange={onDocumentTypeFilterChange}
+            onDocumentPeriodFilterChange={onDocumentPeriodFilterChange}
+            onDocumentStatusFilterChange={onDocumentStatusFilterChange}
+            trashFolderItems={trashFolderItems}
+            trashDocumentItems={trashDocumentItems}
+            listItems={listItems}
+            documentsById={documentsById}
+            currentFolderId={currentFolderId}
+            onNavigateFolder={onNavigateFolder}
+            onMoveDocumentToFolder={onMoveDocumentToFolder}
+            onRenameFolder={onRenameFolder}
+            onDeleteFolder={onDeleteFolder}
+            onRestoreFolder={onRestoreFolder}
+            onPurgeFolder={onPurgeFolder}
+            onViewDocument={onViewDocument}
+            onDownloadDocument={onDownloadDocument}
+            onDeleteDocument={onDeleteDocument}
+            onRenameDocument={onRenameDocument}
+            onOpenCommentDialog={onOpenCommentDialog}
+            onRestoreDocument={onRestoreDocument}
+            onPurgeDocument={onPurgeDocument}
+            viewingDocumentId={viewingDocumentId}
+            downloadingDocumentId={downloadingDocumentId}
+            deletingDocumentId={deletingDocumentId}
+            savingDocumentId={savingDocumentId}
+            setDraggedDocumentId={setDraggedDocumentId}
+          />
         )}
       </div>
     </section>
   );
 }
-
-
-
 

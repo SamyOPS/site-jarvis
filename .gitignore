@@ -42,3 +42,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# supabase CLI (local state, not committed)
+/supabase/.branches
+/supabase/.temp
+/supabase/seed.sql

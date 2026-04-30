@@ -1,19 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronDown, LogIn, Menu, X } from "lucide-react";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
+import { browserSupabase } from "@/lib/supabase-browser";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+const supabase = browserSupabase;
 
 const getDashboardPath = (role?: string | null) => {
   if (role === "admin") return "/dashboard";

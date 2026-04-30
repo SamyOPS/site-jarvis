@@ -2,64 +2,26 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { createClient, type Session, type User } from "@supabase/supabase-js";
-import {
-  AlertCircle,
-  Ban,
-  Loader2,
-  ShieldCheck,
-  Clock3,
-  LogOut,
-  CheckCircle2,
-  ArrowLeft,
-} from "lucide-react";
+import type { Session, User } from "@supabase/supabase-js";
+import { AlertCircle, ArrowLeft, ShieldCheck } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
+import { ProOfferCreateForm } from "@/components/dashboard/pro/offer-create-form";
+import { ProOffersListCard } from "@/components/dashboard/pro/offers-list-card";
+import { ProProfileCard } from "@/components/dashboard/pro/profile-card";
+import { ProRejectedCard } from "@/components/dashboard/pro/rejected-card";
+import { ProSessionCard } from "@/components/dashboard/pro/session-card";
+import { ProUnverifiedOfferPlaceholder } from "@/components/dashboard/pro/unverified-offer-placeholder";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
+import { browserSupabase } from "@/lib/supabase-browser";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
-
-type ProfileRow = {
-  id: string;
-  email: string;
-  full_name: string | null;
-  role: string | null;
-  professional_status: string | null;
-  company_name: string | null;
-};
-
-type Status =
-  | { type: "idle" }
-  | { type: "error"; message: string }
-  | { type: "success"; message: string };
-
-type JobOffer = {
-  id: string;
-  title: string;
-  status: string | null;
-  location: string | null;
-  contract_type: string | null;
-  description: string | null;
-  department: string | null;
-  work_mode: string | null;
-  experience_level: string | null;
-  salary_min: number | null;
-  salary_max: number | null;
-  tech_stack: string[] | null;
-  company_name: string | null;
-  published_at: string | null;
-};
+const supabase = browserSupabase;
+import type {
+  ProJobOffer as JobOffer,
+  ProProfileRow as ProfileRow,
+  ProStatus as Status,
+} from "@/features/dashboard/pro/types";
 
 export default function ProDashboardPage() {
   const [session, setSession] = useState<Session | null>(null);
@@ -409,26 +371,7 @@ export default function ProDashboardPage() {
         )}
 
         {isRejected ? (
-          <Card className="border-red-200 bg-red-50 text-[#0A1A2F]">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl text-red-800">
-                <Ban className="h-5 w-5 text-red-700" />
-                Compte refusé
-              </CardTitle>
-              <CardDescription className="text-red-800/80">
-                Ton compte n&apos;a pas été validé. Contacte l&apos;administration pour plus d&apos;informations.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-red-900/90">
-              <Button
-                variant="outline"
-                className="border-red-300 text-red-800 hover:bg-red-100"
-                onClick={() => (window.location.href = "/contact")}
-              >
-                Contacter le support
-              </Button>
-            </CardContent>
-          </Card>
+          <ProRejectedCard />
         ) : (
           <>
             {isPending && (
@@ -442,606 +385,44 @@ export default function ProDashboardPage() {
             )}
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm">
-                <CardHeader className="space-y-1">
-                  <CardTitle className="text-xl">Profil</CardTitle>
-                  <CardDescription className="text-[#0A1A2F]/70">
-                    Informations issues de la table profiles.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#0A1A2F]/70">Email</span>
-                    <span className="font-medium">{profile?.email ?? "-"}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#0A1A2F]/70">Nom complet</span>
-                    <span className="font-medium">{profile?.full_name ?? "Non renseigne"}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#0A1A2F]/70">Entreprise</span>
-                    <span className="font-medium">{profile?.company_name ?? "Non renseignée"}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#0A1A2F]/70">Role</span>
-                    <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]">
-                      {profile?.role ?? "professional"}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#0A1A2F]/70">Statut pro</span>
-                    <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]">
-                      {profile?.professional_status ?? "inconnu"}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm">
-                <CardHeader className="space-y-1">
-                  <CardTitle className="flex items-center gap-2 text-xl">
-                    <Clock3 className="h-5 w-5" />
-                    Session actuelle
-                  </CardTitle>
-                  <CardDescription className="text-[#0A1A2F]/70">
-                    Infos supabase.auth.getSession().
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#0A1A2F]/70">Etat</span>
-                    <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Connecte
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#0A1A2F]/70">Expire</span>
-                    <span className="font-medium">{sessionExpiry ?? "Inconnu"}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#0A1A2F]/70">User ID</span>
-                    <span className="font-mono text-xs">{user?.id ?? "N/A"}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#0A1A2F]/70">Email confirme</span>
-                    <span className="font-medium">
-                      {user?.email_confirmed_at ? "Oui" : "Non / inconnu"}
-                    </span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={handleSignOut}
-                    className="border-slate-300 text-[#0A1A2F] hover:bg-white"
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Se deconnecter
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {!isVerified && (
-                <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm">
-                  <CardHeader className="space-y-1">
-                    <CardTitle className="text-xl">Deposer une offre</CardTitle>
-                    <CardDescription className="text-[#0A1A2F]/70">
-                      Disponible apres validation du compte professionnel.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="text-sm text-[#0A1A2F]/70">
-                    {isPending
-                      ? "Ton compte est en cours de verification. Tu pourras publier des offres des que le statut sera verifie."
-                      : "Demande la verification de ton compte pour publier des offres."}
-                    <div className="mt-4">
-                      <Button
-                        variant="outline"
-                        className="border-slate-300 text-[#0A1A2F]"
-                        onClick={() => (window.location.href = "/contact")}
-                      >
-                        Contacter l&apos;administration
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              <ProProfileCard profile={profile} />
+              <ProSessionCard
+                user={user}
+                sessionExpiry={sessionExpiry}
+                onSignOut={handleSignOut}
+              />
+              {!isVerified && <ProUnverifiedOfferPlaceholder isPending={isPending} />}
             </div>
 
             {isVerified && (
-              <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm">
-                <CardHeader className="space-y-1">
-                  <CardTitle className="text-xl">Deposer une offre</CardTitle>
-                  <CardDescription className="text-[#0A1A2F]/70">
-                    Publie une offre visible immediatement sur le site.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form className="space-y-4" onSubmit={handleOfferSubmit}>
-                    <div className="space-y-2">
-                      <Label htmlFor="pro-offer-title" className="text-[#0A1A2F]/80">
-                        Titre
-                      </Label>
-                      <Input
-                        id="pro-offer-title"
-                        required
-                        value={offerForm.title}
-                        onChange={(e) =>
-                          setOfferForm((prev) => ({ ...prev, title: e.target.value }))
-                        }
-                        className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                        placeholder="Responsable support IT"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="pro-offer-description" className="text-[#0A1A2F]/80">
-                        Description
-                      </Label>
-                      <Textarea
-                        id="pro-offer-description"
-                        required
-                        value={offerForm.description}
-                        onChange={(e) =>
-                          setOfferForm((prev) => ({ ...prev, description: e.target.value }))
-                        }
-                        className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                        placeholder="Missions, profil recherche, stack..."
-                        rows={4}
-                      />
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="pro-offer-location" className="text-[#0A1A2F]/80">
-                          Localisation
-                        </Label>
-                        <Input
-                          id="pro-offer-location"
-                          value={offerForm.location}
-                          onChange={(e) =>
-                            setOfferForm((prev) => ({ ...prev, location: e.target.value }))
-                          }
-                          className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                          placeholder="Paris / Remote"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="pro-offer-contract" className="text-[#0A1A2F]/80">
-                          Type de contrat
-                        </Label>
-                        <Input
-                          id="pro-offer-contract"
-                          value={offerForm.contract_type}
-                          onChange={(e) =>
-                            setOfferForm((prev) => ({ ...prev, contract_type: e.target.value }))
-                          }
-                          className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                          placeholder="CDI / CDD / Freelance"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="pro-offer-department" className="text-[#0A1A2F]/80">
-                          Departement
-                        </Label>
-                        <Input
-                          id="pro-offer-department"
-                          value={offerForm.department}
-                          onChange={(e) =>
-                            setOfferForm((prev) => ({ ...prev, department: e.target.value }))
-                          }
-                          className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                          placeholder="Support / Cloud / IT"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="pro-offer-workmode" className="text-[#0A1A2F]/80">
-                          Mode de travail
-                        </Label>
-                        <Input
-                          id="pro-offer-workmode"
-                          value={offerForm.work_mode}
-                          onChange={(e) =>
-                            setOfferForm((prev) => ({ ...prev, work_mode: e.target.value }))
-                          }
-                          className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                          placeholder="Remote / Hybride / On-site"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="pro-offer-experience" className="text-[#0A1A2F]/80">
-                          Niveau d&apos;experience
-                        </Label>
-                        <Input
-                          id="pro-offer-experience"
-                          value={offerForm.experience_level}
-                          onChange={(e) =>
-                            setOfferForm((prev) => ({ ...prev, experience_level: e.target.value }))
-                          }
-                          className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                          placeholder="Junior / Intermediaire / Senior"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label htmlFor="pro-offer-salary-min" className="text-[#0A1A2F]/80">
-                            Salaire min
-                          </Label>
-                          <Input
-                            id="pro-offer-salary-min"
-                            type="number"
-                            value={offerForm.salary_min}
-                            onChange={(e) =>
-                              setOfferForm((prev) => ({ ...prev, salary_min: e.target.value }))
-                            }
-                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                            placeholder="50000"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="pro-offer-salary-max" className="text-[#0A1A2F]/80">
-                            Salaire max
-                          </Label>
-                          <Input
-                            id="pro-offer-salary-max"
-                            type="number"
-                            value={offerForm.salary_max}
-                            onChange={(e) =>
-                              setOfferForm((prev) => ({ ...prev, salary_max: e.target.value }))
-                            }
-                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                            placeholder="70000"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="pro-offer-tech" className="text-[#0A1A2F]/80">
-                        Stack technique (separee par des virgules)
-                      </Label>
-                      <Input
-                        id="pro-offer-tech"
-                        value={offerForm.tech_stack}
-                        onChange={(e) =>
-                          setOfferForm((prev) => ({ ...prev, tech_stack: e.target.value }))
-                        }
-                        className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                        placeholder="React, Node, PostgreSQL"
-                      />
-                    </div>
-
-                    {offerStatus.type !== "idle" && (
-                      <div
-                        className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
-                          offerStatus.type === "error"
-                            ? "border-red-300 bg-red-50 text-red-900"
-                            : "border-emerald-300 bg-emerald-50 text-emerald-900"
-                        }`}
-                      >
-                        {offerStatus.type === "error" ? (
-                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                        ) : (
-                          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-                        )}
-                        <p className="leading-relaxed">{offerStatus.message}</p>
-                      </div>
-                    )}
-
-                    <Button
-                      type="submit"
-                      disabled={offerSaving}
-                      className="w-full bg-[#0A1A2F] text-white hover:bg-[#0d2a4b]"
-                    >
-                      {offerSaving ? "Publication en cours..." : "Publier l'offre"}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
+              <ProOfferCreateForm
+                offerForm={offerForm}
+                setOfferForm={setOfferForm}
+                offerSaving={offerSaving}
+                offerStatus={offerStatus}
+                onSubmit={handleOfferSubmit}
+              />
             )}
-
-            <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-sm">
-              <CardHeader className="space-y-1">
-                <CardTitle className="text-xl">Mes offres publiees</CardTitle>
-                <CardDescription className="text-[#0A1A2F]/70">
-                  Liste des offres que tu as deposees.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                {offersError && (
-                  <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-900">
-                    {offersError}
-                  </div>
-                )}
-                {offerActionStatus.type !== "idle" && (
-                  <div
-                    className={`rounded-md border px-3 py-2 text-sm ${
-                      offerActionStatus.type === "error"
-                        ? "border-red-300 bg-red-50 text-red-900"
-                        : "border-emerald-300 bg-emerald-50 text-emerald-900"
-                    }`}
-                  >
-                    {offerActionStatus.message}
-                  </div>
-                )}
-                {offersLoading ? (
-                  <div className="flex items-center gap-2 text-[#0A1A2F]/70">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Chargement des offres...
-                  </div>
-                ) : jobOffers.length ? (
-                  <div className="space-y-2">
-                    {jobOffers.map((offer) => (
-                      <div key={offer.id} className="space-y-3">
-                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                          <div className="space-y-1">
-                            <div className="font-semibold">{offer.title}</div>
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-[#0A1A2F]/70">
-                              {offer.contract_type && <span>{offer.contract_type}</span>}
-                              {offer.location && <span>{offer.location}</span>}
-                              {offer.published_at && (
-                                <span>{new Date(offer.published_at).toLocaleDateString()}</span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]">
-                              {offer.status ?? "draft"}
-                            </Badge>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-slate-300 text-[#0A1A2F]"
-                              disabled={offerEditSaving && editingOfferId === offer.id}
-                              onClick={() => handleOfferEditStart(offer)}
-                            >
-                              Modifier
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-red-300 text-red-700 hover:bg-red-50"
-                              disabled={offerActionId === offer.id}
-                              onClick={() => {
-                                const confirmDelete = window.confirm(
-                                  "Supprimer definitivement cette offre ?"
-                                );
-                                if (confirmDelete) {
-                                  void handleOfferDelete(offer.id);
-                                }
-                              }}
-                            >
-                              {offerActionId === offer.id ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : null}
-                              Supprimer
-                            </Button>
-                          </div>
-                        </div>
-                        {editingOfferId === offer.id && (
-                          <form
-                            className="space-y-3 rounded-md border border-slate-200 bg-white p-3 text-sm"
-                            onSubmit={handleOfferEditSubmit}
-                          >
-                        <div className="space-y-1.5">
-                          <Label className="text-[#0A1A2F]/80">Titre</Label>
-                          <Input
-                            value={offerEditForm.title}
-                            onChange={(e) =>
-                              setOfferEditForm((prev) => ({
-                                ...prev,
-                                title: e.target.value,
-                              }))
-                            }
-                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                            placeholder="Titre de l'offre"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[#0A1A2F]/80">Description</Label>
-                          <Textarea
-                            value={offerEditForm.description}
-                            onChange={(e) =>
-                              setOfferEditForm((prev) => ({
-                                ...prev,
-                                description: e.target.value,
-                              }))
-                            }
-                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                            placeholder="Missions, profil recherche, stack..."
-                            rows={4}
-                          />
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Localisation</Label>
-                            <Input
-                              value={offerEditForm.location}
-                              onChange={(e) =>
-                                setOfferEditForm((prev) => ({ ...prev, location: e.target.value }))
-                              }
-                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                              placeholder="Paris / Remote"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Type de contrat</Label>
-                            <Input
-                              value={offerEditForm.contract_type}
-                              onChange={(e) =>
-                                setOfferEditForm((prev) => ({
-                                  ...prev,
-                                  contract_type: e.target.value,
-                                }))
-                              }
-                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                              placeholder="CDI / CDD / Freelance"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Departement</Label>
-                            <Input
-                              value={offerEditForm.department}
-                              onChange={(e) =>
-                                setOfferEditForm((prev) => ({
-                                  ...prev,
-                                  department: e.target.value,
-                                }))
-                              }
-                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                              placeholder="IT / Support / Cloud"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Mode de travail</Label>
-                            <Input
-                              value={offerEditForm.work_mode}
-                              onChange={(e) =>
-                                setOfferEditForm((prev) => ({
-                                  ...prev,
-                                  work_mode: e.target.value,
-                                }))
-                              }
-                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                              placeholder="Remote / Hybride / On-site"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Niveau d&apos;experience</Label>
-                            <Input
-                              value={offerEditForm.experience_level}
-                              onChange={(e) =>
-                                setOfferEditForm((prev) => ({
-                                  ...prev,
-                                  experience_level: e.target.value,
-                                }))
-                              }
-                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                              placeholder="Junior / Intermediaire / Senior"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                              <Label className="text-[#0A1A2F]/80">Salaire min</Label>
-                              <Input
-                                type="number"
-                                value={offerEditForm.salary_min}
-                                onChange={(e) =>
-                                  setOfferEditForm((prev) => ({
-                                    ...prev,
-                                    salary_min: e.target.value,
-                                  }))
-                                }
-                                className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                                placeholder="50000"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-[#0A1A2F]/80">Salaire max</Label>
-                              <Input
-                                type="number"
-                                value={offerEditForm.salary_max}
-                                onChange={(e) =>
-                                  setOfferEditForm((prev) => ({
-                                    ...prev,
-                                    salary_max: e.target.value,
-                                  }))
-                                }
-                                className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                                placeholder="70000"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[#0A1A2F]/80">
-                            Stack technique (separee par des virgules)
-                          </Label>
-                          <Input
-                            value={offerEditForm.tech_stack}
-                            onChange={(e) =>
-                              setOfferEditForm((prev) => ({
-                                ...prev,
-                                tech_stack: e.target.value,
-                              }))
-                            }
-                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                            placeholder="React, Node, PostgreSQL"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[#0A1A2F]/80">Nom de l&apos;entreprise</Label>
-                          <Input
-                            value={offerEditForm.company_name}
-                            onChange={(e) =>
-                              setOfferEditForm((prev) => ({
-                                ...prev,
-                                company_name: e.target.value,
-                              }))
-                            }
-                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                            placeholder="Jarvis Connect"
-                          />
-                        </div>
-                        {offerEditStatus.type !== "idle" && (
-                          <div
-                            className={`flex items-start gap-2 rounded-md border px-3 py-2 ${
-                              offerEditStatus.type === "error"
-                                ? "border-red-300 bg-red-50 text-red-900"
-                                : "border-emerald-300 bg-emerald-50 text-emerald-900"
-                            }`}
-                          >
-                            <p className="leading-relaxed">{offerEditStatus.message}</p>
-                          </div>
-                        )}
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="submit"
-                            disabled={offerEditSaving}
-                            className="bg-[#0A1A2F] text-white hover:bg-[#0d2a4b]"
-                          >
-                            {offerEditSaving ? "Enregistrement..." : "Enregistrer"}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="border-slate-300 text-[#0A1A2F]"
-                            disabled={offerEditSaving}
-                            onClick={handleOfferEditCancel}
-                          >
-                            Annuler
-                          </Button>
-                        </div>
-                          </form>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-[#0A1A2F]/70">Aucune offre publiee pour le moment.</div>
-                )}
-              </CardContent>
-            </Card>
+            <ProOffersListCard
+              jobOffers={jobOffers}
+              offersLoading={offersLoading}
+              offersError={offersError}
+              offerActionStatus={offerActionStatus}
+              offerActionId={offerActionId}
+              editingOfferId={editingOfferId}
+              offerEditSaving={offerEditSaving}
+              offerEditStatus={offerEditStatus}
+              offerEditForm={offerEditForm}
+              setOfferEditForm={setOfferEditForm}
+              onEditStart={handleOfferEditStart}
+              onEditCancel={handleOfferEditCancel}
+              onEditSubmit={handleOfferEditSubmit}
+              onDelete={handleOfferDelete}
+            />
           </>
         )}
 
-        {loading && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm text-[#0A1A2F] shadow">
-              <Loader2 className="h-4 w-4 animate-spin text-[#0A1A2F]" />
-              Chargement des données...
-            </div>
-          </div>
-        )}
+        {loading && <DashboardLoadingOverlay message="Chargement des données..." />}
       </div>
     </div>
   );

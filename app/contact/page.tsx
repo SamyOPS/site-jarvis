@@ -2,16 +2,13 @@
 
 import { Footer } from "@/components/sections/footer";
 import { motion } from "motion/react";
-import { createClient } from "@supabase/supabase-js";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
+
+import { browserSupabase } from "@/lib/supabase-browser";
+
+const supabase = browserSupabase;
 
 export default function ContactPage() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const supabase = useMemo(
-    () => (supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null),
-    [supabaseUrl, supabaseAnonKey]
-  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitState, setSubmitState] = useState<"idle" | "success" | "error">("idle");

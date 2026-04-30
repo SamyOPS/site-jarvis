@@ -1,19 +1,14 @@
 "use client";
 
 import { use, useEffect, useMemo, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { ArrowLeft, CalendarClock, Loader2, MapPin, Tag } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Footer } from "@/components/sections/footer";
+import { browserSupabase } from "@/lib/supabase-browser";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+const supabase = browserSupabase;
 
 type JobOffer = {
   id: string;

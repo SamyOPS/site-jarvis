@@ -84,3 +84,21 @@ export type CraCalendarCell = {
   isoDate: string | null;
   dayNumber: number | null;
 };
+
+type DocumentsListItemBase = {
+  id: string;
+  fileName: string;
+  typeLabel: string;
+  statusLabel?: string | null;
+  periodLabel?: string | null;
+  ownerName: string;
+  createdAt: string | null;
+  sizeBytes: number | null;
+  subtitle?: string | null;
+  details?: string | null;
+  hideDetailsPanel?: boolean;
+};
+
+export type SalarieDocumentsListItem =
+  | (DocumentsListItemBase & { rowType: "folder"; folderId: string })
+  | (DocumentsListItemBase & { rowType: "document"; document: SalarieDocumentRow });

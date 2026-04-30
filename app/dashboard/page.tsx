@@ -1,82 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { createClient, type Session, type User } from "@supabase/supabase-js";
-import {
-  AlertCircle,
-  CheckCircle2,
-  Clock3,
-  Loader2,
-  LogOut,
-  Trash2,
-  ShieldCheck,
-  Users,
-  ArrowLeft,
-} from "lucide-react";
+import type { Session, User } from "@supabase/supabase-js";
+import { AlertCircle, ArrowLeft, ShieldCheck } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { AdminProfileCard } from "@/components/dashboard/admin/admin-profile-card";
+import { AdminAssignmentsCard } from "@/components/dashboard/admin/assignments-card";
+import { AdminNotesCard } from "@/components/dashboard/admin/notes-card";
+import { AdminOfferCreateForm } from "@/components/dashboard/admin/offer-create-form";
+import { AdminOffersListCard } from "@/components/dashboard/admin/offers-list-card";
+import { AdminSessionCard } from "@/components/dashboard/admin/session-card";
+import { AdminUsersListCard } from "@/components/dashboard/admin/users-list-card";
+import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
+import { browserSupabase } from "@/lib/supabase-browser";
+import type {
+  AdminAssignmentUser as AssignmentUser,
+  AdminJobOffer as JobOffer,
+  AdminProfileRow as ProfileRow,
+  AdminRhAssignmentsByRh as RhAssignmentsByRh,
+  AdminStatus as Status,
+  AdminUserActivityRow as UserActivityRow,
+} from "@/features/dashboard/admin/types";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
-
-type ProfileRow = {
-  id: string;
-  email: string;
-  full_name: string | null;
-  role: string | null;
-  professional_status: string | null;
-  company_name: string | null;
-};
-
-type JobOffer = {
-  id: string;
-  title: string;
-  company_name: string | null;
-  status: string | null;
-  location: string | null;
-  contract_type: string | null;
-  description: string | null;
-  department: string | null;
-  work_mode: string | null;
-  experience_level: string | null;
-  salary_min: number | null;
-  salary_max: number | null;
-  tech_stack: string[] | null;
-  published_at: string | null;
-};
-
-type Status =
-  | { type: "idle" }
-  | { type: "error"; message: string }
-  | { type: "success"; message: string };
+const supabase = browserSupabase;
 
 type ProfessionalStatus = "none" | "pending" | "verified" | "rejected";
-type AssignmentUser = { id: string; email: string; full_name: string | null };
-type RhAssignmentsByRh = Record<string, string[]>;
-type UserActivityRow = {
-  userId: string;
-  lastSignInAt: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-  emailConfirmedAt: string | null;
-};
 
 export default function DashboardPage() {
   const [session, setSession] = useState<Session | null>(null);
@@ -271,20 +221,6 @@ export default function DashboardPage() {
     void load();
   }, [loadRhCollaboratorAssignments, loadUsersActivity]);
 
-  const isRecentlyActive = (activity: UserActivityRow | undefined) => {
-    if (!activity?.lastSignInAt) return false;
-    const lastSignIn = new Date(activity.lastSignInAt).getTime();
-    if (Number.isNaN(lastSignIn)) return false;
-    return Date.now() - lastSignIn <= 15 * 60 * 1000;
-  };
-
-  const formatLastSignIn = (activity: UserActivityRow | undefined) => {
-    if (!activity?.lastSignInAt) return "Jamais connecte";
-    const date = new Date(activity.lastSignInAt);
-    if (Number.isNaN(date.getTime())) return "Date de connexion inconnue";
-    return date.toLocaleString();
-  };
-
   useEffect(() => {
     if (!rhProfiles.length) {
       setSelectedRhId("");
@@ -317,35 +253,6 @@ export default function DashboardPage() {
     await forceClientSignOut(supabase);
     window.location.href = "/auth?logged_out=1";
   };
-
-  const renderStatusBadge = (status: string | null) => {
-    if (!status) return <Badge variant="outline">Inconnu</Badge>;
-    if (status === "verified") {
-      return (
-        <Badge className="bg-emerald-600 text-[#0A1A2F] hover:bg-emerald-600">
-          Verifie
-        </Badge>
-      );
-    }
-    if (status === "pending") {
-      return (
-        <Badge className="bg-amber-500 text-[#0A1A2F] hover:bg-amber-500">
-          En attente
-        </Badge>
-      );
-    }
-    if (status === "rejected") {
-      return (
-        <Badge className="bg-red-600 text-[#0A1A2F] hover:bg-red-600">
-          Refuse
-        </Badge>
-      );
-    }
-    return <Badge variant="outline">{status}</Badge>;
-  };
-
-  const isProfileActionable = (role: string | null) =>
-    role === "professional" || role === "salarie" || role === "rh";
 
   const slugify = (value: string) =>
     value
@@ -737,921 +644,69 @@ export default function DashboardPage() {
         )}
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-lg backdrop-blur">
-            <CardHeader className="space-y-1">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <ShieldCheck className="h-5 w-5" />
-                Profil admin
-              </CardTitle>
-              <CardDescription className="text-[#0A1A2F]/70">
-                Informations issues de la table profiles.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-[#0A1A2F]/70">Email</span>
-                <span className="font-medium">{adminProfile?.email ?? "-"}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#0A1A2F]/70">Nom complet</span>
-                <span className="font-medium">
-                  {adminProfile?.full_name ?? "Non renseigne"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#0A1A2F]/70">Role</span>
-                <Badge className="bg-blue-600 text-[#0A1A2F] hover:bg-blue-600">
-                  {adminProfile?.role ?? "Inconnu"}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#0A1A2F]/70">Statut pro</span>
-                {renderStatusBadge(adminProfile?.professional_status ?? null)}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#0A1A2F]/70">Societe</span>
-                <span className="font-medium">
-                  {adminProfile?.company_name ?? "Non renseignee"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-lg backdrop-blur">
-            <CardHeader className="space-y-1">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Clock3 className="h-5 w-5" />
-                Session actuelle
-              </CardTitle>
-              <CardDescription className="text-[#0A1A2F]/70">
-                Infos supabase.auth.getSession().
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-[#0A1A2F]/70">Etat</span>
-                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Connecte
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#0A1A2F]/70">Expire</span>
-                <span className="font-medium">
-                  {sessionExpiry ?? "Inconnu"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#0A1A2F]/70">User ID</span>
-                <span className="font-mono text-xs">
-                  {user?.id ?? "N/A"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#0A1A2F]/70">Email confirme</span>
-                <span className="font-medium">
-                  {user?.email_confirmed_at ? "Oui" : "Non / inconnu"}
-                </span>
-              </div>
-              <Button
-                variant="outline"
-                onClick={handleSignOut}
-                className="border-slate-300 text-[#0A1A2F] hover:bg-white"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Se deconnecter
-              </Button>
-            </CardContent>
-          </Card>
+          <AdminProfileCard adminProfile={adminProfile} />
+          <AdminSessionCard
+            user={user}
+            sessionExpiry={sessionExpiry}
+            onSignOut={handleSignOut}
+          />
         </div>
 
-        <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-lg backdrop-blur">
-          <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Users className="h-5 w-5" />
-                Utilisateurs
-              </CardTitle>
-              <CardDescription className="text-[#0A1A2F]/70">
-                Liste issue de la table profiles (visible uniquement en admin).
-              </CardDescription>
-            </div>
-            <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]">
-              {allProfiles.length} comptes
-            </Badge>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {profileStatus.type !== "idle" && (
-              <div
-                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
-                  profileStatus.type === "error"
-                    ? "border-red-400/70 bg-red-500/10 text-red-100"
-                    : "border-emerald-400/70 bg-emerald-500/10 text-emerald-50"
-                }`}
-              >
-                {profileStatus.type === "error" ? (
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                ) : (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                )}
-                <p className="leading-relaxed">{profileStatus.message}</p>
-              </div>
-            )}
-            {userDeleteStatus.type !== "idle" && (
-              <div
-                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
-                  userDeleteStatus.type === "error"
-                    ? "border-red-300 bg-red-50 text-red-900"
-                    : "border-emerald-300 bg-emerald-50 text-emerald-900"
-                }`}
-              >
-                {userDeleteStatus.type === "error" ? (
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                ) : (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                )}
-                <p className="leading-relaxed">{userDeleteStatus.message}</p>
-              </div>
-            )}
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {allProfiles.map((profile) => {
-                const isUpdating = profileUpdatingId === profile.id;
-                const isDeleting = deletingUserId === profile.id;
-                const activity = activityByUserId[profile.id];
-                const recentlyActive = isRecentlyActive(activity);
-                return (
-                  <div
-                    key={profile.id}
-                    className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold">{profile.email}</span>
-                      <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]">
-                        {profile.role ?? "inconnu"}
-                      </Badge>
-                    </div>
-                    <div className="mt-1 text-[#0A1A2F]/70">
-                      {profile.full_name ?? "Nom non renseigne"}
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {renderStatusBadge(profile.professional_status)}
-                      <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]/80">
-                        {profile.company_name ?? "Aucune societe"}
-                      </Badge>
-                      <Badge
-                        className={
-                          recentlyActive
-                            ? "bg-emerald-600 text-[#0A1A2F] hover:bg-emerald-600"
-                            : "bg-slate-100 text-[#0A1A2F] hover:bg-slate-100"
-                        }
-                      >
-                        {recentlyActive ? "Actif recemment" : "Hors ligne"}
-                      </Badge>
-                    </div>
-                    <div className="mt-1 text-xs text-[#0A1A2F]/70">
-                      Derniere connexion : {formatLastSignIn(activity)}
-                    </div>
-                    {isProfileActionable(profile.role) && (
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={isUpdating}
-                          onClick={() => handleProfessionalStatusChange(profile.id, "verified")}
-                          className="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                        >
-                          {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          Valider
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={isUpdating}
-                          onClick={() => handleProfessionalStatusChange(profile.id, "pending")}
-                          className="border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
-                        >
-                          Remettre en attente
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={isUpdating}
-                          onClick={() => handleProfessionalStatusChange(profile.id, "rejected")}
-                          className="border-red-300 bg-red-50 text-red-800 hover:bg-red-100"
-                        >
-                          Refuser
-                        </Button>
-                      </div>
-                    )}
-                    <div className="mt-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isDeleting || profile.id === user?.id}
-                        onClick={() => void handleDeleteUser(profile)}
-                        className="border-red-300 text-red-800 hover:bg-red-50"
-                      >
-                        {isDeleting ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="mr-2 h-4 w-4" />
-                        )}
-                        Supprimer le compte
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {!allProfiles.length && (
-              <p className="text-sm text-[#0A1A2F]/70">
-                Aucun profil trouve ou RLS empêche la lecture.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        <AdminUsersListCard
+          allProfiles={allProfiles}
+          activityByUserId={activityByUserId}
+          profileStatus={profileStatus}
+          userDeleteStatus={userDeleteStatus}
+          profileUpdatingId={profileUpdatingId}
+          deletingUserId={deletingUserId}
+          currentUserId={user?.id}
+          onProfessionalStatusChange={handleProfessionalStatusChange}
+          onDeleteUser={handleDeleteUser}
+        />
 
-        <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-lg backdrop-blur">
-          <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <CardTitle className="text-xl">Affectations RH / Collaborateurs</CardTitle>
-              <CardDescription className="text-[#0A1A2F]/70">
-                Definis quels collaborateurs chaque RH peut voir et gerer.
-              </CardDescription>
-            </div>
-            <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]">
-              {rhProfiles.length} RH
-            </Badge>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {assignmentStatus.type !== "idle" && (
-              <div
-                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
-                  assignmentStatus.type === "error"
-                    ? "border-red-300 bg-red-50 text-red-900"
-                    : "border-emerald-300 bg-emerald-50 text-emerald-900"
-                }`}
-              >
-                {assignmentStatus.type === "error" ? (
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                ) : (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                )}
-                <p className="leading-relaxed">{assignmentStatus.message}</p>
-              </div>
-            )}
+        <AdminAssignmentsCard
+          rhProfiles={rhProfiles}
+          salarieProfiles={salarieProfiles}
+          selectedRhId={selectedRhId}
+          selectedRh={selectedRh}
+          selectedEmployeeIds={selectedEmployeeIds}
+          assignmentStatus={assignmentStatus}
+          assignmentLoading={assignmentLoading}
+          assignmentSaving={assignmentSaving}
+          hasAccessToken={Boolean(session?.access_token)}
+          onSelectedRhIdChange={setSelectedRhId}
+          onToggleAssignedEmployee={toggleAssignedEmployee}
+          onReload={() => {
+            if (!session?.access_token) return;
+            void loadRhCollaboratorAssignments(session.access_token);
+          }}
+          onSave={handleSaveAssignments}
+        />
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="rh-selector" className="text-[#0A1A2F]/80">
-                  RH concerne
-                </Label>
-                <select
-                  id="rh-selector"
-                  value={selectedRhId}
-                  onChange={(event) => setSelectedRhId(event.target.value)}
-                  className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                  disabled={assignmentLoading || assignmentSaving || !rhProfiles.length}
-                >
-                  {!rhProfiles.length && <option value="">Aucun RH</option>}
-                  {rhProfiles.map((rhProfile) => (
-                    <option key={rhProfile.id} value={rhProfile.id}>
-                      {(rhProfile.full_name ?? rhProfile.email) + " - " + rhProfile.email}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
-                <p className="text-[#0A1A2F]/70">RH selectionne</p>
-                <p className="font-medium">
-                  {selectedRh ? selectedRh.full_name ?? selectedRh.email : "-"}
-                </p>
-                <p className="text-xs text-[#0A1A2F]/70">
-                  {selectedEmployeeIds.length} collaborateur(s) autorise(s)
-                </p>
-              </div>
-            </div>
+        <AdminOffersListCard
+          jobOffers={jobOffers}
+          offerActionStatus={offerActionStatus}
+          offerActionId={offerActionId}
+          editingOfferId={editingOfferId}
+          offerEditSaving={offerEditSaving}
+          offerEditStatus={offerEditStatus}
+          offerEditForm={offerEditForm}
+          setOfferEditForm={setOfferEditForm}
+          onEditStart={handleOfferEditStart}
+          onEditCancel={handleOfferEditCancel}
+          onEditSubmit={handleOfferEditSubmit}
+          onDelete={handleOfferDelete}
+        />
+        <AdminOfferCreateForm
+          offerForm={offerForm}
+          setOfferForm={setOfferForm}
+          offerSaving={offerSaving}
+          offerStatus={offerStatus}
+          onSubmit={handleOfferSubmit}
+        />
+        <AdminNotesCard />
 
-            <div className="rounded-md border border-slate-200">
-              <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium">
-                Collaborateurs autorises
-              </div>
-              <div className="max-h-72 space-y-2 overflow-auto p-3 text-sm">
-                {salarieProfiles.length ? (
-                  salarieProfiles.map((employee) => (
-                    <label
-                      key={employee.id}
-                      className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">
-                          {employee.full_name ?? "Nom non renseigne"}
-                        </p>
-                        <p className="truncate text-xs text-[#0A1A2F]/70">{employee.email}</p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={selectedEmployeeIds.includes(employee.id)}
-                        onChange={() => toggleAssignedEmployee(employee.id)}
-                        disabled={assignmentLoading || assignmentSaving || !selectedRhId}
-                        className="h-4 w-4 rounded border-slate-300"
-                      />
-                    </label>
-                  ))
-                ) : (
-                  <p className="text-[#0A1A2F]/70">Aucun collaborateur salarie trouve.</p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="border-slate-300 text-[#0A1A2F]"
-                disabled={assignmentLoading || assignmentSaving || !session?.access_token}
-                onClick={() => {
-                  if (!session?.access_token) return;
-                  void loadRhCollaboratorAssignments(session.access_token);
-                }}
-              >
-                Recharger
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void handleSaveAssignments()}
-                disabled={
-                  assignmentLoading ||
-                  assignmentSaving ||
-                  !session?.access_token ||
-                  !selectedRhId
-                }
-                className="bg-[#2aa0dd] text-[#0A1A2F] hover:bg-[#2493cb]"
-              >
-                {assignmentSaving ? "Enregistrement..." : "Enregistrer les affectations"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-lg backdrop-blur">
-          <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <CardTitle className="text-xl">Offres d&apos;emploi</CardTitle>
-              <CardDescription className="text-[#0A1A2F]/70">
-                Liste des offres présentes en base (job_offers), triées par date de publication.
-              </CardDescription>
-            </div>
-            <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]">
-              {jobOffers.length} offres
-            </Badge>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {offerActionStatus.type !== "idle" && (
-              <div
-                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
-                  offerActionStatus.type === "error"
-                    ? "border-red-300 bg-red-50 text-red-900"
-                    : "border-emerald-300 bg-emerald-50 text-emerald-900"
-                }`}
-              >
-                {offerActionStatus.type === "error" ? (
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                ) : (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                )}
-                <p className="leading-relaxed">{offerActionStatus.message}</p>
-              </div>
-            )}
-            {jobOffers.length ? (
-              <div className="grid gap-3">
-                {jobOffers.map((offer) => (
-                  <div
-                    key={offer.id}
-                    className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="font-semibold">{offer.title}</p>
-                        <p className="text-[#0A1A2F]/70 text-xs">
-                          {offer.company_name ?? "Entreprise inconnue"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]">
-                          {offer.status ?? "inconnu"}
-                        </Badge>
-                        {offer.contract_type && (
-                          <Badge variant="outline" className="border-slate-300 text-[#0A1A2F]/80">
-                            {offer.contract_type}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-2 text-[#0A1A2F]/70">
-                      <span>{offer.location ?? "Localisation non précisée"}</span>
-                    </div>
-                    <div className="mt-1 text-xs text-[#0A1A2F]/60">
-                      Publiée le{" "}
-                      {offer.published_at
-                        ? new Date(offer.published_at).toLocaleString()
-                        : "N/A"}
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-slate-300 text-[#0A1A2F] hover:bg-white"
-                        disabled={offerEditSaving && editingOfferId === offer.id}
-                        onClick={() => handleOfferEditStart(offer)}
-                      >
-                        {offerEditSaving && editingOfferId === offer.id && (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        )}
-                        Modifier
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-red-300 text-red-700 hover:bg-red-50"
-                        disabled={offerActionId === offer.id}
-                        onClick={() => {
-                          const confirmDelete = window.confirm(
-                            "Supprimer définitivement cette offre ?"
-                          );
-                          if (confirmDelete) {
-                            void handleOfferDelete(offer.id);
-                          }
-                        }}
-                      >
-                        {offerActionId === offer.id ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="mr-2 h-4 w-4" />
-                        )}
-                        Supprimer
-                      </Button>
-                    </div>
-                    {editingOfferId === offer.id && (
-                      <form
-                        className="mt-3 space-y-3 rounded-md border border-slate-200 bg-white p-3 text-sm"
-                        onSubmit={handleOfferEditSubmit}
-                      >
-                        <div className="space-y-1.5">
-                          <Label className="text-[#0A1A2F]/80">Titre</Label>
-                          <Input
-                            value={offerEditForm.title}
-                            onChange={(e) =>
-                              setOfferEditForm((prev) => ({ ...prev, title: e.target.value }))
-                            }
-                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                            placeholder="Titre de l'offre"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[#0A1A2F]/80">Description</Label>
-                          <Textarea
-                            value={offerEditForm.description}
-                            onChange={(e) =>
-                              setOfferEditForm((prev) => ({
-                                ...prev,
-                                description: e.target.value,
-                              }))
-                            }
-                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                            placeholder="Missions, profil recherche, stack..."
-                            rows={4}
-                          />
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Entreprise</Label>
-                            <Input
-                              value={offerEditForm.company_name}
-                              onChange={(e) =>
-                                setOfferEditForm((prev) => ({
-                                  ...prev,
-                                  company_name: e.target.value,
-                                }))
-                              }
-                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                              placeholder="Nom de l'entreprise"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Localisation</Label>
-                            <Input
-                              value={offerEditForm.location}
-                              onChange={(e) =>
-                                setOfferEditForm((prev) => ({ ...prev, location: e.target.value }))
-                              }
-                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                              placeholder="Paris / Remote"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Type de contrat</Label>
-                            <Input
-                              value={offerEditForm.contract_type}
-                              onChange={(e) =>
-                                setOfferEditForm((prev) => ({
-                                  ...prev,
-                                  contract_type: e.target.value,
-                                }))
-                              }
-                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                              placeholder="CDI / CDD / Freelance"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Departement</Label>
-                            <Input
-                              value={offerEditForm.department}
-                              onChange={(e) =>
-                                setOfferEditForm((prev) => ({
-                                  ...prev,
-                                  department: e.target.value,
-                                }))
-                              }
-                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                              placeholder="IT / Support / Cloud"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Mode de travail</Label>
-                            <Input
-                              value={offerEditForm.work_mode}
-                              onChange={(e) =>
-                                setOfferEditForm((prev) => ({
-                                  ...prev,
-                                  work_mode: e.target.value,
-                                }))
-                              }
-                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                              placeholder="Remote / Hybride / On-site"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Niveau d'experience</Label>
-                            <Input
-                              value={offerEditForm.experience_level}
-                              onChange={(e) =>
-                                setOfferEditForm((prev) => ({
-                                  ...prev,
-                                  experience_level: e.target.value,
-                                }))
-                              }
-                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                              placeholder="Junior / Intermediaire / Senior"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Salaire min</Label>
-                            <Input
-                              type="number"
-                              value={offerEditForm.salary_min}
-                              onChange={(e) =>
-                                setOfferEditForm((prev) => ({
-                                  ...prev,
-                                  salary_min: e.target.value,
-                                }))
-                              }
-                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                              placeholder="50000"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-[#0A1A2F]/80">Salaire max</Label>
-                            <Input
-                              type="number"
-                              value={offerEditForm.salary_max}
-                              onChange={(e) =>
-                                setOfferEditForm((prev) => ({
-                                  ...prev,
-                                  salary_max: e.target.value,
-                                }))
-                              }
-                              className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                              placeholder="70000"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[#0A1A2F]/80">
-                            Stack technique (separee par des virgules)
-                          </Label>
-                          <Input
-                            value={offerEditForm.tech_stack}
-                            onChange={(e) =>
-                              setOfferEditForm((prev) => ({
-                                ...prev,
-                                tech_stack: e.target.value,
-                              }))
-                            }
-                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                            placeholder="React, Node, PostgreSQL"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[#0A1A2F]/80">Statut</Label>
-                          <Input
-                            value={offerEditForm.status}
-                            onChange={(e) =>
-                              setOfferEditForm((prev) => ({ ...prev, status: e.target.value }))
-                            }
-                            className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                            placeholder="draft / published"
-                          />
-                        </div>
-                        {offerEditStatus.type !== "idle" && (
-                          <div
-                            className={`flex items-start gap-2 rounded-md border px-3 py-2 ${
-                              offerEditStatus.type === "error"
-                                ? "border-red-300 bg-red-50 text-red-900"
-                                : "border-emerald-300 bg-emerald-50 text-emerald-900"
-                            }`}
-                          >
-                            {offerEditStatus.type === "error" ? (
-                              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                            ) : (
-                              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                            )}
-                            <p className="leading-relaxed">{offerEditStatus.message}</p>
-                          </div>
-                        )}
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="submit"
-                            disabled={offerEditSaving}
-                            className="bg-[#2aa0dd] text-[#0A1A2F] hover:bg-[#2493cb]"
-                          >
-                            {offerEditSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {offerEditSaving ? "Enregistrement..." : "Enregistrer"}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="border-slate-300 text-[#0A1A2F]"
-                            disabled={offerEditSaving}
-                            onClick={handleOfferEditCancel}
-                          >
-                            Annuler
-                          </Button>
-                        </div>
-                      </form>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-[#0A1A2F]/70">Aucune offre trouvée.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-lg backdrop-blur">
-          <CardHeader>
-            <CardTitle className="text-xl">Créer une offre d&apos;emploi</CardTitle>
-            <CardDescription className="text-[#0A1A2F]/70">
-              Formulaire rapide pour publier une offre (table job_offers).
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-4" onSubmit={handleOfferSubmit}>
-              <div className="space-y-2">
-                <Label htmlFor="offer-title" className="text-[#0A1A2F]/80">
-                  Titre
-                </Label>
-                <Input
-                  id="offer-title"
-                  required
-                  value={offerForm.title}
-                  onChange={(e) => setOfferForm((prev) => ({ ...prev, title: e.target.value }))}
-                  className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                  placeholder="Développeur Full Stack"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="offer-description" className="text-[#0A1A2F]/80">
-                  Description
-                </Label>
-                <Textarea
-                  id="offer-description"
-                  required
-                  value={offerForm.description}
-                  onChange={(e) =>
-                    setOfferForm((prev) => ({ ...prev, description: e.target.value }))
-                  }
-                  className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                  placeholder="Missions, profil recherché, stack..."
-                  rows={4}
-                />
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="offer-location" className="text-[#0A1A2F]/80">
-                    Localisation
-                  </Label>
-                  <Input
-                    id="offer-location"
-                    value={offerForm.location}
-                    onChange={(e) =>
-                      setOfferForm((prev) => ({ ...prev, location: e.target.value }))
-                    }
-                    className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                    placeholder="Paris / Remote"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="offer-contract" className="text-[#0A1A2F]/80">
-                    Type de contrat
-                  </Label>
-                  <Input
-                    id="offer-contract"
-                    value={offerForm.contract_type}
-                    onChange={(e) =>
-                      setOfferForm((prev) => ({ ...prev, contract_type: e.target.value }))
-                    }
-                    className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                    placeholder="CDI / CDD / Freelance"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="offer-department" className="text-[#0A1A2F]/80">
-                    Département
-                  </Label>
-                  <Input
-                    id="offer-department"
-                    value={offerForm.department}
-                    onChange={(e) =>
-                      setOfferForm((prev) => ({ ...prev, department: e.target.value }))
-                    }
-                    className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                    placeholder="IT / Support / Cloud..."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="offer-workmode" className="text-[#0A1A2F]/80">
-                    Mode de travail
-                  </Label>
-                  <Input
-                    id="offer-workmode"
-                    value={offerForm.work_mode}
-                    onChange={(e) =>
-                      setOfferForm((prev) => ({ ...prev, work_mode: e.target.value }))
-                    }
-                    className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                    placeholder="Remote / Hybride / On-site"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="offer-experience" className="text-[#0A1A2F]/80">
-                    Niveau d&apos;expérience
-                  </Label>
-                  <Input
-                    id="offer-experience"
-                    value={offerForm.experience_level}
-                    onChange={(e) =>
-                      setOfferForm((prev) => ({ ...prev, experience_level: e.target.value }))
-                    }
-                    className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                    placeholder="Junior / Intermédiaire / Senior"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="offer-salary-min" className="text-[#0A1A2F]/80">
-                      Salaire min
-                    </Label>
-                    <Input
-                      id="offer-salary-min"
-                      type="number"
-                      value={offerForm.salary_min}
-                      onChange={(e) =>
-                        setOfferForm((prev) => ({ ...prev, salary_min: e.target.value }))
-                      }
-                      className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                      placeholder="50000"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="offer-salary-max" className="text-[#0A1A2F]/80">
-                      Salaire max
-                    </Label>
-                    <Input
-                      id="offer-salary-max"
-                      type="number"
-                      value={offerForm.salary_max}
-                      onChange={(e) =>
-                        setOfferForm((prev) => ({ ...prev, salary_max: e.target.value }))
-                      }
-                      className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                      placeholder="70000"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="offer-tech" className="text-[#0A1A2F]/80">
-                  Stack technique (séparée par des virgules)
-                </Label>
-                <Input
-                  id="offer-tech"
-                  value={offerForm.tech_stack}
-                  onChange={(e) =>
-                    setOfferForm((prev) => ({ ...prev, tech_stack: e.target.value }))
-                  }
-                  className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                  placeholder="React, Node, PostgreSQL"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="offer-company" className="text-[#0A1A2F]/80">
-                  Nom de l&apos;entreprise
-                </Label>
-                <Input
-                  id="offer-company"
-                  value={offerForm.company_name}
-                  onChange={(e) =>
-                    setOfferForm((prev) => ({ ...prev, company_name: e.target.value }))
-                  }
-                  className="border-slate-200 bg-slate-50 text-[#0A1A2F] placeholder:text-[#0A1A2F]/40 focus-visible:ring-[#2aa0dd]"
-                  placeholder="Jarvis Connect"
-                />
-              </div>
-
-              {offerStatus.type !== "idle" && (
-                <div
-                  className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
-                    offerStatus.type === "error"
-                      ? "border-red-300 bg-red-50 text-red-900"
-                      : "border-emerald-300 bg-emerald-50 text-emerald-900"
-                  }`}
-                >
-                  {offerStatus.type === "error" ? (
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  ) : (
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                  )}
-                  <p className="leading-relaxed">{offerStatus.message}</p>
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                disabled={offerSaving}
-                className="w-full bg-[#2aa0dd] text-[#0A1A2F] hover:bg-[#2493cb]"
-              >
-                {offerSaving ? "Création en cours..." : "Publier l'offre"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-lg backdrop-blur">
-          <CardHeader>
-            <CardTitle className="text-lg">Notes importantes</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-[#0A1A2F]/70">
-            <p>
-              - Le suivi des connexions de tous les utilisateurs necessite la cle
-              service (auth.admin) ou une table dediee aux sessions. Avec la cle
-              publique, seule ta session active est visible.
-            </p>
-            <p>
-              - Assure-toi que RLS autorise les admins a lire la table profiles.
-            </p>
-          </CardContent>
-        </Card>
-
-        {loading && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-3 text-sm text-[#0A1A2F]">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Chargement des donnees...
-            </div>
-          </div>
-        )}
+        {loading && <DashboardLoadingOverlay message="Chargement des donnees..." />}
       </div>
     </div>
   );

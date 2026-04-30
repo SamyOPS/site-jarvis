@@ -1,33 +1,24 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import {
-  File,
-  FileAudio2,
-  FileImage,
-  FileSpreadsheet,
-  FileText,
-  Folder,
-  MoreVertical,
-  SlidersHorizontal,
-} from "lucide-react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { MoreVertical } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-
-type DashboardDocumentListItem = {
-  id: string;
-  fileName: string;
-  typeLabel: string;
-  statusLabel?: string | null;
-  periodLabel?: string | null;
-  ownerName: string;
-  createdAt: string | null;
-  sizeBytes: number | null;
-  subtitle?: string | null;
-  details?: string | null;
-  hideDetailsPanel?: boolean;
-};
+import { ColumnVisibilityMenu } from "@/components/dashboard/document-list/column-visibility-menu";
+import {
+  columnDefinitions,
+  type ColumnKey,
+  type DashboardDocumentListItem,
+} from "@/features/dashboard/document-list/columns";
+import { getFileIcon } from "@/features/dashboard/document-list/file-icon";
+import {
+  formatActionDetails,
+  formatCreatedDate,
+  formatFileSize,
+  getHiddenColumnValues,
+  getStatusBadgeClass,
+} from "@/features/dashboard/document-list/formatters";
+import { useColumnPreferences } from "@/features/dashboard/document-list/use-column-preferences";
 
 type DashboardDocumentListProps<T extends DashboardDocumentListItem> = {
   items: T[];
@@ -47,197 +38,6 @@ type DashboardDocumentListProps<T extends DashboardDocumentListItem> = {
   onItemDrop?: (targetItem: T, draggedId: string) => void | Promise<void>;
 };
 
-type ColumnKey = "type" | "status" | "period" | "owner" | "createdAt" | "size";
-
-const columnDefinitions: Array<{ key: ColumnKey; label: string; widthClass: string }> = [
-  { key: "type", label: "Type", widthClass: "w-[160px]" },
-  { key: "status", label: "Statut", widthClass: "w-[140px]" },
-  { key: "period", label: "Période", widthClass: "w-[180px]" },
-  { key: "owner", label: "Propriétaire", widthClass: "w-[220px]" },
-  { key: "createdAt", label: "Date de création", widthClass: "w-[220px]" },
-  { key: "size", label: "Taille du fichier", widthClass: "w-[150px]" },
-];
-
-const defaultVisibleColumns: ColumnKey[] = ["owner", "createdAt", "size"];
-
-function formatCreatedDate(value: string | null) {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "-";
-
-  return parsed.toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatFileSize(value: number | null) {
-  if (!value || value <= 0) return "—";
-
-  const units = ["o", "Ko", "Mo", "Go"];
-  let size = value;
-  let unitIndex = 0;
-
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex += 1;
-  }
-
-  const digits = size >= 10 || unitIndex === 0 ? 0 : 1;
-  return `${size.toLocaleString("fr-FR", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  })} ${units[unitIndex]}`;
-}
-
-function formatActionDetails(details: string | null | undefined) {
-  if (!details) return null;
-
-  return details.replace(/^Commentaire RH\s*:\s*/i, "").trim() || null;
-}
-
-function getStatusBadgeClass(statusLabel: string | null | undefined) {
-  const normalized = (statusLabel ?? "").trim().toLowerCase();
-
-  if (
-    normalized.includes("valide") ||
-    normalized.includes("validé") ||
-    normalized.includes("validated")
-  ) {
-    return "bg-emerald-100 text-emerald-700";
-  }
-
-  if (
-    normalized.includes("refuse") ||
-    normalized.includes("refusé") ||
-    normalized.includes("rejected")
-  ) {
-    return "bg-rose-100 text-rose-700";
-  }
-
-  if (
-    normalized.includes("en attente") ||
-    normalized.includes("pending")
-  ) {
-    return "bg-amber-100 text-amber-700";
-  }
-
-  return "bg-slate-100 text-[#0A1A2F]/75";
-}
-
-function getHiddenColumnValues<T extends DashboardDocumentListItem>(
-  item: T,
-  visibleColumns: ColumnKey[],
-) {
-  const values: string[] = [];
-
-  if (!visibleColumns.includes("type") && item.typeLabel) {
-    values.push(item.typeLabel);
-  }
-  if (!visibleColumns.includes("status") && item.statusLabel) {
-    values.push(item.statusLabel);
-  }
-  if (!visibleColumns.includes("period") && item.periodLabel && item.periodLabel !== "-") {
-    values.push(item.periodLabel);
-  }
-  if (!visibleColumns.includes("owner") && item.ownerName) {
-    values.push(item.ownerName);
-  }
-  if (!visibleColumns.includes("createdAt")) {
-    const createdAt = formatCreatedDate(item.createdAt);
-    if (createdAt !== "-") {
-      values.push(createdAt);
-    }
-  }
-  if (!visibleColumns.includes("size")) {
-    const fileSize = formatFileSize(item.sizeBytes);
-    if (fileSize !== "—") {
-      values.push(fileSize);
-    }
-  }
-
-  return values;
-}
-
-function getFileExtension(fileName: string) {
-  const segments = fileName.toLowerCase().split(".");
-  return segments.length > 1 ? segments.at(-1) ?? "" : "";
-}
-
-function getFileIcon(fileName: string, typeLabel?: string) {
-  if ((typeLabel ?? "").toLowerCase().includes("dossier")) {
-    return <Folder className="h-5 w-5 text-[#4b5563]" />;
-  }
-  const extension = getFileExtension(fileName);
-
-  if (!extension) {
-    return <Folder className="h-5 w-5 text-[#4b5563]" />;
-  }
-  if (["pdf"].includes(extension)) {
-    return <FileText className="h-5 w-5 text-[#ef4444]" />;
-  }
-  if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(extension)) {
-    return <FileImage className="h-5 w-5 text-[#f97316]" />;
-  }
-  if (["m4a", "mp3", "wav", "ogg"].includes(extension)) {
-    return <FileAudio2 className="h-5 w-5 text-[#2563eb]" />;
-  }
-  if (["xls", "xlsx", "csv"].includes(extension)) {
-    return <FileSpreadsheet className="h-5 w-5 text-[#16a34a]" />;
-  }
-
-  return <File className="h-5 w-5 text-[#2563eb]" />;
-}
-
-function readStoredVisibleColumns(storageKey?: string) {
-  if (!storageKey || typeof window === "undefined") {
-    return null;
-  }
-
-  const savedValue = window.localStorage.getItem(storageKey);
-  if (!savedValue) {
-    return null;
-  }
-
-  try {
-    const parsedValue = JSON.parse(savedValue) as ColumnKey[];
-    const allowedValues = parsedValue.filter((value) =>
-      columnDefinitions.some((definition) => definition.key === value),
-    );
-    return allowedValues.length ? allowedValues : null;
-  } catch {
-    return null;
-  }
-}
-
-function buildScopedStorageKey(storageKey?: string, storageScope?: string | null) {
-  if (!storageKey) return null;
-  if (!storageScope) return storageKey;
-  return `${storageScope}:${storageKey}`;
-}
-
-function getInitialVisibleColumnsWithScope(storageKey?: string, storageScope?: string | null) {
-  const scopedStorageKey = buildScopedStorageKey(storageKey, storageScope);
-  if (!scopedStorageKey || typeof window === "undefined") {
-    return defaultVisibleColumns;
-  }
-
-  const fromScoped = readStoredVisibleColumns(scopedStorageKey);
-  if (fromScoped) {
-    return fromScoped;
-  }
-
-  if (storageScope) {
-    const fromLegacy = readStoredVisibleColumns(storageKey);
-    if (fromLegacy) {
-      return fromLegacy;
-    }
-  }
-
-  return defaultVisibleColumns;
-}
-
 export function DashboardDocumentList<T extends DashboardDocumentListItem>({
   items,
   renderActions,
@@ -255,138 +55,30 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
   canDropOnItem,
   onItemDrop,
 }: DashboardDocumentListProps<T>) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
-  const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(defaultVisibleColumns);
-  const [columnsInitialized, setColumnsInitialized] = useState(false);
-  const [preferencesHydrated, setPreferencesHydrated] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const scopedStorageKey = useMemo(
-    () => buildScopedStorageKey(storageKey, storageScope),
-    [storageKey, storageScope],
-  );
+
+  const { visibleColumns, setVisibleColumns, columnsInitialized } = useColumnPreferences({
+    storageKey,
+    storageScope,
+    preferencesAuthToken,
+  });
 
   useEffect(() => {
-    setColumnsInitialized(false);
-    setVisibleColumns(getInitialVisibleColumnsWithScope(storageKey, storageScope));
-    setColumnsInitialized(true);
-  }, [storageKey, storageScope]);
-
-  useEffect(() => {
-    if (!columnsInitialized) {
-      return;
-    }
-    if (!scopedStorageKey || !preferencesAuthToken) {
-      setPreferencesHydrated(true);
-      return;
-    }
-
-    let cancelled = false;
-    setPreferencesHydrated(false);
-
-    const hydrate = async () => {
-      try {
-        const response = await fetch(
-          `/api/dashboard/preferences?key=${encodeURIComponent(scopedStorageKey)}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${preferencesAuthToken}`,
-            },
-          },
-        );
-        if (!response.ok) return;
-        const payload = (await response.json().catch(() => null)) as
-          | { value?: { visibleColumns?: unknown } | null }
-          | null;
-        const remoteColumns = payload?.value?.visibleColumns;
-        if (!Array.isArray(remoteColumns) || cancelled) return;
-        const nextColumns = remoteColumns.filter((value): value is ColumnKey =>
-          columnDefinitions.some((definition) => definition.key === value),
-        );
-        if (nextColumns.length) {
-          setVisibleColumns(nextColumns);
-        }
-      } finally {
-        if (!cancelled) {
-          setPreferencesHydrated(true);
-        }
-      }
-    };
-
-    void hydrate();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [columnsInitialized, preferencesAuthToken, scopedStorageKey]);
-
-  useEffect(() => {
-    if (!columnsInitialized) {
-      return;
-    }
-    if (!scopedStorageKey || typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem(scopedStorageKey, JSON.stringify(visibleColumns));
-  }, [columnsInitialized, scopedStorageKey, visibleColumns]);
-
-  useEffect(() => {
-    if (
-      !columnsInitialized ||
-      !scopedStorageKey ||
-      !preferencesAuthToken ||
-      !preferencesHydrated
-    ) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      void fetch("/api/dashboard/preferences", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${preferencesAuthToken}`,
-        },
-        body: JSON.stringify({
-          key: scopedStorageKey,
-          value: { visibleColumns },
-        }),
-      }).catch(() => null);
-    }, 250);
-
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [columnsInitialized, preferencesAuthToken, preferencesHydrated, scopedStorageKey, visibleColumns]);
-
-  useEffect(() => {
-    if (!menuOpen && !actionMenuId) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
+    if (!actionMenuId) return;
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setMenuOpen(false);
         setActionMenuId(null);
       }
     };
 
-    window.addEventListener("mousedown", handlePointerDown);
     window.addEventListener("keydown", handleEscape);
-
     return () => {
-      window.removeEventListener("mousedown", handlePointerDown);
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [actionMenuId, menuOpen]);
+  }, [actionMenuId]);
 
   const activeColumns = useMemo(
     () =>
@@ -417,57 +109,11 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
 
   return (
     <div className="relative bg-white">
-      <div
-        className={
-          columnControlPlacement === "inline"
-            ? "absolute right-0 -top-9 z-20"
-            : "mb-2 flex justify-end"
-        }
-        ref={menuRef}
-      >
-        <div className="relative">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={
-              columnControlPlacement === "inline"
-                ? "h-8 px-2 text-xs font-medium text-[#0A1A2F]/75 hover:text-[#0A1A2F]"
-                : "gap-2 text-[#0A1A2F]/75 hover:text-[#0A1A2F]"
-            }
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            <SlidersHorizontal className={columnControlPlacement === "inline" ? "h-3.5 w-3.5" : "h-4 w-4"} />
-            Libellés
-          </Button>
-          {menuOpen ? (
-            <div className="absolute right-0 top-full z-20 mt-2 w-60 rounded-xl border border-slate-200 bg-white p-3">
-              <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[#0A1A2F]/55">
-                Colonnes visibles
-              </p>
-              <div className="space-y-2">
-                {columnDefinitions.map((column) => {
-                  const checked = visibleColumns.includes(column.key);
-
-                  return (
-                    <label
-                      key={column.key}
-                      className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-sm text-[#0A1A2F]"
-                    >
-                      <span>{column.label}</span>
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={() => toggleColumn(column.key)}
-                        aria-label={`Afficher la colonne ${column.label}`}
-                      />
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
+      <ColumnVisibilityMenu
+        visibleColumns={visibleColumns}
+        onToggle={toggleColumn}
+        placement={columnControlPlacement}
+      />
 
       <div className="overflow-x-auto bg-white">
         <table className="min-w-full table-fixed text-sm">
@@ -539,100 +185,107 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
                     void onItemDrop(item, draggedId);
                   }}
                 >
-                <td className="px-4 py-3 align-middle">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 shrink-0">{getFileIcon(item.fileName, item.typeLabel)}</div>
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-[#0A1A2F]" title={item.fileName}>
-                        {item.fileName}
-                      </p>
-                      {(() => {
-                        const hiddenColumnValues = getHiddenColumnValues(item, visibleColumns);
-                        const subtitleParts = [...hiddenColumnValues, ...(item.subtitle ? [item.subtitle] : [])];
-                        const subtitle = subtitleParts.filter(Boolean).join(" • ");
+                  <td className="px-4 py-3 align-middle">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 shrink-0">{getFileIcon(item.fileName, item.typeLabel)}</div>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-[#0A1A2F]" title={item.fileName}>
+                          {item.fileName}
+                        </p>
+                        {(() => {
+                          const hiddenColumnValues = getHiddenColumnValues(item, visibleColumns);
+                          const subtitleParts = [
+                            ...hiddenColumnValues,
+                            ...(item.subtitle ? [item.subtitle] : []),
+                          ];
+                          const subtitle = subtitleParts.filter(Boolean).join(" • ");
 
-                        if (!subtitle) {
-                          return null;
-                        }
+                          if (!subtitle) {
+                            return null;
+                          }
 
-                        return (
-                          <p className="mt-1 truncate text-xs text-[#0A1A2F]/60" title={subtitle}>
-                            {subtitle}
-                          </p>
-                        );
-                      })()}
+                          return (
+                            <p className="mt-1 truncate text-xs text-[#0A1A2F]/60" title={subtitle}>
+                              {subtitle}
+                            </p>
+                          );
+                        })()}
+                      </div>
                     </div>
-                  </div>
-                </td>
-
-                {visibleColumns.includes("type") ? (
-                  <td className="px-4 py-3 align-middle">
-                    <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-[#0A1A2F]/75">
-                      {item.typeLabel}
-                    </span>
                   </td>
-                ) : null}
 
-                {visibleColumns.includes("status") ? (
-                  <td className="px-4 py-3 align-middle">
-                    {item.statusLabel ? (
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusBadgeClass(item.statusLabel)}`}
-                      >
-                        {item.statusLabel}
+                  {visibleColumns.includes("type") ? (
+                    <td className="px-4 py-3 align-middle">
+                      <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-[#0A1A2F]/75">
+                        {item.typeLabel}
                       </span>
-                    ) : (
-                      <span className="text-[#0A1A2F]/80">-</span>
-                    )}
-                  </td>
-                ) : null}
+                    </td>
+                  ) : null}
 
-                {visibleColumns.includes("period") ? (
-                  <td className="px-4 py-3 align-middle text-[#0A1A2F]/80">
-                    {item.periodLabel ?? "-"}
-                  </td>
-                ) : null}
+                  {visibleColumns.includes("status") ? (
+                    <td className="px-4 py-3 align-middle">
+                      {item.statusLabel ? (
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusBadgeClass(item.statusLabel)}`}
+                        >
+                          {item.statusLabel}
+                        </span>
+                      ) : (
+                        <span className="text-[#0A1A2F]/80">-</span>
+                      )}
+                    </td>
+                  ) : null}
 
-                {visibleColumns.includes("owner") ? (
+                  {visibleColumns.includes("period") ? (
+                    <td className="px-4 py-3 align-middle text-[#0A1A2F]/80">
+                      {item.periodLabel ?? "-"}
+                    </td>
+                  ) : null}
+
+                  {visibleColumns.includes("owner") ? (
+                    <td className="px-4 py-3 align-middle">
+                      <span className="truncate text-[#0A1A2F]/80">{item.ownerName}</span>
+                    </td>
+                  ) : null}
+
+                  {visibleColumns.includes("createdAt") ? (
+                    <td className="px-4 py-3 align-middle text-[#0A1A2F]/70">
+                      {formatCreatedDate(item.createdAt)}
+                    </td>
+                  ) : null}
+
+                  {visibleColumns.includes("size") ? (
+                    <td className="px-4 py-3 align-middle text-[#0A1A2F]/70">
+                      {formatFileSize(item.sizeBytes)}
+                    </td>
+                  ) : null}
+
                   <td className="px-4 py-3 align-middle">
-                    <span className="truncate text-[#0A1A2F]/80">{item.ownerName}</span>
+                    <div className="flex justify-end">
+                      {renderActionCell ? (
+                        renderActionCell(item)
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-[#0A1A2F]/70 hover:text-[#0A1A2F]"
+                          onClick={() =>
+                            setActionMenuId((currentId) =>
+                              currentId === item.id ? null : item.id,
+                            )
+                          }
+                          aria-label={`Ouvrir les actions pour ${item.fileName}`}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </td>
-                ) : null}
-
-                {visibleColumns.includes("createdAt") ? (
-                  <td className="px-4 py-3 align-middle text-[#0A1A2F]/70">
-                    {formatCreatedDate(item.createdAt)}
-                  </td>
-                ) : null}
-
-                {visibleColumns.includes("size") ? (
-                  <td className="px-4 py-3 align-middle text-[#0A1A2F]/70">
-                    {formatFileSize(item.sizeBytes)}
-                  </td>
-                ) : null}
-
-                <td className="px-4 py-3 align-middle">
-                  <div className="flex justify-end">
-                    {renderActionCell ? (
-                      renderActionCell(item)
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-[#0A1A2F]/70 hover:text-[#0A1A2F]"
-                        onClick={() => setActionMenuId((currentId) => (currentId === item.id ? null : item.id))}
-                        aria-label={`Ouvrir les actions pour ${item.fileName}`}
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-              {actionMenuId === item.id ? (
-                <tr className="bg-slate-50/70">
-                  <td colSpan={activeColumns.length + 2} className="px-4 py-3">
+                </tr>
+                {actionMenuId === item.id ? (
+                  <tr className="bg-slate-50/70">
+                    <td colSpan={activeColumns.length + 2} className="px-4 py-3">
                       {item.hideDetailsPanel ? (
                         <div className="flex flex-col items-stretch gap-2 md:max-w-[340px]">
                           {renderActions ? renderActions(item, () => setActionMenuId(null)) : null}
@@ -658,9 +311,9 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
                           )}
                         </div>
                       )}
-                  </td>
-                </tr>
-              ) : null}
+                    </td>
+                  </tr>
+                ) : null}
               </Fragment>
             ))}
           </tbody>

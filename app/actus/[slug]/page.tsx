@@ -3,7 +3,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { browserSupabase } from "@/lib/supabase-browser";
+
+const supabase = browserSupabase;
 import { ArrowLeft } from "lucide-react";
 
 import { Footer } from "@/components/sections/footer";
@@ -117,14 +119,6 @@ function renderMarkdown(content: string) {
   flushList();
   return blocks;
 }
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
-
 type NewsItem = {
   id: string;
   title: string;

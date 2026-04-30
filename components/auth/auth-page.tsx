@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { browserSupabase } from "@/lib/supabase-browser";
 import { AlertCircle, CheckCircle2, LogIn, UserPlus } from "lucide-react";
 
 import { Footer } from "@/components/sections/footer";
@@ -25,13 +25,7 @@ import {
 } from "@/components/ui/select";
 import { safeGetClientSession } from "@/lib/client-auth";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+const supabase = browserSupabase;
 
 type Status =
   | { type: "idle" }

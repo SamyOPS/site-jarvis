@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
-import { createClient } from "@supabase/supabase-js"
 import { ArrowRight } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import handshakeAnimation from "@/public/Hiring.json"
 import ContractFilter from "@/components/sections/liste_contrat"
 import OffreCard from "@/components/sections/offre_card"
+import { browserSupabase } from "@/lib/supabase-browser"
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false })
 
@@ -62,11 +62,7 @@ export function OffresEmploi({
   posts = DEFAULT_POSTS,
 }: OffresEmploiProps) {
 
-  const supabase = useMemo(() => {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    return url && key ? createClient(url, key) : null
-  }, [])
+  const supabase = browserSupabase
 
   const [remoteOffers, setRemoteOffers] = useState<Post[] | null>(null)
   const [loading, setLoading] = useState(true)
