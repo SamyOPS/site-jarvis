@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "motion/react";
 
 interface AboutProps {
@@ -77,11 +78,15 @@ export const About = ({
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <img
-              src={mainImage.src}
-              alt={mainImage.alt}
-              className="w-full max-h-[380px] rounded-2xl object-cover"
-            />
+            <div className="relative w-full h-[380px]">
+              <Image
+                src={mainImage.src}
+                alt={mainImage.alt}
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="rounded-2xl object-cover"
+              />
+            </div>
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-[#0A1A2F]/30 to-transparent" />
           </motion.div>
 

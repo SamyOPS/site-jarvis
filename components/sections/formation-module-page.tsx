@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Users, Wrench } from "lucide-react";
 import { Footer } from "@/components/sections/footer";
 import { Button } from "@/components/ui/button";
@@ -79,11 +80,13 @@ export function FormationModulePage({
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-[#d5d9dc] bg-[#f4f6f8] shadow-sm">
-              <img
+            <div className="relative overflow-hidden rounded-2xl border border-[#d5d9dc] bg-[#f4f6f8] shadow-sm min-h-[260px]">
+              <Image
                 src={heroImage}
                 alt={title}
-                className="h-full min-h-[260px] w-full object-cover"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
               />
             </div>
           </section>
@@ -106,11 +109,13 @@ export function FormationModulePage({
               </ul>
 
               {objectivesImage ? (
-                <div className="mt-8 overflow-hidden rounded-xl border border-[#d5d9dc] bg-[#f4f6f8]">
-                  <img
+                <div className="relative mt-8 overflow-hidden rounded-xl border border-[#d5d9dc] bg-[#f4f6f8] h-64 lg:h-auto lg:min-h-[260px] lg:flex-1">
+                  <Image
                     src={objectivesImage}
                     alt={`Illustration ${title}`}
-                    className="h-64 w-full object-cover lg:h-full lg:min-h-[260px]"
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover"
                   />
                 </div>
               ) : null}

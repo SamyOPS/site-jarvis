@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 
 import { Footer } from "@/components/sections/footer";
@@ -60,11 +61,13 @@ export default function FormationsPage() {
               </p>
             </div>
 
-            <div className="overflow-hidden border border-[#d5d9dc] bg-[#f5f7f9] rounded-lg">
-              <img
+            <div className="relative overflow-hidden border border-[#d5d9dc] bg-[#f5f7f9] rounded-lg min-h-[220px]">
+              <Image
                 src="https://images.unsplash.com/photo-1517048676732-d65bc937f952?q=80&w=1400&auto=format&fit=crop"
                 alt="Session de formation support"
-                className="h-full min-h-[220px] w-full object-cover"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
               />
             </div>
           </section>
@@ -87,11 +90,13 @@ export default function FormationsPage() {
                   key={module.href}
                   className="group flex h-full flex-col overflow-hidden border border-[#d5d9dc] bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md rounded-lg"
                 >
-                  <div className="overflow-hidden border-b border-[#d5d9dc] bg-[#f4f6f8]">
-                    <img
+                  <div className="relative overflow-hidden border-b border-[#d5d9dc] bg-[#f4f6f8] h-44">
+                    <Image
                       src={module.image}
                       alt={module.title}
-                      className="h-44 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 33vw"
+                      className="object-cover transition duration-500 group-hover:scale-[1.03]"
                     />
                   </div>
 
@@ -140,11 +145,13 @@ export default function FormationsPage() {
               </div>
             </div>
 
-            <div className="overflow-hidden border border-[#d5d9dc] bg-white shadow-sm rounded-lg">
-              <img
+            <div className="relative overflow-hidden border border-[#d5d9dc] bg-white shadow-sm rounded-lg min-h-[280px]">
+              <Image
                 src="https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=1400&auto=format&fit=crop"
                 alt="Equipe en atelier de formation"
-                className="h-full min-h-[280px] w-full object-cover"
+                fill
+                sizes="(max-width: 1024px) 100vw, 40vw"
+                className="object-cover"
               />
             </div>
           </section>

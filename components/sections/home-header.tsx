@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import Image from "next/image";
 import Link from "next/link";
 import { ChevronDown, LogIn, Menu, X } from "lucide-react";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
@@ -144,10 +145,13 @@ export function HomeHeader() {
             href="/"
             className="flex items-center gap-2.5 hover:opacity-85 transition-opacity duration-200"
           >
-            <img
+            <Image
               src="/logo jarvis.png"
               alt="Jarvis Connect"
+              width={100}
+              height={100}
               className="h-25 w-25 object-contain"
+              priority
             />
             <span className="text-sm font-bold uppercase tracking-[0.28em] text-white">
               Jarvis Connect

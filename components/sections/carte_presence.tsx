@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion, Transition, useInView } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
 
@@ -71,10 +72,13 @@ export function FranceMap() {
             transition={{ duration: 0.8 }}
           >
             <div className="relative group">
-              <img
+              <Image
                 src="/images/block/france_cartebis.jpg"
                 alt="Carte de France Jarvis Connect"
+                width={800}
+                height={1000}
                 className="relative w-full h-auto max-h-[500px] rounded-2xl object-contain"
+                sizes="(max-width: 1024px) 100vw, 42vw"
               />
             </div>
           </motion.div>

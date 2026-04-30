@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Tabs, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
 import { motion, AnimatePresence } from "motion/react";
@@ -215,11 +216,15 @@ const TabsFeaturettes = ({
                     >
                       <div className="absolute -inset-1 bg-gradient-to-r from-[#2aa0dd]/20 to-blue-400/20 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                       <div className="relative rounded-xl overflow-hidden border border-white/20 shadow-lg group-hover:shadow-2xl transition-shadow duration-300">
-                        <img
-                          src={active.content.imageSrc}
-                          alt={active.content.imageAlt}
-                          className="w-full h-[280px] object-cover group-hover:scale-110 transition-transform duration-500"
-                        />
+                        <div className="relative w-full h-[280px] overflow-hidden">
+                          <Image
+                            src={active.content.imageSrc}
+                            alt={active.content.imageAlt}
+                            fill
+                            sizes="(max-width: 1024px) 100vw, 50vw"
+                            className="object-cover group-hover:scale-110 transition-transform duration-500"
+                          />
+                        </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
                     </motion.div>

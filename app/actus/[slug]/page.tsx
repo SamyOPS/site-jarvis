@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowLeft } from "lucide-react";
@@ -231,11 +232,13 @@ export default function ActuDetailPage() {
           {item && (
             <article className="mt-6">
               {item.cover_image && (
-                <div className="mb-6 aspect-[16/9] overflow-hidden border border-slate-200 bg-slate-100 rounded-lg">
-                  <img
+                <div className="relative mb-6 aspect-[16/9] overflow-hidden border border-slate-200 bg-slate-100 rounded-lg">
+                  <Image
                     src={item.cover_image}
                     alt={item.title}
-                    className="h-full w-full object-cover"
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 800px"
+                    className="object-cover"
                   />
                 </div>
               )}

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@supabase/supabase-js";
@@ -45,11 +46,15 @@ function ServiceCard({ item, idx }: { item: GalleryItem; idx: number }) {
       onMouseLeave={() => setIsHovered(false)}
       style={{ position: "relative", cursor: "pointer", borderRadius: "10px", width: "100%" }}
     >
-      <img
-        src={item.image}
-        alt={item.title}
-        style={{ width: "100%", height: "260px", objectFit: "cover", display: "block", borderRadius: "10px" }}
-      />
+      <div style={{ position: "relative", width: "100%", height: "260px", borderRadius: "10px", overflow: "hidden" }}>
+        <Image
+          src={item.image}
+          alt={item.title}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+          style={{ objectFit: "cover" }}
+        />
+      </div>
 
       <motion.div
         animate={{ opacity: isHovered ? 0 : 1, y: isHovered ? 20 : 0 }}

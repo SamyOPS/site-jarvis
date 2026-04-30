@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
@@ -32,11 +33,15 @@ function NewsCard({ item, idx }: { item: NewsItem; idx: number }) {
       style={{ position: "relative", overflow: "hidden", cursor: "pointer", borderRadius: "10px", height: "380px" }}
     >
       {/* Image de fond */}
-      <img
-        src={item.cover_image ?? "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800"}
-        alt={item.title}
-        style={{ width: "100%", height: "260px", objectFit: "cover", display: "block", borderRadius: "10px" }}
-      />
+      <div style={{ position: "relative", width: "100%", height: "260px", borderRadius: "10px", overflow: "hidden" }}>
+        <Image
+          src={item.cover_image ?? "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800"}
+          alt={item.title}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+          style={{ objectFit: "cover" }}
+        />
+      </div>
 
       {/* État Normal : Titre et bouton gris */}
       <motion.div
