@@ -63,6 +63,17 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: softDeleteError.message }, { status: 400 });
   }
 
+  // Si le document est lié à un CRA, remettre le CRA en draft et casser le lien.
+  // Sinon le CRA reste avec status="validated" et bloque la création d'un nouveau CRA pour la période.
+  const { error: craResetError } = await authorized.adminClient
+    .from("cra_records")
+    .update({ status: "draft", employee_document_id: null, updated_at: now })
+    .eq("employee_document_id", document.id);
+
+  if (craResetError) {
+    return NextResponse.json({ error: craResetError.message }, { status: 400 });
+  }
+
   const normalizedPeriodMonth = document.period_month ?? null;
   const { error: requestError } = await authorized.adminClient
     .from("document_requests")

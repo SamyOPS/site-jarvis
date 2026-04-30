@@ -104,7 +104,7 @@ export async function POST(request: Request) {
 
     const { data: existingRecord, error: existingError } = await adminClient
       .from("cra_records")
-      .select("id,status")
+      .select("id,status,employee_document_id")
       .eq("employee_id", profile.id)
       .eq("period_month", periodMonth)
       .maybeSingle();
@@ -113,7 +113,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: existingError.message }, { status: 400 });
     }
 
-    if (existingRecord?.status === "validated") {
+    // Vérifie que le document lié au CRA "validé" existe encore et n'est pas en corbeille.
+    // Sinon on traite comme un CRA orphelin réutilisable.
+    let linkedDocumentAlive = false;
+    if (existingRecord?.status === "validated" && existingRecord.employee_document_id) {
+      const { data: linkedDoc } = await adminClient
+        .from("employee_documents")
+        .select("id,deleted_at")
+        .eq("id", existingRecord.employee_document_id)
+        .maybeSingle();
+      linkedDocumentAlive = Boolean(linkedDoc) && !linkedDoc?.deleted_at;
+    }
+
+    if (existingRecord?.status === "validated" && linkedDocumentAlive) {
       return NextResponse.json({ error: "Un CRA valide existe deja pour cette periode." }, { status: 400 });
     }
 

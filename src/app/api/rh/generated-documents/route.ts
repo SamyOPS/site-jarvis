@@ -202,7 +202,19 @@ export async function POST(request: Request) {
       if (existingCraError) {
         return NextResponse.json({ error: existingCraError.message }, { status: 400 });
       }
-      if (existingCra?.status === "validated") {
+
+      // Vérifie que le document lié au CRA "validé" est encore vivant. Sinon le CRA est orphelin et réutilisable.
+      let existingCraDocumentAlive = false;
+      if (existingCra?.status === "validated" && existingCra.employee_document_id) {
+        const { data: linkedDoc } = await auth.adminClient
+          .from("employee_documents")
+          .select("id,deleted_at")
+          .eq("id", existingCra.employee_document_id)
+          .maybeSingle();
+        existingCraDocumentAlive = Boolean(linkedDoc) && !linkedDoc?.deleted_at;
+      }
+
+      if (existingCra?.status === "validated" && existingCraDocumentAlive) {
         return NextResponse.json({ error: "Un CRA valide existe deja pour cette periode." }, { status: 400 });
       }
 
