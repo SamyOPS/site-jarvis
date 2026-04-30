@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"dynamic\\\\|lazy\\\\|React\\\\.lazy\" /c/Users/azeez/Desktop/site-jarvis --include=\"*.tsx\" --include=\"*.ts\" ! -path \"*/node_modules/*\")",
+      "Bash(grep -r \"next/dynamic\" /c/Users/azeez/Desktop/site-jarvis --include=\"*.tsx\" --include=\"*.ts\" ! -path \"*/node_modules/*\")",
+      "Bash(xargs head *)",
+      "Bash(npx tsc *)",
+      "Bash(npm uninstall *)"
+    ]
+  }
+}

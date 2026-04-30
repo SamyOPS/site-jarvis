@@ -1,14 +1,16 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import dynamic from "next/dynamic"
 import { createClient } from "@supabase/supabase-js"
 import { ArrowRight } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import Lottie from "lottie-react"
 import handshakeAnimation from "@/public/Hiring.json"
 import ContractFilter from "@/components/sections/liste_contrat"
 import OffreCard from "@/components/sections/offre_card"
+
+const Lottie = dynamic(() => import("lottie-react"), { ssr: false })
 
 interface Post {
   id: string

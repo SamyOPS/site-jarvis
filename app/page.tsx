@@ -18,7 +18,6 @@ import { HomeHeader } from "@/components/sections/home-header";
 
 import { Shield, Code2, Sparkles } from "lucide-react";
 import { FranceMap } from "@/components/sections/carte_presence";
-import "leaflet/dist/leaflet.css";
 
 
 

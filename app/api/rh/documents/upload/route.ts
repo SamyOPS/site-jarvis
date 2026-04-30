@@ -1,55 +1,15 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-function getClients() {
-  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
-    throw new Error("Variables Supabase serveur manquantes.");
-  }
-
-  return {
-    authClient: createClient(supabaseUrl, supabaseAnonKey),
-    adminClient: createClient(supabaseUrl, supabaseServiceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    }),
-  };
-}
-
-async function getAuthorizedActor(accessToken: string) {
-  const { authClient, adminClient } = getClients();
-  const {
-    data: { user },
-    error: authError,
-  } = await authClient.auth.getUser(accessToken);
-
-  if (authError || !user) {
-    return { error: authError?.message ?? "Utilisateur non authentifie.", status: 401 as const };
-  }
-
-  const { data: actorProfile, error: actorError } = await adminClient
-    .from("profiles")
-    .select("id,role,professional_status")
-    .eq("id", user.id)
-    .single();
-
-  if (actorError || !actorProfile || !["rh", "admin"].includes(actorProfile.role ?? "")) {
-    return { error: "Acces refuse.", status: 403 as const };
-  }
-
-  if (actorProfile.role !== "admin" && actorProfile.professional_status !== "verified") {
-    return { error: "Compte non verifie.", status: 403 as const };
-  }
-
-  return { adminClient, user, actorProfile };
-}
+import {
+  getAccessTokenFromRequest,
+  getAuthorizedActor,
+  isAuthorizedActorError,
+} from "@/lib/server-supabase";
 
 async function canRhAccessEmployee(
-  adminClient: ReturnType<typeof getClients>["adminClient"],
+  adminClient: SupabaseClient,
   rhId: string,
   employeeId: string,
 ) {
@@ -77,17 +37,16 @@ async function canRhAccessEmployee(
 
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const accessToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const accessToken = getAccessTokenFromRequest(request);
     if (!accessToken) {
       return NextResponse.json({ error: "Session RH manquante." }, { status: 401 });
     }
 
-    const authorized = await getAuthorizedActor(accessToken);
-    if ("error" in authorized) {
+    const authorized = await getAuthorizedActor(accessToken, ["rh", "admin"]);
+    if (isAuthorizedActorError(authorized)) {
       return NextResponse.json({ error: authorized.error }, { status: authorized.status });
     }
-    const { adminClient, user, actorProfile } = authorized;
+    const { adminClient, user, profile: actorProfile } = authorized;
 
     const formData = await request.formData();
     const requestedEmployeeId = String(formData.get("employeeId") ?? "");
@@ -236,17 +195,16 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const accessToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const accessToken = getAccessTokenFromRequest(request);
     if (!accessToken) {
       return NextResponse.json({ error: "Session RH manquante." }, { status: 401 });
     }
 
-    const authorized = await getAuthorizedActor(accessToken);
-    if ("error" in authorized) {
+    const authorized = await getAuthorizedActor(accessToken, ["rh", "admin"]);
+    if (isAuthorizedActorError(authorized)) {
       return NextResponse.json({ error: authorized.error }, { status: authorized.status });
     }
-    const { adminClient, user, actorProfile } = authorized;
+    const { adminClient, user, profile: actorProfile } = authorized;
 
     const body = (await request.json().catch(() => null)) as { documentId?: string; permanent?: boolean } | null;
     const documentId = body?.documentId ?? "";
@@ -355,17 +313,16 @@ export async function DELETE(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const accessToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const accessToken = getAccessTokenFromRequest(request);
     if (!accessToken) {
       return NextResponse.json({ error: "Session RH manquante." }, { status: 401 });
     }
 
-    const authorized = await getAuthorizedActor(accessToken);
-    if ("error" in authorized) {
+    const authorized = await getAuthorizedActor(accessToken, ["rh", "admin"]);
+    if (isAuthorizedActorError(authorized)) {
       return NextResponse.json({ error: authorized.error }, { status: authorized.status });
     }
-    const { adminClient, user, actorProfile } = authorized;
+    const { adminClient, user, profile: actorProfile } = authorized;
 
     const body = (await request.json().catch(() => null)) as { documentId?: string } | null;
     const documentId = body?.documentId ?? "";
