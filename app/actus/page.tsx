@@ -30,7 +30,6 @@ function NewsCard({ item, idx }: { item: NewsItem; idx: number }) {
       transition={{ duration: 0.5, delay: idx * 0.08 }}
       style={{ position: "relative", cursor: "pointer", borderRadius: "10px", overflow: "hidden" }}
     >
-      {/* Image */}
       <img
         src={item.cover_image ?? "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800"}
         alt={item.title}
@@ -38,7 +37,6 @@ function NewsCard({ item, idx }: { item: NewsItem; idx: number }) {
         style={{ width: "100%", height: "260px", objectFit: "cover", display: "block", borderRadius: "10px" }}
       />
 
-      {/* Label visible par défaut */}
       <div
         className="transition-all duration-300 group-hover:opacity-0 group-hover:translate-y-4"
         style={{ marginTop: "-30px", textAlign: "center", position: "relative", zIndex: 2 }}
@@ -51,7 +49,6 @@ function NewsCard({ item, idx }: { item: NewsItem; idx: number }) {
         </Link>
       </div>
 
-      {/* Overlay CSS pur — pas de flickering */}
       <div
         className="absolute left-[30px] right-[30px] translate-y-0 opacity-100 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 ease-out md:translate-y-full md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 overflow-y-auto md:overflow-visible"
         style={{ bottom: "0px", background: "#0A1A2F", borderRadius: "10px", padding: "24px 20px", textAlign: "center", zIndex: 3, maxHeight: '300px' }}
@@ -107,7 +104,6 @@ export default function ActusPage() {
       <div className="min-h-screen bg-white text-[#0A1A2F]">
         <HomeHeader />
 
-        {/* Hero */}
         <div className="bg-[#0A1A2F] py-24 px-6 text-center">
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white mb-4">
             Actualités de Jarvis Connect
