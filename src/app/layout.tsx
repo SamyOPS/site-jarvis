@@ -24,6 +24,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Jarvis Connect",
   description: "Description de Jarvis",
+   icons: {
+    icon: '/favicon.ico?v=2',
+  },
 };
 
 export default function RootLayout({
