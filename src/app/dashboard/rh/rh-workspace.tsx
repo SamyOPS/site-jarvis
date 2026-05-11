@@ -4,15 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Session, User } from "@supabase/supabase-js";
-import { ChevronDown, LogOut, Pencil, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, Pencil, Search, SlidersHorizontal } from "lucide-react";
 
 import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
+import { DashboardMobileHeader } from "@/components/dashboard/mobile-header";
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { RhOffersSection } from "@/components/dashboard/rh-offers-section";
 import { RhDocumentsSection } from "@/components/dashboard/rh-documents-section";
 import { DashboardProfileMenu } from "@/components/dashboard/profile-menu";
 import { RhOverviewSection } from "@/components/dashboard/rh-overview-section";
+import { RhSidebarNav } from "@/components/dashboard/rh/sidebar-nav";
 import { RhSettingsSection } from "@/components/dashboard/rh-settings-section";
 import { StatusNotice } from "@/components/dashboard/status-notice";
 import { Button } from "@/components/ui/button";
@@ -1515,9 +1517,18 @@ export default function RhWorkspace({
     await refreshDashboardData();
   }, [refreshDashboardData, session]);
 
-  const getSignedDocumentUrl = useCallback(async (document: RHDocumentRow) => {
+  const getSignedDocumentUrl = useCallback(async (
+    document: RHDocumentRow,
+    options?: { download?: string },
+  ) => {
     if (!supabase || !document.storagePath) return;
-    const { data, error: downloadError } = await supabase.storage.from(document.storageBucket).createSignedUrl(document.storagePath, 60);
+    const { data, error: downloadError } = await supabase.storage
+      .from(document.storageBucket)
+      .createSignedUrl(
+        document.storagePath,
+        60,
+        options?.download ? { download: options.download } : undefined,
+      );
     if (downloadError || !data?.signedUrl) {
       throw new Error(downloadError?.message ?? "Impossible de generer le lien de telechargement.");
     }
@@ -1550,18 +1561,17 @@ export default function RhWorkspace({
     try {
       setDownloadingDocumentId(document.id);
       setSaveMessage(null);
-      const signedUrl = await getSignedDocumentUrl(document);
+      const signedUrl = await getSignedDocumentUrl(document, { download: document.fileName });
       if (!signedUrl) {
         return;
       }
 
       const link = window.document.createElement("a");
       link.href = signedUrl;
-      link.download = document.fileName;
       link.rel = "noopener noreferrer";
       window.document.body.appendChild(link);
       link.click();
-      window.document.body.removeChild(link);
+      link.remove();
     } catch (error) {
       setSaveMessage(error instanceof Error ? error.message : "Impossible de telecharger le document.");
     } finally {
@@ -1699,58 +1709,37 @@ export default function RhWorkspace({
   }, [passwordForm]);
 
   return (
-    <div className="h-screen overflow-hidden bg-[#f3f6fc] text-[#0A1A2F]">
+    <div className="h-[100dvh] overflow-hidden bg-[#f3f6fc] text-[#0A1A2F]">
       <div className="relative h-full">
         <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[232px]">
-          <div className="flex h-full flex-col gap-4 px-4 py-5">
-            <Link href="/" className="block rounded-2xl px-2 py-1 transition hover:bg-white/60">
-              <p className="text-lg font-semibold tracking-tight text-[#0A1A2F]">Jarvis Connect</p>
-            </Link>
-            <nav className="mt-5 space-y-1 text-sm">
-              <Link href="/dashboard/rh" className={`block px-1 py-2 hover:underline ${currentSection === "overview" ? "font-semibold" : ""}`}>Vue d&apos;ensemble</Link>
-              <Link href="/dashboard/rh/collaborateurs" className={`block px-1 py-2 hover:underline ${currentSection === "collaborateurs" ? "font-semibold" : ""}`}>Collaborateurs</Link>
-              {currentSection === "collaborateurs" && (
-                <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
-                  <Link href="/dashboard/rh/collaborateurs" className={`block py-1 ${currentSubSection === "collab_tous" ? "font-semibold" : ""}`}>Tous les collaborateurs</Link>
-                  <Link href="/dashboard/rh/collaborateurs/actifs" className={`block py-1 ${currentSubSection === "collab_actifs" ? "font-semibold" : ""}`}>Actifs</Link>
-                  <Link href="/dashboard/rh/collaborateurs/inactifs" className={`block py-1 ${currentSubSection === "collab_inactifs" ? "font-semibold" : ""}`}>Inactifs / Sortants</Link>
-                  {currentSubSection === "collab_detail" && <span className="block py-1 font-semibold">Fiche collaborateur</span>}
-                </div>
-              )}
-              <Link href="/dashboard/rh/documents" className={`block px-1 py-2 hover:underline ${currentSection === "documents" ? "font-semibold" : ""}`}>Documents</Link>
-	              {currentSection === "documents" && (
-	                <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
-	                  <Link href="/dashboard/rh/documents/tous" className={`block py-1 ${currentSubSection === "docs_all" ? "font-semibold" : ""}`}>Tous les documents</Link>
-	                  <Link href="/dashboard/rh/documents/cra-facture" className={`block py-1 ${currentSubSection === "docs_cra_facture" ? "font-semibold" : ""}`}>CRA & Facture</Link>
-	                  <Link href="/dashboard/rh/documents/a-valider" className={`block py-1 ${currentSubSection === "docs_a_valider" ? "font-semibold" : ""}`}>A valider</Link>
-	                  <Link href="/dashboard/rh/documents/mes-demandes" className={`block py-1 ${currentSubSection === "docs_mes_demandes" ? "font-semibold" : ""}`}>Mes demandes</Link>
-	                  <Link href="/dashboard/rh/documents/corbeille" className={`block py-1 ${currentSubSection === "docs_corbeille" ? "font-semibold" : ""}`}>Corbeille</Link>
-	                </div>
-	              )}
-
-          {currentSection === "offres" && (
-                <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
-                  <Link href="/dashboard/rh/offres" className={`block py-1 ${currentSubSection === "offres_actives" ? "font-semibold" : ""}`}>Offres actives</Link>
-                  <Link href="/dashboard/rh/offres/candidatures" className={`block py-1 ${currentSubSection === "offres_candidatures" ? "font-semibold" : ""}`}>Candidatures</Link>
-                  <Link href="/dashboard/rh/offres/archives" className={`block py-1 ${currentSubSection === "offres_archives" ? "font-semibold" : ""}`}>Archives</Link>
-                  <Link href="/dashboard/rh/offres/creer" className={`block py-1 ${currentSubSection === "offres_creer" ? "font-semibold" : ""}`}>Creer une offre</Link>
-                </div>
-              )}
-            </nav>
-            <div className="mt-auto space-y-1">
-              <button type="button" className="flex items-center px-1 py-2 text-sm hover:underline" onClick={() => void handleSignOut()}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Deconnexion
-              </button>
-            </div>
-          </div>
+          <RhSidebarNav
+            currentSection={currentSection}
+            currentSubSection={currentSubSection}
+            onSignOut={handleSignOut}
+          />
         </aside>
 
         <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[48px]">
           <div className="flex h-full items-stretch justify-center px-2 py-5" />
         </aside>
 
-        <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[48px] lg:px-3 lg:py-3">
+        <main className="flex h-full flex-col overflow-hidden px-3 py-2 lg:ml-[232px] lg:mr-[48px] lg:px-3 lg:py-3">
+          <DashboardMobileHeader
+            brand="Jarvis Connect"
+            email={profile?.email ?? user?.email ?? "-"}
+            displayName={displayName}
+            roleLabel="Espace RH"
+            settingsHref="/dashboard/rh/parametres"
+            settingsActive={currentSection === "parametres"}
+            onSignOut={handleSignOut}
+            renderNav={() => (
+              <RhSidebarNav
+                currentSection={currentSection}
+                currentSubSection={currentSubSection}
+                onSignOut={handleSignOut}
+              />
+            )}
+          />
           <div className="hidden lg:flex items-center rounded-[22px] px-2 py-1.5">
             <div className="flex min-w-0 flex-1 items-center">
               <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 backdrop-blur">
@@ -1935,7 +1924,7 @@ export default function RhWorkspace({
                           <div>
                             <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Ville / Code postal / Pays</p>
                             {isBillingProfileEditMode ? (
-                              <div className="mt-1 grid grid-cols-3 gap-2">
+                              <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-3">
                                 <input value={activeBillingProfileDraft.postalCode} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, postalCode: event.target.value } }))} className="h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" placeholder="Code postal" />
                                 <input value={activeBillingProfileDraft.city} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, city: event.target.value } }))} className="h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" placeholder="Ville" />
                                 <input value={activeBillingProfileDraft.country} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, country: event.target.value } }))} className="h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" placeholder="Pays" />

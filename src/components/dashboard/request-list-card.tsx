@@ -26,7 +26,7 @@ export function RequestListCard({
 }: RequestListCardProps) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3">
+      <CardHeader className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>{title}</CardTitle>
         {action}
       </CardHeader>
@@ -34,14 +34,14 @@ export function RequestListCard({
         {items.length ? (
           items.map((item) => (
             <div key={item.id} className="rounded-lg border border-slate-200 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
                   <p className="font-medium">{item.title}</p>
                   {item.meta ? (
                     <p className="text-sm text-[#0A1A2F]/70">{item.meta}</p>
                   ) : null}
                 </div>
-                <Badge variant="outline">{item.status}</Badge>
+                <Badge variant="outline" className="self-start sm:self-auto shrink-0">{item.status}</Badge>
               </div>
               {item.note ? (
                 <p className="mt-2 text-sm text-[#0A1A2F]/75">{item.note}</p>

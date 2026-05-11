@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import type { Session, User } from "@supabase/supabase-js";
-import { LogOut, Search, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal } from "lucide-react";
 
 import type { BillingProfileFormState } from "@/components/dashboard/billing-profile-card";
 import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
+import { DashboardMobileHeader } from "@/components/dashboard/mobile-header";
 import { DashboardProfileMenu } from "@/components/dashboard/profile-menu";
+import { SalarieSidebarNav } from "@/components/dashboard/salarie/sidebar-nav";
 import { SalarieDocumentsSection } from "@/components/dashboard/salarie-documents-section";
 import { SalarieOffersSection } from "@/components/dashboard/salarie-offers-section";
 import { SalarieOverviewSection } from "@/components/dashboard/salarie-overview-section";
@@ -1083,9 +1084,18 @@ export default function SalarieWorkspace({
     await loadDashboardData(profile.id);
   }, [loadDashboardData, profile]);
 
-  const getSignedDocumentUrl = useCallback(async (document: DocumentRow) => {
+  const getSignedDocumentUrl = useCallback(async (
+    document: DocumentRow,
+    options?: { download?: string },
+  ) => {
     if (!supabase || !document.storagePath) return;
-    const { data, error: downloadError } = await supabase.storage.from(document.storageBucket).createSignedUrl(document.storagePath, 60);
+    const { data, error: downloadError } = await supabase.storage
+      .from(document.storageBucket)
+      .createSignedUrl(
+        document.storagePath,
+        60,
+        options?.download ? { download: options.download } : undefined,
+      );
     if (downloadError || !data?.signedUrl) {
       throw new Error(downloadError?.message ?? "Impossible de generer le lien de telechargement.");
     }
@@ -1118,14 +1128,13 @@ export default function SalarieWorkspace({
     try {
       setDownloadingDocumentId(document.id);
       setActionMessage(null);
-      const signedUrl = await getSignedDocumentUrl(document);
+      const signedUrl = await getSignedDocumentUrl(document, { download: document.fileName });
       if (!signedUrl) {
         return;
       }
 
       const link = window.document.createElement("a");
       link.href = signedUrl;
-      link.download = document.fileName;
       link.rel = "noopener noreferrer";
       window.document.body.appendChild(link);
       link.click();
@@ -1513,47 +1522,37 @@ export default function SalarieWorkspace({
   }, [currentSection, currentSubSection, loadBillingProfile, loadCraItems, profile]);
 
   return (
-    <div className="h-screen overflow-hidden bg-[#f3f6fc] text-[#0A1A2F]">
+    <div className="h-[100dvh] overflow-hidden bg-[#f3f6fc] text-[#0A1A2F]">
       <div className="relative h-full">
         <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[232px]">
-          <div className="flex h-full flex-col gap-4 px-4 py-5">
-            <Link href="/" className="block rounded-2xl px-2 py-1 transition hover:bg-white/60">
-              <p className="text-lg font-semibold tracking-tight text-[#0A1A2F]">Jarvis Connect</p>
-            </Link>
-            <nav className="mt-5 space-y-1 text-sm">
-              <Link href="/dashboard/salarie" className={`block px-1 py-2 hover:underline ${currentSection === "overview" ? "font-semibold" : ""}`}>Vue d&apos;ensemble</Link>
-              <Link href="/dashboard/salarie/documents" className={`block px-1 py-2 hover:underline ${currentSection === "documents" ? "font-semibold" : ""}`}>Mes documents</Link>
-              {currentSection === "documents" && (
-                <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
-                  <Link href="/dashboard/salarie/documents/a-deposer" className={`block py-1 ${currentSubSection === "docs_a_deposer" ? "font-semibold" : ""}`}>A deposer</Link>
-                  <Link href="/dashboard/salarie/documents" className={`block py-1 ${currentSubSection === "docs_tous" ? "font-semibold" : ""}`}>Tous mes documents</Link>
-                  <Link href="/dashboard/salarie/documents/cra-facture" className={`block py-1 ${currentSubSection === "docs_cra_facture" ? "font-semibold" : ""}`}>CRA & Facture</Link>
-                  <Link href="/dashboard/salarie/documents/corbeille" className={`block py-1 ${currentSubSection === "docs_corbeille" ? "font-semibold" : ""}`}>Corbeille</Link>
-                </div>
-              )}
-              <Link href="/dashboard/salarie/offres" className={`block px-1 py-2 hover:underline ${currentSection === "offres" ? "font-semibold" : ""}`}>Offres d&apos;emploi</Link>
-              {currentSection === "offres" && (
-                <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
-                  <Link href="/dashboard/salarie/offres" className={`block py-1 ${currentSubSection === "offres_toutes" ? "font-semibold" : ""}`}>Toutes les offres</Link>
-                  <Link href="/dashboard/salarie/candidatures" className={`block py-1 ${currentSubSection === "candidatures" ? "font-semibold" : ""}`}>Mes candidatures</Link>
-                  <Link href="/dashboard/salarie/cv" className={`block py-1 ${currentSubSection === "cvs" ? "font-semibold" : ""}`}>Mes CVs</Link>
-                </div>
-              )}
-            </nav>
-            <div className="mt-auto space-y-1">
-              <button type="button" className="flex items-center px-1 py-2 text-sm hover:underline" onClick={() => void handleSignOut()}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Deconnexion
-              </button>
-            </div>
-          </div>
+          <SalarieSidebarNav
+            currentSection={currentSection}
+            currentSubSection={currentSubSection}
+            onSignOut={handleSignOut}
+          />
         </aside>
 
         <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[48px]">
           <div className="flex h-full items-stretch justify-center px-2 py-5" />
         </aside>
 
-        <main className="flex h-full flex-col overflow-hidden px-2 py-2 lg:ml-[232px] lg:mr-[48px] lg:px-3 lg:py-3">
+        <main className="flex h-full flex-col overflow-hidden px-3 py-2 lg:ml-[232px] lg:mr-[48px] lg:px-3 lg:py-3">
+          <DashboardMobileHeader
+            brand="Jarvis Connect"
+            email={profile?.email ?? user?.email ?? "-"}
+            displayName={displayName}
+            roleLabel="Espace salarie"
+            settingsHref="/dashboard/salarie/parametres"
+            settingsActive={currentSection === "parametres"}
+            onSignOut={handleSignOut}
+            renderNav={() => (
+              <SalarieSidebarNav
+                currentSection={currentSection}
+                currentSubSection={currentSubSection}
+                onSignOut={handleSignOut}
+              />
+            )}
+          />
           <div className="hidden lg:flex items-center rounded-[22px] px-2 py-1.5">
             <div className="flex min-w-0 flex-1 items-center">
               <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 backdrop-blur">

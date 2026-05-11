@@ -31,14 +31,20 @@ export function PasswordUpdateCard({
 }: PasswordUpdateCardProps) {
   return (
     <Card className={className}>
-      <CardHeader className="flex flex-row items-center justify-between gap-3">
+      <CardHeader className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle>Mot de passe</CardTitle>
           <p className="mt-1 text-sm text-[#0A1A2F]/70">
             Modifie le mot de passe utilise pour te connecter.
           </p>
         </div>
-        <Button type="button" size="sm" onClick={() => void onSubmit()} disabled={saving}>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => void onSubmit()}
+          disabled={saving}
+          className="self-start sm:self-auto"
+        >
           {saving ? "Enregistrement..." : "Mettre a jour"}
         </Button>
       </CardHeader>
