@@ -378,9 +378,9 @@ export function RhDocumentsSection({
 
   return (
     <section className="space-y-2">
-      <div className="flex flex-row items-center justify-between gap-3">
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
         {isRhDocumentsDropdownSection ? (
-          <div ref={documentsMenuRef} className="relative">
+          <div ref={documentsMenuRef} className="relative min-w-0 max-w-full">
             {isRhFoldersSection && showRhFolderTrash ? (
               <button
                 type="button"
@@ -393,11 +393,11 @@ export function RhDocumentsSection({
                 <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
               </button>
             ) : isRhFoldersSection && rhFolderPath.length > 0 ? (
-              <div className="flex items-center gap-2 text-lg font-semibold text-[#0A1A2F]">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold text-[#0A1A2F] sm:text-lg">
                 <button
                   type="button"
                   onClick={() => onRhNavigateFolder(null)}
-                  className="rounded-lg px-2 py-1 transition hover:bg-slate-100"
+                  className="max-w-full truncate rounded-lg px-2 py-1 transition hover:bg-slate-100"
                   onDragOver={(event) => {
                     const draggedDocument = getDraggedRhDocument(event);
                     if (!draggedDocument) return;

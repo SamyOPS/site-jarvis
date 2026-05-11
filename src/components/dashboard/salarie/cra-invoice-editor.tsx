@@ -77,7 +77,7 @@ export function SalarieCraInvoiceEditor({
 
       <div className="max-w-5xl">
         <Card className="border-0 shadow-none">
-          <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardHeader className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="text-base">
                 {selectedCraId ? "CRA en cours" : "Nouveau CRA"}
@@ -208,8 +208,8 @@ export function SalarieCraInvoiceEditor({
                 </div>
                 <Badge variant="outline">{craEntries.length} selection(s)</Badge>
               </div>
-              <div className="rounded-xl bg-slate-50/70 p-4">
-                <div className="mb-3 grid grid-cols-7 gap-2">
+              <div className="rounded-xl bg-slate-50/70 p-2 sm:p-4">
+                <div className="mb-3 grid grid-cols-7 gap-1 sm:gap-2">
                   {weekdayLabels.map((label) => (
                     <div
                       key={label}
@@ -219,7 +219,7 @@ export function SalarieCraInvoiceEditor({
                     </div>
                   ))}
                 </div>
-                <div className="grid grid-cols-7 gap-2">
+                <div className="grid grid-cols-7 gap-1 sm:gap-2">
                   {craCalendarCells.map((cell, index) => {
                     const isoDate = cell.isoDate;
                     const dayNumber = cell.dayNumber;

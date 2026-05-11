@@ -65,14 +65,20 @@ export function BillingProfileCard({
 }: BillingProfileCardProps) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3">
+      <CardHeader className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle>Profil de facturation</CardTitle>
           <p className="mt-1 text-sm text-[#0A1A2F]/70">
             Ces informations sont utilisees pour le CRA et les futurs flux de facturation.
           </p>
         </div>
-        <Button type="button" size="sm" onClick={() => void onSubmit()} disabled={saving || loading}>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => void onSubmit()}
+          disabled={saving || loading}
+          className="self-start sm:self-auto"
+        >
           {saving ? "Enregistrement..." : "Enregistrer"}
         </Button>
       </CardHeader>

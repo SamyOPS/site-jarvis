@@ -119,13 +119,16 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
         <table className="min-w-full table-fixed text-sm">
           <thead className="border-b border-slate-200 bg-slate-50/70 text-left text-xs font-medium text-[#0A1A2F]/70">
             <tr>
-              <th className="px-4 py-3 font-medium">Nom</th>
+              <th className="px-3 py-3 font-medium sm:px-4">Nom</th>
               {activeColumns.map((column) => (
-                <th key={column.key} className={`${column.widthClass} px-4 py-3 font-medium`}>
+                <th
+                  key={column.key}
+                  className={`${column.widthClass} hidden px-4 py-3 font-medium sm:table-cell`}
+                >
                   {column.label}
                 </th>
               ))}
-              <th className="w-[200px] px-4 py-3 font-medium text-right">Actions</th>
+              <th className="w-auto px-3 py-3 font-medium text-right sm:w-[200px] sm:px-4">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
@@ -185,7 +188,7 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
                     void onItemDrop(item, draggedId);
                   }}
                 >
-                  <td className="px-4 py-3 align-middle">
+                  <td className="px-3 py-3 align-middle sm:px-4">
                     <div className="flex items-start gap-3">
                       <div className="mt-0.5 shrink-0">{getFileIcon(item.fileName, item.typeLabel)}</div>
                       <div className="min-w-0">
@@ -215,7 +218,7 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
                   </td>
 
                   {visibleColumns.includes("type") ? (
-                    <td className="px-4 py-3 align-middle">
+                    <td className="hidden px-4 py-3 align-middle sm:table-cell">
                       <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-[#0A1A2F]/75">
                         {item.typeLabel}
                       </span>
@@ -223,7 +226,7 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
                   ) : null}
 
                   {visibleColumns.includes("status") ? (
-                    <td className="px-4 py-3 align-middle">
+                    <td className="hidden px-4 py-3 align-middle sm:table-cell">
                       {item.statusLabel ? (
                         <span
                           className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusBadgeClass(item.statusLabel)}`}
@@ -237,30 +240,30 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
                   ) : null}
 
                   {visibleColumns.includes("period") ? (
-                    <td className="px-4 py-3 align-middle text-[#0A1A2F]/80">
+                    <td className="hidden px-4 py-3 align-middle text-[#0A1A2F]/80 sm:table-cell">
                       {item.periodLabel ?? "-"}
                     </td>
                   ) : null}
 
                   {visibleColumns.includes("owner") ? (
-                    <td className="px-4 py-3 align-middle">
+                    <td className="hidden px-4 py-3 align-middle sm:table-cell">
                       <span className="truncate text-[#0A1A2F]/80">{item.ownerName}</span>
                     </td>
                   ) : null}
 
                   {visibleColumns.includes("createdAt") ? (
-                    <td className="px-4 py-3 align-middle text-[#0A1A2F]/70">
+                    <td className="hidden px-4 py-3 align-middle text-[#0A1A2F]/70 sm:table-cell">
                       {formatCreatedDate(item.createdAt)}
                     </td>
                   ) : null}
 
                   {visibleColumns.includes("size") ? (
-                    <td className="px-4 py-3 align-middle text-[#0A1A2F]/70">
+                    <td className="hidden px-4 py-3 align-middle text-[#0A1A2F]/70 sm:table-cell">
                       {formatFileSize(item.sizeBytes)}
                     </td>
                   ) : null}
 
-                  <td className="px-4 py-3 align-middle">
+                  <td className="px-3 py-3 align-middle sm:px-4">
                     <div className="flex justify-end">
                       {renderActionCell ? (
                         renderActionCell(item)
@@ -285,7 +288,7 @@ export function DashboardDocumentList<T extends DashboardDocumentListItem>({
                 </tr>
                 {actionMenuId === item.id ? (
                   <tr className="bg-slate-50/70">
-                    <td colSpan={activeColumns.length + 2} className="px-4 py-3">
+                    <td colSpan={activeColumns.length + 2} className="px-3 py-3 sm:px-4">
                       {item.hideDetailsPanel ? (
                         <div className="flex flex-col items-stretch gap-2 md:max-w-[340px]">
                           {renderActions ? renderActions(item, () => setActionMenuId(null)) : null}

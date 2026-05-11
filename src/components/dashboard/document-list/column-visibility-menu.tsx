@@ -47,8 +47,8 @@ export function ColumnVisibilityMenu({
     <div
       className={
         placement === "inline"
-          ? "absolute right-0 -top-9 z-20"
-          : "mb-2 flex justify-end"
+          ? "absolute right-0 -top-9 z-20 hidden sm:block"
+          : "mb-2 hidden justify-end sm:flex"
       }
       ref={menuRef}
     >

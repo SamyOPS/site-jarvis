@@ -261,6 +261,14 @@ export async function DELETE(request: Request) {
       if (documentSoftDeleteError) {
         return NextResponse.json({ error: documentSoftDeleteError.message }, { status: 400 });
       }
+      // Si le document est un CRA, casser le lien et remettre en draft pour permettre une recréation.
+      const { error: craResetError } = await adminClient
+        .from("cra_records")
+        .update({ status: "draft", employee_document_id: null, updated_at: now })
+        .eq("employee_document_id", documentId);
+      if (craResetError) {
+        return NextResponse.json({ error: craResetError.message }, { status: 400 });
+      }
       if (matchingRequest) {
         const { error: requestUpdateError } = await adminClient
           .from("document_requests")
@@ -283,6 +291,15 @@ export async function DELETE(request: Request) {
     const { error: eventsDeleteError } = await adminClient.from("document_events").delete().eq("document_id", documentId);
     if (eventsDeleteError) {
       return NextResponse.json({ error: eventsDeleteError.message }, { status: 400 });
+    }
+
+    // Casser le lien dans cra_records avant de hard-delete, sinon FK orpheline ou reset bloqué.
+    const { error: craUnlinkError } = await adminClient
+      .from("cra_records")
+      .update({ status: "draft", employee_document_id: null, updated_at: now })
+      .eq("employee_document_id", documentId);
+    if (craUnlinkError) {
+      return NextResponse.json({ error: craUnlinkError.message }, { status: 400 });
     }
 
     const { error: documentDeleteError } = await adminClient.from("employee_documents").delete().eq("id", documentId);

@@ -302,7 +302,7 @@ export function SalarieDocumentsSection({
     <section className="space-y-4">
       <div className="flex flex-row items-center justify-between gap-3">
         {currentSubSection === "docs_tous" ? (
-          <div ref={documentsMenuRef} className="relative">
+          <div ref={documentsMenuRef} className="relative min-w-0 max-w-full">
             {showFolderTrash ? (
               <button
                 type="button"
@@ -326,11 +326,11 @@ export function SalarieDocumentsSection({
                 <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
               </button>
             ) : (
-              <div className="flex items-center gap-2 text-lg font-semibold text-[#0A1A2F]">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold text-[#0A1A2F] sm:text-lg">
                 <button
                   type="button"
                   onClick={() => onNavigateFolder(null)}
-                  className="rounded-lg px-2 py-1 transition hover:bg-slate-100"
+                  className="max-w-full truncate rounded-lg px-2 py-1 transition hover:bg-slate-100"
                   onDragOver={(event) => {
                     const draggedDocument = getDraggedDocument(event);
                     if (!draggedDocument) return;

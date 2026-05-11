@@ -113,6 +113,18 @@ export async function DELETE(request: Request, context: RouteContext) {
         }
       }
 
+      // Casser le lien cra_records.employee_document_id avant de hard-delete les documents.
+      const nowIso = new Date().toISOString();
+      for (const idsChunk of chunkArray(documentIds, 500)) {
+        const { error: craUnlinkError } = await auth.adminClient
+          .from("cra_records")
+          .update({ status: "draft", employee_document_id: null, updated_at: nowIso })
+          .in("employee_document_id", idsChunk);
+        if (craUnlinkError) {
+          return NextResponse.json({ error: craUnlinkError.message }, { status: 400 });
+        }
+      }
+
       for (const idsChunk of chunkArray(documentIds, 500)) {
         const { error: documentsDeleteError } = await auth.adminClient
           .from("employee_documents")
