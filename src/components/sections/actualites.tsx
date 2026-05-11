@@ -32,7 +32,6 @@ const fallbackItems: GalleryItem[] = [
   { id: "item-6", title: "IA et automatisation", summary: "Integration de l IA dans vos processus metiers pour gagner en productivite et fiabilite.", url: "#", image: "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?auto=format&fit=crop&w=800&q=80" },
 ];
 
-// Toutes les cartes s'affichent comme articles normaux — la vidéo est dans le détail
 function ServiceCard({ item, idx }: { item: GalleryItem; idx: number }) {
   return (
     <motion.div
@@ -127,7 +126,6 @@ const Actualites = ({
     fetchNews();
   }, [items]);
 
-  // Toutes les actus s'affichent, pas de filtre — la vidéo est uniquement dans le détail
   const displayItems = useMemo(() => {
     return items && items.length > 0 ? items : remoteItems.length > 0 ? remoteItems : loading ? [] : fallbackItems;
   }, [items, remoteItems, loading]);
