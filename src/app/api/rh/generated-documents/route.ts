@@ -5,8 +5,31 @@ import path from "node:path";
 import { canManageOwner, getAuthorizedDocumentsContext } from "@/app/api/documents/_shared";
 import { buildCraPdfBuffer } from "@/lib/cra-pdf";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
+import { notifyEmployeeOfDocument } from "@/lib/email";
 import { buildInvoicePdfBuffer } from "@/lib/invoice-pdf";
 import { toDocumentDate, toIsoMonthStart } from "@/lib/server-supabase";
+
+async function notifyEmployeeForGeneratedDocument(
+  adminClient: any,
+  params: { employeeId: string; actorId: string; documentLabel: string; periodMonth: string | null },
+) {
+  try {
+    const [{ data: employee }, { data: actor }] = await Promise.all([
+      adminClient.from("profiles").select("email,full_name").eq("id", params.employeeId).single(),
+      adminClient.from("profiles").select("full_name,email").eq("id", params.actorId).single(),
+    ]);
+    if (!employee?.email) return;
+    await notifyEmployeeOfDocument({
+      employeeEmail: employee.email,
+      employeeName: employee.full_name,
+      documentLabel: params.documentLabel,
+      periodMonth: params.periodMonth,
+      uploaderName: actor?.full_name ?? actor?.email ?? null,
+    });
+  } catch (error) {
+    console.error("[email] notify employee (generated) failed", error);
+  }
+}
 
 export const runtime = "nodejs";
 
@@ -183,7 +206,7 @@ export async function POST(request: Request) {
       );
       const { data: documentType, error: typeError } = await auth.adminClient
         .from("document_types")
-        .select("id,active")
+        .select("id,label,active")
         .eq("code", "cra")
         .single();
 
@@ -420,12 +443,19 @@ export async function POST(request: Request) {
         },
       });
 
+      await notifyEmployeeForGeneratedDocument(auth.adminClient, {
+        employeeId,
+        actorId: auth.actorId,
+        documentLabel: documentType.label,
+        periodMonth: periodStart,
+      });
+
       return NextResponse.json({ success: true, kind: "cra", documentId, craId });
     }
 
     const { data: documentType, error: typeError } = await auth.adminClient
       .from("document_types")
-      .select("id,active")
+      .select("id,label,active")
       .eq("code", "facture")
       .single();
     if (typeError || !documentType || !documentType.active) {
@@ -567,6 +597,13 @@ export async function POST(request: Request) {
         amount_already_paid: amountAlreadyPaid,
         billing_profile_employee_id: billingProfileEmployeeId,
       },
+    });
+
+    await notifyEmployeeForGeneratedDocument(auth.adminClient, {
+      employeeId,
+      actorId: auth.actorId,
+      documentLabel: documentType.label,
+      periodMonth: periodStart,
     });
 
     return NextResponse.json({ success: true, kind: "facture", documentId });
