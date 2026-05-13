@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
+import { notifyEmployeeOfDocument } from "@/lib/email";
 import {
   getAccessTokenFromRequest,
   getAuthorizedActor,
@@ -185,6 +186,23 @@ export async function POST(request: Request) {
     const [{ error: requestUpdateError }, { error: eventInsertError }] = await Promise.all([requestUpdatePromise, eventInsertPromise]);
     if (requestUpdateError || eventInsertError) {
       return NextResponse.json({ error: requestUpdateError?.message ?? eventInsertError?.message ?? "Le document RH a ete depose, mais le suivi n'est pas complet." }, { status: 400 });
+    }
+
+    if (hasSelectedEmployee) {
+      const { data: employeeRow } = await adminClient
+        .from("profiles")
+        .select("email,full_name")
+        .eq("id", employeeId)
+        .single();
+      if (employeeRow?.email) {
+        await notifyEmployeeOfDocument({
+          employeeEmail: employeeRow.email,
+          employeeName: employeeRow.full_name,
+          documentLabel: documentType.label,
+          periodMonth,
+          uploaderName: actorProfile.full_name ?? actorProfile.email,
+        }).catch((error) => console.error("[email] notify employee failed", error));
+      }
     }
 
     return NextResponse.json({ success: true, documentId: insertedDocument.id });

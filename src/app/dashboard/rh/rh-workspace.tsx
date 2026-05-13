@@ -1268,7 +1268,6 @@ export default function RhWorkspace({
   }, [requests]);
 
   const handleCreateRequest = useCallback(async () => {
-    if (!supabase || !user) return;
     if (!requestEmployeeId || !requestDocumentTypeId) {
       setSaveMessage("Choisis un collaborateur et un type de document.");
       return;
@@ -1280,30 +1279,29 @@ export default function RhWorkspace({
 
     setCreatingRequest(true);
     setSaveMessage(null);
-    const now = new Date().toISOString();
-    const { error: insertError } = await supabase.from("document_requests").insert({
-      employee_id: requestEmployeeId,
-      document_type_id: requestDocumentTypeId,
-      requested_by: user.id,
-      status: "pending",
-      due_at: requestDueAt ? new Date(requestDueAt).toISOString() : null,
-      period_month: requestPeriodMonth ? `${requestPeriodMonth}-01` : null,
-      note: requestNote.trim() || null,
-      updated_at: now,
-    });
 
-    if (insertError) {
-      setSaveMessage(insertError.message);
+    try {
+      await callRhDocumentsApi("/api/rh/document-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: requestEmployeeId,
+          documentTypeId: requestDocumentTypeId,
+          periodMonth: requestPeriodMonth || null,
+          dueAt: requestDueAt || null,
+          note: requestNote.trim() || null,
+        }),
+      });
+      setSaveMessage("Demande documentaire creee.");
+      setRequestDialogOpen(false);
+      resetRequestDialog();
+      await refreshDashboardData();
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "Creation de la demande impossible.");
+    } finally {
       setCreatingRequest(false);
-      return;
     }
-
-    setCreatingRequest(false);
-    setRequestDialogOpen(false);
-    resetRequestDialog();
-    setSaveMessage("Demande documentaire creee.");
-    await refreshDashboardData();
-  }, [refreshDashboardData, requestDocumentTypeId, requestDueAt, requestEmployeeId, requestNote, requestPeriodMonth, resetRequestDialog, selectedRequestType?.requiresPeriod, user]);
+  }, [callRhDocumentsApi, refreshDashboardData, requestDocumentTypeId, requestDueAt, requestEmployeeId, requestNote, requestPeriodMonth, resetRequestDialog, selectedRequestType?.requiresPeriod]);
 
   const handleCancelRequest = useCallback(async (request: RequestRow) => {
     if (!supabase) return;

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
+import { getRhRecipientsForEmployee, notifyRhOfDocument } from "@/lib/email";
 import { buildInvoicePdfBuffer } from "@/lib/invoice-pdf";
 import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toDocumentDate, toIsoMonthStart } from "@/lib/server-supabase";
 
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
 
     const { data: documentType, error: typeError } = await adminClient
       .from("document_types")
-      .select("id,allowed_uploader_roles,active")
+      .select("id,label,allowed_uploader_roles,active")
       .eq("code", "facture")
       .single();
 
@@ -291,6 +292,21 @@ export async function POST(request: Request) {
 
     if (previousStoragePath && previousStoragePath !== storagePath) {
       await adminClient.storage.from(storageBucket).remove([previousStoragePath]);
+    }
+
+    try {
+      const rhEmails = await getRhRecipientsForEmployee(adminClient, profile.id);
+      if (rhEmails.length) {
+        await notifyRhOfDocument({
+          rhEmails,
+          employeeName: profile.full_name,
+          employeeEmail: profile.email,
+          documentLabel: documentType.label,
+          periodMonth,
+        });
+      }
+    } catch (emailError) {
+      console.error("[email] notify RH (facture) failed", emailError);
     }
 
     return NextResponse.json({ success: true, documentId });

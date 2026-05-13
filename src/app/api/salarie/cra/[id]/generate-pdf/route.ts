@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { buildCraPdfBuffer } from "@/lib/cra-pdf";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
+import { getRhRecipientsForEmployee, notifyRhOfDocument } from "@/lib/email";
 import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toDocumentDate } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
@@ -55,7 +56,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: documentType, error: typeError } = await adminClient
       .from("document_types")
-      .select("id,allowed_uploader_roles,active")
+      .select("id,label,allowed_uploader_roles,active")
       .eq("code", "cra")
       .single();
 
@@ -255,6 +256,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     if (previousStoragePath && previousStoragePath !== storagePath) {
       await adminClient.storage.from(storageBucket).remove([previousStoragePath]);
+    }
+
+    try {
+      const rhEmails = await getRhRecipientsForEmployee(adminClient, profile.id);
+      if (rhEmails.length) {
+        await notifyRhOfDocument({
+          rhEmails,
+          employeeName: profile.full_name,
+          employeeEmail: profile.email,
+          documentLabel: documentType.label,
+          periodMonth: craRecord.period_month,
+        });
+      }
+    } catch (emailError) {
+      console.error("[email] notify RH (cra) failed", emailError);
     }
 
     return NextResponse.json({ success: true, documentId, craId: craRecord.id, pdfVersion: nextPdfVersion });

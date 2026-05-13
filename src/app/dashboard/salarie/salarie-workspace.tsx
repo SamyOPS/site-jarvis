@@ -38,7 +38,6 @@ import type {
   SalarieRequestStatus as RequestStatus,
 } from "@/features/dashboard/salarie/types";
 import { formatDate, formatDocumentStatus, formatMonth, normalizeJoinOne, type DocumentStatus } from "@/lib/dashboard-formatters";
-import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { browserSupabase as supabase } from "@/lib/supabase-browser";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
 
@@ -653,77 +652,26 @@ export default function SalarieWorkspace({
     periodMonth: string | null;
     linkedRequestId?: string;
   }) => {
-    if (!supabase || !profile || !user) return;
+    if (!profile) return;
 
-    const storageBucket = "employee-documents";
-    const storagePath = buildEmployeeDocumentPath({
-      employeeId: profile.id,
-      documentTypeId: args.documentTypeId,
-      periodMonth: args.periodMonth,
-      fileName: args.file.name,
-    });
+    const formData = new FormData();
+    formData.append("file", args.file);
+    formData.append("documentTypeId", args.documentTypeId);
+    if (args.periodMonth) formData.append("periodMonth", args.periodMonth);
+    if (currentFolderId) formData.append("folderId", currentFolderId);
+    if (args.linkedRequestId) formData.append("linkedRequestId", args.linkedRequestId);
 
-    const { error: uploadError } = await supabase.storage.from(storageBucket).upload(storagePath, args.file, { upsert: false });
-    if (uploadError) {
-      setActionMessage(uploadError.message);
-      return;
+    try {
+      await callSalarieApi("/api/salarie/documents/upload", {
+        method: "POST",
+        body: formData,
+      });
+      setActionMessage("Document depose avec succes.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Depot impossible.");
     }
-
-    const { data: insertedDocument, error: insertError } = await supabase
-      .from("employee_documents")
-      .insert({
-        employee_id: profile.id,
-        uploaded_by: user.id,
-        uploader_role: "salarie",
-        document_type_id: args.documentTypeId,
-        folder_id: currentFolderId,
-        period_month: args.periodMonth,
-        document_date: new Date().toISOString().slice(0, 10),
-        status: "pending",
-        storage_bucket: storageBucket,
-        storage_path: storagePath,
-        file_name: args.file.name,
-        mime_type: args.file.type || null,
-        size_bytes: args.file.size,
-      })
-      .select("id")
-      .single();
-
-    if (insertError || !insertedDocument) {
-      await supabase.storage.from(storageBucket).remove([storagePath]);
-      setActionMessage(insertError?.message ?? "Insertion du document impossible.");
-      return;
-    }
-
-    const reviewTimestamp = new Date().toISOString();
-    const requestPromise = args.linkedRequestId
-      ? supabase.from("document_requests").update({ status: "uploaded", updated_at: reviewTimestamp }).eq("id", args.linkedRequestId)
-      : Promise.resolve({ error: null });
-
-    const [{ error: requestError }, { error: eventError }] = await Promise.all([
-      requestPromise,
-      supabase.from("document_events").insert({
-        actor_id: user.id,
-        event_type: "uploaded",
-        payload: {
-          request_id: args.linkedRequestId ?? null,
-          file_name: args.file.name,
-          period_month: args.periodMonth,
-          uploaded_from: args.linkedRequestId ? "request" : "manual",
-        },
-        document_id: insertedDocument.id,
-      }),
-    ]);
-
-    if (requestError || eventError) {
-      setActionMessage(requestError?.message ?? eventError?.message ?? "Depot effectue, mais le suivi n'a pas ete mis a jour completement.");
-      await loadDashboardData(profile.id);
-      return;
-    }
-
-    setActionMessage("Document depose avec succes.");
     await loadDashboardData(profile.id);
-  }, [currentFolderId, loadDashboardData, profile, user]);
+  }, [callSalarieApi, currentFolderId, loadDashboardData, profile]);
 
   const resetUploadDialog = useCallback(() => {
     setUploadDialogMode("default");
@@ -740,13 +688,6 @@ export default function SalarieWorkspace({
     setEditFileName("");
     setEditFile(null);
   }, []);
-
-  const findMatchingRequest = useCallback((documentTypeId: string, periodMonth: string | null) => {
-    return (
-      requests.find((request) => request.documentTypeId === documentTypeId && (request.periodMonth ?? "") === (periodMonth ?? "")) ??
-      requests.find((request) => request.documentTypeId === documentTypeId)
-    );
-  }, [requests]);
 
   const openUploadDialog = useCallback((requestId?: string) => {
     const request = requestId ? requests.find((item) => item.id === requestId) ?? null : null;
@@ -861,7 +802,7 @@ export default function SalarieWorkspace({
   }, [documentTypes, requests, resetUploadDialog, selectedRequestId, uploadDocument, uploadDocumentTypeId, uploadFile, uploadPeriodMonth]);
 
   const handleUpdateDocument = useCallback(async () => {
-    if (!supabase || !profile || !user || !editingDocumentId) return;
+    if (!profile || !editingDocumentId) return;
 
     const document = documents.find((item) => item.id === editingDocumentId) ?? null;
     if (!document) return;
@@ -883,118 +824,28 @@ export default function SalarieWorkspace({
     setSavingDocumentId(document.id);
     setActionMessage(null);
 
-    const normalizedPeriodMonth = editPeriodMonth ? `${editPeriodMonth}-01` : null;
-    const nextUpdatedAt = new Date().toISOString();
-    let nextStoragePath = document.storagePath;
-    let nextStorageBucket = document.storageBucket;
-    const nextFileName = editFileName.trim();
-    let uploadedReplacement = false;
+    const formData = new FormData();
+    formData.append("documentTypeId", editDocumentTypeId);
+    formData.append("fileName", editFileName.trim());
+    if (editPeriodMonth) formData.append("periodMonth", editPeriodMonth);
+    if (document.folderId) formData.append("folderId", document.folderId);
+    if (editFile) formData.append("file", editFile);
 
-    if (editFile) {
-      nextStoragePath = buildEmployeeDocumentPath({
-        employeeId: profile.id,
-        documentTypeId: editDocumentTypeId,
-        periodMonth: normalizedPeriodMonth,
-        fileName: editFile.name,
+    try {
+      await callSalarieApi(`/api/salarie/documents/${encodeURIComponent(document.id)}`, {
+        method: "PATCH",
+        body: formData,
       });
-      const { error: uploadError } = await supabase.storage.from(document.storageBucket).upload(nextStoragePath, editFile, { upsert: false });
-      if (uploadError) {
-        setActionMessage(uploadError.message);
-        setSavingDocumentId(null);
-        return;
-      }
-      uploadedReplacement = true;
-      nextStorageBucket = document.storageBucket;
-    }
-
-    const { error: updateError } = await supabase
-      .from("employee_documents")
-      .update({
-        document_type_id: editDocumentTypeId,
-        folder_id: document.folderId,
-        period_month: normalizedPeriodMonth,
-        file_name: nextFileName,
-        mime_type: editFile ? (editFile.type || null) : undefined,
-        size_bytes: editFile ? editFile.size : undefined,
-        storage_bucket: nextStorageBucket,
-        storage_path: nextStoragePath,
-        status: "pending",
-        review_comment: null,
-        reviewed_by: null,
-        reviewed_at: null,
-        updated_at: nextUpdatedAt,
-      })
-      .eq("id", document.id);
-
-    if (updateError) {
-      if (uploadedReplacement) {
-        await supabase.storage.from(document.storageBucket).remove([nextStoragePath]);
-      }
-      setActionMessage(updateError.message);
-      setSavingDocumentId(null);
-      return;
-    }
-
-    const previousMatchingRequest = findMatchingRequest(document.documentTypeId, document.periodMonth);
-    const nextMatchingRequest = findMatchingRequest(editDocumentTypeId, normalizedPeriodMonth);
-
-    const requestUpdates: Promise<{ error: { message?: string } | null }>[] = [];
-    if (
-      previousMatchingRequest &&
-      previousMatchingRequest.id !== nextMatchingRequest?.id &&
-      ["uploaded", "rejected", "expired"].includes(previousMatchingRequest.status)
-    ) {
-      requestUpdates.push(
-        Promise.resolve(
-          supabase
-            .from("document_requests")
-            .update({ status: "pending", updated_at: nextUpdatedAt })
-            .eq("id", previousMatchingRequest.id),
-        ),
-      );
-    }
-    if (nextMatchingRequest) {
-      requestUpdates.push(
-        Promise.resolve(
-          supabase
-            .from("document_requests")
-            .update({ status: "uploaded", updated_at: nextUpdatedAt })
-            .eq("id", nextMatchingRequest.id),
-        ),
-      );
-    }
-
-    const eventPromise = supabase.from("document_events").insert({
-      actor_id: user.id,
-      document_id: document.id,
-      event_type: "updated",
-      payload: {
-        previous_type_label: document.typeLabel,
-        next_document_type_id: editDocumentTypeId,
-        previous_period_month: document.periodMonth,
-        next_period_month: normalizedPeriodMonth,
-        replaced_file: uploadedReplacement,
-      },
-    });
-
-    const [requestResults, { error: eventError }] = await Promise.all([Promise.all(requestUpdates), eventPromise]);
-    const requestError = requestResults.find((result) => result.error)?.error;
-
-    if (requestError || eventError) {
-      setActionMessage(requestError?.message ?? eventError?.message ?? "Le document a ete modifie, mais le suivi n'est pas complet.");
-    } else {
       setActionMessage("Document mis a jour.");
-    }
-
-    if (uploadedReplacement && document.storagePath && document.storagePath !== nextStoragePath) {
-      await supabase.storage.from(document.storageBucket).remove([document.storagePath]);
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Modification impossible.");
     }
 
     setSavingDocumentId(null);
     setEditDialogOpen(false);
     resetEditDialog();
     await loadDashboardData(profile.id);
-  }, [documents, documentTypes, editDocumentTypeId, editFile, editFileName, editPeriodMonth, editingDocumentId, findMatchingRequest, loadDashboardData, profile, resetEditDialog, user]);
+  }, [callSalarieApi, documents, documentTypes, editDocumentTypeId, editFile, editFileName, editPeriodMonth, editingDocumentId, loadDashboardData, profile, resetEditDialog]);
 
   const handleDeleteDocument = useCallback(async (document: DocumentRow) => {
     if (!profile) return;
