@@ -50,7 +50,7 @@ const fields: FieldConfig[] = [
   { key: "country", label: "Pays" },
   { key: "phone", label: "Telephone" },
   { key: "email", label: "Email", className: "md:col-span-2" },
-  { key: "siret", label: "SIRET" },
+  { key: "siret", label: "SIRET (auto-entrepreneur uniquement)" },
   { key: "dailyRate", label: "Tarif journalier", type: "number", min: "0", step: "0.01" },
   { key: "iban", label: "IBAN" },
   { key: "bic", label: "BIC" },

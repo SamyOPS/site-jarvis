@@ -574,7 +574,7 @@ export default function SalarieWorkspace({
           country: string;
           phone: string;
           email: string;
-          siret: string;
+          siret: string | null;
           iban: string;
           bic: string;
           daily_rate: number;
@@ -607,7 +607,7 @@ export default function SalarieWorkspace({
         country: payload.profile.country,
         phone: payload.profile.phone,
         email: payload.profile.email,
-        siret: payload.profile.siret,
+        siret: payload.profile.siret ?? "",
         iban: payload.profile.iban,
         bic: payload.profile.bic,
         dailyRate: String(payload.profile.daily_rate ?? ""),

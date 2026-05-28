@@ -9,7 +9,7 @@
   postalCode: string;
   city: string;
   country: string;
-  siret: string;
+  siret: string | null;
   iban: string;
   bic: string;
   companyName: string;
@@ -188,7 +188,7 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
     input.addressLine2 || null,
     `${input.postalCode} ${input.city}`.trim(),
     input.country || null,
-    `Siret : ${input.siret || "-"}`,
+    input.siret ? `Siret : ${input.siret}` : null,
   ].filter((line): line is string => Boolean(line));
   const recipientLines = [
     "Jarvis Connect",

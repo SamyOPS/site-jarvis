@@ -1636,18 +1636,7 @@ export default function RhWorkspace({
               rejected_at: nextStatus === "rejected" ? reviewedAt : null,
             })
             .eq("employee_document_id", document.id)
-        : document.sourceKind === "generated" && document.documentTypeCode === "facture"
-          ? supabase
-              .from("invoice_records")
-              .update({
-                status: generatedRecordStatus,
-                updated_at: reviewedAt,
-                submitted_at: nextStatus === "pending" ? reviewedAt : undefined,
-                validated_at: nextStatus === "validated" ? reviewedAt : null,
-                rejected_at: nextStatus === "rejected" ? reviewedAt : null,
-              })
-              .eq("employee_document_id", document.id)
-          : Promise.resolve({ error: null });
+        : Promise.resolve({ error: null });
 
     const eventPromise = supabase.from("document_events").insert({
       document_id: document.id,

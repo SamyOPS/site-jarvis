@@ -115,16 +115,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Un CRA valide ne peut plus etre modifie." }, { status: 400 });
     }
 
-    const { data: billingProfile, error: billingError } = await adminClient
-      .from("employee_billing_profiles")
-      .select("first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate")
-      .eq("employee_id", profile.id)
-      .single();
-
-    if (billingError || !billingProfile) {
-      return NextResponse.json({ error: billingError?.message ?? "Profil de facturation introuvable." }, { status: 400 });
-    }
-
     const entries = body.entries ? parseEntries(body.entries) : null;
     const nextPeriodMonth = body.periodMonth ? toIsoMonthStart(String(body.periodMonth)) : existingRecord.period_month;
     const workedDaysCount = entries ? entries.reduce((total, entry) => total + entry.day_quantity, 0) : undefined;
@@ -132,7 +122,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { data: updatedRecord, error: updateError } = await adminClient
       .from("cra_records")
       .update({
-        ...billingProfile,
         period_month: nextPeriodMonth,
         notes: getNotes(body.notes, existingRecord.notes),
         worked_days_count: workedDaysCount,

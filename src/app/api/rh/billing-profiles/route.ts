@@ -52,7 +52,7 @@ function parseBillingProfilePayload(payload: RhBillingProfilePayload) {
     country: getRequiredString(payload.country ?? "France", "pays"),
     phone: getRequiredString(payload.phone, "telephone"),
     email: getRequiredString(payload.email, "email"),
-    siret: getRequiredString(payload.siret, "SIRET"),
+    siret: getOptionalString(payload.siret),
     iban: getRequiredString(payload.iban, "IBAN"),
     bic: getRequiredString(payload.bic, "BIC"),
     daily_rate: dailyRate,

@@ -16,7 +16,7 @@ type CraPdfInput = {
   country: string;
   phone: string;
   email: string;
-  siret: string;
+  siret: string | null;
   iban: string;
   bic: string;
   dailyRate: number;

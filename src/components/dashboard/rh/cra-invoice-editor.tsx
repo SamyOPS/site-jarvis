@@ -8,6 +8,7 @@ import {
   shiftMonthInputValue,
   WEEKDAY_LABELS,
 } from "@/features/dashboard/salarie/cra";
+import { getFrenchHolidayName } from "@/features/dashboard/salarie/holidays";
 import type { CraCalendarCell, CraEntryDraft } from "@/features/dashboard/salarie/types";
 
 type BillingProfileSummary = {
@@ -273,6 +274,8 @@ export function RhCraInvoiceEditor({
 
                     const parsedDate = new Date(`${isoDate}T00:00:00`);
                     const isWeekend = [0, 6].includes(parsedDate.getDay());
+                    const holidayName = getFrenchHolidayName(isoDate);
+                    const isDimmed = isWeekend || Boolean(holidayName);
                     const isSelected = craEntriesByDate.has(isoDate);
 
                     return (
@@ -280,11 +283,14 @@ export function RhCraInvoiceEditor({
                         key={isoDate}
                         type="button"
                         onClick={() => toggleCraWorkDate(isoDate)}
+                        title={holidayName ?? undefined}
                         className={`aspect-square rounded-lg border border-transparent text-sm transition-colors ${
                           isSelected
                             ? "border-[#2aa0dd] bg-[#2aa0dd] text-white"
-                            : "bg-white text-[#0A1A2F] hover:bg-slate-100"
-                        } ${isWeekend && !isSelected ? "text-[#0A1A2F]/55" : ""}`}
+                            : isDimmed
+                              ? "bg-slate-200 text-slate-400 hover:bg-slate-300"
+                              : "bg-white text-[#0A1A2F] hover:bg-slate-100"
+                        }`}
                         aria-pressed={isSelected}
                       >
                         {dayNumber}

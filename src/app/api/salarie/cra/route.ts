@@ -92,16 +92,6 @@ export async function POST(request: Request) {
     const entries = parseEntries(body.entries);
     const workedDaysCount = entries.reduce((total, entry) => total + entry.day_quantity, 0);
 
-    const { data: billingProfile, error: billingError } = await adminClient
-      .from("employee_billing_profiles")
-      .select("first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate")
-      .eq("employee_id", profile.id)
-      .single();
-
-    if (billingError || !billingProfile) {
-      return NextResponse.json({ error: billingError?.message ?? "Profil de facturation introuvable." }, { status: 400 });
-    }
-
     const { data: existingRecord, error: existingError } = await adminClient
       .from("cra_records")
       .select("id,status,employee_document_id")
@@ -134,7 +124,6 @@ export async function POST(request: Request) {
         .from("cra_records")
         .update({
           status: "draft",
-          ...billingProfile,
           worked_days_count: workedDaysCount,
           notes: getNotes(body.notes),
           updated_at: new Date().toISOString(),
@@ -166,6 +155,16 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json({ success: true, cra: updatedRecord });
+    }
+
+    const { data: billingProfile, error: billingError } = await adminClient
+      .from("employee_billing_profiles")
+      .select("first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate")
+      .eq("employee_id", profile.id)
+      .single();
+
+    if (billingError || !billingProfile) {
+      return NextResponse.json({ error: billingError?.message ?? "Profil de facturation introuvable." }, { status: 400 });
     }
 
     const { data: craRecord, error: insertError } = await adminClient

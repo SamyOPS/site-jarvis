@@ -60,7 +60,7 @@ export function CraLivePreview({
       country: billingProfile.country.trim(),
       phone: billingProfile.phone.trim(),
       email: billingProfile.email.trim(),
-      siret: billingProfile.siret.trim(),
+      siret: billingProfile.siret.trim() || null,
       iban: billingProfile.iban.trim(),
       bic: billingProfile.bic.trim(),
       dailyRate: Number(billingProfile.dailyRate || 0),
