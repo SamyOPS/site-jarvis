@@ -70,6 +70,8 @@ type RhDashboardCache = {
       emailConfirmedAt: string | null;
     }
   >;
+  // employeeId -> allowed document type ids. Empty / missing = all types allowed.
+  typeRestrictionsByEmployee: Record<string, string[]>;
   events: EventRow[];
 };
 
@@ -88,6 +90,10 @@ export default function RhWorkspace({
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [employees, setEmployees] = useState<ProfileRow[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeRow[]>([]);
+  // employeeId -> allowed document type ids. Empty / missing = all types allowed.
+  const [typeRestrictionsByEmployee, setTypeRestrictionsByEmployee] = useState<
+    Record<string, string[]>
+  >({});
   const [documents, setDocuments] = useState<RHDocumentRow[]>([]);
   const [rhFolders, setRhFolders] = useState<RhDocumentFolderRow[]>([]);
   const [trashedRhFolders, setTrashedRhFolders] = useState<RhDocumentFolderRow[]>([]);
@@ -211,6 +217,7 @@ export default function RhWorkspace({
   const applyDashboardCache = useCallback((cache: RhDashboardCache) => {
     setEmployees(cache.employees);
     setDocumentTypes(cache.documentTypes);
+    setTypeRestrictionsByEmployee(cache.typeRestrictionsByEmployee ?? {});
     setDocuments(cache.documents);
     setRequests(cache.requests);
     setJobOffers(cache.jobOffers);
@@ -234,7 +241,12 @@ export default function RhWorkspace({
       },
     });
     const visibilityPayload = (await visibilityResponse.json().catch(() => null)) as
-      | { error?: string; restricted?: boolean; employeeIds?: string[] }
+      | {
+          error?: string;
+          restricted?: boolean;
+          employeeIds?: string[];
+          documentTypeRestrictions?: Record<string, string[]>;
+        }
       | null;
     if (!visibilityResponse.ok) {
       setError(visibilityPayload?.error ?? "Chargement des affectations RH impossible.");
@@ -245,6 +257,14 @@ export default function RhWorkspace({
     const assignedSet = new Set(visibilityPayload?.employeeIds ?? []);
     const canAccessEmployee = (employeeId: string) =>
       !isRestricted || assignedSet.has(employeeId);
+
+    // employeeId -> allowed document type ids. Empty / missing = all types allowed.
+    const typeRestrictions = visibilityPayload?.documentTypeRestrictions ?? {};
+    const canAccessDocumentType = (employeeId: string, documentTypeId: string) => {
+      const allowed = typeRestrictions[employeeId];
+      if (!allowed || allowed.length === 0) return true;
+      return allowed.includes(documentTypeId);
+    };
 
     const [employeesRes, documentTypesRes, docsRes, requestsRes, offersRes, appsRes, cvsRes, activityResponse] = await Promise.all([
       supabase.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("role", "salarie").order("email", { ascending: true }),
@@ -364,7 +384,8 @@ export default function RhWorkspace({
       if (document.employeeRole !== "salarie") {
         return document.employeeId === rhId;
       }
-      return canAccessEmployee(document.employeeId);
+      if (!canAccessEmployee(document.employeeId)) return false;
+      return canAccessDocumentType(document.employeeId, document.documentTypeId);
     });
     const mappedDocuments = filteredDocuments;
 
@@ -383,7 +404,12 @@ export default function RhWorkspace({
         typeLabel: type?.label ?? "Document",
       } satisfies RequestRow;
     });
-    const filteredRequests = mappedRequests.filter((request) => request.employeeId && canAccessEmployee(request.employeeId));
+    const filteredRequests = mappedRequests.filter(
+      (request) =>
+        request.employeeId &&
+        canAccessEmployee(request.employeeId) &&
+        canAccessDocumentType(request.employeeId, request.documentTypeId),
+    );
     const mappedJobOffers = (offersRes.data ?? []) as JobOfferRow[];
     const mappedApplications = (appsRes.data ?? []).map((row: { id: string; candidate_id: string; status: ApplicationRow["status"]; job: { title: string | null } | { title: string | null }[] | null; candidate: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null }) => {
       const job = normalizeJoinOne(row.job);
@@ -423,6 +449,7 @@ export default function RhWorkspace({
         applications: mappedApplications,
         cvsByUser: mappedCvsByUser,
         activityByEmployeeId: mappedActivityByEmployeeId,
+        typeRestrictionsByEmployee: typeRestrictions,
         events: [],
       };
       applyDashboardCache(nextCache);
@@ -462,6 +489,7 @@ export default function RhWorkspace({
       applications: mappedApplications,
       cvsByUser: mappedCvsByUser,
       activityByEmployeeId: mappedActivityByEmployeeId,
+      typeRestrictionsByEmployee: typeRestrictions,
       events: mappedEvents,
     };
     applyDashboardCache(nextCache);
@@ -1113,8 +1141,40 @@ export default function RhWorkspace({
   const collaborateursRows = useMemo(() => currentSubSection === "collab_actifs" ? employees.filter((employee) => employee.employment_status === "active") : currentSubSection === "collab_inactifs" ? employees.filter((employee) => ["inactive", "exited"].includes(employee.employment_status ?? "")) : employees, [currentSubSection, employees]);
   const salarieUploadableTypes = useMemo(() => documentTypes.filter((documentType) => documentType.allowedUploaderRoles.length === 0 || documentType.allowedUploaderRoles.includes("salarie")), [documentTypes]);
   const rhUploadableTypes = useMemo(() => documentTypes.filter((documentType) => documentType.allowedUploaderRoles.length === 0 || documentType.allowedUploaderRoles.includes("rh")), [documentTypes]);
+  // Restrict the document type to those allowed for the selected employee.
+  // null/empty restriction = all types allowed.
+  const allowedTypeIdsForEmployee = useCallback(
+    (employeeId: string): Set<string> | null => {
+      if (!employeeId) return null;
+      const allowed = typeRestrictionsByEmployee[employeeId];
+      if (!allowed || allowed.length === 0) return null;
+      return new Set(allowed);
+    },
+    [typeRestrictionsByEmployee],
+  );
+  const requestableTypesForEmployee = useMemo(() => {
+    const allowed = allowedTypeIdsForEmployee(requestEmployeeId);
+    if (!allowed) return salarieUploadableTypes;
+    return salarieUploadableTypes.filter((documentType) => allowed.has(documentType.id));
+  }, [allowedTypeIdsForEmployee, requestEmployeeId, salarieUploadableTypes]);
+  const rhUploadableTypesForEmployee = useMemo(() => {
+    const allowed = allowedTypeIdsForEmployee(rhUploadEmployeeId);
+    if (!allowed) return rhUploadableTypes;
+    return rhUploadableTypes.filter((documentType) => allowed.has(documentType.id));
+  }, [allowedTypeIdsForEmployee, rhUploadEmployeeId, rhUploadableTypes]);
   const selectedRequestType = useMemo(() => salarieUploadableTypes.find((documentType) => documentType.id === requestDocumentTypeId) ?? null, [requestDocumentTypeId, salarieUploadableTypes]);
   const selectedRhUploadType = useMemo(() => rhUploadableTypes.find((documentType) => documentType.id === rhUploadDocumentTypeId) ?? null, [rhUploadDocumentTypeId, rhUploadableTypes]);
+  // If the chosen employee no longer allows the currently selected type, clear it.
+  useEffect(() => {
+    if (requestDocumentTypeId && !requestableTypesForEmployee.some((type) => type.id === requestDocumentTypeId)) {
+      setRequestDocumentTypeId("");
+    }
+  }, [requestDocumentTypeId, requestableTypesForEmployee]);
+  useEffect(() => {
+    if (rhUploadDocumentTypeId && !rhUploadableTypesForEmployee.some((type) => type.id === rhUploadDocumentTypeId)) {
+      setRhUploadDocumentTypeId("");
+    }
+  }, [rhUploadDocumentTypeId, rhUploadableTypesForEmployee]);
 
   const handleSignOut = useCallback(async () => {
     if (!supabase) return;
@@ -2307,7 +2367,7 @@ export default function RhWorkspace({
                 <label className="text-sm font-medium">Type de document</label>
                 <select value={requestDocumentTypeId} onChange={(event) => setRequestDocumentTypeId(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm">
                   <option value="">Choisir un type</option>
-                  {salarieUploadableTypes.map((documentType) => (
+                  {requestableTypesForEmployee.map((documentType) => (
                     <option key={documentType.id} value={documentType.id}>{documentType.label}</option>
                   ))}
                 </select>
@@ -2374,7 +2434,7 @@ export default function RhWorkspace({
                 <label className="text-sm font-medium">Type de document</label>
                 <select value={rhUploadDocumentTypeId} onChange={(event) => setRhUploadDocumentTypeId(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm">
                   <option value="">Choisir un type</option>
-                  {rhUploadableTypes.map((documentType) => (
+                  {rhUploadableTypesForEmployee.map((documentType) => (
                     <option key={documentType.id} value={documentType.id}>{documentType.label}</option>
                   ))}
                 </select>

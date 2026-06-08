@@ -37,6 +37,19 @@ export type AdminAssignmentUser = {
 
 export type AdminRhAssignmentsByRh = Record<string, string[]>;
 
+export type AdminDocumentType = {
+  id: string;
+  label: string;
+  code: string | null;
+};
+
+// rhId -> employeeId -> allowed document type ids.
+// An empty (or missing) array means no restriction: all document types allowed.
+export type AdminRhTypeRestrictionsByRh = Record<string, Record<string, string[]>>;
+
+// employeeId -> allowed document type ids, for the currently selected RH.
+export type AdminRhTypeRestrictions = Record<string, string[]>;
+
 export type AdminUserActivityRow = {
   userId: string;
   lastSignInAt: string | null;

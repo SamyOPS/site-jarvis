@@ -22,13 +22,14 @@ async function canRhAccessEmployee(
   adminClient: SupabaseClient,
   rhId: string,
   employeeId: string,
+  documentTypeId?: string,
 ) {
   if (!employeeId || employeeId === rhId) {
     return { allowed: true as const };
   }
   const { data, error } = await adminClient
     .from("rh_employee_assignments")
-    .select("employee_id")
+    .select("employee_id,allowed_document_type_ids")
     .eq("rh_id", rhId)
     .eq("employee_id", employeeId)
     .maybeSingle();
@@ -40,7 +41,18 @@ async function canRhAccessEmployee(
   if (error) {
     return { allowed: false as const, error: error.message };
   }
-  return { allowed: Boolean(data?.employee_id) };
+  if (!data?.employee_id) {
+    return { allowed: false as const };
+  }
+
+  // Empty / null array = no restriction (all document types allowed).
+  const allowedTypes = Array.isArray(data.allowed_document_type_ids)
+    ? data.allowed_document_type_ids.filter(Boolean)
+    : [];
+  if (documentTypeId && allowedTypes.length > 0 && !allowedTypes.includes(documentTypeId)) {
+    return { allowed: false as const };
+  }
+  return { allowed: true as const };
 }
 
 export async function POST(request: Request) {
@@ -84,12 +96,12 @@ export async function POST(request: Request) {
     }
 
     if (actorProfile.role !== "admin") {
-      const access = await canRhAccessEmployee(adminClient, actorProfile.id, employeeProfile.id);
+      const access = await canRhAccessEmployee(adminClient, actorProfile.id, employeeProfile.id, documentTypeId);
       if (!access.allowed) {
         if (access.error) {
           return NextResponse.json({ error: access.error }, { status: 400 });
         }
-        return NextResponse.json({ error: "Collaborateur non autorise pour ce RH." }, { status: 403 });
+        return NextResponse.json({ error: "Collaborateur ou type de document non autorise pour ce RH." }, { status: 403 });
       }
     }
 

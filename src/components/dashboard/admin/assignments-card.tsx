@@ -12,21 +12,26 @@ import {
 import { Label } from "@/components/ui/label";
 import type {
   AdminAssignmentUser,
+  AdminDocumentType,
+  AdminRhTypeRestrictions,
   AdminStatus,
 } from "@/features/dashboard/admin/types";
 
 type AdminAssignmentsCardProps = {
   rhProfiles: AdminAssignmentUser[];
   salarieProfiles: AdminAssignmentUser[];
+  documentTypes: AdminDocumentType[];
   selectedRhId: string;
   selectedRh: AdminAssignmentUser | null;
   selectedEmployeeIds: string[];
+  selectedRestrictions: AdminRhTypeRestrictions;
   assignmentStatus: AdminStatus;
   assignmentLoading: boolean;
   assignmentSaving: boolean;
   hasAccessToken: boolean;
   onSelectedRhIdChange: (value: string) => void;
   onToggleAssignedEmployee: (employeeId: string) => void;
+  onToggleEmployeeDocumentType: (employeeId: string, documentTypeId: string) => void;
   onReload: () => void | Promise<void>;
   onSave: () => void | Promise<void>;
 };
@@ -34,15 +39,18 @@ type AdminAssignmentsCardProps = {
 export function AdminAssignmentsCard({
   rhProfiles,
   salarieProfiles,
+  documentTypes,
   selectedRhId,
   selectedRh,
   selectedEmployeeIds,
+  selectedRestrictions,
   assignmentStatus,
   assignmentLoading,
   assignmentSaving,
   hasAccessToken,
   onSelectedRhIdChange,
   onToggleAssignedEmployee,
+  onToggleEmployeeDocumentType,
   onReload,
   onSave,
 }: AdminAssignmentsCardProps) {
@@ -112,28 +120,80 @@ export function AdminAssignmentsCard({
           <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium">
             Collaborateurs autorises
           </div>
-          <div className="max-h-72 space-y-2 overflow-auto p-3 text-sm">
+          <div className="max-h-96 space-y-2 overflow-auto p-3 text-sm">
             {salarieProfiles.length ? (
-              salarieProfiles.map((employee) => (
-                <label
-                  key={employee.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">
-                      {employee.full_name ?? "Nom non renseigne"}
-                    </p>
-                    <p className="truncate text-xs text-[#0A1A2F]/70">{employee.email}</p>
+              salarieProfiles.map((employee) => {
+                const isAssigned = selectedEmployeeIds.includes(employee.id);
+                const allowedTypeIds = selectedRestrictions[employee.id] ?? [];
+                const restricted = allowedTypeIds.length > 0;
+                return (
+                  <div
+                    key={employee.id}
+                    className="rounded-md border border-slate-200 bg-white"
+                  >
+                    <label className="flex items-center justify-between gap-3 px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">
+                          {employee.full_name ?? "Nom non renseigne"}
+                        </p>
+                        <p className="truncate text-xs text-[#0A1A2F]/70">{employee.email}</p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={isAssigned}
+                        onChange={() => onToggleAssignedEmployee(employee.id)}
+                        disabled={assignmentLoading || assignmentSaving || !selectedRhId}
+                        className="h-4 w-4 rounded border-slate-300"
+                      />
+                    </label>
+                    {isAssigned && (
+                      <div className="border-t border-slate-100 px-3 py-2">
+                        <p className="mb-1.5 text-xs text-[#0A1A2F]/70">
+                          Types de documents autorises{" "}
+                          {restricted ? (
+                            <span className="font-medium text-[#0A1A2F]">
+                              ({allowedTypeIds.length} selectionne(s))
+                            </span>
+                          ) : (
+                            <span className="font-medium text-emerald-700">(tous)</span>
+                          )}
+                        </p>
+                        {documentTypes.length ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {documentTypes.map((documentType) => {
+                              const active = allowedTypeIds.includes(documentType.id);
+                              return (
+                                <button
+                                  key={documentType.id}
+                                  type="button"
+                                  onClick={() =>
+                                    onToggleEmployeeDocumentType(employee.id, documentType.id)
+                                  }
+                                  disabled={assignmentLoading || assignmentSaving}
+                                  className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                                    active
+                                      ? "border-[#2aa0dd] bg-[#2aa0dd]/10 font-medium text-[#0A1A2F]"
+                                      : "border-slate-300 bg-white text-[#0A1A2F]/70 hover:border-slate-400"
+                                  }`}
+                                >
+                                  {documentType.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-[#0A1A2F]/60">Aucun type de document actif.</p>
+                        )}
+                        {restricted && (
+                          <p className="mt-1.5 text-[11px] text-[#0A1A2F]/60">
+                            Le RH ne pourra voir et gerer que ces types pour ce collaborateur.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={selectedEmployeeIds.includes(employee.id)}
-                    onChange={() => onToggleAssignedEmployee(employee.id)}
-                    disabled={assignmentLoading || assignmentSaving || !selectedRhId}
-                    className="h-4 w-4 rounded border-slate-300"
-                  />
-                </label>
-              ))
+                );
+              })
             ) : (
               <p className="text-[#0A1A2F]/70">Aucun collaborateur salarie trouve.</p>
             )}

@@ -17,9 +17,12 @@ import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
 import { browserSupabase } from "@/lib/supabase-browser";
 import type {
   AdminAssignmentUser as AssignmentUser,
+  AdminDocumentType as DocumentType,
   AdminJobOffer as JobOffer,
   AdminProfileRow as ProfileRow,
   AdminRhAssignmentsByRh as RhAssignmentsByRh,
+  AdminRhTypeRestrictions as RhTypeRestrictions,
+  AdminRhTypeRestrictionsByRh as RhTypeRestrictionsByRh,
   AdminStatus as Status,
   AdminUserActivityRow as UserActivityRow,
 } from "@/features/dashboard/admin/types";
@@ -51,8 +54,11 @@ export default function DashboardPage() {
   const [rhProfiles, setRhProfiles] = useState<AssignmentUser[]>([]);
   const [salarieProfiles, setSalarieProfiles] = useState<AssignmentUser[]>([]);
   const [assignmentsByRh, setAssignmentsByRh] = useState<RhAssignmentsByRh>({});
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
+  const [restrictionsByRh, setRestrictionsByRh] = useState<RhTypeRestrictionsByRh>({});
   const [selectedRhId, setSelectedRhId] = useState("");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [selectedRestrictions, setSelectedRestrictions] = useState<RhTypeRestrictions>({});
   const [assignmentLoading, setAssignmentLoading] = useState(false);
   const [assignmentSaving, setAssignmentSaving] = useState(false);
   const [assignmentStatus, setAssignmentStatus] = useState<Status>({ type: "idle" });
@@ -98,7 +104,9 @@ export default function DashboardPage() {
           error?: string;
           rhs?: AssignmentUser[];
           employees?: AssignmentUser[];
+          documentTypes?: DocumentType[];
           assignments?: RhAssignmentsByRh;
+          restrictions?: RhTypeRestrictionsByRh;
         }
       | null;
     if (!response.ok) {
@@ -111,7 +119,9 @@ export default function DashboardPage() {
     }
     setRhProfiles(payload?.rhs ?? []);
     setSalarieProfiles(payload?.employees ?? []);
+    setDocumentTypes(payload?.documentTypes ?? []);
     setAssignmentsByRh(payload?.assignments ?? {});
+    setRestrictionsByRh(payload?.restrictions ?? {});
     setAssignmentLoading(false);
   }, []);
 
@@ -234,10 +244,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedRhId) {
       setSelectedEmployeeIds([]);
+      setSelectedRestrictions({});
       return;
     }
     setSelectedEmployeeIds(assignmentsByRh[selectedRhId] ?? []);
-  }, [assignmentsByRh, selectedRhId]);
+    setSelectedRestrictions(restrictionsByRh[selectedRhId] ?? {});
+  }, [assignmentsByRh, restrictionsByRh, selectedRhId]);
 
   const sessionExpiry = useMemo(() => {
     if (!session?.expires_at) return null;
@@ -373,11 +385,30 @@ export default function DashboardPage() {
   };
 
   const toggleAssignedEmployee = (employeeId: string) => {
-    setSelectedEmployeeIds((previous) =>
-      previous.includes(employeeId)
-        ? previous.filter((id) => id !== employeeId)
-        : [...previous, employeeId]
-    );
+    setSelectedEmployeeIds((previous) => {
+      const isRemoving = previous.includes(employeeId);
+      if (isRemoving) {
+        // Drop any document type restriction stored for this collaborator.
+        setSelectedRestrictions((restrictions) => {
+          if (!(employeeId in restrictions)) return restrictions;
+          const next = { ...restrictions };
+          delete next[employeeId];
+          return next;
+        });
+        return previous.filter((id) => id !== employeeId);
+      }
+      return [...previous, employeeId];
+    });
+  };
+
+  const toggleEmployeeDocumentType = (employeeId: string, documentTypeId: string) => {
+    setSelectedRestrictions((previous) => {
+      const current = previous[employeeId] ?? [];
+      const next = current.includes(documentTypeId)
+        ? current.filter((id) => id !== documentTypeId)
+        : [...current, documentTypeId];
+      return { ...previous, [employeeId]: next };
+    });
   };
 
   const handleSaveAssignments = async () => {
@@ -393,6 +424,7 @@ export default function DashboardPage() {
       body: JSON.stringify({
         rhId: selectedRhId,
         employeeIds: selectedEmployeeIds,
+        restrictions: selectedRestrictions,
       }),
     });
     const payload = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -404,9 +436,19 @@ export default function DashboardPage() {
       setAssignmentSaving(false);
       return;
     }
+    // Keep only restrictions for collaborators still assigned to this RH.
+    const persistedRestrictions = Object.fromEntries(
+      selectedEmployeeIds
+        .map((employeeId) => [employeeId, selectedRestrictions[employeeId] ?? []] as const)
+        .filter(([, typeIds]) => typeIds.length > 0),
+    );
     setAssignmentsByRh((previous) => ({
       ...previous,
       [selectedRhId]: selectedEmployeeIds,
+    }));
+    setRestrictionsByRh((previous) => ({
+      ...previous,
+      [selectedRhId]: persistedRestrictions,
     }));
     setAssignmentStatus({
       type: "success",
@@ -667,15 +709,18 @@ export default function DashboardPage() {
         <AdminAssignmentsCard
           rhProfiles={rhProfiles}
           salarieProfiles={salarieProfiles}
+          documentTypes={documentTypes}
           selectedRhId={selectedRhId}
           selectedRh={selectedRh}
           selectedEmployeeIds={selectedEmployeeIds}
+          selectedRestrictions={selectedRestrictions}
           assignmentStatus={assignmentStatus}
           assignmentLoading={assignmentLoading}
           assignmentSaving={assignmentSaving}
           hasAccessToken={Boolean(session?.access_token)}
           onSelectedRhIdChange={setSelectedRhId}
           onToggleAssignedEmployee={toggleAssignedEmployee}
+          onToggleEmployeeDocumentType={toggleEmployeeDocumentType}
           onReload={() => {
             if (!session?.access_token) return;
             void loadRhCollaboratorAssignments(session.access_token);
