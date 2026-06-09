@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Inter_Tight, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { SplashScreen } from "@/components/SplashScreen";
+import { LaunchGate } from "@/components/launch-gate";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -39,8 +39,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${interDisplay.variable} ${geistMono.variable} antialiased`}
       >
-        <SplashScreen />
-        {children}
+        <LaunchGate>{children}</LaunchGate>
       </body>
     </html>
   );
