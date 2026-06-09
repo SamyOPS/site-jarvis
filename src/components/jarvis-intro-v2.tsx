@@ -1,366 +1,261 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect } from "react";
+import { memo, useEffect } from "react";
 
-const COMPLETION_DELAY_MS = 8000;
+const COMPLETION_DELAY_MS = 3400;
+const HOMEPAGE_REVEAL_DELAY_MS = 2050;
 
 interface JarvisIntroV2Props {
+  onReveal: () => void;
   onComplete: () => void;
 }
 
-export function JarvisIntroV2({ onComplete }: JarvisIntroV2Props) {
+function JarvisIntroV2Component({ onComplete, onReveal }: JarvisIntroV2Props) {
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      onComplete();
-    }, COMPLETION_DELAY_MS);
+    const revealTimer = window.setTimeout(onReveal, HOMEPAGE_REVEAL_DELAY_MS);
+    const completeTimer = window.setTimeout(onComplete, COMPLETION_DELAY_MS);
 
-    return () => window.clearTimeout(timer);
-  }, [onComplete]);
+    return () => {
+      window.clearTimeout(revealTimer);
+      window.clearTimeout(completeTimer);
+    };
+  }, [onComplete, onReveal]);
 
   return (
-    <section className="jarvis-intro-v2" aria-label="Intro Jarvis Connect">
-      <div className="grid" />
-      <div className="halo" />
+    <div className="jarvis-intro" aria-label="Intro Jarvis Connect" role="img">
+      <div className="jarvis-intro__grid" />
+      <div className="jarvis-intro__halo" />
 
-      <div className="scene" aria-hidden="true">
-        <div className="ring ring-1" />
-        <div className="ring ring-2" />
-        <div className="ring ring-3" />
-        <div className="ring ring-4" />
-        <div className="flash" />
-        <div className="core" />
-        <div className="logo-wrap">
-          <Image src="/logo jarvis.png" alt="" className="logo" width={720} height={720} priority />
+      <div className="jarvis-intro__scene" aria-hidden="true">
+        <div className="jarvis-intro__rig">
+          <div className="jarvis-intro__part jarvis-intro__part--ring" />
+          <div className="jarvis-intro__part jarvis-intro__part--coils" />
+          <div className="jarvis-intro__part jarvis-intro__part--stator" />
+          <div className="jarvis-intro__part jarvis-intro__part--lens" />
+
+          <div className="jarvis-intro__logo">
+            <Image
+              src="/logo jarvis.png"
+              alt=""
+              width={900}
+              height={900}
+              priority
+              className="jarvis-intro__logoImage"
+            />
+          </div>
         </div>
-      </div>
 
-      <div className="copy">
-        <div className="brand">Jarvis Connect</div>
-        <h1>
-          Jarvis Connect propulse vos projets{" "}
-          <span>IT &amp; digital</span>
-        </h1>
-        <p>
-          Support, développement applicatif et sécurité réunis au sein d&apos;une équipe
-          senior qui intervient vite et bien pour vos utilisateurs.
-        </p>
+        <div className="jarvis-intro__flash" />
+        <div className="jarvis-intro__core" />
       </div>
 
       <style>{`
-        .jarvis-intro-v2 {
-          position: fixed;
-          inset: 0;
+        .jarvis-intro {
+          position: relative;
+          height: 100%;
+          min-height: 100vh;
           overflow: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 6vh 6vw;
-          text-align: center;
-          background:
-            radial-gradient(125% 125% at 55% 40%, #0c2244 0%, #081325 52%, #03060d 100%);
-          color: #eaf6ff;
-          z-index: 250;
-          pointer-events: none;
-          isolation: isolate;
+          background: radial-gradient(125% 125% at 55% 40%, #143b70 0%, #0b213f 52%, #071225 100%);
+          contain: strict;
+          transform: translateZ(0);
         }
 
-        .grid {
+        .jarvis-intro__grid {
           position: absolute;
           inset: 0;
-          z-index: 0;
-          background-image: radial-gradient(rgba(70, 214, 255, 0.1) 1px, transparent 1.4px);
-          background-size: 36px 36px;
-          mask-image: radial-gradient(circle at 50% 48%, #000 26%, transparent 72%);
-          opacity: 0.45;
+          background-image: radial-gradient(rgba(124, 224, 255, 0.14) 1px, transparent 1.4px);
+          background-size: 42px 42px;
+          opacity: 0.34;
         }
 
-        .halo {
+        .jarvis-intro__halo {
           position: absolute;
           left: 50%;
           top: 50%;
-          width: 70vmin;
-          height: 70vmin;
-          transform: translate(-50%, -50%);
+          width: 72vmin;
+          height: 72vmin;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(70, 214, 255, 0.3) 0%, rgba(70, 214, 255, 0.07) 40%, transparent 66%);
+          background: radial-gradient(circle, rgba(124, 224, 255, 0.28) 0%, rgba(70, 214, 255, 0.08) 42%, transparent 68%);
           opacity: 0;
-          z-index: 1;
-          animation: jarvis-fade 1.2s ease 1.5s forwards, jarvis-breathe 5s ease-in-out 3s infinite;
+          transform: translate3d(-50%, -50%, 0);
+          animation: jarvis-intro-fade 0.7s ease 0.9s forwards;
         }
 
-        .scene {
+        .jarvis-intro__scene {
           position: absolute;
           left: 50%;
           top: 50%;
           width: min(74vmin, 640px);
           height: min(74vmin, 640px);
-          transform: translate(-50%, -50%);
-          z-index: 2;
           perspective: 1400px;
-          animation: jarvis-recede 1s cubic-bezier(0.4, 0, 0.2, 1) 2.9s forwards;
+          transform: translate3d(-50%, -50%, 0);
+          animation: jarvis-intro-recede 0.75s cubic-bezier(0.22, 1, 0.36, 1) 1.9s forwards;
+          will-change: transform, opacity;
         }
 
-        .ring {
+        .jarvis-intro__rig {
+          position: absolute;
+          inset: 0;
+          transform-style: preserve-3d;
+          transform: rotateX(-24deg) rotateY(-20deg);
+          animation: jarvis-intro-flatten 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.9s forwards, jarvis-intro-spin 24s linear 1.9s infinite;
+          will-change: transform;
+        }
+
+        .jarvis-intro__part {
           position: absolute;
           inset: 0;
           border-radius: 50%;
           opacity: 0;
-          transform-style: preserve-3d;
-          filter: drop-shadow(0 0 8px rgba(70, 214, 255, 0.35));
-          backface-visibility: hidden;
+          will-change: transform, opacity;
         }
 
-        .ring-1 {
-          border: 24px solid #37485a;
-          box-shadow: inset 0 0 0 3px rgba(95, 208, 255, 0.5);
-          animation: jarvis-ring-in 0.55s ease-out 0.05s forwards, jarvis-part-out 0.4s ease 1.5s forwards;
+        .jarvis-intro__part--ring {
+          border: 24px solid rgba(55, 72, 90, 0.95);
+          box-shadow: inset 0 0 0 5px rgba(34, 48, 63, 0.95);
+          animation: jarvis-intro-in-ring 0.38s ease-out 0.03s forwards, jarvis-intro-part-out 0.25s ease 0.9s forwards;
         }
 
-        .ring-2 {
-          inset: 20px;
-          border: 6px solid #22303f;
-          animation: jarvis-ring-in 0.55s ease-out 0.3s forwards, jarvis-part-out 0.4s ease 1.5s forwards;
+        .jarvis-intro__part--coils {
+          inset: 8%;
+          border: 18px dashed rgba(95, 208, 255, 0.72);
+          animation: jarvis-intro-in-coils 0.38s ease-out 0.16s forwards, jarvis-intro-part-out 0.25s ease 0.9s forwards;
         }
 
-        .ring-3 {
-          inset: 56px;
-          border: 9px dotted rgba(207, 232, 245, 0.8);
-          animation: jarvis-ring-in 0.55s ease-out 0.55s forwards, jarvis-part-out 0.4s ease 1.5s forwards;
+        .jarvis-intro__part--stator {
+          inset: 24%;
+          border: 10px dotted rgba(207, 232, 245, 0.88);
+          background: rgba(12, 26, 40, 0.62);
+          animation: jarvis-intro-in-stator 0.38s ease-out 0.29s forwards, jarvis-intro-part-out 0.25s ease 0.9s forwards;
         }
 
-        .ring-4 {
-          inset: 120px;
-          border: 3px solid rgba(70, 214, 255, 0.7);
-          box-shadow: 0 0 28px rgba(70, 214, 255, 0.22);
-          animation: jarvis-ring-in 0.55s ease-out 0.8s forwards, jarvis-part-out 0.4s ease 1.5s forwards;
+        .jarvis-intro__part--lens {
+          inset: 38%;
+          background: radial-gradient(circle, #fff 0%, #bff3ff 45%, #1f8fd6 100%);
+          animation: jarvis-intro-in-lens 0.38s ease-out 0.42s forwards, jarvis-intro-part-out 0.25s ease 0.9s forwards;
         }
 
-        .logo-wrap {
+        .jarvis-intro__logo {
           position: absolute;
           inset: 0;
           display: grid;
           place-items: center;
           opacity: 0;
-          animation: jarvis-fade 0.55s ease 1.5s forwards;
+          animation: jarvis-intro-logo-in 0.4s ease 0.9s forwards;
         }
 
-        .logo {
-          width: min(44vmin, 360px);
+        .jarvis-intro__logoImage {
+          width: min(48vmin, 410px);
           height: auto;
           object-fit: contain;
-          filter: drop-shadow(0 0 14px rgba(70, 214, 255, 0.5));
-          transform: translateZ(0);
-          animation: jarvis-float 2s ease-in-out infinite, jarvis-logo-bloom 0.8s ease 1.5s forwards;
         }
 
-        .flash {
+        .jarvis-intro__flash {
           position: absolute;
           left: 50%;
           top: 50%;
           width: 34%;
           height: 34%;
-          transform: translate(-50%, -50%) scale(0.2);
           border-radius: 50%;
+          background: radial-gradient(circle, #fff 0%, rgba(159, 239, 255, 0.68) 45%, transparent 70%);
           opacity: 0;
-          z-index: 3;
-          background: radial-gradient(circle, #fff 0%, rgba(159, 239, 255, 0.6) 45%, transparent 70%);
-          filter: blur(8px);
-          animation: jarvis-flash 0.9s ease-out 1.5s forwards;
+          transform: translate3d(-50%, -50%, 0) scale(0.2);
+          animation: jarvis-intro-flash 0.65s ease-out 0.9s forwards;
         }
 
-        .core {
+        .jarvis-intro__core {
           position: absolute;
           left: 50%;
           top: 49.5%;
           width: 15%;
           height: 15%;
-          transform: translate(-50%, -50%);
           border-radius: 50%;
-          z-index: 3;
+          background: radial-gradient(circle, #fff 0%, #bff3ff 45%, rgba(70, 214, 255, 0.45) 72%, transparent 80%);
           opacity: 0;
-          background: radial-gradient(circle, #fff 0%, #bff3ff 45%, rgba(70, 214, 255, 0.4) 72%, transparent 80%);
-          animation: jarvis-fade 0.5s ease 1.7s forwards, jarvis-core-pulse 2.6s ease-in-out 3s infinite;
+          transform: translate3d(-50%, -50%, 0);
+          animation: jarvis-intro-fade 0.35s ease 1.05s forwards, jarvis-intro-core 1.8s ease-in-out 2s infinite;
         }
 
-        .copy {
-          position: relative;
-          z-index: 4;
-          max-width: 1080px;
+        @keyframes jarvis-intro-in-ring {
+          from { opacity: 0; transform: translateZ(-260px); }
+          to { opacity: 1; transform: translateZ(-30px); }
         }
 
-        .brand {
-          margin-bottom: 1.3rem;
-          font-family: "Chakra Petch", "Saira", system-ui, sans-serif;
-          font-size: clamp(11px, 1.4vw, 15px);
-          letter-spacing: 0.42em;
-          text-transform: uppercase;
-          color: #46d6ff;
-          opacity: 0;
-          animation: jarvis-fade 0.7s ease 2.9s forwards;
+        @keyframes jarvis-intro-in-coils {
+          from { opacity: 0; transform: translateZ(220px); }
+          to { opacity: 1; transform: translateZ(-10px); }
         }
 
-        h1 {
-          margin: 0;
-          font-family: "Chakra Petch", "Saira", system-ui, sans-serif;
-          font-size: clamp(2.4rem, 6.4vw, 5.4rem);
-          font-weight: 700;
-          line-height: 1;
-          letter-spacing: -0.01em;
-          text-shadow: 0 0 36px rgba(70, 214, 255, 0.3);
-          opacity: 0;
-          animation: jarvis-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 3.02s forwards;
+        @keyframes jarvis-intro-in-stator {
+          from { opacity: 0; transform: translateZ(300px); }
+          to { opacity: 1; transform: translateZ(12px); }
         }
 
-        h1 span {
-          color: transparent;
-          -webkit-text-stroke: 1.4px rgba(159, 239, 255, 0.9);
+        @keyframes jarvis-intro-in-lens {
+          from { opacity: 0; transform: translateZ(380px) scale(1.2); }
+          to { opacity: 1; transform: translateZ(34px); }
         }
 
-        p {
-          margin: 1.5rem auto 0;
-          max-width: 700px;
-          font-family: "Saira", system-ui, sans-serif;
-          font-size: clamp(1rem, 1.7vw, 1.22rem);
-          color: #c2dbf0;
-          opacity: 0;
-          animation: jarvis-fade 0.9s ease 3.4s forwards;
+        @keyframes jarvis-intro-part-out {
+          to { opacity: 0; }
         }
 
-        @keyframes jarvis-ring-in {
-          from {
-            opacity: 0;
-            transform: translateZ(-180px) scale(0.86);
-          }
-          to {
-            opacity: 1;
-            transform: translateZ(0) scale(1);
-          }
+        @keyframes jarvis-intro-logo-in {
+          to { opacity: 1; }
         }
 
-        @keyframes jarvis-part-out {
-          to {
-            opacity: 0;
-          }
+        @keyframes jarvis-intro-flash {
+          0% { opacity: 0; transform: translate3d(-50%, -50%, 0) scale(0.2); }
+          25% { opacity: 0.95; transform: translate3d(-50%, -50%, 0) scale(1); }
+          100% { opacity: 0; transform: translate3d(-50%, -50%, 0) scale(3.4); }
         }
 
-        @keyframes jarvis-logo-bloom {
-          from {
-            filter: drop-shadow(0 0 6px rgba(70, 214, 255, 0.35));
-          }
-          to {
-            filter: drop-shadow(0 0 18px rgba(70, 214, 255, 0.58));
-          }
+        @keyframes jarvis-intro-flatten {
+          to { transform: rotateX(0deg) rotateY(0deg); }
         }
 
-        @keyframes jarvis-flash {
-          0% {
-            opacity: 0;
-            transform: translate(-50%, -50%) scale(0.2);
-          }
-          25% {
-            opacity: 0.95;
-            transform: translate(-50%, -50%) scale(1);
-          }
-          100% {
-            opacity: 0;
-            transform: translate(-50%, -50%) scale(3.4);
-          }
+        @keyframes jarvis-intro-spin {
+          from { transform: rotateZ(0deg); }
+          to { transform: rotateZ(360deg); }
         }
 
-        @keyframes jarvis-fade {
-          to {
-            opacity: 1;
-          }
+        @keyframes jarvis-intro-recede {
+          to { opacity: 0.24; transform: translate3d(-50%, -50%, 0) scale(1.18); }
         }
 
-        @keyframes jarvis-rise {
-          from {
-            opacity: 0;
-            transform: translateY(24px);
-          }
-          to {
-            opacity: 1;
-            transform: none;
-          }
+        @keyframes jarvis-intro-fade {
+          to { opacity: 1; }
         }
 
-        @keyframes jarvis-breathe {
-          0%,
-          100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
-        }
-
-        @keyframes jarvis-core-pulse {
-          0%,
-          100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.55;
-          }
-        }
-
-        @keyframes jarvis-float {
-          0%,
-          100% {
-            transform: translateY(0px) rotateX(0deg);
-          }
-          50% {
-            transform: translateY(-6px) rotateX(4deg);
-          }
-        }
-
-        @keyframes jarvis-recede {
-          to {
-            opacity: 0.22;
-            transform: translate(-50%, -50%) scale(1.2);
-          }
+        @keyframes jarvis-intro-core {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.55; }
         }
 
         @media (max-width: 640px) {
-          .copy {
-            padding-inline: 1rem;
+          .jarvis-intro__scene {
+            width: min(86vmin, 520px);
+            height: min(86vmin, 520px);
           }
 
-          .logo {
-            width: min(54vmin, 280px);
+          .jarvis-intro__part--ring {
+            border-width: 18px;
           }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .halo,
-          .scene,
-          .flash,
-          .core,
-          .logo-wrap,
-          .brand,
-          h1,
-          p,
-          .logo,
-          .ring {
-            animation: none !important;
-          }
-
-          .halo,
-          .logo-wrap,
-          .brand,
-          h1,
-          p,
-          .core {
-            opacity: 1 !important;
-          }
-
-          .scene {
-            opacity: 0.22;
-            transform: translate(-50%, -50%) scale(1.2);
+          .jarvis-intro *,
+          .jarvis-intro *::before,
+          .jarvis-intro *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
           }
         }
       `}</style>
-    </section>
+    </div>
   );
 }
+
+export const JarvisIntroV2 = memo(JarvisIntroV2Component);

@@ -276,6 +276,7 @@ icon:
         <section>
 
           <Hero
+            cinematicBackground
 
             title="Jarvis Connect propulse vos projets"
 
@@ -358,25 +359,15 @@ icon:
             highlightLogo="/client/sisley.png"
 
             quote={
-
               <>
-
-                "Nous travaillons depuis quelques mois avec la société <em>Jarvis Connect</em> et j'en suis pleinement satisfait.
-
+                &ldquo;Nous travaillons depuis quelques mois avec la sociÃ©tÃ© <em>Jarvis Connect</em> et j&apos;en suis pleinement satisfait.
                 <br />
-
                 <br />
-
-                Des réponses rapides, pertinentes. Une équipe a notre écoute, souple et réactive !
-
+                Des rÃ©ponses rapides, pertinentes. Une Ã©quipe a notre Ã©coute, souple et rÃ©active !
                 <br />
-
                 <br />
-
                 Je ne peux que recommander !&rdquo;
-
               </>
-
             }
 
             author="Julien S, Responsable support IT"

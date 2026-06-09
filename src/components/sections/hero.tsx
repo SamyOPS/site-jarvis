@@ -1,5 +1,10 @@
 "use client";
 
+import Image from "next/image";
+import { motion } from "motion/react";
+import { JarvisHeroBackdrop } from "@/components/sections/jarvis-hero-backdrop";
+import { useLaunchContext } from "@/components/launch-context";
+
 interface HeroProps {
   title?: string;
   highlightText?: string;
@@ -24,6 +29,7 @@ interface HeroProps {
   veilOpacity?: string;
   fontFamily?: string;
   fontWeight?: number;
+  cinematicBackground?: boolean;
 }
 
 export function Hero(props: HeroProps) {
@@ -46,10 +52,12 @@ export function Hero(props: HeroProps) {
     veilOpacity = "",
     fontFamily,
     fontWeight,
+    cinematicBackground = false,
   } = props;
 
   const resolvedButtonText = showScrollIcon ? undefined : buttonText;
   const resolvedButtonHref = showScrollIcon ? undefined : buttonHref;
+  const { introActive, introTransitioning } = useLaunchContext();
   const typographyStyle =
     fontFamily || fontWeight
       ? { fontFamily, fontWeight }
@@ -66,21 +74,51 @@ export function Hero(props: HeroProps) {
 
   return (
     <div className={`relative w-full overflow-hidden ${className}`}>
-
-      <img
-  className="absolute inset-0 h-full w-full object-cover"
-  src="https://i.pinimg.com/1200x/4b/b3/33/4bb333a0a54c0f5b7dae507119527a30.jpg"
-  alt=""
-  aria-hidden
-/>
-      {veilOpacity && (
-        <div className={`absolute inset-0 ${veilOpacity}`} aria-hidden />
+      {cinematicBackground ? (
+        <JarvisHeroBackdrop transitionActive={introTransitioning} />
+      ) : (
+        <>
+          <Image
+            className="absolute inset-0 h-full w-full object-cover"
+            src="https://i.pinimg.com/1200x/4b/b3/33/4bb333a0a54c0f5b7dae507119527a30.jpg"
+            alt=""
+            aria-hidden="true"
+            fill
+            sizes="100vw"
+            unoptimized
+          />
+          {veilOpacity && (
+            <div className={`absolute inset-0 ${veilOpacity}`} aria-hidden />
+          )}
+        </>
       )}
 
       <div className="relative mx-auto flex min-h-screen w-full items-center px-6">
-        <div className={`mx-auto w-full ${maxWidth} text-center`} style={typographyStyle}>
+        <motion.div
+          className={`mx-auto w-full ${maxWidth} text-center ${cinematicBackground ? "jarvis-hero-copy" : ""}`}
+          style={typographyStyle}
+          initial={
+            cinematicBackground
+              ? { opacity: introActive ? 0 : 0, y: introActive ? 28 : 24, filter: "blur(14px)" }
+              : false
+          }
+          animate={
+            cinematicBackground
+              ? introActive
+                ? introTransitioning
+                  ? { opacity: 1, y: 0, filter: "blur(0px)", scale: 1 }
+                  : { opacity: 0, y: 18, filter: "blur(12px)", scale: 0.99 }
+                : { opacity: 1, y: 0, filter: "blur(0px)", scale: 1 }
+              : undefined
+          }
+          transition={{ duration: 1.35, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div className={cinematicBackground ? "jarvis-hero-eyebrow" : "sr-only"}>
+            Jarvis Connect
+          </div>
+
           <h1
-            className={`text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl ${titleClassName}`}
+            className={`text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl ${titleClassName} ${cinematicBackground ? "jarvis-hero-title" : ""}`}
           >
             {title}
             {highlightText ? (
@@ -89,7 +127,9 @@ export function Hero(props: HeroProps) {
           </h1>
 
           {description ? (
-            <p className={`mt-6 text-base sm:text-lg ${descriptionClassName}`}>
+            <p
+              className={`mt-6 text-base sm:text-lg ${descriptionClassName} ${cinematicBackground ? "jarvis-hero-description" : ""}`}
+            >
               {description}
             </p>
           ) : null}
@@ -142,8 +182,59 @@ export function Hero(props: HeroProps) {
               </button>
             ) : null}
           </div>
-        </div>
+        </motion.div>
       </div>
+
+      {cinematicBackground ? (
+        <style>{`
+          .jarvis-hero-copy {
+            max-width: 900px;
+            color: #f2fbff;
+            text-shadow: 0 0 30px rgba(70, 214, 255, 0.12);
+          }
+
+          .jarvis-hero-eyebrow {
+            margin-bottom: 1rem;
+            font-family: "Chakra Petch", "Inter", system-ui, sans-serif;
+            font-size: clamp(0.74rem, 1.1vw, 0.88rem);
+            font-weight: 700;
+            letter-spacing: 0.42em;
+            text-transform: uppercase;
+            color: #46d6ff;
+            opacity: 0.95;
+          }
+
+          .jarvis-hero-title {
+            font-family: "Chakra Petch", "Inter", system-ui, sans-serif;
+            text-transform: none;
+            line-height: 0.98;
+            letter-spacing: -0.02em;
+            text-shadow: 0 0 36px rgba(70, 214, 255, 0.22);
+          }
+
+          .jarvis-hero-title span {
+            color: transparent;
+            -webkit-text-stroke: 1.35px rgba(159, 239, 255, 0.92);
+          }
+
+          .jarvis-hero-description {
+            max-width: 760px;
+            margin-left: auto;
+            margin-right: auto;
+            color: rgba(210, 231, 245, 0.9);
+          }
+
+          @media (max-width: 640px) {
+            .jarvis-hero-copy {
+              max-width: 100%;
+            }
+
+            .jarvis-hero-eyebrow {
+              letter-spacing: 0.26em;
+            }
+          }
+        `}</style>
+      ) : null}
     </div>
   );
 }
