@@ -43,6 +43,7 @@ function persistIntroSeen() {
 
 export function LaunchGate({ children }: LaunchGateProps) {
   const [introCompletedThisVisit, setIntroCompletedThisVisit] = useState(false);
+  const [introFadingOut, setIntroFadingOut] = useState(false);
   const hasHydrated = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -63,19 +64,27 @@ export function LaunchGate({ children }: LaunchGateProps) {
   const introSeen = hasHydrated ? readIntroSeen() : false;
   const showIntro = hasHydrated && !introSeen && !introCompletedThisVisit;
   const showSplash = hasHydrated && introSeen && !introCompletedThisVisit;
-  const showBlockingOverlay = !hasHydrated || showIntro;
+  const showBlockingOverlay = !hasHydrated || showIntro || introFadingOut;
 
   return (
     <>
       {children}
 
       {showBlockingOverlay ? (
-        <div className="fixed inset-0 z-[250] overflow-hidden bg-[#03060d]">
-          {hasHydrated && showIntro ? (
+        <div
+          className={`fixed inset-0 z-[250] overflow-hidden bg-[#03060d] transition-opacity duration-1000 ease-out ${
+            introFadingOut ? "opacity-0" : "opacity-100"
+          }`}
+        >
+          {hasHydrated && (showIntro || introFadingOut) ? (
             <JarvisIntroV2
               onComplete={() => {
                 persistIntroSeen();
-                setIntroCompletedThisVisit(true);
+                setIntroFadingOut(true);
+                window.setTimeout(() => {
+                  setIntroCompletedThisVisit(true);
+                  setIntroFadingOut(false);
+                }, 1000);
               }}
             />
           ) : null}

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect } from "react";
 
-const COMPLETION_DELAY_MS = 5000;
+const COMPLETION_DELAY_MS = 8000;
 
 interface JarvisIntroV2Props {
   onComplete: () => void;
