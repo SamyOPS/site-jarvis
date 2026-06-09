@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { Inter, Inter_Tight, Geist_Mono } from "next/font/google";
+import { Chakra_Petch, Inter, Inter_Tight, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { SplashScreen } from "@/components/SplashScreen";
+import { LaunchGate } from "@/components/launch-gate";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -21,6 +21,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const chakraPetch = Chakra_Petch({
+  variable: "--font-chakra-petch",
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Jarvis Connect",
   description: "Description de Jarvis",
@@ -37,10 +44,9 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body
-        className={`${inter.variable} ${interDisplay.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.variable} ${interDisplay.variable} ${geistMono.variable} ${chakraPetch.variable} antialiased`}
       >
-        <SplashScreen />
-        {children}
+        <LaunchGate>{children}</LaunchGate>
       </body>
     </html>
   );
