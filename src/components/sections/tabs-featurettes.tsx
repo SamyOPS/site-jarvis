@@ -162,7 +162,7 @@ const TabsFeaturettes = ({
                       >
                         <Link
                           href={active.content.buttonUrl ?? "#"}
-                          className="inline-flex items-center gap-2 rounded-full bg-[#0A1A2F] px-8 py-3 text-sm font-semibold text-white transition hover:bg-[#2aa0dd] active:scale-95 group"
+                          className="inline-flex items-center gap-2 rounded-full bg-[#0A1A2F] px-8 py-3 text-sm font-semibold text-white transition hover:bg-[#0d2a4b] active:scale-95 group"
                         >
                           {active.content.buttonText}
                           <svg width="16" height="16" viewBox="0 0 18 18" fill="none" className="group-hover:translate-x-1 transition-transform">

@@ -27,7 +27,10 @@ export async function GET(request: Request) {
     const assignmentsTableMissing =
       !!error && /rh_employee_assignments/i.test(error.message ?? "");
     if (assignmentsTableMissing) {
-      return NextResponse.json({ restricted: false, employeeIds: [], documentTypeRestrictions: {} });
+      return NextResponse.json(
+        { error: "Controle des affectations RH indisponible." },
+        { status: 503 },
+      );
     }
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });

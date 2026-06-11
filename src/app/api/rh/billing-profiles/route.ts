@@ -88,7 +88,7 @@ async function loadAllowedEmployeeIds(
       .filter((value: string | null): value is string => Boolean(value));
   }
 
-  return null;
+  return [];
 }
 
 export async function GET(request: Request) {

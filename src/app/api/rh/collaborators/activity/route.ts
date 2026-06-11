@@ -38,14 +38,10 @@ export async function GET(request: Request) {
       /rh_employee_assignments/i.test(assignmentsRes.error.message ?? "");
 
     if (assignmentsTableMissing) {
-      const { data: allEmployees, error: allEmployeesError } = await adminClient
-        .from("profiles")
-        .select("id")
-        .eq("role", "salarie");
-      if (allEmployeesError) {
-        return NextResponse.json({ error: allEmployeesError.message }, { status: 400 });
-      }
-      allowedEmployeeIds = (allEmployees ?? []).map((row) => row.id);
+      return NextResponse.json(
+        { error: "Controle des affectations RH indisponible." },
+        { status: 503 },
+      );
     } else if (assignmentsRes.error) {
       return NextResponse.json({ error: assignmentsRes.error.message }, { status: 400 });
     } else {

@@ -197,7 +197,7 @@ export function HomeHeader() {
             ) : (
               <Link
                 href="/auth"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#2aa0dd] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1e8bbf] active:scale-95"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0A1A2F] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0d2a4b] active:scale-95"
               >
                 <LogIn className="h-4 w-4" />
                 Connexion

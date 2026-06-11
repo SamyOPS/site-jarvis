@@ -95,7 +95,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 
     const { data: docs, error: docsError } = await auth.adminClient
       .from("employee_documents")
-      .select("id,storage_bucket,storage_path")
+      .select("id,request_id,storage_bucket,storage_path")
       .in("folder_id", subtreeFolderIds);
     if (docsError) {
       return NextResponse.json({ error: docsError.message }, { status: 400 });
@@ -103,6 +103,27 @@ export async function DELETE(request: Request, context: RouteContext) {
 
     const documentIds = (docs ?? []).map((row: { id: string }) => row.id);
     if (documentIds.length) {
+      const requestIds = Array.from(
+        new Set(
+          (docs ?? [])
+            .map((row: { request_id?: string | null }) => row.request_id)
+            .filter((value: string | null | undefined): value is string => Boolean(value)),
+        ),
+      );
+      const nowIso = new Date().toISOString();
+
+      if (requestIds.length) {
+        for (const idsChunk of chunkArray(requestIds, 500)) {
+          const { error: requestsResetError } = await auth.adminClient
+            .from("document_requests")
+            .update({ status: "pending", updated_at: nowIso })
+            .in("id", idsChunk);
+          if (requestsResetError) {
+            return NextResponse.json({ error: requestsResetError.message }, { status: 400 });
+          }
+        }
+      }
+
       for (const idsChunk of chunkArray(documentIds, 500)) {
         const { error: eventsDeleteError } = await auth.adminClient
           .from("document_events")
@@ -114,7 +135,6 @@ export async function DELETE(request: Request, context: RouteContext) {
       }
 
       // Casser le lien cra_records.employee_document_id avant de hard-delete les documents.
-      const nowIso = new Date().toISOString();
       for (const idsChunk of chunkArray(documentIds, 500)) {
         const { error: craUnlinkError } = await auth.adminClient
           .from("cra_records")

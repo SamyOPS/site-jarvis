@@ -237,7 +237,7 @@ export function AdminOfferCreateForm({
           <Button
             type="submit"
             disabled={offerSaving}
-            className="w-full bg-[#2aa0dd] text-[#0A1A2F] hover:bg-[#2493cb]"
+            className="w-full bg-[#0A1A2F] text-white hover:bg-[#0d2a4b]"
           >
             {offerSaving ? "Création en cours..." : "Publier l'offre"}
           </Button>

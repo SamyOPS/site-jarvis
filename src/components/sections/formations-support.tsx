@@ -135,7 +135,7 @@ export const FormationsSupport = ({
                   </p>
                   <a
                     href={feature.moduleUrl ?? "/formations"}
-                    className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#0A1A2F] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2aa0dd] active:scale-95"
+                    className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#0A1A2F] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0d2a4b] active:scale-95"
                   >
                     Découvrir le module
                     <ArrowRight className="h-4 w-4" />
@@ -155,7 +155,7 @@ export const FormationsSupport = ({
         >
           <a
             href={linkUrl}
-            className="inline-flex items-center gap-2 rounded-full bg-[#0A1A2F] px-8 py-3 text-sm font-semibold text-white transition hover:bg-[#2aa0dd] active:scale-95"
+            className="inline-flex items-center gap-2 rounded-full bg-[#0A1A2F] px-8 py-3 text-sm font-semibold text-white transition hover:bg-[#0d2a4b] active:scale-95"
           >
             {linkText}
             <ArrowRight className="h-4 w-4" />
