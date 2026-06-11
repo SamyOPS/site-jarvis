@@ -1,4 +1,5 @@
-import { ArrowLeft, ArrowRight, CalendarClock, MapPin, Tag } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, ArrowRight, BriefcaseBusiness, CalendarClock, MapPin } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,6 @@ type JobOffer = {
   contract_type: string | null;
   description: string | null;
   status: string | null;
-  target_tjm: number | null;
   created_at: string;
 };
 
@@ -33,7 +33,7 @@ async function fetchOffers(): Promise<{ offers: JobOffer[]; error: string | null
     const client = getCvSupabaseClient();
     const { data, error } = await client
       .from("appels_offres")
-      .select("id,title,company_name,client,location,contract_type,description,status,target_tjm,created_at")
+      .select("id,title,company_name,client,location,contract_type,description,status,created_at")
       .eq("status", "published")
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
@@ -54,23 +54,25 @@ export default async function OffresPage() {
         <main className="particle-readability container mx-auto px-6 py-14 lg:px-10 xl:px-16">
           <div className="mb-6 flex items-center">
             <Button variant="link" className="p-0 text-[#0A1A2F]" asChild>
-              <a href="/#offres" className="inline-flex items-center gap-2">
+              <Link href="/#offres" className="inline-flex items-center gap-2">
                 <ArrowLeft className="h-4 w-4" />
                 Retour à l&apos;accueil
-              </a>
+              </Link>
             </Button>
           </div>
 
-          <div className="text-center space-y-3 mb-10">
+          <div className="mb-10 space-y-3 text-center">
             <p className="text-sm uppercase tracking-[0.2em] text-[#0A1A2F]/70">Carrières</p>
-            <h1 className="text-3xl font-semibold md:text-4xl lg:text-5xl">Toutes nos offres d&apos;emploi</h1>
+            <h1 className="text-3xl font-semibold md:text-4xl lg:text-5xl">
+              Toutes nos offres d&apos;emploi
+            </h1>
             <p className="mx-auto max-w-2xl text-[#0A1A2F]/70">
               Les opportunités ouvertes chez Jarvis Connect.
             </p>
           </div>
 
           {error && (
-            <div className="mx-auto max-w-3xl flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+            <div className="mx-auto flex max-w-3xl items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
               <div>
                 <p className="font-semibold">Erreur</p>
                 <p>{error}</p>
@@ -79,53 +81,61 @@ export default async function OffresPage() {
           )}
 
           {offers.length ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {offers.map((offer) => (
                 <Card
                   key={offer.id}
-                  className="group grid grid-rows-[auto_auto_1fr_auto] rounded-none border border-[#0A1A2F]/10 shadow-sm"
+                  className="group flex h-full flex-col rounded-[28px] border border-[#0A1A2F]/10 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-[#2aa0dd]/40 hover:shadow-[0_18px_45px_rgba(10,26,47,0.12)]"
                 >
-                  <div className="h-36 w-full bg-gradient-to-br from-[#e6f3ff] to-[#f7fbff] group-hover:from-[#d9ecff] group-hover:to-white transition-colors" />
-                  <CardHeader>
-                    <div className="flex items-center gap-2 text-xs text-[#0A1A2F]/70">
-                      <Badge variant="outline" className="border-[#0A1A2F]/20 text-[#0A1A2F]">
+                  <CardHeader className="space-y-4 pb-3">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-[#0A1A2F]/70">
+                      <Badge
+                        variant="outline"
+                        className="rounded-full border-[#2aa0dd]/30 bg-[#eaf6fd] px-3 py-1 text-[#0A1A2F]"
+                      >
                         {offer.contract_type ?? "Contrat"}
                       </Badge>
-                    </div>
-                    <CardTitle className="text-xl font-semibold text-[#0A1A2F]">{offer.title}</CardTitle>
-                    <CardDescription className="text-[#0A1A2F]/70">
-                      {offer.client ?? offer.company_name ?? "Entreprise confidentielle"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm text-[#0A1A2F]/80">
-                    <div className="flex flex-wrap items-center gap-3">
-                      {offer.location && (
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
-                          {offer.location}
-                        </span>
-                      )}
-                      <span className="inline-flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1 text-[#0A1A2F]/60">
                         <CalendarClock className="h-4 w-4" />
                         {new Date(offer.created_at).toLocaleDateString("fr-FR")}
                       </span>
                     </div>
-                    {offer.target_tjm && (
-                      <p className="text-[#0A1A2F] inline-flex items-center gap-1">
-                        <Tag className="h-4 w-4" />
-                        TJM cible : {offer.target_tjm}€/j
+
+                    <CardTitle className="text-2xl font-semibold leading-tight text-[#0A1A2F]">
+                      {offer.title}
+                    </CardTitle>
+                    <CardDescription className="text-[#0A1A2F]/70">
+                      {offer.client ?? offer.company_name ?? "Entreprise confidentielle"}
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="flex-1 space-y-4 text-sm text-[#0A1A2F]/80">
+                    <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-[#F4F7FA] px-4 py-3">
+                      {offer.location && (
+                        <span className="inline-flex items-center gap-1.5 font-medium text-[#0A1A2F]">
+                          <MapPin className="h-4 w-4" />
+                          {offer.location}
+                        </span>
+                      )}
+                      <span className="inline-flex items-center gap-1.5 font-medium text-[#0A1A2F]">
+                        <BriefcaseBusiness className="h-4 w-4" />
+                        {offer.contract_type ?? "Contrat"}
+                      </span>
+                    </div>
+
+                    {offer.description && (
+                      <p className="line-clamp-3 leading-relaxed text-[#0A1A2F]/70">
+                        {offer.description}
                       </p>
                     )}
                   </CardContent>
-                  <CardFooter className="flex items-center justify-between text-[#0A1A2F]">
-                    <Badge variant="outline" className="border-emerald-300/70 text-emerald-700">
-                      {offer.status ?? "published"}
-                    </Badge>
-                    <Button variant="link" className="text-[#0A1A2F] hover:text-[#0A1A2F]" asChild>
-                      <a href={`/offres/${offer.id}`}>
-                        Voir le détail
+
+                  <CardFooter className="pt-2">
+                    <Button className="w-full rounded-full bg-[#0A1A2F] text-white hover:bg-[#0d2a4b]" asChild>
+                      <Link href={`/offres/${offer.id}`}>
+                        Candidater
                         <ArrowRight className="ml-1 h-4 w-4" />
-                      </a>
+                      </Link>
                     </Button>
                   </CardFooter>
                 </Card>

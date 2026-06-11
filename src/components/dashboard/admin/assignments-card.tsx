@@ -219,7 +219,7 @@ export function AdminAssignmentsCard({
               !hasAccessToken ||
               !selectedRhId
             }
-            className="bg-[#2aa0dd] text-[#0A1A2F] hover:bg-[#2493cb]"
+            className="bg-[#0A1A2F] text-white hover:bg-[#0d2a4b]"
           >
             {assignmentSaving ? "Enregistrement..." : "Enregistrer les affectations"}
           </Button>

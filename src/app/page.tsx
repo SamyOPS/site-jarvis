@@ -57,86 +57,10 @@ export default function Home() {
 ];
   
 
-  const jobOffers = [
-
-    {
-
-      id: "job-1",
-
-      title: "Ingénieur support N2/N3",
-
-      summary:
-
-        "Prise en charge des incidents complexes, supervision et automatisation pour nos clients ETI et PME.",
-
-      label: "CDI",
-
-      author: "Jarvis Connect",
-
-      published: "Déc 2025",
-
-      url: "#",
-
-      image:
-
-        "https://images.unsplash.com/photo-1525182008055-f88b95ff7980?auto=format&fit=crop&w=1200&q=80",
-
-    },
-
-    {
-
-      id: "job-2",
-
-      title: "Développeur Full Stack JS",
-
-      summary:
-
-        "Delivery de produits web (React/Node), APIs et front-end avec forte exigence qualité et sécurité.",
-
-      label: "CDI",
-
-      author: "Jarvis Connect",
-
-      published: "Déc 2025",
-
-      url: "#",
-
-      image:
-
-        "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80",
-
-    },
-
-    {
-
-      id: "job-3",
-
-      title: "Consultant Cloud & Sécu",
-
-      summary:
-
-        "Architecture, migration et hardening sur Azure/AWS avec approche FinOps et gouvernance.",
-
-      label: "CDI",
-
-      author: "Jarvis Connect",
-
-      published: "Déc 2025",
-
-      url: "#",
-
-      image:
-
-        "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80",
-
-    },
-
-  ];
-
   const clients = [
     { name: "ALD Automotive", logo: "/client/ald.png", logoScale: 0.95 },
     { name: "Aramis", logo: "/client/aramisa.svg", logoScale: 1.1 },
-    { name: "Barrire", logo: "/client/Barriere.png", logoScale: 1.05},
+    { name: "Barrière", logo: "/client/Barriere.png", logoScale: 1.05},
     { name: "BNP Paribas", logo: "/client/bnp.png", logoScale: 1.0 },
     { name: "BPCE", logo: "/client/bpce.png", logoScale: 1.0 },
     { name: "Burberry", logo: "/client/burberry.png", logoScale: 0.95 },
@@ -152,7 +76,9 @@ export default function Home() {
     { name: "Les Mousquetaires", logo: "/client/lesmousquetaires.png", logoScale: 0.9 },
     { name: "Linxens", logo: "/client/LINXENS.png", logoScale: 0.9 },
     { name: "LVMH", logo: "/client/LVMH.png", logoScale: 0.8 },
-    { name: "Ministere de la Justice", logo: "/client/Ministere.png", logoScale: 1.0 },
+    { name: "Ministère de la Justice", logo: "/client/Ministere.png", logoScale: 1.0 },
+    { name: "Point P", logo: "/client/point_P.png", logoScale: 1.0 },
+    { name: "Caisse des Dépôts", logo: "/client/caisse.png", logoScale: 1.0 },
     { name: "Ricco", logo: "/client/Ricco.png", logoScale: 0.8},
     { name: "RSA", logo: "/client/rsa.png", logoScale: 0.8 , logoOffsetX: -5, logoOffsetY: -5},
     { name: "Sisley", logo: "/client/sisley.png", logoScale: 1.0 },
@@ -360,10 +286,10 @@ icon:
 
             quote={
               <>
-                &ldquo;Nous travaillons depuis quelques mois avec la sociÃ©tÃ© <em>Jarvis Connect</em> et j&apos;en suis pleinement satisfait.
+                &ldquo;Nous travaillons depuis quelques mois avec la société <em>Jarvis Connect</em> et j&apos;en suis pleinement satisfait.
                 <br />
                 <br />
-                Des rÃ©ponses rapides, pertinentes. Une Ã©quipe a notre Ã©coute, souple et rÃ©active !
+                Des réponses rapides, pertinentes. Une équipe à notre écoute, souple et réactive !
                 <br />
                 <br />
                 Je ne peux que recommander !&rdquo;
@@ -390,15 +316,13 @@ icon:
         <section id="offres" className="text-[#2aa0dd]">
           <OffresEmploi
 
-            heading="Nos offres d'emploi"
+            heading="Offres d'emploi"
 
             description="Découvrez les opportunités ouvertes chez Jarvis Connect et rejoignez une équipe technique qui fait bouger les SI."
 
-            buttonText="Voir toutes les offres"
+            buttonText="Voir toutes les offres d'emploi"
 
             buttonUrl="/offres"
-
-            posts={jobOffers}
 
           />
 

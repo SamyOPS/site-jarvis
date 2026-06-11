@@ -157,7 +157,7 @@ export function FormationModulePage({
               </div>
               <a
                 href="/contact"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#2aa0dd] px-5 py-3 text-sm font-medium text-[#2aa0dd] transition hover:bg-[#2aa0dd] hover:text-white"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#0A1A2F] px-5 py-3 text-sm font-medium text-[#0A1A2F] transition hover:bg-[#0A1A2F] hover:text-white"
               >
                 {"Demander un programme"}
                 <ArrowRight className="h-4 w-4" />

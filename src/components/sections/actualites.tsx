@@ -154,7 +154,7 @@ const Actualites = ({
           </motion.p>
           <motion.a
             href={demoUrl}
-            className="inline-flex items-center gap-1 rounded-full bg-[#0A1A2F] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2aa0dd]"
+            className="inline-flex items-center gap-1 rounded-full bg-[#0A1A2F] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0d2a4b]"
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}

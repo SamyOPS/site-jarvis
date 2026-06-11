@@ -36,7 +36,10 @@ async function canRhAccessEmployee(
 
   const missingTable = !!error && /rh_employee_assignments/i.test(error.message ?? "");
   if (missingTable) {
-    return { allowed: true as const };
+    return {
+      allowed: false as const,
+      error: "Controle des affectations RH indisponible.",
+    };
   }
   if (error) {
     return { allowed: false as const, error: error.message };

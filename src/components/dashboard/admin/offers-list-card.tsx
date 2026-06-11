@@ -345,7 +345,7 @@ export function AdminOffersListCard({
                       <Button
                         type="submit"
                         disabled={offerEditSaving}
-                        className="bg-[#2aa0dd] text-[#0A1A2F] hover:bg-[#2493cb]"
+                        className="bg-[#0A1A2F] text-white hover:bg-[#0d2a4b]"
                       >
                         {offerEditSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {offerEditSaving ? "Enregistrement..." : "Enregistrer"}

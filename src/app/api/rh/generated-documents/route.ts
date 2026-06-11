@@ -65,7 +65,7 @@ function parsePositiveInteger(value: unknown, field: string) {
 function buildWorkEntries(periodMonth: string, workedDaysCount: number) {
   const entries: Array<{ workDate: string; dayQuantity: number; label: string | null }> = [];
   const monthStart = new Date(`${periodMonth}T00:00:00.000Z`);
-  let cursor = new Date(monthStart);
+  const cursor = new Date(monthStart);
 
   while (entries.length < workedDaysCount) {
     if (cursor.getUTCMonth() !== monthStart.getUTCMonth()) {

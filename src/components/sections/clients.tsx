@@ -193,7 +193,7 @@ export function Clients({
                 initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
               >
                 <blockquote className="text-white/90 italic text-sm leading-relaxed">
-                  "{quote}"
+                  {quote}
                   {author && <footer className="mt-2 text-xs font-semibold text-[#2aa0dd]">— {author}</footer>}
                 </blockquote>
               </motion.div>
@@ -202,7 +202,8 @@ export function Clients({
 
           {highlightLogo && (
             <motion.div
-className="flex items-center justify-center bg-white p-4 rounded-2xl shadow-2xl w-[280px] h-[280px] shrink-0 overflow-hidden mx-auto"              initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
+              className="flex items-center justify-center bg-white p-4 rounded-2xl shadow-2xl w-[280px] h-[280px] shrink-0 overflow-hidden mx-auto"
+              initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
               whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(42,160,221,0.2)" }}
             >
               <img

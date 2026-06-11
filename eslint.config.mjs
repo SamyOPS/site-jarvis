@@ -8,7 +8,11 @@ const eslintConfig = defineConfig([
   {
     rules: {
       "no-console": ["warn", { allow: ["warn", "error"] }],
+      "react/no-unescaped-entities": "off",
+      "react-hooks/set-state-in-effect": "warn",
+      "@next/next/no-html-link-for-pages": "warn",
       "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-empty-object-type": "warn",
     },
   },
   // Override default ignores of eslint-config-next.

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { ArrowLeft, CalendarClock, MapPin, Tag } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,6 @@ type JobOffer = {
   contract_type: string | null;
   description: string | null;
   status: string | null;
-  target_tjm: number | null;
   created_at: string;
 };
 
@@ -75,7 +75,7 @@ async function fetchOffer(id: string): Promise<JobOffer | null> {
     const client = getCvSupabaseClient();
     const { data, error } = await client
       .from("appels_offres")
-      .select("id,title,company_name,client,location,contract_type,description,status,target_tjm,created_at")
+      .select("id,title,company_name,client,location,contract_type,description,status,created_at")
       .eq("id", id)
       .eq("status", "published")
       .is("deleted_at", null)
@@ -107,9 +107,9 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
         <main className="container mx-auto px-6 py-8 lg:px-10 xl:px-16">
           <div className="mb-6 flex items-center gap-3 text-sm">
             <Button variant="link" className="p-0 text-[#0A1A2F] hover:text-[#2aa0dd]" asChild>
-              <a href="/offres" className="inline-flex items-center gap-2">
+              <Link href="/offres" className="inline-flex items-center gap-2">
                 <ArrowLeft className="h-4 w-4" /> Retour aux offres
-              </a>
+              </Link>
             </Button>
             <span className="text-[#0A1A2F]/50">|</span>
             <span className="uppercase tracking-[0.18em] text-[#2aa0dd]">Carrières</span>
@@ -137,7 +137,7 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                   </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 pt-6 border-t border-gray-100">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pt-6 border-t border-gray-100">
                   {offer.location && (
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-[#2aa0dd]/10 flex items-center justify-center">
@@ -174,17 +174,6 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                     </div>
                   </div>
 
-                  {offer.target_tjm && (
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                        <span className="text-lg font-bold text-green-600">€</span>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">TJM cible</p>
-                        <p className="text-sm font-semibold text-[#0A1A2F]">{offer.target_tjm}€/j</p>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -272,16 +261,16 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                 </p>
 
                 <div className="space-y-3">
-                  <Button className="w-full bg-[#2aa0dd] hover:bg-[#2aa0dd]/90 text-white font-semibold py-3" asChild>
+                  <Button className="w-full bg-[#0A1A2F] hover:bg-[#0d2a4b] text-white font-semibold py-3" asChild>
                     <a href="/contact">Postuler à cette offre</a>
                   </Button>
-                  <Button variant="outline" className="w-full border-[#2aa0dd] text-[#2aa0dd] hover:bg-[#2aa0dd]/10 font-semibold py-3" asChild>
+                  <Button variant="outline" className="w-full border-[#0A1A2F] text-[#0A1A2F] hover:bg-[#0A1A2F]/10 font-semibold py-3" asChild>
                     <a href="/contact">Contacter l&apos;équipe</a>
                   </Button>
                   <Button variant="ghost" className="w-full text-[#0A1A2F] hover:bg-gray-100 font-medium" asChild>
-                    <a href="/offres" className="inline-flex items-center gap-2">
+                    <Link href="/offres" className="inline-flex items-center gap-2">
                       <ArrowLeft className="h-4 w-4" /> Retour aux offres
-                    </a>
+                    </Link>
                   </Button>
                 </div>
               </div>
