@@ -1,10 +1,11 @@
-import { notFound } from "next/navigation";
+﻿import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CalendarClock, MapPin, Tag } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Footer } from "@/components/sections/footer";
+import { JobApplicationDialog } from "@/components/sections/job-application-dialog";
 import { getCvSupabaseClient } from "@/lib/cv-supabase";
 
 export const revalidate = 60;
@@ -106,13 +107,13 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
       <div className="min-h-screen bg-gray-50 text-[#0A1A2F]">
         <main className="container mx-auto px-6 py-8 lg:px-10 xl:px-16">
           <div className="mb-6 flex items-center gap-3 text-sm">
-            <Button variant="link" className="p-0 text-[#0A1A2F] hover:text-[#2aa0dd]" asChild>
+            <Button variant="link" className="p-0 text-[#0A1A2F] hover:text-[#0A1A2F]" asChild>
               <Link href="/offres" className="inline-flex items-center gap-2">
                 <ArrowLeft className="h-4 w-4" /> Retour aux offres
               </Link>
             </Button>
             <span className="text-[#0A1A2F]/50">|</span>
-            <span className="uppercase tracking-[0.18em] text-[#2aa0dd]">Carrières</span>
+            <span className="uppercase tracking-[0.18em] text-[#0A1A2F]">Carrières</span>
           </div>
 
           <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
@@ -121,7 +122,7 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm font-medium text-[#2aa0dd] uppercase tracking-wide">Offre d&apos;emploi</span>
+                      <span className="text-sm font-medium text-[#0A1A2F] uppercase tracking-wide">Offre d&apos;emploi</span>
                       {offer.status && (
                         <Badge variant="outline" className="border-green-200 text-green-700 bg-green-50">
                           {offer.status}
@@ -140,8 +141,8 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pt-6 border-t border-gray-100">
                   {offer.location && (
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-[#2aa0dd]/10 flex items-center justify-center">
-                        <MapPin className="h-5 w-5 text-[#2aa0dd]" />
+                      <div className="w-10 h-10 rounded-lg bg-[#0A1A2F]/10 flex items-center justify-center">
+                        <MapPin className="h-5 w-5 text-[#0A1A2F]" />
                       </div>
                       <div>
                         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Localisation</p>
@@ -152,8 +153,8 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
 
                   {offer.contract_type && (
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-[#2aa0dd]/10 flex items-center justify-center">
-                        <Tag className="h-5 w-5 text-[#2aa0dd]" />
+                      <div className="w-10 h-10 rounded-lg bg-[#0A1A2F]/10 flex items-center justify-center">
+                        <Tag className="h-5 w-5 text-[#0A1A2F]" />
                       </div>
                       <div>
                         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Type de contrat</p>
@@ -163,8 +164,8 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                   )}
 
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-[#2aa0dd]/10 flex items-center justify-center">
-                      <CalendarClock className="h-5 w-5 text-[#2aa0dd]" />
+                    <div className="w-10 h-10 rounded-lg bg-[#0A1A2F]/10 flex items-center justify-center">
+                      <CalendarClock className="h-5 w-5 text-[#0A1A2F]" />
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Publiée le</p>
@@ -184,8 +185,8 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                     <>
                       {descriptionSections.contexte.length > 0 && (
                         <div>
-                          <h3 className="text-lg font-semibold text-[#2aa0dd] mb-4 flex items-center gap-2">
-                            <div className="w-1 h-6 bg-[#2aa0dd] rounded-full"></div>
+                          <h3 className="text-lg font-semibold text-[#0A1A2F] mb-4 flex items-center gap-2">
+                            <div className="w-1 h-6 bg-[#0A1A2F] rounded-full"></div>
                             Contexte et enjeux
                           </h3>
                           <div className="space-y-4 text-[#0A1A2F]/80 leading-relaxed pl-6">
@@ -197,14 +198,14 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                       )}
                       {descriptionSections.missions.length > 0 && (
                         <div>
-                          <h3 className="text-lg font-semibold text-[#2aa0dd] mb-4 flex items-center gap-2">
-                            <div className="w-1 h-6 bg-[#2aa0dd] rounded-full"></div>
+                          <h3 className="text-lg font-semibold text-[#0A1A2F] mb-4 flex items-center gap-2">
+                            <div className="w-1 h-6 bg-[#0A1A2F] rounded-full"></div>
                             Missions principales
                           </h3>
                           <div className="space-y-3 pl-6">
                             {descriptionSections.missions.map((item, index) => (
                               <div key={index} className="flex items-start gap-3">
-                                <div className="w-2 h-2 rounded-full bg-[#2aa0dd] mt-2 flex-shrink-0"></div>
+                                <div className="w-2 h-2 rounded-full bg-[#0A1A2F] mt-2 flex-shrink-0"></div>
                                 <p className="text-[#0A1A2F]/80 leading-relaxed">{item}</p>
                               </div>
                             ))}
@@ -213,14 +214,14 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                       )}
                       {descriptionSections.profil.length > 0 && (
                         <div>
-                          <h3 className="text-lg font-semibold text-[#2aa0dd] mb-4 flex items-center gap-2">
-                            <div className="w-1 h-6 bg-[#2aa0dd] rounded-full"></div>
+                          <h3 className="text-lg font-semibold text-[#0A1A2F] mb-4 flex items-center gap-2">
+                            <div className="w-1 h-6 bg-[#0A1A2F] rounded-full"></div>
                             Profil recherché
                           </h3>
                           <div className="space-y-3 pl-6">
                             {descriptionSections.profil.map((item, index) => (
                               <div key={index} className="flex items-start gap-3">
-                                <div className="w-2 h-2 rounded-full bg-[#2aa0dd] mt-2 flex-shrink-0"></div>
+                                <div className="w-2 h-2 rounded-full bg-[#0A1A2F] mt-2 flex-shrink-0"></div>
                                 <p className="text-[#0A1A2F]/80 leading-relaxed">{item}</p>
                               </div>
                             ))}
@@ -229,14 +230,14 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                       )}
                       {descriptionSections.avantages.length > 0 && (
                         <div>
-                          <h3 className="text-lg font-semibold text-[#2aa0dd] mb-4 flex items-center gap-2">
-                            <div className="w-1 h-6 bg-[#2aa0dd] rounded-full"></div>
+                          <h3 className="text-lg font-semibold text-[#0A1A2F] mb-4 flex items-center gap-2">
+                            <div className="w-1 h-6 bg-[#0A1A2F] rounded-full"></div>
                             Avantages et perspectives
                           </h3>
                           <div className="space-y-3 pl-6">
                             {descriptionSections.avantages.map((item, index) => (
                               <div key={index} className="flex items-start gap-3">
-                                <div className="w-2 h-2 rounded-full bg-[#2aa0dd] mt-2 flex-shrink-0"></div>
+                                <div className="w-2 h-2 rounded-full bg-[#0A1A2F] mt-2 flex-shrink-0"></div>
                                 <p className="text-[#0A1A2F]/80 leading-relaxed">{item}</p>
                               </div>
                             ))}
@@ -261,9 +262,7 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                 </p>
 
                 <div className="space-y-3">
-                  <Button className="w-full bg-[#0A1A2F] hover:bg-[#0d2a4b] text-white font-semibold py-3" asChild>
-                    <a href="/contact">Postuler à cette offre</a>
-                  </Button>
+                  <JobApplicationDialog jobId={offer.id} jobTitle={offer.title} />
                   <Button variant="outline" className="w-full border-[#0A1A2F] text-[#0A1A2F] hover:bg-[#0A1A2F]/10 font-semibold py-3" asChild>
                     <a href="/contact">Contacter l&apos;équipe</a>
                   </Button>

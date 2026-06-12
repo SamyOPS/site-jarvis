@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ArrowLeft, ArrowRight, BriefcaseBusiness, CalendarClock, MapPin } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -85,13 +85,13 @@ export default async function OffresPage() {
               {offers.map((offer) => (
                 <Card
                   key={offer.id}
-                  className="group flex h-full flex-col rounded-[28px] border border-[#0A1A2F]/10 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-[#2aa0dd]/40 hover:shadow-[0_18px_45px_rgba(10,26,47,0.12)]"
+                  className="group flex h-full flex-col rounded-[28px] border border-[#0A1A2F]/10 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-[#0A1A2F]/40 hover:shadow-[0_18px_45px_rgba(10,26,47,0.12)]"
                 >
                   <CardHeader className="space-y-4 pb-3">
                     <div className="flex flex-wrap items-center gap-2 text-xs text-[#0A1A2F]/70">
                       <Badge
                         variant="outline"
-                        className="rounded-full border-[#2aa0dd]/30 bg-[#eaf6fd] px-3 py-1 text-[#0A1A2F]"
+                        className="rounded-full border-[#0A1A2F]/30 bg-[#eaf6fd] px-3 py-1 text-[#0A1A2F]"
                       >
                         {offer.contract_type ?? "Contrat"}
                       </Badge>
