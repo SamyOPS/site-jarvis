@@ -187,6 +187,17 @@ type DocumentRequestNotificationParams = {
   requesterName?: string | null;
 };
 
+type ApplicationNotificationParams = {
+  adminEmails: string[];
+  candidateName: string;
+  candidateEmail: string;
+  candidatePhone?: string | null;
+  jobTitle: string;
+  message?: string | null;
+  cvLink?: string | null;
+  coverLetterLink?: string | null;
+};
+
 function formatDueDate(dueAt: string | null | undefined) {
   if (!dueAt) return null;
   const parsed = new Date(dueAt);
@@ -258,5 +269,44 @@ export async function notifyRhOfDocument(params: RhNotificationParams) {
     to: params.rhEmails,
     subject: `Nouveau depot : ${params.documentLabel}${params.employeeName ? ` - ${params.employeeName}` : ""}`,
     html,
+  });
+}
+
+export async function notifyAdminOfApplication(params: ApplicationNotificationParams) {
+  if (!params.adminEmails.length) {
+    return { ok: false, skipped: true };
+  }
+
+  const phoneLine = params.candidatePhone
+    ? `<p>Telephone : <strong>${escapeHtml(params.candidatePhone)}</strong></p>`
+    : "";
+  const messageLine = params.message
+    ? `<p style="white-space:pre-wrap;background:#f5f5f5;padding:12px;border-radius:8px">${escapeHtml(params.message)}</p>`
+    : "";
+  const cvLine = params.cvLink
+    ? `<li><a href="${params.cvLink}">Telecharger le CV</a></li>`
+    : "";
+  const coverLetterLine = params.coverLetterLink
+    ? `<li><a href="${params.coverLetterLink}">Telecharger la lettre de motivation</a></li>`
+    : "";
+
+  const html = renderShell(`
+    <p>Bonjour,</p>
+    <p>Une nouvelle candidature vient d'etre envoyee pour <strong>${escapeHtml(params.jobTitle)}</strong>.</p>
+    <p>Candidat : <strong>${escapeHtml(params.candidateName)}</strong></p>
+    <p>Email : <strong>${escapeHtml(params.candidateEmail)}</strong></p>
+    ${phoneLine}
+    ${messageLine}
+    <ul>
+      ${cvLine}
+      ${coverLetterLine}
+    </ul>
+  `);
+
+  return sendEmail({
+    to: params.adminEmails,
+    subject: `Nouvelle candidature - ${params.jobTitle}`,
+    html,
+    replyTo: params.candidateEmail,
   });
 }
