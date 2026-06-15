@@ -137,6 +137,8 @@ export default function Home() {
 
     { src: "/partenaire/spie.png", alt: "SPIE" },
     { src: "/partenaire/inetumbis.png", alt: "Inetum" },
+    { src: "/client/helpline.svg", alt: "Helpline", scale: 1.05 },
+    { src: "/client/logosignature.png", alt: "Tibco", scale: 0.95 },
 
 
   ];

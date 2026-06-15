@@ -129,25 +129,27 @@ export const About = ({
               </p>
             </motion.div>
 
-            <div className="grid flex-1 grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {companies.map((company, idx) => (
                 <motion.div
                   key={company.alt + idx}
-                  className="flex h-28 items-center justify-center rounded-lg border border-white/20 bg-white px-4 py-3 transition hover:-translate-y-1 hover:border-white/40"
+                  className="flex h-24 items-center justify-center overflow-hidden rounded-xl border border-white/15 bg-white px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition duration-300 hover:-translate-y-1 hover:border-white/35 hover:shadow-[0_14px_36px_rgba(0,0,0,0.18)]"
                   initial={{ opacity: 0, y: 12 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.4, delay: idx * 0.05 }}
                 >
-                  <img
-  src={company.src}
-  alt={company.alt}
-  style={{
-    width: `${(company.scale ?? 1) * 100}%`,
-    height: `${(company.scale ?? 1) * 100}%`,
-    objectFit: "contain",
-  }}
-/>
+                  <Image
+                    src={company.src}
+                    alt={company.alt}
+                    width={240}
+                    height={96}
+                    className="h-auto w-auto max-h-full max-w-full object-contain"
+                    style={{
+                      width: `${(company.scale ?? 1) * 100}%`,
+                      height: `${(company.scale ?? 1) * 100}%`,
+                    }}
+                  />
                 </motion.div>
               ))}
             </div>
