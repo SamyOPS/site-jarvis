@@ -127,27 +127,41 @@ export const About = ({
               <p className="text-sm text-white/60">
                 Une sélection de partenaires qui nous accompagnent sur nos projets clés.
               </p>
+              <div className="grid grid-cols-3 gap-2 pt-2 text-center md:grid-cols-1 md:text-left">
+                {[
+                  { value: "5", label: "expertises cles" },
+                  { value: "10", label: "partenaires" },
+                  { value: "24/7", label: "support possible" },
+                ].map((metric) => (
+                  <div key={metric.label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                    <p className="text-lg font-bold text-white">{metric.value}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">{metric.label}</p>
+                  </div>
+                ))}
+              </div>
             </motion.div>
 
-            <div className="grid flex-1 grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {companies.map((company, idx) => (
                 <motion.div
                   key={company.alt + idx}
-                  className="flex h-28 items-center justify-center rounded-lg border border-white/20 bg-white px-4 py-3 transition hover:-translate-y-1 hover:border-white/40"
+                  className="flex h-24 items-center justify-center overflow-hidden rounded-xl border border-white/15 bg-white px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition duration-300 hover:-translate-y-1 hover:border-white/35 hover:shadow-[0_14px_36px_rgba(0,0,0,0.18)]"
                   initial={{ opacity: 0, y: 12 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.4, delay: idx * 0.05 }}
                 >
-                  <img
-  src={company.src}
-  alt={company.alt}
-  style={{
-    width: `${(company.scale ?? 1) * 100}%`,
-    height: `${(company.scale ?? 1) * 100}%`,
-    objectFit: "contain",
-  }}
-/>
+                  <Image
+                    src={company.src}
+                    alt={company.alt}
+                    width={240}
+                    height={96}
+                    className="h-auto w-auto max-h-full max-w-full object-contain"
+                    style={{
+                      width: `${(company.scale ?? 1) * 100}%`,
+                      height: `${(company.scale ?? 1) * 100}%`,
+                    }}
+                  />
                 </motion.div>
               ))}
             </div>

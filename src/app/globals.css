@@ -99,17 +99,17 @@ img {
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --cubic-default: var(----cubic-default);
-  --gap: var(----gap);
-  --section-padding: var(----section-padding);
-  --container-padding: var(----container-padding);
-  --size-container: var(----size-container);
-  --color-color-neutral-800: var(----color-neutral-800);
-  --color-color-neutral-300: var(----color-neutral-300);
-  --color-color-neutral-200: var(----color-neutral-200);
-  --color-color-neutral-100: var(----color-neutral-100);
-  --color-color-dark: var(----color-dark);
-  --color-color-primary: var(----color-primary);
+  --cubic-default: var(--cubic-default);
+  --gap: var(--gap);
+  --section-padding: var(--section-padding);
+  --container-padding: var(--container-padding);
+  --size-container: var(--size-container);
+  --color-color-neutral-800: var(--color-neutral-800);
+  --color-color-neutral-300: var(--color-neutral-300);
+  --color-color-neutral-200: var(--color-neutral-200);
+  --color-color-neutral-100: var(--color-neutral-100);
+  --color-color-dark: var(--color-dark);
+  --color-color-primary: var(--color-primary);
 }
 
 body {
@@ -120,6 +120,21 @@ body {
 
 html {
   scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .font-display {

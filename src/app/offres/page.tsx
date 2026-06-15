@@ -28,6 +28,15 @@ type JobOffer = {
   created_at: string;
 };
 
+type OffresPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+const getParam = (params: Record<string, string | string[] | undefined>, key: string) => {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+};
+
 async function fetchOffers(): Promise<{ offers: JobOffer[]; error: string | null }> {
   try {
     const client = getCvSupabaseClient();
@@ -45,8 +54,24 @@ async function fetchOffers(): Promise<{ offers: JobOffer[]; error: string | null
   }
 }
 
-export default async function OffresPage() {
+export default async function OffresPage({ searchParams }: OffresPageProps) {
   const { offers, error } = await fetchOffers();
+  const params = searchParams ? await searchParams : {};
+  const query = getParam(params, "q").trim().toLowerCase();
+  const selectedLocation = getParam(params, "location");
+  const selectedContract = getParam(params, "contract");
+  const locations = Array.from(new Set(offers.map((offer) => offer.location).filter(Boolean))).sort();
+  const contracts = Array.from(new Set(offers.map((offer) => offer.contract_type).filter(Boolean))).sort();
+  const filteredOffers = offers.filter((offer) => {
+    const haystack = [offer.title, offer.company_name, offer.client, offer.description]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    const matchesQuery = !query || haystack.includes(query);
+    const matchesLocation = !selectedLocation || offer.location === selectedLocation;
+    const matchesContract = !selectedContract || offer.contract_type === selectedContract;
+    return matchesQuery && matchesLocation && matchesContract;
+  });
 
   return (
     <>
@@ -81,8 +106,43 @@ export default async function OffresPage() {
           )}
 
           {offers.length ? (
+            <form className="mb-8 grid gap-3 rounded-2xl border border-[#0A1A2F]/10 bg-[#F4F7FA] p-4 md:grid-cols-[1.5fr_1fr_1fr_auto]" action="/offres">
+              <input
+                type="search"
+                name="q"
+                defaultValue={getParam(params, "q")}
+                placeholder="Rechercher une offre, une mission, une techno..."
+                className="h-11 rounded-xl border border-[#0A1A2F]/10 bg-white px-4 text-sm text-[#0A1A2F] outline-none transition focus:border-[#2aa0dd]"
+              />
+              <select
+                name="location"
+                defaultValue={selectedLocation}
+                className="h-11 rounded-xl border border-[#0A1A2F]/10 bg-white px-4 text-sm text-[#0A1A2F] outline-none transition focus:border-[#2aa0dd]"
+              >
+                <option value="">Toutes les villes</option>
+                {locations.map((location) => (
+                  <option key={location} value={location ?? ""}>{location}</option>
+                ))}
+              </select>
+              <select
+                name="contract"
+                defaultValue={selectedContract}
+                className="h-11 rounded-xl border border-[#0A1A2F]/10 bg-white px-4 text-sm text-[#0A1A2F] outline-none transition focus:border-[#2aa0dd]"
+              >
+                <option value="">Tous les contrats</option>
+                {contracts.map((contract) => (
+                  <option key={contract} value={contract ?? ""}>{contract}</option>
+                ))}
+              </select>
+              <Button className="h-11 rounded-xl bg-[#0A1A2F] px-5 text-white hover:bg-[#0d2a4b]" type="submit">
+                Filtrer
+              </Button>
+            </form>
+          ) : null}
+
+          {filteredOffers.length ? (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {offers.map((offer) => (
+              {filteredOffers.map((offer) => (
                 <Card
                   key={offer.id}
                   className="group flex h-full flex-col rounded-[28px] border border-[#0A1A2F]/10 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-[#0A1A2F]/40 hover:shadow-[0_18px_45px_rgba(10,26,47,0.12)]"
@@ -133,7 +193,7 @@ export default async function OffresPage() {
                   <CardFooter className="pt-2">
                     <Button className="w-full rounded-full bg-[#0A1A2F] text-white hover:bg-[#0d2a4b]" asChild>
                       <Link href={`/offres/${offer.id}`}>
-                        Candidater
+                        Voir l&apos;offre
                         <ArrowRight className="ml-1 h-4 w-4" />
                       </Link>
                     </Button>
@@ -143,7 +203,7 @@ export default async function OffresPage() {
             </div>
           ) : !error ? (
             <div className="mx-auto max-w-3xl rounded-lg border border-[#0A1A2F]/10 bg-[#0A1A2F]/5 px-4 py-6 text-sm text-[#0A1A2F]/80">
-              Aucune offre publiée pour le moment.
+              Aucune offre ne correspond a votre recherche. Vous pouvez ajuster les filtres ou nous contacter pour une candidature spontanee.
             </div>
           ) : null}
         </main>

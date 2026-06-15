@@ -137,6 +137,8 @@ export default function Home() {
 
     { src: "/partenaire/spie.png", alt: "SPIE" },
     { src: "/partenaire/inetumbis.png", alt: "Inetum" },
+    { src: "/client/helpline.svg", alt: "Helpline", scale: 1.05 },
+    { src: "/client/logosignature.png", alt: "Tibco", scale: 0.95 },
 
 
   ];
@@ -209,6 +211,14 @@ icon:
             highlightText="IT & digital"
 
             description="Support, développement applicatif et sécurité réunis au sein d'une équipe senior qui intervient vite et bien pour vos utilisateurs."
+
+            buttonText="Parler a un expert"
+
+            buttonHref="/contact"
+
+            secondaryButtonText="Voir nos expertises"
+
+            secondaryButtonHref="#expertises"
 
             showScrollIcon
 

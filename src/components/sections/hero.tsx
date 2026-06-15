@@ -12,6 +12,8 @@ interface HeroProps {
   buttonText?: string;
   onButtonClick?: () => void;
   buttonHref?: string;
+  secondaryButtonText?: string;
+  secondaryButtonHref?: string;
   showScrollIcon?: boolean;
   scrollText?: string;
   scrollIconLabel?: string;
@@ -40,6 +42,8 @@ export function Hero(props: HeroProps) {
     buttonText = "Nous contacter",
     buttonHref,
     onButtonClick,
+    secondaryButtonText,
+    secondaryButtonHref,
     showScrollIcon = false,
     scrollText = "Decouvrir notre expertise",
     scrollIconLabel = "Scroll",
@@ -55,8 +59,8 @@ export function Hero(props: HeroProps) {
     cinematicBackground = false,
   } = props;
 
-  const resolvedButtonText = showScrollIcon ? undefined : buttonText;
-  const resolvedButtonHref = showScrollIcon ? undefined : buttonHref;
+  const resolvedButtonText = buttonText;
+  const resolvedButtonHref = buttonHref;
   const { introActive, introTransitioning } = useLaunchContext();
   const typographyStyle =
     fontFamily || fontWeight
@@ -139,7 +143,7 @@ export function Hero(props: HeroProps) {
               resolvedButtonHref ? (
                 <a
                   href={resolvedButtonHref}
-                  className={`rounded-full border border-white/20 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] transition hover:border-white/40 ${buttonClassName}`}
+                  className={`rounded-full border border-white/20 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#0A1A2F] shadow-[0_16px_36px_rgba(0,0,0,0.22)] transition hover:border-white/40 hover:bg-[#f2fbff] ${buttonClassName}`}
                 >
                   {resolvedButtonText}
                 </a>
@@ -147,11 +151,20 @@ export function Hero(props: HeroProps) {
                 <button
                   type="button"
                   onClick={onButtonClick}
-                  className={`rounded-full border border-white/20 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] transition hover:border-white/40 ${buttonClassName}`}
+                  className={`rounded-full border border-white/20 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#0A1A2F] shadow-[0_16px_36px_rgba(0,0,0,0.22)] transition hover:border-white/40 hover:bg-[#f2fbff] ${buttonClassName}`}
                 >
                   {resolvedButtonText}
                 </button>
               )
+            ) : null}
+
+            {secondaryButtonText && secondaryButtonHref ? (
+              <a
+                href={secondaryButtonHref}
+                className="rounded-full border border-white/30 px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-white/90 transition hover:border-[#46d6ff]/70 hover:text-[#46d6ff]"
+              >
+                {secondaryButtonText}
+              </a>
             ) : null}
 
             {showScrollIcon ? (

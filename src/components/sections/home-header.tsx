@@ -164,7 +164,14 @@ export function HomeHeader() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              href="/contact"
+              className="hidden rounded-xl border border-white/25 bg-white px-4 py-2 text-sm font-semibold text-[#0A1A2F] shadow-sm transition hover:bg-[#f2fbff] hover:text-[#0d2a4b] md:inline-flex"
+            >
+              Nous contacter
+            </Link>
+
             {userLabel ? (
               <div className="relative" ref={menuRef}>
                 <button
@@ -226,6 +233,15 @@ export function HomeHeader() {
                 {link.label}
               </Link>
             ))}
+            <div className="px-4 pt-2">
+              <Link
+                href="/contact"
+                className="inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#0A1A2F] transition hover:bg-[#f2fbff]"
+                onClick={() => setMobileOpen(false)}
+              >
+                Nous contacter
+              </Link>
+            </div>
           </div>
         )}
       </div>

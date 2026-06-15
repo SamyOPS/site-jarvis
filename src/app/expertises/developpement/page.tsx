@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Footer } from "@/components/sections/footer";
+import { ExpertisePageNav } from "@/components/sections/expertise-page-nav";
 import { DeveloppementHoverSlider } from "./DeveloppementHoverSlider";
 
 const devSlides = [
@@ -93,9 +94,10 @@ export default function DeveloppementPage() {
               Développement applicatif
             </h1>
           </div>
+          <ExpertisePageNav />
           <DeveloppementHoverSlider slides={devSlides} />
 
-          <section className="mt-14 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+          <section id="expertise-detail" className="mt-14 grid scroll-mt-24 gap-10 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="space-y-5 text-base text-slate-700">
               <p className="text-lg font-semibold text-[#0A1A2F]">Des produits robustes, pensés pour scaler.</p>
               <p>
@@ -145,7 +147,7 @@ export default function DeveloppementPage() {
             </div>
           </section>
 
-          <section className="mt-14 grid gap-6 lg:grid-cols-3">
+          <section id="resultats" className="mt-14 grid scroll-mt-24 gap-6 lg:grid-cols-3">
             {[
               {
                 title: "Ce que vous obtenez",
@@ -189,7 +191,7 @@ export default function DeveloppementPage() {
             ))}
           </section>
 
-          <section className="mt-14 rounded-none border border-[#0A1A2F]/10 bg-[#0A1A2F] p-8 text-white">
+          <section id="contact" className="mt-14 scroll-mt-24 rounded-none border border-[#0A1A2F]/10 bg-[#0A1A2F] p-8 text-white">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-sm uppercase tracking-[0.2em] text-white/70">Prêt à accélérer votre delivery ?</p>

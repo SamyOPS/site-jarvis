@@ -22,6 +22,14 @@ export function SalarieSidebarNav({
   onNavigate,
 }: SalarieSidebarNavProps) {
   const handleNavigate = () => onNavigate?.();
+  const itemClass = (active: boolean) =>
+    `block rounded-xl px-3 py-2 transition hover:bg-white/70 ${
+      active ? "border-l-4 border-[#2aa0dd] bg-white font-semibold text-[#0A1A2F] shadow-sm" : "text-[#0A1A2F]/70"
+    }`;
+  const subItemClass = (active: boolean) =>
+    `block rounded-lg px-2 py-1.5 transition hover:bg-white/70 ${
+      active ? "bg-white font-semibold text-[#0A1A2F]" : "text-[#0A1A2F]/65"
+    }`;
 
   return (
     <div className="flex h-full flex-col gap-4 px-4 py-5">
@@ -36,14 +44,14 @@ export function SalarieSidebarNav({
         <Link
           href="/dashboard/salarie"
           onClick={handleNavigate}
-          className={`block px-1 py-2 hover:underline ${currentSection === "overview" ? "font-semibold" : ""}`}
+          className={itemClass(currentSection === "overview")}
         >
           Vue d&apos;ensemble
         </Link>
         <Link
           href="/dashboard/salarie/documents"
           onClick={handleNavigate}
-          className={`block px-1 py-2 hover:underline ${currentSection === "documents" ? "font-semibold" : ""}`}
+          className={itemClass(currentSection === "documents")}
         >
           Mes documents
         </Link>
@@ -52,28 +60,28 @@ export function SalarieSidebarNav({
             <Link
               href="/dashboard/salarie/documents/a-deposer"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "docs_a_deposer" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "docs_a_deposer")}
             >
               A deposer
             </Link>
             <Link
               href="/dashboard/salarie/documents"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "docs_tous" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "docs_tous")}
             >
               Tous mes documents
             </Link>
             <Link
               href="/dashboard/salarie/documents/cra-facture"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "docs_cra_facture" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "docs_cra_facture")}
             >
               CRA & Facture
             </Link>
             <Link
               href="/dashboard/salarie/documents/corbeille"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "docs_corbeille" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "docs_corbeille")}
             >
               Corbeille
             </Link>
@@ -82,7 +90,7 @@ export function SalarieSidebarNav({
         <Link
           href="/dashboard/salarie/offres"
           onClick={handleNavigate}
-          className={`block px-1 py-2 hover:underline ${currentSection === "offres" ? "font-semibold" : ""}`}
+          className={itemClass(currentSection === "offres")}
         >
           Offres d&apos;emploi
         </Link>
@@ -91,21 +99,21 @@ export function SalarieSidebarNav({
             <Link
               href="/dashboard/salarie/offres"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "offres_toutes" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "offres_toutes")}
             >
               Toutes les offres
             </Link>
             <Link
               href="/dashboard/salarie/candidatures"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "candidatures" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "candidatures")}
             >
               Mes candidatures
             </Link>
             <Link
               href="/dashboard/salarie/cv"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "cvs" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "cvs")}
             >
               Mes CVs
             </Link>
@@ -115,7 +123,7 @@ export function SalarieSidebarNav({
       <div className="mt-auto space-y-1">
         <button
           type="button"
-          className="flex items-center px-1 py-2 text-sm hover:underline"
+          className="flex items-center rounded-xl px-3 py-2 text-sm text-[#0A1A2F]/70 transition hover:bg-white/70 hover:text-[#0A1A2F]"
           onClick={() => {
             handleNavigate();
             void onSignOut();
