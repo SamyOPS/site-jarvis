@@ -109,10 +109,10 @@ export const About = ({
       {/* Section partenaires */}
       <div className="mt-20 bg-[#050B14] px-6 py-12 md:px-10">
         <div className="mx-auto max-w-6xl">
-          <div className="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
+          <div className="flex flex-col items-center gap-8 text-center">
 
             <motion.div
-              className="space-y-4 md:max-w-xs"
+              className="mx-auto max-w-2xl space-y-4"
               initial={{ opacity: 0, y: 18 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -127,21 +127,9 @@ export const About = ({
               <p className="text-sm text-white/60">
                 Une sélection de partenaires qui nous accompagnent sur nos projets clés.
               </p>
-              <div className="grid grid-cols-3 gap-2 pt-2 text-center md:grid-cols-1 md:text-left">
-                {[
-                  { value: "5", label: "expertises cles" },
-                  { value: "10", label: "partenaires" },
-                  { value: "24/7", label: "support possible" },
-                ].map((metric) => (
-                  <div key={metric.label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                    <p className="text-lg font-bold text-white">{metric.value}</p>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">{metric.label}</p>
-                  </div>
-                ))}
-              </div>
             </motion.div>
 
-            <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="mx-auto grid w-full max-w-5xl grid-cols-2 justify-center gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {companies.map((company, idx) => (
                 <motion.div
                   key={company.alt + idx}
