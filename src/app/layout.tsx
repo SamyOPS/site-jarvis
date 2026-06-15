@@ -29,10 +29,22 @@ const chakraPetch = Chakra_Petch({
 });
 
 export const metadata: Metadata = {
-  title: "Jarvis Connect",
-  description: "Description de Jarvis",
-   icons: {
-    icon: '/favicon.ico?v=2',
+  title: {
+    default: "Jarvis Connect | Partenaire IT & digital",
+    template: "%s | Jarvis Connect",
+  },
+  description:
+    "Support IT, developpement applicatif, securite, reseaux et transformation digitale pour PME, ETI et grandes organisations.",
+  icons: {
+    icon: "/favicon.ico?v=2",
+  },
+  openGraph: {
+    title: "Jarvis Connect | Partenaire IT & digital",
+    description:
+      "Des equipes IT seniors pour accelerer vos projets support, developpement, securite et transformation digitale.",
+    siteName: "Jarvis Connect",
+    locale: "fr_FR",
+    type: "website",
   },
 };
 

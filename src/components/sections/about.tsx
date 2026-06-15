@@ -127,6 +127,18 @@ export const About = ({
               <p className="text-sm text-white/60">
                 Une sélection de partenaires qui nous accompagnent sur nos projets clés.
               </p>
+              <div className="grid grid-cols-3 gap-2 pt-2 text-center md:grid-cols-1 md:text-left">
+                {[
+                  { value: "5", label: "expertises cles" },
+                  { value: "10", label: "partenaires" },
+                  { value: "24/7", label: "support possible" },
+                ].map((metric) => (
+                  <div key={metric.label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                    <p className="text-lg font-bold text-white">{metric.value}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">{metric.label}</p>
+                  </div>
+                ))}
+              </div>
             </motion.div>
 
             <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">

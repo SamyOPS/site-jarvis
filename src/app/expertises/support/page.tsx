@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Footer } from "@/components/sections/footer";
+import { ExpertisePageNav } from "@/components/sections/expertise-page-nav";
 
 import { SupportHoverSlider } from "./SupportHoverSlider";
 
@@ -163,10 +164,11 @@ export default function SupportPage() {
             </h1>
 
           </div>
+          <ExpertisePageNav />
 
           <SupportHoverSlider slides={supportSlides} />
 
-          <section className="mt-14 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+          <section id="expertise-detail" className="mt-14 grid scroll-mt-24 gap-10 lg:grid-cols-[1.1fr_0.9fr]">
 
             <div className="space-y-5 text-base text-slate-700">
 
@@ -268,7 +270,7 @@ export default function SupportPage() {
 
 
 
-          <section className="mt-14 grid gap-6 lg:grid-cols-3">
+          <section id="resultats" className="mt-14 grid scroll-mt-24 gap-6 lg:grid-cols-3">
 
             {[
 
@@ -356,7 +358,7 @@ export default function SupportPage() {
 
 
 
-          <section className="mt-14 rounded-none border border-[#0A1A2F]/10 bg-[#0A1A2F] p-8 text-white">
+          <section id="contact" className="mt-14 scroll-mt-24 rounded-none border border-[#0A1A2F]/10 bg-[#0A1A2F] p-8 text-white">
 
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 

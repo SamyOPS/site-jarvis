@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -9,6 +10,9 @@ interface FeatureItem {
   description: string;
   image: string;
   moduleUrl?: string;
+  duration?: string;
+  audience?: string;
+  format?: string;
 }
 
 interface FormationsSupportProps {
@@ -32,6 +36,9 @@ export const FormationsSupport = ({
       description:
         "Modules pratiques sur la gestion des incidents, l'escalade, la supervision, la communication et les standards ITIL.",
       moduleUrl: "/formations/parcours-support",
+      duration: "2 jours",
+      audience: "Support N1/N2",
+      format: "Atelier",
       image:
         "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=1200&auto=format&fit=crop",
     },
@@ -39,6 +46,9 @@ export const FormationsSupport = ({
       id: "feature-2",
       title: "Ateliers outillage",
       moduleUrl: "/formations/ateliers-outillage",
+      duration: "1 jour",
+      audience: "Equipes IT",
+      format: "Pratique",
       description:
         "Prise en main des outils de ticketing, supervision, MDM et automatisation pour gagner en efficacité.",
       image:
@@ -48,6 +58,9 @@ export const FormationsSupport = ({
       id: "feature-3",
       title: "Coaching gestes techniques",
       moduleUrl: "/formations/coaching-gestes-techniques",
+      duration: "1/2 jour",
+      audience: "Techniciens",
+      format: "Coaching",
       description:
         "Bonnes pratiques de diagnostic, sécurisation poste, scripts d'intervention et relation utilisateur.",
       image:
@@ -105,10 +118,12 @@ export const FormationsSupport = ({
                       boxShadow: "0 0 0 8px white, 0 20px 60px rgba(10,26,47,0.12)",
                     }}
                   >
-                    <img
+                    <Image
                       src={feature.image}
                       alt={feature.title}
-                      className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+                      fill
+                      sizes="(max-width: 768px) 280px, 340px"
+                      className="object-cover transition-transform duration-700 hover:scale-105"
                     />
                     <div
                       className="absolute inset-0 rounded-full pointer-events-none"
@@ -130,6 +145,13 @@ export const FormationsSupport = ({
                   <h3 className="mt-2 text-2xl font-extrabold text-[#0A1A2F] tracking-tight uppercase md:text-3xl">
                     {feature.title}
                   </h3>
+                  <div className={`mt-4 flex flex-wrap gap-2 ${isRight ? "md:justify-end" : ""}`}>
+                    {[feature.duration, feature.audience, feature.format].filter(Boolean).map((item) => (
+                      <span key={item} className="rounded-full border border-[#0A1A2F]/10 bg-[#F4F7FA] px-3 py-1 text-xs font-semibold text-[#0A1A2F]/70">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
                   <p className="mt-4 text-[#4f5e66] leading-relaxed text-sm md:text-base">
                     {feature.description}
                   </p>

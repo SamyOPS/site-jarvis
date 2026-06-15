@@ -16,7 +16,7 @@ interface OffresEmploiProps {
 export function OffresEmploi({
   heading = "Offres d'emploi",
   description = "Découvrez les opportunités ouvertes chez Jarvis Connect et rejoignez une équipe technique qui fait bouger les SI.",
-  buttonText = "Voir toutes les offres d'emploi",
+  buttonText = "Decouvrir les opportunites",
   buttonUrl = "/offres",
 }: OffresEmploiProps) {
   return (

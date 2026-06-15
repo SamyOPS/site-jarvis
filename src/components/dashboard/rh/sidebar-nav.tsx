@@ -22,6 +22,14 @@ export function RhSidebarNav({
   onNavigate,
 }: RhSidebarNavProps) {
   const handleNavigate = () => onNavigate?.();
+  const itemClass = (active: boolean) =>
+    `block rounded-xl px-3 py-2 transition hover:bg-white/70 ${
+      active ? "border-l-4 border-[#2aa0dd] bg-white font-semibold text-[#0A1A2F] shadow-sm" : "text-[#0A1A2F]/70"
+    }`;
+  const subItemClass = (active: boolean) =>
+    `block rounded-lg px-2 py-1.5 transition hover:bg-white/70 ${
+      active ? "bg-white font-semibold text-[#0A1A2F]" : "text-[#0A1A2F]/65"
+    }`;
 
   return (
     <div className="flex h-full flex-col gap-4 px-4 py-5">
@@ -36,14 +44,14 @@ export function RhSidebarNav({
         <Link
           href="/dashboard/rh"
           onClick={handleNavigate}
-          className={`block px-1 py-2 hover:underline ${currentSection === "overview" ? "font-semibold" : ""}`}
+          className={itemClass(currentSection === "overview")}
         >
           Vue d&apos;ensemble
         </Link>
         <Link
           href="/dashboard/rh/collaborateurs"
           onClick={handleNavigate}
-          className={`block px-1 py-2 hover:underline ${currentSection === "collaborateurs" ? "font-semibold" : ""}`}
+          className={itemClass(currentSection === "collaborateurs")}
         >
           Collaborateurs
         </Link>
@@ -52,33 +60,33 @@ export function RhSidebarNav({
             <Link
               href="/dashboard/rh/collaborateurs"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "collab_tous" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "collab_tous")}
             >
               Tous les collaborateurs
             </Link>
             <Link
               href="/dashboard/rh/collaborateurs/actifs"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "collab_actifs" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "collab_actifs")}
             >
               Actifs
             </Link>
             <Link
               href="/dashboard/rh/collaborateurs/inactifs"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "collab_inactifs" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "collab_inactifs")}
             >
               Inactifs / Sortants
             </Link>
             {currentSubSection === "collab_detail" && (
-              <span className="block py-1 font-semibold">Fiche collaborateur</span>
+              <span className="block rounded-lg bg-white px-2 py-1.5 font-semibold text-[#0A1A2F]">Fiche collaborateur</span>
             )}
           </div>
         )}
         <Link
           href="/dashboard/rh/documents"
           onClick={handleNavigate}
-          className={`block px-1 py-2 hover:underline ${currentSection === "documents" ? "font-semibold" : ""}`}
+          className={itemClass(currentSection === "documents")}
         >
           Documents
         </Link>
@@ -87,67 +95,74 @@ export function RhSidebarNav({
             <Link
               href="/dashboard/rh/documents/tous"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "docs_all" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "docs_all")}
             >
               Tous les documents
             </Link>
             <Link
               href="/dashboard/rh/documents/cra-facture"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "docs_cra_facture" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "docs_cra_facture")}
             >
               CRA & Facture
             </Link>
             <Link
               href="/dashboard/rh/documents/a-valider"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "docs_a_valider" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "docs_a_valider")}
             >
               A valider
             </Link>
             <Link
               href="/dashboard/rh/documents/mes-demandes"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "docs_mes_demandes" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "docs_mes_demandes")}
             >
               Mes demandes
             </Link>
             <Link
               href="/dashboard/rh/documents/corbeille"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "docs_corbeille" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "docs_corbeille")}
             >
               Corbeille
             </Link>
           </div>
         )}
+        <Link
+          href="/dashboard/rh/offres"
+          onClick={handleNavigate}
+          className={itemClass(currentSection === "offres")}
+        >
+          Offres
+        </Link>
         {currentSection === "offres" && (
           <div className="ml-3 space-y-1 border-l border-slate-200 pl-3 text-xs">
             <Link
               href="/dashboard/rh/offres"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "offres_actives" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "offres_actives")}
             >
               Offres actives
             </Link>
             <Link
               href="/dashboard/rh/offres/candidatures"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "offres_candidatures" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "offres_candidatures")}
             >
               Candidatures
             </Link>
             <Link
               href="/dashboard/rh/offres/archives"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "offres_archives" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "offres_archives")}
             >
               Archives
             </Link>
             <Link
               href="/dashboard/rh/offres/creer"
               onClick={handleNavigate}
-              className={`block py-1 ${currentSubSection === "offres_creer" ? "font-semibold" : ""}`}
+              className={subItemClass(currentSubSection === "offres_creer")}
             >
               Creer une offre
             </Link>
@@ -157,7 +172,7 @@ export function RhSidebarNav({
       <div className="mt-auto space-y-1">
         <button
           type="button"
-          className="flex items-center px-1 py-2 text-sm hover:underline"
+          className="flex items-center rounded-xl px-3 py-2 text-sm text-[#0A1A2F]/70 transition hover:bg-white/70 hover:text-[#0A1A2F]"
           onClick={() => {
             handleNavigate();
             void onSignOut();

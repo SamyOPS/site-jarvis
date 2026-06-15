@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 
 import { Footer } from "@/components/sections/footer";
@@ -15,6 +16,7 @@ const modules = [
     description:
       "Modules pratiques sur la gestion des incidents, l'escalade, la supervision, la communication et les standards ITIL.",
     bullets: ["Support N1/N2", "Supervision et MCO", "SLA / ITIL"],
+    details: ["2 jours", "Atelier", "Support N1/N2"],
   },
   {
     title: "Ateliers outillage",
@@ -24,6 +26,7 @@ const modules = [
     description:
       "Prise en main des outils de ticketing, supervision, MDM et automatisation pour gagner en efficacite et standardiser les interventions.",
     bullets: ["Ticketing", "Dashboards", "Automatisation"],
+    details: ["1 jour", "Pratique", "Equipes IT"],
   },
   {
     title: "Coaching gestes techniques",
@@ -33,6 +36,7 @@ const modules = [
     description:
       "Renforcement des bons gestes de diagnostic, de securisation et de communication utilisateur pour des interventions plus fiables.",
     bullets: ["Diagnostic", "Securisation", "Posture de service"],
+    details: ["1/2 jour", "Coaching", "Techniciens"],
   },
 ];
 
@@ -44,10 +48,10 @@ export default function FormationsPage() {
           <section className="grid gap-8 border border-[#d5d9dc] bg-white p-6 shadow-sm lg:grid-cols-[1.15fr_0.85fr] lg:p-8">
             <div className="space-y-4">
               <Button variant="link" className="p-0 text-[#2f3b42]" asChild>
-                <a href="/#formations" className="inline-flex items-center gap-2">
+                <Link href="/#formations" className="inline-flex items-center gap-2">
                   <ArrowLeft className="h-4 w-4" />
                   Retour a l'accueil
-                </a>
+                </Link>
               </Button>
 
               <p className="text-sm uppercase tracking-[0.2em] text-[#3c4e58]/70">
@@ -102,6 +106,13 @@ export default function FormationsPage() {
 
                   <div className="flex flex-1 flex-col p-5">
                     <h3 className="text-xl font-semibold text-[#2f3b42]">{module.title}</h3>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {module.details.map((detail) => (
+                        <span key={detail} className="rounded-full border border-[#0A1A2F]/10 bg-[#F4F7FA] px-3 py-1 text-xs font-semibold text-[#0A1A2F]/70">
+                          {detail}
+                        </span>
+                      ))}
+                    </div>
                     <p className="mt-3 text-sm leading-6 text-[#4f5e66]">{module.description}</p>
 
                     <ul className="mt-4 space-y-2 text-sm text-[#3f4f58]">
@@ -113,13 +124,13 @@ export default function FormationsPage() {
                       ))}
                     </ul>
 
-                    <a
+                    <Link
                       href={module.href}
                       className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#0A1A2F] transition hover:text-[#000080]"
                     >
                       Decouvrir le module
                       <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
-                    </a>
+                    </Link>
                   </div>
                 </article>
               ))}

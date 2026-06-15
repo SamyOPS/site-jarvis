@@ -95,7 +95,7 @@ export default function ContactPage() {
 
     form.reset();
     setSubmitState("success");
-    setSubmitMessage("Message envoye et email transmis. Notre equipe vous recontacte rapidement.");
+    setSubmitMessage("Message envoye. Notre equipe revient vers vous rapidement avec une reponse claire.");
   };
   const cardVariants = {
     hidden: { opacity: 0, y: 12 },
@@ -111,6 +111,11 @@ export default function ContactPage() {
   };
 
   const titleLines = ["PRENEZ CONTACT", "AVEC NOTRE EQUIPE"];
+  const trustItems = [
+    { value: "24h", label: "delai de reponse cible" },
+    { value: "IT", label: "qualification par un expert" },
+    { value: "Confidentiel", label: "demande traitee avec discretion" },
+  ];
 
   return (
     <>
@@ -152,7 +157,16 @@ export default function ContactPage() {
           </p>
         </div>
 
-        <form className="mt-16 grid items-stretch gap-4 lg:grid-cols-2" onSubmit={handleSubmit} noValidate>
+        <div className="mt-8 grid gap-3 sm:grid-cols-3">
+          {trustItems.map((item) => (
+            <div key={item.label} className="border border-[#d5d9dc] bg-white px-4 py-3 shadow-sm">
+              <p className="text-lg font-semibold text-[#2f3b42]">{item.value}</p>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#4f5e66]/70">{item.label}</p>
+            </div>
+          ))}
+        </div>
+
+        <form className="mt-12 grid items-stretch gap-4 lg:grid-cols-2" onSubmit={handleSubmit} noValidate>
           <div className="grid h-full grid-rows-4 gap-3">
             <motion.label
               className="block h-full border border-[#d5d9dc] bg-white p-5 shadow-sm"
@@ -169,7 +183,7 @@ export default function ContactPage() {
                 inputMode="email"
                 pattern="[^\s@]+@[^\s@]+\.[^\s@]+"
                 placeholder="Tapez votre mail"
-                className="w-full border-0 bg-transparent text-2xl text-[#8a8f94] placeholder:text-[#8a8f94] focus:outline-none"
+                className="w-full border-0 bg-transparent text-xl text-[#8a8f94] placeholder:text-[#8a8f94] focus:outline-none sm:text-2xl"
                 required
               />
             </motion.label>
@@ -189,7 +203,7 @@ export default function ContactPage() {
                 minLength={2}
                 maxLength={50}
                 placeholder="Et votre prenom"
-                className="w-full border-0 bg-transparent text-2xl text-[#8a8f94] placeholder:text-[#8a8f94] focus:outline-none"
+                className="w-full border-0 bg-transparent text-xl text-[#8a8f94] placeholder:text-[#8a8f94] focus:outline-none sm:text-2xl"
                 required
               />
             </motion.label>
@@ -209,7 +223,7 @@ export default function ContactPage() {
                 minLength={2}
                 maxLength={50}
                 placeholder="Puis votre nom"
-                className="w-full border-0 bg-transparent text-2xl text-[#8a8f94] placeholder:text-[#8a8f94] focus:outline-none"
+                className="w-full border-0 bg-transparent text-xl text-[#8a8f94] placeholder:text-[#8a8f94] focus:outline-none sm:text-2xl"
                 required
               />
             </motion.label>
@@ -229,7 +243,7 @@ export default function ContactPage() {
                 minLength={3}
                 maxLength={120}
                 placeholder="Objet de votre demande"
-                className="w-full border-0 bg-transparent text-2xl text-[#8a8f94] placeholder:text-[#8a8f94] focus:outline-none"
+                className="w-full border-0 bg-transparent text-xl text-[#8a8f94] placeholder:text-[#8a8f94] focus:outline-none sm:text-2xl"
                 required
               />
             </motion.label>
@@ -247,7 +261,7 @@ export default function ContactPage() {
             <textarea
               name="message"
               placeholder="Et enfin votre message ici"
-              className="flex-1 min-h-0 w-full resize-none border-0 bg-transparent text-2xl text-[#8a8f94] placeholder:text-[#8a8f94] focus:outline-none"
+              className="min-h-[220px] w-full flex-1 resize-none border-0 bg-transparent text-xl text-[#8a8f94] placeholder:text-[#8a8f94] focus:outline-none sm:text-2xl lg:min-h-0"
               required
             />
 
@@ -264,10 +278,10 @@ export default function ContactPage() {
             <div className="min-h-[3.25rem] w-full max-w-xl">
               {submitMessage && (
                 <div
-                  className={`px-1 py-1 text-sm leading-relaxed ${
+                  className={`rounded-xl border px-4 py-3 text-sm leading-relaxed ${
                     submitState === "success"
-                      ? "text-emerald-700"
-                      : "text-red-600"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-red-200 bg-red-50 text-red-700"
                   }`}
                   role="status"
                   aria-live="polite"

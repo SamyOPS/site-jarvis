@@ -1,7 +1,8 @@
 "use client";
 
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { motion } from "motion/react";
+import Image from "next/image";
+import { motion, useReducedMotion } from "motion/react";
 
 interface ClientLogo {
   name: string;
@@ -30,9 +31,11 @@ function ClientCard({ client }: { client: ClientLogo }) {
       }}
       whileHover={{ scale: 1.04, boxShadow: "0 4px 24px rgba(42,160,221,0.15)" }}
     >
-      <img
+      <Image
         src={client.logo}
         alt={client.name}
+        width={220}
+        height={96}
         className="pointer-events-none select-none"
         style={{
           display: "block",
@@ -62,8 +65,10 @@ function ClientsRow({ items, rowKey, direction, speed }: ClientsRowProps) {
   const offsetRef = useRef(direction === "right" ? -1 : 0);
   const loopWidthRef = useRef(0);
   const draggingRef = useRef(false);
+  const pausedRef = useRef(false);
   const lastPointerXRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
   const duplicatedItems = [...items, ...items];
 
   const applyOffset = useCallback((value: number) => {
@@ -92,7 +97,7 @@ function ClientsRow({ items, rowKey, direction, speed }: ClientsRowProps) {
       if (lastTimeRef.current === null) lastTimeRef.current = time;
       const delta = (time - lastTimeRef.current) / 1000;
       lastTimeRef.current = time;
-      if (!draggingRef.current && loopWidthRef.current > 0) {
+      if (!draggingRef.current && !pausedRef.current && !prefersReducedMotion && loopWidthRef.current > 0) {
         const distance = speed * delta * (direction === "left" ? -1 : 1);
         offsetRef.current = normalizeOffset(offsetRef.current + distance, loopWidthRef.current);
         applyOffset(offsetRef.current);
@@ -101,7 +106,7 @@ function ClientsRow({ items, rowKey, direction, speed }: ClientsRowProps) {
     };
     frameRef.current = requestAnimationFrame(step);
     return () => { if (frameRef.current !== null) cancelAnimationFrame(frameRef.current); };
-  }, [applyOffset, direction, speed]);
+  }, [applyOffset, direction, prefersReducedMotion, speed]);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     draggingRef.current = true;
@@ -130,6 +135,10 @@ function ClientsRow({ items, rowKey, direction, speed }: ClientsRowProps) {
     <div className="overflow-hidden py-1">
       <div
         className={`cursor-grab ${isDragging ? "cursor-grabbing" : ""}`}
+        onPointerEnter={() => { pausedRef.current = true; }}
+        onPointerLeave={() => { pausedRef.current = false; }}
+        onFocus={() => { pausedRef.current = true; }}
+        onBlur={() => { pausedRef.current = false; }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={stopDragging}
@@ -186,6 +195,9 @@ export function Clients({
             >
               {description}
             </motion.p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">
+              Glissez ou survolez pour explorer les references
+            </p>
 
             {quote && (
               <motion.div
@@ -206,9 +218,11 @@ export function Clients({
               initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
               whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(42,160,221,0.2)" }}
             >
-              <img
+              <Image
                 src={highlightLogo}
                 alt="Logo Partner"
+                width={260}
+                height={260}
                 className="w-auto h-auto object-contain"
                 style={{ maxWidth: "95%", maxHeight: "95%" }}
               />

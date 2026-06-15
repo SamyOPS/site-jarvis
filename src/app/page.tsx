@@ -212,6 +212,14 @@ icon:
 
             description="Support, développement applicatif et sécurité réunis au sein d'une équipe senior qui intervient vite et bien pour vos utilisateurs."
 
+            buttonText="Parler a un expert"
+
+            buttonHref="/contact"
+
+            secondaryButtonText="Voir nos expertises"
+
+            secondaryButtonHref="#expertises"
+
             showScrollIcon
 
             scrollIconLabel="Scroll vers les expertises"

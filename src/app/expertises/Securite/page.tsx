@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Footer } from "@/components/sections/footer";
+import { ExpertisePageNav } from "@/components/sections/expertise-page-nav";
 import { CybersecuriteHoverSlider } from "./Securitehoverslider";
 
 const cyberSlides = [
@@ -51,10 +52,11 @@ export default function CybersecuritePage() {
               <p className="text-sm uppercase tracking-[0.2em] text-[#000080]">Expertise</p>
               <h1 className="text-3xl font-semibold text-[#0A1A2F] md:text-4xl">Cybersécurité</h1>
             </div>
+            <ExpertisePageNav />
 
             <CybersecuriteHoverSlider slides={cyberSlides} />
 
-            <section className="mt-14 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+            <section id="expertise-detail" className="mt-14 grid scroll-mt-24 gap-10 lg:grid-cols-[1.1fr_0.9fr]">
               <div className="space-y-5 text-base text-slate-700">
                 <p className="text-lg font-semibold text-[#0A1A2F]">Protégez vos actifs critiques avec une approche outillée et orientée résultats.</p>
                 <p>Nous évaluons votre exposition aux risques, détectons les vulnérabilités et mettons en œuvre les contre-mesures adaptées à votre contexte métier et réglementaire.</p>
@@ -82,7 +84,7 @@ export default function CybersecuritePage() {
               </div>
             </section>
 
-            <section className="mt-14 grid gap-6 lg:grid-cols-3">
+            <section id="resultats" className="mt-14 grid scroll-mt-24 gap-6 lg:grid-cols-3">
               {[
                 { title: "Ce que vous obtenez", items: ["Visibilité sur votre exposition", "Vulnérabilités identifiées et corrigées", "Conformité réglementaire", "Capacité de réponse aux incidents"] },
                 { title: "Pour qui", items: ["RSSI et DSI", "Secteurs réglementés (finance, santé, défense)", "ETI exposées aux cyberattaques", "Directions générales et comités de risques"] },
@@ -102,7 +104,7 @@ export default function CybersecuritePage() {
               ))}
             </section>
 
-            <section className="mt-14 rounded-none border border-[#0A1A2F]/10 bg-[#0A1A2F] p-8 text-white">
+            <section id="contact" className="mt-14 scroll-mt-24 rounded-none border border-[#0A1A2F]/10 bg-[#0A1A2F] p-8 text-white">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="text-sm uppercase tracking-[0.2em] text-white/70">Prêt à renforcer votre sécurité ?</p>
