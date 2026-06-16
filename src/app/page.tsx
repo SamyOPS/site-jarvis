@@ -59,6 +59,7 @@ export default function Home() {
 
   const clients = [
     { name: "ALD Automotive", logo: "/client/ald.png", logoScale: 0.95 },
+    { name: "Apprentis d'Auteuil", logo: "/client/Logo-fondation-auteuil.jpg", logoScale: 0.82 },
     { name: "Aramis", logo: "/client/aramisa.svg", logoScale: 1.1 },
     { name: "Barrière", logo: "/client/Barriere.png", logoScale: 1.05},
     { name: "BNP Paribas", logo: "/client/bnp.png", logoScale: 1.0 },
