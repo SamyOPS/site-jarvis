@@ -31,7 +31,12 @@ const socialLinks = [
   { label: "Instagram", href: "https://www.instagram.com/jarvisconnect/", icon: InstagramIcon },
 ];
 
-function Link3D({ href, children, onClick, className }: {
+function Link3D({
+  href,
+  children,
+  onClick,
+  className,
+}: {
   href: string;
   children: React.ReactNode;
   onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
@@ -48,13 +53,13 @@ function Link3D({ href, children, onClick, className }: {
         transformStyle: "preserve-3d",
         perspective: "300px",
       }}
-      onMouseEnter={e => {
+      onMouseEnter={(e) => {
         const el = e.currentTarget as HTMLElement;
         el.style.transform = "perspective(300px) rotateX(20deg) rotateY(-6deg) translateY(-4px) scale(1.08)";
         el.style.textShadow = "2px 6px 0px rgba(0,0,0,0.25), 4px 12px 20px rgba(0,0,0,0.15)";
         el.style.letterSpacing = "0.04em";
       }}
-      onMouseLeave={e => {
+      onMouseLeave={(e) => {
         const el = e.currentTarget as HTMLElement;
         el.style.transform = "none";
         el.style.textShadow = "none";
@@ -76,7 +81,7 @@ export function Footer() {
     const target = footerRef.current;
     if (!target) return;
     const observer = new IntersectionObserver(
-      (entries) => entries.forEach((e) => setShowBrand(e.isIntersecting)),
+      (entries) => entries.forEach((entry) => setShowBrand(entry.isIntersecting)),
       { threshold: 0.2 }
     );
     observer.observe(target);
@@ -87,7 +92,10 @@ export function Footer() {
     if (!href.startsWith("/#")) return;
     event.preventDefault();
     const hash = href.replace("/#", "");
-    if (pathname !== "/") { router.push(href); return; }
+    if (pathname !== "/") {
+      router.push(href);
+      return;
+    }
     const target = document.getElementById(hash);
     if (target) {
       target.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -96,13 +104,9 @@ export function Footer() {
   };
 
   return (
-    <footer ref={footerRef} className="relative overflow-hidden bg-[#f5f5f5] text-black border-t border-black/10">
-
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-black/20 to-transparent" />
-
+    <footer ref={footerRef} className="relative overflow-hidden bg-[#f5f5f5] text-black">
       <div className="max-w-screen-xl mx-auto px-6 pt-16 pb-52 lg:px-12 lg:pt-20 lg:pb-64 relative z-10">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1.2fr_2fr]">
-
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -111,8 +115,9 @@ export function Footer() {
           >
             <div className="mb-8">
               <span className="text-xl font-bold tracking-tight text-black">Jarvis Connect</span>
-              <p className="mt-2 text-sm text-black/50 leading-relaxed max-w-xs">
-Support, développement et sécurité pour les PME, ETI et organisations à grande échelle qui veulent aller plus vite.              </p>
+              <p className="mt-2 max-w-xs text-sm leading-relaxed text-black/50">
+                Support, developpement et securite pour les PME, ETI et organisations a grande echelle qui veulent aller plus vite.
+              </p>
             </div>
 
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-black">Newsletter</h3>
@@ -121,7 +126,7 @@ Support, développement et sécurité pour les PME, ETI et organisations à gran
                 type="email"
                 name="newsletterEmail"
                 placeholder="Votre email"
-                className="h-10 flex-1 rounded-lg border border-black/15 bg-white px-3 text-sm text-black placeholder:text-black/40 focus:outline-none focus:border-black/40 transition-colors"
+                className="h-10 flex-1 rounded-lg border border-black/15 bg-white px-3 text-sm text-black placeholder:text-black/40 transition-colors focus:border-black/40 focus:outline-none"
                 required
               />
               <button
@@ -142,13 +147,16 @@ Support, développement et sécurité pour les PME, ETI et organisations à gran
                     target="_blank"
                     rel="noreferrer"
                     className="flex h-9 w-9 items-center justify-center rounded-lg border border-black/10 bg-white text-black/50 hover:border-black/30 hover:bg-black/5 hover:text-black"
-                    style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.06)", transition: "transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease" }}
-                    onMouseEnter={e => {
+                    style={{
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                      transition: "transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease",
+                    }}
+                    onMouseEnter={(e) => {
                       const el = e.currentTarget as HTMLElement;
                       el.style.transform = "perspective(300px) rotateX(15deg) rotateY(-8deg) translateY(-3px) scale(1.1)";
                       el.style.boxShadow = "4px 10px 24px rgba(0,0,0,0.18)";
                     }}
-                    onMouseLeave={e => {
+                    onMouseLeave={(e) => {
                       const el = e.currentTarget as HTMLElement;
                       el.style.transform = "none";
                       el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)";
@@ -200,7 +208,7 @@ Support, développement et sécurité pour les PME, ETI et organisations à gran
 
             <div>
               <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-black">Informations</h3>
-              <ul className="space-y-2 mb-6">
+              <ul className="mb-6 space-y-2">
                 {legalLinks.map((link) => (
                   <li key={link.label}>
                     <Link3D href={link.href} className="text-sm text-black/60 hover:text-black">
@@ -212,8 +220,12 @@ Support, développement et sécurité pour les PME, ETI et organisations à gran
 
               <div className="space-y-3">
                 <div className="flex items-start gap-2 text-sm text-black/60">
-                  <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-black" />
-                  <span>Av. de la Liberation,<br />60160 Montataire</span>
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-black" />
+                  <span>
+                    Av. de la Liberation,
+                    <br />
+                    60160 Montataire
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-black/60">
                   <Mail className="h-4 w-4 shrink-0 text-black" />
@@ -227,18 +239,16 @@ Support, développement et sécurité pour les PME, ETI et organisations à gran
         </div>
       </div>
 
-      <div className="absolute bottom-[72px] left-0 right-0 h-px bg-black/10 z-10" />
-
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-2 px-4 pb-5 text-center z-10">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-4 px-4 pb-6 text-center">
         <div
-          className="select-none text-center font-extrabold uppercase leading-none flex flex-wrap justify-center"
-          style={{ fontSize: "clamp(28px, 6vw, 90px)", perspective: "800px" }}
+          className="select-none flex flex-wrap justify-center text-center font-black uppercase leading-none tracking-[-0.08em]"
+          style={{ fontSize: "clamp(30px, 6vw, 92px)", perspective: "800px" }}
         >
           {"Jarvis Connect".split("").map((char, index) => (
             <motion.span
               key={`${char}-${index}`}
               className="inline-block text-black"
-              style={{ textShadow: "0 4px 8px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)" }}
+              style={{ textShadow: "0 10px 24px rgba(0,0,0,0.12)", filter: "saturate(0.9)" }}
               initial={{ y: "110%", rotateX: -40, opacity: 0 }}
               animate={showBrand ? { y: "0%", rotateX: 0, opacity: 1 } : { y: "110%", rotateX: -40, opacity: 0 }}
               transition={{ delay: index * 0.025, duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94] }}
@@ -247,9 +257,14 @@ Support, développement et sécurité pour les PME, ETI et organisations à gran
             </motion.span>
           ))}
         </div>
-        <div className="flex w-full max-w-screen-xl flex-col gap-1 text-[10px] uppercase tracking-[0.16em] text-black/40 sm:flex-row sm:items-center sm:justify-between">
-          <div>Developpement & Design by S</div>
-          <div>Jarvis Connect — Tous droits reserves</div>
+
+        <div className="flex w-full max-w-screen-xl flex-col items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-black/45 sm:flex-row sm:justify-between sm:text-left">
+          <div className="rounded-full border border-black/10 bg-white/45 px-4 py-2 backdrop-blur-sm">
+            Developpement & design by S
+          </div>
+          <div className="rounded-full border border-black/10 bg-black px-4 py-2 text-white shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
+            Jarvis Connect - Tous droits reserves
+          </div>
         </div>
       </div>
     </footer>
