@@ -258,10 +258,7 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="flex w-full max-w-screen-xl flex-col items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-black/45 sm:flex-row sm:justify-between sm:text-left">
-          <div className="rounded-full border border-black/10 bg-white/45 px-4 py-2 backdrop-blur-sm">
-            Developpement & design by S
-          </div>
+        <div className="flex w-full max-w-screen-xl justify-center text-center text-[10px] uppercase tracking-[0.22em] text-black/45">
           <div className="rounded-full border border-black/10 bg-black px-4 py-2 text-white shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
             Jarvis Connect - Tous droits reserves
           </div>
