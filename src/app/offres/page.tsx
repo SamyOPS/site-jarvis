@@ -40,7 +40,7 @@ const getParam = (params: Record<string, string | string[] | undefined>, key: st
 const sectorRules: Array<{ sector: string; keywords: string[] }> = [
   { sector: "Finance", keywords: ["banque", "finance", "assurance", "bpce", "bnp", "caisse", "icap"] },
   { sector: "Santé", keywords: ["santé", "sante", "curie", "hôpital", "hopital", "pharma", "etypharm"] },
-  { sector: "Commerce", keywords: ["commerce", "retail", "uniqlo", "mousquetaires", "point p", "burberry"] },
+  { sector: "Commerce", keywords: ["commerce", "retail", "uniqlo", "mousquetaires", "point p", "burberry", "norauto"] },
   { sector: "Logistique", keywords: ["logistique", "transport", "sncf", "supply", "automotive", "ald"] },
   { sector: "BTP", keywords: ["btp", "construction", "immobilier", "foncia", "sogeprom", "in'li"] },
   { sector: "Informatique", keywords: ["informatique", "it", "support", "poste de travail", "vvip", "helpline", "tibco", "cgi", "inetum", "nxo", "scc", "cloud", "réseau", "reseau", "cyber", "développeur", "developpeur"] },

@@ -132,9 +132,6 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                     <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#0A1A2F] mb-2">
                       {offer.title}
                     </h1>
-                    <p className="text-lg text-[#0A1A2F]/70 font-medium">
-                      {offer.client ?? offer.company_name ?? "Entreprise confidentielle"}
-                    </p>
                   </div>
                 </div>
 
