@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft, ArrowUpRight, FileText, PlayCircle } from "lucide-react";
-
-import { browserSupabase } from "@/lib/supabase-browser";
 import { HomeHeader } from "@/components/sections/home-header";
 import { Footer } from "@/components/sections/footer";
+import { browserSupabase } from "@/lib/supabase-browser";
 
 const supabase = browserSupabase;
 
@@ -40,7 +39,7 @@ function renderInline(text: string) {
     parts.push(
       <strong key={`${match[1]}-${match.index}`} className="font-semibold text-slate-950">
         {match[1]}
-      </strong>,
+      </strong>
     );
 
     lastIndex = match.index + match[0].length;
@@ -67,12 +66,12 @@ function renderEditorialMarkdown(content: string) {
     blocks.push(
       <ul
         key={`list-${blocks.length}`}
-        className="space-y-3 pl-6 text-base leading-8 text-slate-700 marker:text-sky-500 md:text-lg"
+        className="space-y-3 pl-6 text-base leading-8 text-slate-700 marker:text-slate-400 md:text-lg"
       >
         {items.map((item, idx) => (
           <li key={`${item}-${idx}`}>{renderInline(item)}</li>
         ))}
-      </ul>,
+      </ul>
     );
   };
 
@@ -88,25 +87,20 @@ function renderEditorialMarkdown(content: string) {
     if (imageMatch) {
       flushList();
       blocks.push(
-        <figure
+        <div
           key={`img-${blocks.length}`}
-          className="my-10 overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white p-3 shadow-[0_24px_80px_rgba(15,23,42,0.08)]"
+          className="my-10 overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 p-3 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur"
         >
-          <div className="relative aspect-[16/10] overflow-hidden rounded-[1.5rem] bg-slate-100">
-            {/* Dynamic article images can come from varied hosts, so a native img is safer here. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+          <div className="relative aspect-[16/10] overflow-hidden rounded-[1.5rem]">
+            <Image
               src={imageMatch[2]}
               alt={imageMatch[1] || "Image"}
-              className="h-full w-full object-cover"
+              fill
+              sizes="(max-width: 1024px) 100vw, 900px"
+              className="object-cover"
             />
           </div>
-          {imageMatch[1] ? (
-            <figcaption className="px-2 pt-4 text-center text-sm text-slate-500">
-              {imageMatch[1]}
-            </figcaption>
-          ) : null}
-        </figure>,
+        </div>
       );
       continue;
     }
@@ -116,7 +110,7 @@ function renderEditorialMarkdown(content: string) {
       blocks.push(
         <div key={`divider-${blocks.length}`} className="my-10 flex justify-center">
           <div className="h-px w-24 bg-slate-200" />
-        </div>,
+        </div>
       );
       continue;
     }
@@ -129,7 +123,7 @@ function renderEditorialMarkdown(content: string) {
           className="mt-10 text-3xl font-semibold tracking-[-0.04em] text-slate-950 md:text-5xl"
         >
           {trimmed.replace(/^#\s+/, "")}
-        </h1>,
+        </h1>
       );
       continue;
     }
@@ -142,7 +136,7 @@ function renderEditorialMarkdown(content: string) {
           className="mt-12 text-2xl font-semibold tracking-[-0.03em] text-slate-950 md:text-4xl"
         >
           {trimmed.replace(/^##\s+/, "")}
-        </h2>,
+        </h2>
       );
       continue;
     }
@@ -155,7 +149,7 @@ function renderEditorialMarkdown(content: string) {
           className="mt-10 text-xl font-semibold tracking-[-0.02em] text-slate-900 md:text-2xl"
         >
           {trimmed.replace(/^###\s+/, "")}
-        </h3>,
+        </h3>
       );
       continue;
     }
@@ -172,7 +166,7 @@ function renderEditorialMarkdown(content: string) {
         className="text-base leading-8 text-slate-700 md:text-[1.15rem] md:leading-9"
       >
         {renderInline(trimmed)}
-      </p>,
+      </p>
     );
   }
 
@@ -180,7 +174,7 @@ function renderEditorialMarkdown(content: string) {
   return blocks;
 }
 
-export default function ActuDetailPage() {
+export default function AppleArticleVariantPage() {
   const params = useParams();
   const [item, setItem] = useState<NewsItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -221,27 +215,16 @@ export default function ActuDetailPage() {
       }
 
       if (!data) {
-        const { data: draftData, error: draftError } = await supabase
-          .from("news")
-          .select("id,title,slug,excerpt,content,cover_image,video_url,pdf_url,published_at,created_at,status")
-          .eq("slug", decodedSlug)
-          .maybeSingle();
-
-        if (draftError) {
-          setError(draftError.message);
-        } else if (draftData?.status && draftData.status !== "published") {
-          setError("Article en brouillon.");
-        } else {
-          setItem(draftData ?? null);
-        }
-      } else {
-        setItem(data);
+        setError("Article introuvable ou non publié.");
+        setLoading(false);
+        return;
       }
 
+      setItem(data);
       setLoading(false);
     };
 
-    void fetchItem();
+    fetchItem();
   }, [params?.slug]);
 
   const publishedLabel = item
@@ -252,25 +235,20 @@ export default function ActuDetailPage() {
       })
     : null;
 
-  const articleSlug = Array.isArray(params?.slug) ? params.slug[0] : params?.slug ?? "";
-
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f4f7fb] text-slate-950">
-      <div className="absolute inset-x-0 top-0 -z-10 h-[42rem] bg-[radial-gradient(circle_at_top,rgba(42,160,221,0.18),rgba(255,255,255,0.96)_28%,rgba(244,247,251,0.88)_58%,rgba(244,247,251,0)_100%)]" />
-      <div className="absolute left-[-10rem] top-40 -z-10 h-72 w-72 rounded-full bg-sky-200/30 blur-3xl" />
-      <div className="absolute right-[-8rem] top-64 -z-10 h-80 w-80 rounded-full bg-cyan-100/40 blur-3xl" />
-
+    <div className="min-h-screen bg-[#f5f5f7] text-slate-950">
+      <div className="absolute inset-x-0 top-0 -z-10 h-[38rem] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.95),rgba(245,245,247,0.8)_45%,rgba(229,231,235,0.25)_72%,rgba(245,245,247,0)_100%)]" />
       <HomeHeader />
 
       <main>
         <section className="px-6 pb-8 pt-8 md:px-10 lg:px-12">
           <div className="mx-auto max-w-6xl">
             <Link
-              href="/actus"
-              className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/75 px-4 py-2 text-sm text-slate-700 shadow-[0_10px_40px_rgba(15,23,42,0.06)] backdrop-blur transition hover:bg-white"
+              href={`/actus/${Array.isArray(params?.slug) ? params.slug[0] : params?.slug ?? ""}`}
+              className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/70 px-4 py-2 text-sm text-slate-700 shadow-[0_10px_40px_rgba(15,23,42,0.06)] backdrop-blur transition hover:bg-white"
             >
               <ArrowLeft className="size-4" />
-              Retour aux actus
+              Version actuelle de l&apos;article
             </Link>
           </div>
         </section>
@@ -278,14 +256,14 @@ export default function ActuDetailPage() {
         {!isConfigured && (
           <section className="px-6 md:px-10 lg:px-12">
             <div className="mx-auto max-w-6xl rounded-[2rem] border border-red-200 bg-red-50 px-6 py-4 text-sm text-red-700">
-              Configuration Supabase manquante (URL ou cle publique).
+              Configuration Supabase manquante (URL ou clé publique).
             </div>
           </section>
         )}
 
         {loading && (
           <section className="px-6 py-20 text-center md:px-10 lg:px-12">
-            <p className="text-sm text-slate-500">Chargement de l&apos;article...</p>
+            <p className="text-sm text-slate-500">Chargement de la version redesignée...</p>
           </section>
         )}
 
@@ -297,21 +275,13 @@ export default function ActuDetailPage() {
           </section>
         )}
 
-        {!loading && !error && !item && (
-          <section className="px-6 py-20 md:px-10 lg:px-12">
-            <div className="mx-auto max-w-3xl rounded-[2rem] border border-slate-200 bg-white/80 px-6 py-6 text-sm text-slate-600 shadow-[0_20px_60px_rgba(15,23,42,0.04)]">
-              Article introuvable ou non publie.
-            </div>
-          </section>
-        )}
-
         {!loading && item && (
           <>
             <section className="px-6 pb-10 pt-6 md:px-10 lg:px-12">
-              <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
+              <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
                 <div>
-                  <p className="text-sm font-medium uppercase tracking-[0.28em] text-sky-700/70">
-                    Actualite Jarvis Connect
+                  <p className="text-sm font-medium uppercase tracking-[0.28em] text-slate-500">
+                    Actualite / Vision editoriale
                   </p>
                   <h1 className="mt-4 max-w-4xl font-display text-5xl font-semibold tracking-[-0.06em] text-slate-950 md:text-7xl md:leading-[0.95]">
                     {item.title}
@@ -323,7 +293,7 @@ export default function ActuDetailPage() {
                   )}
                 </div>
 
-                <div className="rounded-[2rem] border border-white/80 bg-white/80 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur">
+                <div className="rounded-[2rem] border border-white/80 bg-white/70 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur">
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div>
                       <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Publication</p>
@@ -331,26 +301,24 @@ export default function ActuDetailPage() {
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Format</p>
-                      <p className="mt-2 text-lg font-medium text-slate-900">
-                        {item.video_url || item.pdf_url ? "Article enrichi" : "Article"}
-                      </p>
+                      <p className="mt-2 text-lg font-medium text-slate-900">Article premium</p>
                     </div>
                   </div>
 
                   <div className="mt-6 flex flex-wrap gap-3">
+                    <Link
+                      href="/actus"
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+                    >
+                      Toutes les actualites
+                      <ArrowUpRight className="size-4" />
+                    </Link>
                     <a
                       href={`#article-${item.id}`}
-                      className="inline-flex items-center gap-2 rounded-full bg-[#0A1A2F] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#102746]"
-                    >
-                      Lire l&apos;article
-                      <ArrowUpRight className="size-4" />
-                    </a>
-                    <Link
-                      href={`/actus/${articleSlug}/apple`}
                       className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300"
                     >
-                      Voir la variante design
-                    </Link>
+                      Lire l&apos;article
+                    </a>
                   </div>
                 </div>
               </div>
@@ -360,7 +328,7 @@ export default function ActuDetailPage() {
               <div className="mx-auto max-w-6xl">
                 <div className="relative overflow-hidden rounded-[2.25rem] border border-white/70 bg-white/70 p-3 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur">
                   <div className="absolute inset-x-12 top-0 h-24 rounded-full bg-white/70 blur-3xl" />
-                  <div className="relative aspect-[16/9] overflow-hidden rounded-[1.75rem] bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_35%,#dbeafe_100%)]">
+                  <div className="relative aspect-[16/9] overflow-hidden rounded-[1.75rem] bg-[linear-gradient(135deg,#eef2ff_0%,#ffffff_35%,#e2e8f0_100%)]">
                     {item.cover_image ? (
                       <Image
                         src={item.cover_image}
@@ -373,11 +341,9 @@ export default function ActuDetailPage() {
                     ) : (
                       <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#ffffff,rgba(226,232,240,0.9),rgba(203,213,225,0.8))]">
                         <div className="text-center">
-                          <p className="text-xs uppercase tracking-[0.35em] text-sky-700/60">
-                            Jarvis Connect
-                          </p>
+                          <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Jarvis Connect</p>
                           <p className="mt-3 font-display text-4xl font-semibold tracking-[-0.05em] text-slate-900 md:text-6xl">
-                            Lecture editoriale
+                            Cybersecurite
                           </p>
                         </div>
                       </div>
@@ -388,13 +354,13 @@ export default function ActuDetailPage() {
             </section>
 
             <section id={`article-${item.id}`} className="px-6 pb-24 pt-8 md:px-10 lg:px-12">
-              <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[260px_minmax(0,1fr)]">
+              <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[240px_minmax(0,1fr)]">
                 <aside className="lg:sticky lg:top-24 lg:self-start">
-                  <div className="rounded-[2rem] border border-white/80 bg-white/85 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur">
-                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">En bref</p>
+                  <div className="rounded-[2rem] border border-white/80 bg-white/80 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">A retenir</p>
                     <p className="mt-4 text-sm leading-7 text-slate-600">
-                      Une mise en page plus aeree, plus narrative et plus elegante pour mieux
-                      valoriser le fond de chaque article.
+                      Une lecture plus aeree, plus editoriale et plus premium, pensee pour mettre
+                      l&apos;article au premier plan.
                     </p>
 
                     <div className="mt-6 space-y-3">
@@ -403,7 +369,7 @@ export default function ActuDetailPage() {
                           href="#media"
                           className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
                         >
-                          <PlayCircle className="size-4 text-sky-600" />
+                          <PlayCircle className="size-4" />
                           Video incluse
                         </a>
                       )}
@@ -412,7 +378,7 @@ export default function ActuDetailPage() {
                           href="#documents"
                           className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
                         >
-                          <FileText className="size-4 text-sky-600" />
+                          <FileText className="size-4" />
                           PDF associe
                         </a>
                       )}
@@ -421,7 +387,7 @@ export default function ActuDetailPage() {
                 </aside>
 
                 <div className="space-y-8">
-                  <article className="overflow-hidden rounded-[2.5rem] border border-white/80 bg-white/85 px-6 py-8 shadow-[0_30px_100px_rgba(15,23,42,0.08)] backdrop-blur md:px-10 md:py-12">
+                  <article className="overflow-hidden rounded-[2.5rem] border border-white/80 bg-white/80 px-6 py-8 shadow-[0_30px_100px_rgba(15,23,42,0.08)] backdrop-blur md:px-10 md:py-12">
                     <div className="mx-auto max-w-3xl space-y-6">
                       {item.content ? (
                         renderEditorialMarkdown(item.content)
@@ -436,7 +402,7 @@ export default function ActuDetailPage() {
                   {item.video_url && (
                     <section
                       id="media"
-                      className="overflow-hidden rounded-[2.5rem] border border-white/80 bg-white/85 p-6 shadow-[0_30px_100px_rgba(15,23,42,0.08)] backdrop-blur md:p-8"
+                      className="overflow-hidden rounded-[2.5rem] border border-white/80 bg-white/80 p-6 shadow-[0_30px_100px_rgba(15,23,42,0.08)] backdrop-blur md:p-8"
                     >
                       <div className="mb-6 flex items-center justify-between gap-4">
                         <div>
@@ -455,7 +421,7 @@ export default function ActuDetailPage() {
                   {item.pdf_url && (
                     <section
                       id="documents"
-                      className="overflow-hidden rounded-[2.5rem] border border-white/80 bg-white/85 p-6 shadow-[0_30px_100px_rgba(15,23,42,0.08)] backdrop-blur md:p-8"
+                      className="overflow-hidden rounded-[2.5rem] border border-white/80 bg-white/80 p-6 shadow-[0_30px_100px_rgba(15,23,42,0.08)] backdrop-blur md:p-8"
                     >
                       <div className="mb-6 flex items-center justify-between gap-4">
                         <div>
