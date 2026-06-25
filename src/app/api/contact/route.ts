@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { sendEmail } from "@/lib/email";
+
 interface ContactPayload {
   email?: string;
   firstName?: string;
@@ -37,16 +39,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Objet invalide." }, { status: 400 });
     }
 
-    const resendApiKey = process.env.RESEND_API_KEY;
-    const toEmail = process.env.CONTACT_TO_EMAIL;
-    const fromEmail = process.env.CONTACT_FROM_EMAIL || "onboarding@resend.dev";
-
-    if (!resendApiKey || !toEmail) {
-      return NextResponse.json(
-        { error: "Configuration email manquante (RESEND_API_KEY / CONTACT_TO_EMAIL)." },
-        { status: 500 }
-      );
-    }
+    const toEmail = process.env.CONTACT_TO_EMAIL || "am@jarvis-connect.fr";
 
     const html = `
       <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111">
@@ -59,41 +52,20 @@ export async function POST(request: Request) {
       </div>
     `;
 
-    const resendResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [toEmail],
-        reply_to: email,
-        subject: `[Contact] ${subject}`,
-        html,
-      }),
-      cache: "no-store",
+    const emailResult = await sendEmail({
+      to: toEmail,
+      replyTo: email,
+      subject: `[Contact] ${subject}`,
+      html,
     });
 
-    if (!resendResponse.ok) {
-      const details = await safeJson(resendResponse);
-      return NextResponse.json(
-        { error: "Erreur envoi email", details },
-        { status: 502 }
-      );
+    if (!emailResult.ok) {
+      return NextResponse.json({ error: "Erreur envoi email" }, { status: 502 });
     }
 
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Requ?te invalide." }, { status: 400 });
-  }
-}
-
-async function safeJson(response: Response) {
-  try {
-    return await response.json();
-  } catch {
-    return null;
   }
 }
 
