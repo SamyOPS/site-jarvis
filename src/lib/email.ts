@@ -42,6 +42,16 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#039;");
 }
 
+function formatSenderAddress(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.includes("<")) return trimmed;
+
+  const match = /^(.*\S)\s+([^\s@]+@[^\s@]+\.[^\s@]+)$/.exec(trimmed);
+  if (!match) return trimmed;
+
+  return `${match[1]} <${match[2]}>`;
+}
+
 function formatPeriodMonth(periodMonth: string | null | undefined) {
   if (!periodMonth) return null;
   const match = /^(\d{4})-(\d{2})/.exec(periodMonth);
@@ -55,13 +65,13 @@ function formatPeriodMonth(periodMonth: string | null | undefined) {
   return `${months[monthIndex] ?? match[2]} ${year}`;
 }
 
-async function sendEmail({ to, subject, html, replyTo }: SendEmailParams) {
+export async function sendEmail({ to, subject, html, replyTo }: SendEmailParams) {
   const transporter = getTransporter();
   if (!transporter) {
     return { ok: false, skipped: true };
   }
 
-  const from = process.env.MAIL_FROM || process.env.SMTP_USER || "";
+  const from = formatSenderAddress(process.env.MAIL_FROM || process.env.SMTP_USER || "");
   const recipients = Array.isArray(to) ? to : [to];
   const cleanRecipients = recipients.filter((value) => Boolean(value));
   if (!cleanRecipients.length) {
