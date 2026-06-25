@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ArrowUpRight, FileText, PlayCircle } from "lucide-react";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
 
 import { browserSupabase } from "@/lib/supabase-browser";
 import { HomeHeader } from "@/components/sections/home-header";
@@ -24,6 +24,11 @@ type NewsItem = {
   published_at: string | null;
   status: string | null;
   created_at: string;
+};
+
+type MarkdownImage = {
+  alt: string;
+  src: string;
 };
 
 function renderInline(text: string) {
@@ -53,10 +58,29 @@ function renderInline(text: string) {
   return parts;
 }
 
-function renderEditorialMarkdown(content: string) {
+function extractMarkdownImages(content: string | null | undefined) {
+  if (!content) return [] as MarkdownImage[];
+
+  return content
+    .split(/\r?\n/)
+    .map((line) => line.trim().match(/^!\[(.*?)\]\((.*?)\)$/))
+    .filter((match): match is RegExpMatchArray => Boolean(match))
+    .map((match) => ({
+      alt: match[1] || "Image",
+      src: match[2],
+    }));
+}
+
+function renderEditorialMarkdown(
+  content: string,
+  options?: {
+    skipImageIndexes?: number[];
+  },
+) {
   const lines = content.split(/\r?\n/);
   const blocks: Array<React.ReactNode> = [];
   let listItems: string[] = [];
+  let imageIndex = 0;
 
   const flushList = () => {
     if (!listItems.length) return;
@@ -67,7 +91,7 @@ function renderEditorialMarkdown(content: string) {
     blocks.push(
       <ul
         key={`list-${blocks.length}`}
-        className="space-y-3 pl-6 text-base leading-8 text-slate-700 marker:text-sky-500 md:text-lg"
+        className="space-y-3 pl-6 text-lg leading-9 text-slate-700 marker:text-sky-500 md:text-[1.22rem] md:leading-10"
       >
         {items.map((item, idx) => (
           <li key={`${item}-${idx}`}>{renderInline(item)}</li>
@@ -87,6 +111,12 @@ function renderEditorialMarkdown(content: string) {
     const imageMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
     if (imageMatch) {
       flushList();
+      const currentImageIndex = imageIndex;
+      imageIndex += 1;
+      if (options?.skipImageIndexes?.includes(currentImageIndex)) {
+        continue;
+      }
+
       blocks.push(
         <figure
           key={`img-${blocks.length}`}
@@ -126,7 +156,7 @@ function renderEditorialMarkdown(content: string) {
       blocks.push(
         <h1
           key={`h1-${blocks.length}`}
-          className="mt-10 text-3xl font-semibold tracking-[-0.04em] text-slate-950 md:text-5xl"
+          className="mt-10 text-4xl font-semibold tracking-[-0.04em] text-slate-950 md:text-6xl"
         >
           {trimmed.replace(/^#\s+/, "")}
         </h1>,
@@ -139,7 +169,7 @@ function renderEditorialMarkdown(content: string) {
       blocks.push(
         <h2
           key={`h2-${blocks.length}`}
-          className="mt-12 text-2xl font-semibold tracking-[-0.03em] text-slate-950 md:text-4xl"
+          className="mt-12 text-3xl font-semibold tracking-[-0.03em] text-slate-950 md:text-5xl"
         >
           {trimmed.replace(/^##\s+/, "")}
         </h2>,
@@ -152,7 +182,7 @@ function renderEditorialMarkdown(content: string) {
       blocks.push(
         <h3
           key={`h3-${blocks.length}`}
-          className="mt-10 text-xl font-semibold tracking-[-0.02em] text-slate-900 md:text-2xl"
+          className="mt-10 text-2xl font-semibold tracking-[-0.02em] text-slate-900 md:text-3xl"
         >
           {trimmed.replace(/^###\s+/, "")}
         </h3>,
@@ -169,7 +199,7 @@ function renderEditorialMarkdown(content: string) {
     blocks.push(
       <p
         key={`p-${blocks.length}`}
-        className="text-base leading-8 text-slate-700 md:text-[1.15rem] md:leading-9"
+        className="text-xl leading-10 text-slate-700 md:text-[1.32rem] md:leading-[2.7rem]"
       >
         {renderInline(trimmed)}
       </p>,
@@ -253,6 +283,22 @@ export default function ActuDetailPage() {
     : null;
 
   const articleSlug = Array.isArray(params?.slug) ? params.slug[0] : params?.slug ?? "";
+  const normalizedArticleKey = `${item?.title ?? ""} ${articleSlug}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const shouldSwapHeroMedia =
+    normalizedArticleKey.includes("partenariat") && normalizedArticleKey.includes("cyber");
+  const shouldHideVideo =
+    normalizedArticleKey.includes("partenariat") && normalizedArticleKey.includes("cyber");
+  const markdownImages = useMemo(() => extractMarkdownImages(item?.content), [item?.content]);
+  const heroReplacementImage = shouldSwapHeroMedia ? markdownImages[1] ?? null : null;
+  const forcedCyberHeroImage =
+    shouldSwapHeroMedia
+      ? "https://media.istockphoto.com/id/2174551157/fr/photo/cyber-security-data-protection-business-technology-privacy-concept.webp?a=1&b=1&s=612x612&w=0&k=20&c=oCdlJRNOwEmT-dVQz6zq_CuQ6HXzGnTB24Bi2IK3pjM="
+      : null;
+  const heroImageSrc = forcedCyberHeroImage ?? heroReplacementImage?.src ?? item?.cover_image ?? null;
+  const hiddenMarkdownImageIndexes = heroReplacementImage ? [1] : [];
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#f4f7fb] text-slate-950">
@@ -317,7 +363,7 @@ export default function ActuDetailPage() {
                     {item.title}
                   </h1>
                   {item.excerpt && (
-                    <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 md:text-2xl md:leading-10">
+                    <p className="mt-6 max-w-2xl text-xl leading-9 text-slate-600 md:text-[1.7rem] md:leading-[2.9rem]">
                       {item.excerpt}
                     </p>
                   )}
@@ -361,15 +407,34 @@ export default function ActuDetailPage() {
                 <div className="relative overflow-hidden rounded-[2.25rem] border border-white/70 bg-white/70 p-3 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur">
                   <div className="absolute inset-x-12 top-0 h-24 rounded-full bg-white/70 blur-3xl" />
                   <div className="relative aspect-[16/9] overflow-hidden rounded-[1.75rem] bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_35%,#dbeafe_100%)]">
-                    {item.cover_image ? (
-                      <Image
-                        src={item.cover_image}
-                        alt={item.title}
-                        fill
-                        sizes="(max-width: 1024px) 100vw, 1200px"
-                        className="object-cover"
-                        priority
-                      />
+                    {shouldSwapHeroMedia && item.video_url && !shouldHideVideo ? (
+                      <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.82),rgba(219,234,254,0.45),rgba(191,219,254,0.18))] p-6">
+                        <video
+                          src={item.video_url}
+                          controls
+                          className="h-full max-h-full w-auto max-w-full rounded-[1.5rem] object-contain shadow-[0_24px_60px_rgba(15,23,42,0.28)]"
+                        />
+                      </div>
+                    ) : heroImageSrc ? (
+                      heroReplacementImage || forcedCyberHeroImage ? (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={heroImageSrc}
+                            alt={heroReplacementImage?.alt || item.title}
+                            className="h-full w-full object-cover"
+                          />
+                        </>
+                      ) : (
+                        <Image
+                          src={heroImageSrc}
+                          alt={item.title}
+                          fill
+                          sizes="(max-width: 1024px) 100vw, 1200px"
+                          className="object-cover"
+                          priority
+                        />
+                      )
                     ) : (
                       <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,#ffffff,rgba(226,232,240,0.9),rgba(203,213,225,0.8))]">
                         <div className="text-center">
@@ -387,53 +452,24 @@ export default function ActuDetailPage() {
               </div>
             </section>
 
-            <section id={`article-${item.id}`} className="px-6 pb-24 pt-8 md:px-10 lg:px-12">
-              <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[260px_minmax(0,1fr)]">
-                <aside className="lg:sticky lg:top-24 lg:self-start">
-                  <div className="rounded-[2rem] border border-white/80 bg-white/85 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur">
-                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">En bref</p>
-                    <p className="mt-4 text-sm leading-7 text-slate-600">
-                      Une mise en page plus aeree, plus narrative et plus elegante pour mieux
-                      valoriser le fond de chaque article.
-                    </p>
-
-                    <div className="mt-6 space-y-3">
-                      {item.video_url && (
-                        <a
-                          href="#media"
-                          className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
-                        >
-                          <PlayCircle className="size-4 text-sky-600" />
-                          Video incluse
-                        </a>
-                      )}
-                      {item.pdf_url && (
-                        <a
-                          href="#documents"
-                          className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
-                        >
-                          <FileText className="size-4 text-sky-600" />
-                          PDF associe
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </aside>
-
+            <section id={`article-${item.id}`} className="px-6 pb-36 pt-8 md:px-10 md:pb-44 lg:px-12 lg:pb-52">
+              <div className="mx-auto max-w-6xl">
                 <div className="space-y-8">
                   <article className="overflow-hidden rounded-[2.5rem] border border-white/80 bg-white/85 px-6 py-8 shadow-[0_30px_100px_rgba(15,23,42,0.08)] backdrop-blur md:px-10 md:py-12">
-                    <div className="mx-auto max-w-3xl space-y-6">
+                    <div className="mx-auto max-w-5xl space-y-8 pb-8 md:space-y-10 md:pb-14">
                       {item.content ? (
-                        renderEditorialMarkdown(item.content)
+                        renderEditorialMarkdown(item.content, {
+                          skipImageIndexes: hiddenMarkdownImageIndexes,
+                        })
                       ) : (
-                        <p className="text-base leading-8 text-slate-700 md:text-[1.15rem] md:leading-9">
+                        <p className="text-xl leading-10 text-slate-700 md:text-[1.32rem] md:leading-[2.7rem]">
                           Aucun contenu editorial n&apos;est disponible pour cet article.
                         </p>
                       )}
                     </div>
                   </article>
 
-                  {item.video_url && (
+                  {item.video_url && !shouldSwapHeroMedia && !shouldHideVideo && (
                     <section
                       id="media"
                       className="overflow-hidden rounded-[2.5rem] border border-white/80 bg-white/85 p-6 shadow-[0_30px_100px_rgba(15,23,42,0.08)] backdrop-blur md:p-8"
@@ -448,6 +484,42 @@ export default function ActuDetailPage() {
                       </div>
                       <div className="overflow-hidden rounded-[2rem] bg-slate-950">
                         <video src={item.video_url} controls className="w-full" />
+                      </div>
+                    </section>
+                  )}
+
+                  {shouldSwapHeroMedia && heroImageSrc && (
+                    <section
+                      id="media"
+                      className="overflow-hidden rounded-[2.5rem] border border-white/80 bg-white/85 p-6 shadow-[0_30px_100px_rgba(15,23,42,0.08)] backdrop-blur md:p-8"
+                    >
+                      <div className="mb-6 flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Media</p>
+                          <h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.04em] text-slate-950">
+                            Image principale
+                          </h2>
+                        </div>
+                      </div>
+                      <div className="relative aspect-[16/9] overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-50">
+                        {heroReplacementImage || forcedCyberHeroImage ? (
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={heroImageSrc}
+                              alt={heroReplacementImage?.alt || item.title}
+                              className="h-full w-full object-cover"
+                            />
+                          </>
+                        ) : (
+                          <Image
+                            src={heroImageSrc}
+                            alt={item.title}
+                            fill
+                            sizes="(max-width: 1024px) 100vw, 1200px"
+                            className="object-cover"
+                          />
+                        )}
                       </div>
                     </section>
                   )}
