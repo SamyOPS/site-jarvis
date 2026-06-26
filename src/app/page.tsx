@@ -83,6 +83,7 @@ export default function Home() {
     { name: "Ricco", logo: "/client/Ricco.png", logoScale: 0.8},
     { name: "RSA", logo: "/client/rsa.png", logoScale: 0.8 , logoOffsetX: -5, logoOffsetY: -5},
     { name: "Sisley", logo: "/client/sisley.png", logoScale: 1.0 },
+    { name: "Stihl", logo: "/client/stihl.svg", logoScale: 0.7, cardWidth: 208, cardHeight: 80, cardPadding: 4 },
     { name: "3M", logo: "/client/3M.png", logoScale: 1.4 },
     { name: "SNCF", logo: "/client/SNCF.png", logoScale: 1.0 },
     { name: "Sogeprom", logo: "/client/SOGEPROM.png", logoScale: 1.4 },

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 180" role="img" aria-labelledby="stihlTitle">
+  <title id="stihlTitle">STIHL</title>
+  <rect width="720" height="180" rx="16" fill="#f46f11"/>
+  <g fill="#ffffff" transform="translate(14 12) scale(0.92)">
+    <path d="M84 176l17-49h88c7 0 12-4 14-10l4-12c3-8-2-13-11-13H129c-31 0-47-18-36-50l4-11c11-31 36-47 70-47h121l-17 49H181c-7 0-13 4-15 10l-4 12c-3 8 2 13 11 13h67c31 0 46 19 35 50l-4 11c-11 32-36 47-71 47H84z"/>
+    <path d="M240 176l50-143h112l-17 49h-32l-33 94H240z"/>
+    <path d="M359 176l50-143h79l-19 55h42l19-55h79l-50 143h-79l18-51h-42l-18 51h-79z"/>
+    <path d="M573 176l50-143h79l-33 94h81l-17 49H573z"/>
+    <circle cx="603" cy="58" r="18" fill="none" stroke="#ffffff" stroke-width="6"/>
+    <path d="M595 69V46h10c8 0 13 4 13 11 0 4-2 8-6 10l7 12h-10l-5-10h-4zm8-17v7h2c3 0 5-1 5-4s-2-3-5-3h-2z"/>
+  </g>
+</svg>
