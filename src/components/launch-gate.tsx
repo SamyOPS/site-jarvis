@@ -19,10 +19,15 @@ interface LaunchGateProps {
 }
 
 export function LaunchGate({ children }: LaunchGateProps) {
+  const [introSeen] = useState(false);
   const [introCompletedThisVisit, setIntroCompletedThisVisit] = useState(false);
   const [mainPagePrimed, setMainPagePrimed] = useState(false);
   const [introRevealing, setIntroRevealing] = useState(false);
   const [introFadingOut, setIntroFadingOut] = useState(false);
+  const [shouldPlayIntroOnThisLoad] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.location.pathname === "/";
+  });
   const hasHydrated = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -39,9 +44,10 @@ export function LaunchGate({ children }: LaunchGateProps) {
     };
   }, []);
 
-  const introSeen = false;
-  const showIntro = hasHydrated && !introSeen && !introCompletedThisVisit;
-  const showBlockingOverlay = !hasHydrated || showIntro || introFadingOut;
+  const showIntro =
+    hasHydrated && shouldPlayIntroOnThisLoad && !introSeen && !introCompletedThisVisit;
+  const showBlockingOverlay =
+    !hasHydrated || (shouldPlayIntroOnThisLoad && (showIntro || introFadingOut));
   const introActive = showIntro || introFadingOut;
 
   useEffect(() => {
@@ -79,7 +85,8 @@ export function LaunchGate({ children }: LaunchGateProps) {
   const revealMainPage = hasHydrated && (!introActive || introRevealing || introFadingOut);
   const shouldMountMainPage =
     hasHydrated &&
-    (introSeen ||
+    (!shouldPlayIntroOnThisLoad ||
+      introSeen ||
       introCompletedThisVisit ||
       mainPagePrimed ||
       introRevealing ||

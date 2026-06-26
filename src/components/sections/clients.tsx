@@ -11,6 +11,9 @@ interface ClientLogo {
   logoScale?: number;
   logoOffsetX?: number;
   logoOffsetY?: number;
+  cardWidth?: number;
+  cardHeight?: number;
+  cardPadding?: number;
 }
 interface ClientsProps { tag?: string; title?: string; description?: string; clients?: ClientLogo[]; highlightLogo?: string; quote?: ReactNode; author?: string; }
 interface ClientsRowProps { items: ClientLogo[]; rowKey: string; direction: "left" | "right"; speed: number; }
@@ -19,15 +22,20 @@ function ClientCard({ client }: { client: ClientLogo }) {
   const scale = (client.logoScale ?? 1.0) * 100;
   const offsetX = client.logoOffsetX ?? 0;
   const offsetY = client.logoOffsetY ?? 0;
+  const cardWidth = client.cardWidth ?? 208;
+  const cardHeight = client.cardHeight ?? 80;
+  const cardPadding = client.cardPadding ?? 8;
 
   return (
     <motion.div
-      className="group relative flex h-16 w-44 shrink-0 items-center justify-center rounded-xl transition-all duration-300 sm:h-20 sm:w-52"
+      className="group relative flex shrink-0 items-center justify-center rounded-xl transition-all duration-300"
       style={{
         background: "rgba(255,255,255,0.85)",
         border: "1px solid rgba(42,160,221,0.12)",
         backdropFilter: "blur(8px)",
-        padding: "8px",
+        padding: `${cardPadding}px`,
+        width: `${cardWidth}px`,
+        height: `${cardHeight}px`,
       }}
       whileHover={{ scale: 1.04, boxShadow: "0 4px 24px rgba(42,160,221,0.15)" }}
     >
@@ -173,7 +181,7 @@ export function Clients({
 
         <div className="mx-auto max-w-5xl grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-12">
 
-          <div className="space-y-4">
+          <div className="order-2 space-y-4 lg:order-1">
             <motion.div
               initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
               className="inline-flex items-center gap-2 bg-blue-50/10 border border-blue-200/20 rounded-full px-2.5 py-0.5"
@@ -214,7 +222,7 @@ export function Clients({
 
           {highlightLogo && (
             <motion.div
-              className="flex items-center justify-center bg-white p-4 rounded-2xl shadow-2xl w-[280px] h-[280px] shrink-0 overflow-hidden mx-auto"
+              className="order-1 mx-auto flex h-[280px] w-[280px] shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white p-4 shadow-2xl lg:order-2"
               initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
               whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(42,160,221,0.2)" }}
             >
