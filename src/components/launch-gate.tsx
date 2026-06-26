@@ -5,8 +5,8 @@ import { LaunchProvider } from "@/components/launch-context";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
-const MAIN_PAGE_PRELOAD_DELAY_MS = 1800;
-const INTRO_FADE_DURATION_MS = 900;
+const MAIN_PAGE_PRELOAD_DELAY_MS = 450;
+const INTRO_FADE_DURATION_MS = 320;
 
 declare global {
   interface Window {
