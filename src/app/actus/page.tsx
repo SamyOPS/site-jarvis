@@ -46,11 +46,8 @@ function NewsCard({ item, idx }: { item: NewsItem; idx: number }) {
         className="transition-all duration-300 group-hover:opacity-0 group-hover:translate-y-4"
         style={{ marginTop: "-30px", textAlign: "center", position: "relative", zIndex: 2 }}
       >
-        <div style={{ background: "#0A1A2F", borderRadius: "10px", padding: "16px 20px", margin: "0 24px" }}>
+        <div style={{ background: "#0A1A2F", borderRadius: "10px", padding: "20px 20px", margin: "0 24px", minHeight: "126px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <span style={{ color: "#fff", fontSize: "17px", fontWeight: 600 }}>{item.title}</span>
-          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-white/75">
-            {item.excerpt ?? "Decouvrez notre dernier article."}
-          </p>
         </div>
         <Link href={`/actus/${item.slug}`} style={{ display: "inline-block", marginTop: "12px", marginBottom: "8px", borderRadius: "50px", background: "#f0f0f0", color: "#2aa0dd", padding: "10px 32px", fontSize: "14px", fontWeight: 600, textDecoration: "none" }}>
           En savoir plus

@@ -3,8 +3,8 @@
 import Image from "next/image";
 import { memo, useEffect } from "react";
 
-const COMPLETION_DELAY_MS = 3400;
-const HOMEPAGE_REVEAL_DELAY_MS = 2050;
+const COMPLETION_DELAY_MS = 1650;
+const HOMEPAGE_REVEAL_DELAY_MS = 900;
 
 interface JarvisIntroV2Props {
   onReveal: () => void;
@@ -79,7 +79,7 @@ function JarvisIntroV2Component({ onComplete, onReveal }: JarvisIntroV2Props) {
           background: radial-gradient(circle, rgba(124, 224, 255, 0.28) 0%, rgba(70, 214, 255, 0.08) 42%, transparent 68%);
           opacity: 0;
           transform: translate3d(-50%, -50%, 0);
-          animation: jarvis-intro-fade 0.7s ease 0.9s forwards;
+          animation: jarvis-intro-fade 0.45s ease 0.45s forwards;
         }
 
         .jarvis-intro__scene {
@@ -90,7 +90,7 @@ function JarvisIntroV2Component({ onComplete, onReveal }: JarvisIntroV2Props) {
           height: min(74vmin, 640px);
           perspective: 1400px;
           transform: translate3d(-50%, -50%, 0);
-          animation: jarvis-intro-recede 0.75s cubic-bezier(0.22, 1, 0.36, 1) 1.9s forwards;
+          animation: jarvis-intro-recede 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.95s forwards;
           will-change: transform, opacity;
         }
 
@@ -99,7 +99,7 @@ function JarvisIntroV2Component({ onComplete, onReveal }: JarvisIntroV2Props) {
           inset: 0;
           transform-style: preserve-3d;
           transform: rotateX(-24deg) rotateY(-20deg);
-          animation: jarvis-intro-flatten 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.9s forwards, jarvis-intro-spin 24s linear 1.9s infinite;
+          animation: jarvis-intro-flatten 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.45s forwards, jarvis-intro-spin 24s linear 0.95s infinite;
           will-change: transform;
         }
 
@@ -114,26 +114,26 @@ function JarvisIntroV2Component({ onComplete, onReveal }: JarvisIntroV2Props) {
         .jarvis-intro__part--ring {
           border: 24px solid rgba(55, 72, 90, 0.95);
           box-shadow: inset 0 0 0 5px rgba(34, 48, 63, 0.95);
-          animation: jarvis-intro-in-ring 0.38s ease-out 0.03s forwards, jarvis-intro-part-out 0.25s ease 0.9s forwards;
+          animation: jarvis-intro-in-ring 0.26s ease-out 0.02s forwards, jarvis-intro-part-out 0.18s ease 0.45s forwards;
         }
 
         .jarvis-intro__part--coils {
           inset: 8%;
           border: 18px dashed rgba(95, 208, 255, 0.72);
-          animation: jarvis-intro-in-coils 0.38s ease-out 0.16s forwards, jarvis-intro-part-out 0.25s ease 0.9s forwards;
+          animation: jarvis-intro-in-coils 0.26s ease-out 0.1s forwards, jarvis-intro-part-out 0.18s ease 0.45s forwards;
         }
 
         .jarvis-intro__part--stator {
           inset: 24%;
           border: 10px dotted rgba(207, 232, 245, 0.88);
           background: rgba(12, 26, 40, 0.62);
-          animation: jarvis-intro-in-stator 0.38s ease-out 0.29s forwards, jarvis-intro-part-out 0.25s ease 0.9s forwards;
+          animation: jarvis-intro-in-stator 0.26s ease-out 0.18s forwards, jarvis-intro-part-out 0.18s ease 0.45s forwards;
         }
 
         .jarvis-intro__part--lens {
           inset: 38%;
           background: radial-gradient(circle, #fff 0%, #bff3ff 45%, #1f8fd6 100%);
-          animation: jarvis-intro-in-lens 0.38s ease-out 0.42s forwards, jarvis-intro-part-out 0.25s ease 0.9s forwards;
+          animation: jarvis-intro-in-lens 0.26s ease-out 0.26s forwards, jarvis-intro-part-out 0.18s ease 0.45s forwards;
         }
 
         .jarvis-intro__logo {
@@ -142,7 +142,7 @@ function JarvisIntroV2Component({ onComplete, onReveal }: JarvisIntroV2Props) {
           display: grid;
           place-items: center;
           opacity: 0;
-          animation: jarvis-intro-logo-in 0.4s ease 0.9s forwards;
+          animation: jarvis-intro-logo-in 0.24s ease 0.45s forwards;
         }
 
         .jarvis-intro__logoImage {
@@ -161,7 +161,7 @@ function JarvisIntroV2Component({ onComplete, onReveal }: JarvisIntroV2Props) {
           background: radial-gradient(circle, #fff 0%, rgba(159, 239, 255, 0.68) 45%, transparent 70%);
           opacity: 0;
           transform: translate3d(-50%, -50%, 0) scale(0.2);
-          animation: jarvis-intro-flash 0.65s ease-out 0.9s forwards;
+          animation: jarvis-intro-flash 0.4s ease-out 0.45s forwards;
         }
 
         .jarvis-intro__core {
@@ -174,7 +174,7 @@ function JarvisIntroV2Component({ onComplete, onReveal }: JarvisIntroV2Props) {
           background: radial-gradient(circle, #fff 0%, #bff3ff 45%, rgba(70, 214, 255, 0.45) 72%, transparent 80%);
           opacity: 0;
           transform: translate3d(-50%, -50%, 0);
-          animation: jarvis-intro-fade 0.35s ease 1.05s forwards, jarvis-intro-core 1.8s ease-in-out 2s infinite;
+          animation: jarvis-intro-fade 0.2s ease 0.6s forwards, jarvis-intro-core 1.1s ease-in-out 1s infinite;
         }
 
         @keyframes jarvis-intro-in-ring {
