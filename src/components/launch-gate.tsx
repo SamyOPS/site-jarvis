@@ -5,7 +5,6 @@ import { LaunchProvider } from "@/components/launch-context";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
-const INTRO_STORAGE_KEY = "jarvis_intro_seen";
 const MAIN_PAGE_PRELOAD_DELAY_MS = 1800;
 const INTRO_FADE_DURATION_MS = 900;
 
@@ -17,30 +16,6 @@ declare global {
 
 interface LaunchGateProps {
   children: ReactNode;
-}
-
-function readIntroSeen() {
-  try {
-    return window.localStorage.getItem(INTRO_STORAGE_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
-function clearIntroSeen() {
-  try {
-    window.localStorage.removeItem(INTRO_STORAGE_KEY);
-  } catch {
-    // Local storage can be unavailable in restrictive browser modes.
-  }
-}
-
-function persistIntroSeen() {
-  try {
-    window.localStorage.setItem(INTRO_STORAGE_KEY, "true");
-  } catch {
-    // We still let the current session continue even if persistence fails.
-  }
 }
 
 export function LaunchGate({ children }: LaunchGateProps) {
@@ -56,7 +31,6 @@ export function LaunchGate({ children }: LaunchGateProps) {
 
   useEffect(() => {
     window.jarvisResetIntro = () => {
-      clearIntroSeen();
       window.location.reload();
     };
 
@@ -65,7 +39,7 @@ export function LaunchGate({ children }: LaunchGateProps) {
     };
   }, []);
 
-  const introSeen = hasHydrated ? readIntroSeen() : false;
+  const introSeen = false;
   const showIntro = hasHydrated && !introSeen && !introCompletedThisVisit;
   const showBlockingOverlay = !hasHydrated || showIntro || introFadingOut;
   const introActive = showIntro || introFadingOut;
@@ -88,7 +62,6 @@ export function LaunchGate({ children }: LaunchGateProps) {
   }, []);
 
   const handleIntroComplete = useCallback(() => {
-    persistIntroSeen();
     setIntroFadingOut(true);
     window.setTimeout(() => {
       setIntroCompletedThisVisit(true);
