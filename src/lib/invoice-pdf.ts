@@ -14,6 +14,8 @@
   bic: string;
   companyName: string;
   periodMonth: string;
+  periodStart?: string | null;
+  periodEnd?: string | null;
   quantity: number;
   dailyRate: number;
   discountGranted?: boolean;
@@ -97,6 +99,24 @@ function formatPeriodLabel(value: string) {
   }
 
   return parsed.toLocaleDateString("fr-FR", { month: "long", year: "numeric" }).toUpperCase();
+}
+
+function formatPeriodRangeLabel(input: InvoicePdfInput) {
+  const start = input.periodStart ? new Date(`${input.periodStart}T00:00:00`) : null;
+  const end = input.periodEnd ? new Date(`${input.periodEnd}T00:00:00`) : null;
+
+  if (!start || Number.isNaN(start.getTime()) || !end || Number.isNaN(end.getTime())) {
+    return formatPeriodLabel(input.periodMonth);
+  }
+
+  const startLabel = start.toLocaleDateString("fr-FR");
+  const endLabel = end.toLocaleDateString("fr-FR");
+
+  if (startLabel === endLabel) {
+    return `LE ${startLabel}`;
+  }
+
+  return `DU ${startLabel} AU ${endLabel}`;
 }
 
 function formatQuantity(value: number) {
@@ -198,7 +218,7 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
   ];
   const issueDateLabel = formatDate(input.issueDate);
   const dueDateLabel = formatDate(input.dueDate);
-  const periodLabel = formatPeriodLabel(input.periodMonth);
+  const periodLabel = formatPeriodRangeLabel(input);
   const quantity = Number(input.quantity) || 0;
   const dailyRate = Number(input.dailyRate) || 0;
   const totalHt = quantity * dailyRate;
@@ -287,7 +307,13 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
     "0.05 0.36 0.67 rg",
     `${54} ${titleBarY} 487 34 re f`,
     "1 1 1 rg",
-    createTextCommand(`FACTURE ${periodLabel}`, 222, titleBarY + 13, "F2", 12),
+    createTextCommand(
+      `FACTURE ${periodLabel}`,
+      54 + Math.max(0, (487 - estimatePdfTextWidth(`FACTURE ${periodLabel}`, 12)) / 2),
+      titleBarY + 13,
+      "F2",
+      12,
+    ),
     "0 0 0 rg",
     `54 ${tableY} 122 ${tableHeight} re S`,
     `176 ${tableY} 66 ${tableHeight} re S`,

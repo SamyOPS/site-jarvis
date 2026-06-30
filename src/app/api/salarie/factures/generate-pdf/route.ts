@@ -75,6 +75,9 @@ export async function POST(request: Request) {
     const periodMonth = toIsoMonthStart(String(body.periodMonth));
     const entries = parseEntries(body.entries);
     const workedDaysCount = entries.reduce((total, entry) => total + entry.dayQuantity, 0);
+    const sortedWorkDates = entries.map((entry) => entry.workDate).sort();
+    const periodStart = sortedWorkDates[0] ?? null;
+    const periodEnd = sortedWorkDates[sortedWorkDates.length - 1] ?? null;
     const discountGranted = body.discountGranted === true;
     const vatEnabled = body.vatEnabled === true;
     let amountAlreadyPaid = 0;
@@ -121,29 +124,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Le salarie ne peut pas generer ce type de document." }, { status: 403 });
     }
 
-    const { data: existingDocuments, error: existingDocumentsError } = await adminClient
+    // Numero de facture sequentiel par salarie et par mois (ex: 202606-01, 202606-02).
+    // On compte toutes les factures deja emises pour ce mois (y compris supprimees)
+    // afin de ne jamais reutiliser un numero deja attribue.
+    const { count: existingInvoiceCount, error: countError } = await adminClient
       .from("employee_documents")
-      .select("id,status,storage_bucket,storage_path,file_name,deleted_at")
+      .select("id", { count: "exact", head: true })
       .eq("employee_id", profile.id)
       .eq("document_type_id", documentType.id)
-      .eq("period_month", periodMonth)
-      .order("created_at", { ascending: false })
-      .limit(1);
+      .eq("period_month", periodMonth);
 
-    if (existingDocumentsError) {
-      return NextResponse.json({ error: existingDocumentsError.message }, { status: 400 });
+    if (countError) {
+      return NextResponse.json({ error: countError.message }, { status: 400 });
     }
 
-    const existingDocument = (existingDocuments ?? [])[0] ?? null;
-    if (existingDocument?.status === "validated" && !existingDocument?.deleted_at) {
-      return NextResponse.json({ error: "La facture de cette periode est deja validee et ne peut plus etre remplacee." }, { status: 400 });
-    }
+    const invoiceSequence = (existingInvoiceCount ?? 0) + 1;
+    const invoiceNumber = `${formatInvoiceNumber(periodMonth.slice(0, 7))}-${String(invoiceSequence).padStart(2, "0")}`;
 
     const issueDate = new Date();
     const dueDate = new Date(issueDate);
     dueDate.setDate(dueDate.getDate() + 30);
 
-    const fileName = `facture-${periodMonth.slice(0, 7)}-${Date.now()}.pdf`;
+    const fileName = `facture-${invoiceNumber}-${Date.now()}.pdf`;
     const storageBucket = "employee-documents";
     const storagePath = buildEmployeeDocumentPath({
       employeeId: profile.id,
@@ -153,7 +155,7 @@ export async function POST(request: Request) {
     });
 
     const pdfBuffer = buildInvoicePdfBuffer({
-      invoiceNumber: formatInvoiceNumber(periodMonth.slice(0, 7)),
+      invoiceNumber,
       issueDate: issueDate.toISOString(),
       dueDate: dueDate.toISOString(),
       firstName: billingProfile.first_name,
@@ -168,6 +170,8 @@ export async function POST(request: Request) {
       bic: billingProfile.bic,
       companyName: billingProfile.company_name,
       periodMonth,
+      periodStart,
+      periodEnd,
       quantity: workedDaysCount,
       dailyRate,
       discountGranted,
@@ -200,67 +204,35 @@ export async function POST(request: Request) {
       (matchingRequest ?? [])[0] ??
       null;
 
-    let documentId = existingDocument?.id ?? null;
-    let previousStoragePath: string | null = existingDocument?.storage_path ?? null;
-    let eventType = "uploaded";
+    // Chaque generation cree une facture distincte : on n'ecrase plus la facture
+    // du meme mois. Cela permet plusieurs factures par mois (quinzaine, semaine, etc.).
+    const { data: insertedDocument, error: insertDocumentError } = await adminClient
+      .from("employee_documents")
+      .insert({
+        employee_id: profile.id,
+        uploaded_by: user.id,
+        uploader_role: "salarie",
+        document_type_id: documentType.id,
+        period_month: periodMonth,
+        document_date: documentDate,
+        status: "pending",
+        storage_bucket: storageBucket,
+        storage_path: storagePath,
+        file_name: fileName,
+        mime_type: "application/pdf",
+        size_bytes: pdfBuffer.byteLength,
+        request_id: requestRow?.id ?? null,
+      })
+      .select("id")
+      .single();
 
-    if (existingDocument) {
-      const { error: updateDocumentError } = await adminClient
-        .from("employee_documents")
-        .update({
-          period_month: periodMonth,
-          document_date: documentDate,
-          status: "pending",
-          storage_bucket: storageBucket,
-          storage_path: storagePath,
-          file_name: fileName,
-          mime_type: "application/pdf",
-          size_bytes: pdfBuffer.byteLength,
-          reviewed_by: null,
-          reviewed_at: null,
-          review_comment: null,
-          deleted_at: null,
-          request_id: requestRow?.id ?? null,
-          updated_at: now,
-        })
-        .eq("id", existingDocument.id);
-
-      if (updateDocumentError) {
-        await adminClient.storage.from(storageBucket).remove([storagePath]);
-        return NextResponse.json({ error: updateDocumentError.message }, { status: 400 });
-      }
-
-      documentId = existingDocument.id;
-      eventType = "updated";
-    } else {
-      const { data: insertedDocument, error: insertDocumentError } = await adminClient
-        .from("employee_documents")
-        .insert({
-          employee_id: profile.id,
-          uploaded_by: user.id,
-          uploader_role: "salarie",
-          document_type_id: documentType.id,
-          period_month: periodMonth,
-          document_date: documentDate,
-          status: "pending",
-          storage_bucket: storageBucket,
-          storage_path: storagePath,
-          file_name: fileName,
-          mime_type: "application/pdf",
-          size_bytes: pdfBuffer.byteLength,
-          request_id: requestRow?.id ?? null,
-        })
-        .select("id")
-        .single();
-
-      if (insertDocumentError || !insertedDocument) {
-        await adminClient.storage.from(storageBucket).remove([storagePath]);
-        return NextResponse.json({ error: insertDocumentError?.message ?? "Insertion de la facture impossible." }, { status: 400 });
-      }
-
-      documentId = insertedDocument.id;
-      previousStoragePath = null;
+    if (insertDocumentError || !insertedDocument) {
+      await adminClient.storage.from(storageBucket).remove([storagePath]);
+      return NextResponse.json({ error: insertDocumentError?.message ?? "Insertion de la facture impossible." }, { status: 400 });
     }
+
+    const documentId = insertedDocument.id;
+    const eventType = "uploaded";
 
     const requestPromise = requestRow
       ? adminClient.from("document_requests").update({ status: "uploaded", updated_at: now }).eq("id", requestRow.id)
@@ -288,10 +260,6 @@ export async function POST(request: Request) {
 
     if (requestError || eventError) {
       return NextResponse.json({ error: requestError?.message ?? eventError?.message ?? "La facture a ete generee, mais le suivi n'est pas complet." }, { status: 400 });
-    }
-
-    if (previousStoragePath && previousStoragePath !== storagePath) {
-      await adminClient.storage.from(storageBucket).remove([previousStoragePath]);
     }
 
     try {
