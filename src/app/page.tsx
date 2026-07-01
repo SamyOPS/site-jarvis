@@ -95,9 +95,9 @@ export default function Home() {
 
   const aboutMainImage = {
 
-    src: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1200&auto=format&fit=crop&q=80",
+    src: "/images/block/gif-jarvis.mp4",
 
-    alt: "Équipe Jarvis Connect",
+    alt: "Animation Jarvis Connect",
 
   };
 
@@ -177,14 +177,14 @@ icon:
 
       imageSrc:
   index === 0
-    ? "https://www.micro-concept.fr/2024/wp-content/uploads/2025/04/A_modern_office_scene_showcasing_web_development_e-1744789188802-scaled.png"
-    : index === 1
-      ? "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80"
+    ? "/images/block/jarvis-1.mp4"
+      : index === 1
+      ? "/images/block/jarvis-2.mp4"
       : index === 2
-        ? "https://images.pexels.com/photos/9783815/pexels-photo-9783815.jpeg"
-        : index === 3
-           ? "https://i.pinimg.com/736x/a0/e9/f5/a0e9f56bcc5aca5c0abf27d99776624f.jpg"
-          : "https://i.pinimg.com/1200x/3d/55/94/3d55940a5f1f7c326517a8607c99336f.jpg",
+        ? "/images/block/jarvis-3.mp4"
+      : index === 3
+           ? "/images/block/jarvis-4.mp4"
+          : "/images/block/jarvis-5.mp4",
       imageAlt: item.title,
 
     },

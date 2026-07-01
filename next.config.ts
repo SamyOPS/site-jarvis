@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'www.micro-concept.fr',
       },
+      {
+        protocol: 'https',
+        hostname: 'media.giphy.com',
+      },
     ],
   },
 };
