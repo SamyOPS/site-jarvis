@@ -19,12 +19,24 @@ interface ClientsProps { tag?: string; title?: string; description?: string; cli
 interface ClientsRowProps { items: ClientLogo[]; rowKey: string; direction: "left" | "right"; speed: number; }
 
 function ClientCard({ client }: { client: ClientLogo }) {
-  const scale = (client.logoScale ?? 1.0) * 100;
+  const scale = client.logoScale ?? 1.0;
   const offsetX = client.logoOffsetX ?? 0;
   const offsetY = client.logoOffsetY ?? 0;
   const cardWidth = client.cardWidth ?? 208;
   const cardHeight = client.cardHeight ?? 80;
   const cardPadding = client.cardPadding ?? 8;
+  const innerWidth = cardWidth - cardPadding * 2;
+  const innerHeight = cardHeight - cardPadding * 2;
+  const imageStyle = {
+    display: "block",
+    width: "auto",
+    height: "auto",
+    maxWidth: `${innerWidth * scale}px`,
+    maxHeight: `${innerHeight * scale}px`,
+    objectFit: "contain" as const,
+    transform: `translate(${offsetX}px, ${offsetY}px)`,
+  };
+  const isSvgLogo = client.logo.toLowerCase().endsWith(".svg");
 
   return (
     <motion.div
@@ -39,21 +51,25 @@ function ClientCard({ client }: { client: ClientLogo }) {
       }}
       whileHover={{ scale: 1.04, boxShadow: "0 4px 24px rgba(42,160,221,0.15)" }}
     >
-      <Image
-        src={client.logo}
-        alt={client.name}
-        width={220}
-        height={96}
-        className="pointer-events-none select-none"
-        style={{
-          display: "block",
-          width: `${scale}%`,
-          height: `${scale}%`,
-          objectFit: "contain",
-          transform: `translate(${offsetX}px, ${offsetY}px)`,
-        }}
-        draggable={false}
-      />
+      {isSvgLogo ? (
+        <img
+          src={client.logo}
+          alt={client.name}
+          className="pointer-events-none select-none"
+          style={imageStyle}
+          draggable={false}
+        />
+      ) : (
+        <Image
+          src={client.logo}
+          alt={client.name}
+          width={220}
+          height={96}
+          className="pointer-events-none select-none"
+          style={imageStyle}
+          draggable={false}
+        />
+      )}
     </motion.div>
   );
 }
