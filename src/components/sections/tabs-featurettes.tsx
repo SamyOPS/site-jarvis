@@ -36,6 +36,7 @@ const TabsFeaturettes = ({
 }: TabsFeaturettesProps) => {
   const [activeTab, setActiveTab] = useState(tabs[0]?.value ?? "");
   const active = tabs.find((tab) => tab.value === activeTab) ?? tabs[0];
+  const isAnimatedMedia = /\.(mp4|webm|ogg)$/i.test(active.content.imageSrc);
 
   return (
     <motion.section
@@ -119,7 +120,7 @@ const TabsFeaturettes = ({
 
                   <motion.div
                     key={`${active.value}-content`}
-                    className="flex flex-col gap-5"
+                    className="order-2 flex flex-col gap-5 lg:order-1"
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
@@ -176,7 +177,7 @@ const TabsFeaturettes = ({
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={`${active.value}-img`}
-                      className="relative group"
+                      className="relative order-1 group lg:order-2"
                       initial={{ opacity: 0, scale: 0.95, x: 20 }}
                       animate={{ opacity: 1, scale: 1, x: 0 }}
                       exit={{ opacity: 0, scale: 0.95, x: -20 }}
@@ -185,13 +186,26 @@ const TabsFeaturettes = ({
                       <div className="absolute -inset-1 bg-gradient-to-r from-[#0A1A2F]/10 to-[#2aa0dd]/10 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                       <div className="relative rounded-xl overflow-hidden border border-white/20 shadow-lg group-hover:shadow-2xl transition-shadow duration-300">
                         <div className="relative w-full h-[320px] overflow-hidden">
-                          <Image
-                            src={active.content.imageSrc}
-                            alt={active.content.imageAlt}
-                            fill
-                            sizes="(max-width: 1024px) 100vw, 50vw"
-                            className="object-cover object-center group-hover:scale-110 transition-transform duration-500"
-                          />
+                          {isAnimatedMedia ? (
+                            <video
+                              autoPlay
+                              loop
+                              muted
+                              playsInline
+                              aria-label={active.content.imageAlt}
+                              className="h-full w-full object-cover object-center group-hover:scale-110 transition-transform duration-500"
+                            >
+                              <source src={active.content.imageSrc} type="video/mp4" />
+                            </video>
+                          ) : (
+                            <Image
+                              src={active.content.imageSrc}
+                              alt={active.content.imageAlt}
+                              fill
+                              sizes="(max-width: 1024px) 100vw, 50vw"
+                              className="object-cover object-center group-hover:scale-110 transition-transform duration-500"
+                            />
+                          )}
                         </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>

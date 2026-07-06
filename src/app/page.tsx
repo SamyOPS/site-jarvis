@@ -63,6 +63,7 @@ export default function Home() {
     { name: "Aramis", logo: "/client/aramisa.svg", logoScale: 1.1 },
     { name: "Barrière", logo: "/client/Barriere.png", logoScale: 1.05},
     { name: "BNP Paribas", logo: "/client/bnp.png", logoScale: 1.0 },
+    { name: "Bolloré", logo: "/client/bollore-full.svg", logoScale: 1.12, cardWidth: 340, cardPadding: 8 },
     { name: "BPCE", logo: "/client/bpce.png", logoScale: 1.0 },
     { name: "Burberry", logo: "/client/burberry.png", logoScale: 0.95 },
     { name: "CGI", logo: "/client/CGI.png", logoScale: 0.7 },
@@ -72,6 +73,7 @@ export default function Home() {
     { name: "Essilor", logo: "/client/Essilor.png", logoScale: 1.0 },
     { name: "Etypharm", logo: "/client/etypharm.png", logoScale: 1.0 },
     { name: "Foncia", logo: "/client/Foncia.png", logoScale: 1.0 },
+    { name: "Groupe Cofel", logo: "/client/Cofel.png", logoScale: 1.0 },
     { name: "HP", logo: "/client/HP.png", logoScale: 1.0 },
     { name: "TP ICAP", logo: "/client/icap.png", logoScale: 0.8 },
     { name: "Les Mousquetaires", logo: "/client/lesmousquetaires.png", logoScale: 0.9 },
@@ -95,9 +97,9 @@ export default function Home() {
 
   const aboutMainImage = {
 
-    src: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1200&auto=format&fit=crop&q=80",
+    src: "/images/block/gif-jarvis.mp4",
 
-    alt: "Équipe Jarvis Connect",
+    alt: "Animation Jarvis Connect",
 
   };
 
@@ -177,14 +179,14 @@ icon:
 
       imageSrc:
   index === 0
-    ? "https://www.micro-concept.fr/2024/wp-content/uploads/2025/04/A_modern_office_scene_showcasing_web_development_e-1744789188802-scaled.png"
-    : index === 1
-      ? "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80"
+    ? "/images/block/jarvis-1.mp4"
+      : index === 1
+      ? "/images/block/jarvis-2.mp4"
       : index === 2
-        ? "https://images.pexels.com/photos/9783815/pexels-photo-9783815.jpeg"
-        : index === 3
-           ? "https://i.pinimg.com/736x/a0/e9/f5/a0e9f56bcc5aca5c0abf27d99776624f.jpg"
-          : "https://i.pinimg.com/1200x/3d/55/94/3d55940a5f1f7c326517a8607c99336f.jpg",
+        ? "/images/block/jarvis-3.mp4"
+      : index === 3
+           ? "/images/block/jarvis-4.mp4"
+          : "/images/block/jarvis-5.mp4",
       imageAlt: item.title,
 
     },

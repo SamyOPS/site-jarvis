@@ -35,6 +35,8 @@ export const About = ({
   companiesTitle = "Experts transverses pour vos projets",
   companies = defaultCompanies,
 }: AboutProps = {}) => {
+  const isAnimatedMedia = /\.(mp4|webm|ogg)$/i.test(mainImage.src);
+
   return (
     <section className="relative overflow-hidden bg-white pt-16 pb-0 text-[#0A1A2F]">
       <div className="container mx-auto px-6 lg:px-10">
@@ -79,13 +81,26 @@ export const About = ({
             transition={{ duration: 0.6 }}
           >
             <div className="relative w-full h-[380px]">
-              <Image
-                src={mainImage.src}
-                alt={mainImage.alt}
-                fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="rounded-2xl object-cover"
-              />
+              {isAnimatedMedia ? (
+                <video
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  aria-label={mainImage.alt}
+                  className="h-full w-full rounded-2xl object-cover"
+                >
+                  <source src={mainImage.src} type="video/mp4" />
+                </video>
+              ) : (
+                <Image
+                  src={mainImage.src}
+                  alt={mainImage.alt}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="rounded-2xl object-cover"
+                />
+              )}
             </div>
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-[#0A1A2F]/30 to-transparent" />
           </motion.div>

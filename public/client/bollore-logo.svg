@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 240" role="img" aria-labelledby="bolloreTitle">
+  <title id="bolloreTitle">Bollore</title>
+  <rect width="520" height="240" rx="18" fill="#0d4f8b"/>
+  <g fill="#ffffff">
+    <path d="M38 176h29c17 0 27-9 27-22 0-9-5-16-14-20 7-4 11-9 11-17 0-13-9-21-27-21H38v80zm18-46v-18h12c7 0 11 3 11 9s-4 9-11 9H56zm0 31v-18h14c8 0 13 3 13 9s-5 9-14 9H56z"/>
+    <path d="M104 176V96h19v80h-19z"/>
+    <path d="M132 176V96h19v64h37v16h-56z"/>
+    <path d="M196 176V96h19v64h37v16h-56z"/>
+    <path d="M260 176V96h19v80h-19z"/>
+    <path d="M288 176V96h63v16h-44v16h38v15h-38v17h45v16h-64z"/>
+  </g>
+  <path d="M343 44c58 12 105 49 144 112" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+  <path d="M455 44l26 9-20 20" fill="#ffffff"/>
+  <path d="M402 108l13-18c5-7 14-9 21-4 7 5 8 14 2 21l-20 25h-31l15-24z" fill="#ffffff"/>
+</svg>
