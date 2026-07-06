@@ -217,7 +217,7 @@ export function RhDocumentsSection({
           (documentTypeFilter === "all" || document.typeLabel === documentTypeFilter) &&
           (documentPeriodFilter === "all" ||
             (document.periodMonth ?? "__none__") === documentPeriodFilter) &&
-          (documentCreatorFilter === "all" || document.uploadedByName === documentCreatorFilter),
+          (documentCreatorFilter === "all" || document.employeeName === documentCreatorFilter),
         )
         .map((document) => ({
           rowType: "document",
@@ -225,7 +225,7 @@ export function RhDocumentsSection({
           id: `trash-document:${document.id}`,
           fileName: document.fileName,
           typeLabel: document.typeLabel,
-          ownerName: document.uploadedByName,
+          ownerName: document.employeeName,
           createdAt: document.deletedAt ?? document.updatedAt ?? document.createdAt,
           statusLabel: formatDocumentStatus(document.status),
           periodLabel: formatMonth(document.periodMonth),

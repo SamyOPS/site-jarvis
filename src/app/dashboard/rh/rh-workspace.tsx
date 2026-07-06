@@ -1019,8 +1019,14 @@ export default function RhWorkspace({
     [rhDocumentFilterSource],
   );
   const rhDocumentCreatorOptions = useMemo(
-    () => Array.from(new Set(rhDocumentFilterSource.map((document) => document.uploadedByName))).sort((left, right) => left.localeCompare(right, "fr")),
-    [rhDocumentFilterSource],
+    () =>
+      Array.from(
+        new Set([
+          ...employees.map((employee) => employee.full_name ?? employee.email ?? "Utilisateur"),
+          ...rhDocumentFilterSource.map((document) => document.employeeName),
+        ]),
+      ).sort((left, right) => left.localeCompare(right, "fr")),
+    [employees, rhDocumentFilterSource],
   );
   const rhFilterOptions = useMemo(
     () => ({
@@ -1041,48 +1047,64 @@ export default function RhWorkspace({
   const filteredSalarieDocuments = useMemo(
     () =>
       salarieDocuments.filter((document) =>
-        matchesRhDocumentFilters(document, {
-          type: documentTypeFilter,
-          period: documentPeriodFilter,
-          status: documentStatusFilter,
-          creator: documentCreatorFilter,
-        }),
+        matchesRhDocumentFilters(
+          document,
+          {
+            type: documentTypeFilter,
+            period: documentPeriodFilter,
+            status: documentStatusFilter,
+            creator: documentCreatorFilter,
+          },
+          { creatorField: "employeeName" },
+        ),
       ),
     [documentCreatorFilter, documentPeriodFilter, documentStatusFilter, documentTypeFilter, salarieDocuments],
   );
   const filteredPendingDocuments = useMemo(
     () =>
       pendingDocuments.filter((document) =>
-        matchesRhDocumentFilters(document, {
-          type: documentTypeFilter,
-          period: documentPeriodFilter,
-          status: documentStatusFilter,
-          creator: documentCreatorFilter,
-        }),
+        matchesRhDocumentFilters(
+          document,
+          {
+            type: documentTypeFilter,
+            period: documentPeriodFilter,
+            status: documentStatusFilter,
+            creator: documentCreatorFilter,
+          },
+          { creatorField: "employeeName" },
+        ),
       ),
     [documentCreatorFilter, documentPeriodFilter, documentStatusFilter, documentTypeFilter, pendingDocuments],
   );
   const filteredRhDocuments = useMemo(
     () =>
       rhDocuments.filter((document) =>
-        matchesRhDocumentFilters(document, {
-          type: documentTypeFilter,
-          period: documentPeriodFilter,
-          status: documentStatusFilter,
-          creator: documentCreatorFilter,
-        }),
+        matchesRhDocumentFilters(
+          document,
+          {
+            type: documentTypeFilter,
+            period: documentPeriodFilter,
+            status: documentStatusFilter,
+            creator: documentCreatorFilter,
+          },
+          { creatorField: "employeeName" },
+        ),
       ),
     [documentCreatorFilter, documentPeriodFilter, documentStatusFilter, documentTypeFilter, rhDocuments],
   );
   const filteredAllDocuments = useMemo(
     () =>
       activeDocuments.filter((document) =>
-        matchesRhDocumentFilters(document, {
-          type: documentTypeFilter,
-          period: documentPeriodFilter,
-          status: documentStatusFilter,
-          creator: documentCreatorFilter,
-        }),
+        matchesRhDocumentFilters(
+          document,
+          {
+            type: documentTypeFilter,
+            period: documentPeriodFilter,
+            status: documentStatusFilter,
+            creator: documentCreatorFilter,
+          },
+          { creatorField: "employeeName" },
+        ),
       ),
     [activeDocuments, documentCreatorFilter, documentPeriodFilter, documentStatusFilter, documentTypeFilter],
   );
