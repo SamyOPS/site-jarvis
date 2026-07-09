@@ -21,6 +21,9 @@
   discountGranted?: boolean;
   vatEnabled?: boolean;
   amountAlreadyPaid?: number;
+  fraisKm?: number;
+  fraisRepas?: number;
+  fraisNuitee?: number;
 };
 
 function byteLength(value: string) {
@@ -221,20 +224,52 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
   const periodLabel = formatPeriodRangeLabel(input);
   const quantity = Number(input.quantity) || 0;
   const dailyRate = Number(input.dailyRate) || 0;
-  const totalHt = quantity * dailyRate;
+  const serviceHt = quantity * dailyRate;
+  const fraisKm = Math.max(0, Number(input.fraisKm) || 0);
+  const fraisRepas = Math.max(0, Number(input.fraisRepas) || 0);
+  const fraisNuitee = Math.max(0, Number(input.fraisNuitee) || 0);
+  const fraisTotal = fraisKm + fraisRepas + fraisNuitee;
+  const totalHt = serviceHt + fraisTotal;
   const discountRate = input.discountGranted ? 0.02 : 0;
-  const discountAmount = totalHt * discountRate;
+  // L'escompte ne porte que sur la prestation, jamais sur les frais refactures.
+  const discountAmount = serviceHt * discountRate;
   const totalAfterDiscount = Math.max(0, totalHt - discountAmount);
   const vatRate = input.vatEnabled ? 0.2 : 0;
   const vatAmount = totalAfterDiscount * vatRate;
   const amountAlreadyPaid = Math.max(0, Number(input.amountAlreadyPaid) || 0);
   const totalTtc = totalAfterDiscount + vatAmount;
   const remainingToPay = Math.max(0, totalTtc - amountAlreadyPaid);
-  const description = `Service IT chez ${input.companyName || "Client"}`;
+  const vatRateLabel = input.vatEnabled ? "20%" : "0%";
+
   const descriptionFontSize = 9;
-  const descriptionLines = wrapTextToCell(description, 114, descriptionFontSize);
   const descriptionLineHeight = 10;
-  const tableBodyHeight = Math.max(14, descriptionLines.length * descriptionLineHeight + 4);
+  const lineItems: {
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    amount: string;
+  }[] = [
+    {
+      description: `Service IT chez ${input.companyName || "Client"}`,
+      quantity: formatQuantity(quantity),
+      unitPrice: formatAmount(dailyRate),
+      amount: formatAmount(serviceHt),
+    },
+  ];
+  if (fraisKm > 0) {
+    lineItems.push({ description: "Frais kilometriques", quantity: "", unitPrice: "", amount: formatAmount(fraisKm) });
+  }
+  if (fraisRepas > 0) {
+    lineItems.push({ description: "Frais de repas", quantity: "", unitPrice: "", amount: formatAmount(fraisRepas) });
+  }
+  if (fraisNuitee > 0) {
+    lineItems.push({ description: "Frais de nuitee", quantity: "", unitPrice: "", amount: formatAmount(fraisNuitee) });
+  }
+  const lineLayouts = lineItems.map((item) => {
+    const lines = wrapTextToCell(item.description, 114, descriptionFontSize);
+    return { item, lines, height: Math.max(14, lines.length * descriptionLineHeight + 4) };
+  });
+  const tableBodyHeight = lineLayouts.reduce((total, row) => total + row.height, 0);
   const tableHeaderHeight = 14;
   const tableHeight = tableBodyHeight + tableHeaderHeight;
   const issuerStartY = 700;
@@ -273,10 +308,29 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
   });
 
   const tableHeaderTextY = tableY + tableBodyHeight + 2;
-  const descriptionFirstLineY = tableY + tableBodyHeight - 11;
-  const descriptionCommands = descriptionLines.map((line, index) =>
-    createTextCommand(line, 58, descriptionFirstLineY - index * descriptionLineHeight, "F1", descriptionFontSize),
-  );
+  const rowCommands: string[] = [];
+  const rowSeparatorCommands: string[] = [];
+  let rowCursorY = tableY + tableBodyHeight;
+  lineLayouts.forEach((row, rowIndex) => {
+    const firstLineY = rowCursorY - 11;
+    row.lines.forEach((line, lineIndex) => {
+      rowCommands.push(
+        createTextCommand(line, 58, firstLineY - lineIndex * descriptionLineHeight, "F1", descriptionFontSize),
+      );
+    });
+    if (row.item.quantity) {
+      rowCommands.push(createTextCommand(row.item.quantity, 180, firstLineY, "F1", 9));
+    }
+    if (row.item.unitPrice) {
+      rowCommands.push(createTextCommand(row.item.unitPrice, 246, firstLineY, "F1", 9));
+    }
+    rowCommands.push(createTextCommand(row.item.amount, 348, firstLineY, "F1", 9));
+    rowCommands.push(createTextCommand(vatRateLabel, 456, firstLineY, "F1", 9));
+    rowCursorY -= row.height;
+    if (rowIndex < lineLayouts.length - 1) {
+      rowSeparatorCommands.push(`54 ${rowCursorY} 487 0 re S`);
+    }
+  });
   const summaryLabelX = 300;
   const summaryValueX = 420;
   const summaryLabelWidth = 116;
@@ -321,16 +375,13 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
     `344 ${tableY} 108 ${tableHeight} re S`,
     `452 ${tableY} 89 ${tableHeight} re S`,
     `54 ${tableY + tableBodyHeight} 487 0 re S`,
+    ...rowSeparatorCommands,
     createTextCommand("Description", 58, tableHeaderTextY, "F2", 9),
     createTextCommand("Quantite", 180, tableHeaderTextY, "F2", 9),
     createTextCommand("Tarif / journee HT", 246, tableHeaderTextY, "F2", 9),
     createTextCommand("Montant", 348, tableHeaderTextY, "F2", 9),
     createTextCommand("TVA", 456, tableHeaderTextY, "F2", 9),
-    ...descriptionCommands,
-    createTextCommand(formatQuantity(quantity), 180, descriptionFirstLineY, "F1", 9),
-    createTextCommand(formatAmount(dailyRate), 246, descriptionFirstLineY, "F1", 9),
-    createTextCommand(formatAmount(totalHt), 348, descriptionFirstLineY, "F1", 9),
-    createTextCommand("0%", 456, descriptionFirstLineY, "F1", 9),
+    ...rowCommands,
     ...summaryCommands,
     createTextCommand("Condition de paiement :", 54, 288, "F2", 10),
     createTextCommand("Paiement a 30 jours fin de mois par virement.", 54, 272, "F1", 10),

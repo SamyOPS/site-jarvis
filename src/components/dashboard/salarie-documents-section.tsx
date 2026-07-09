@@ -47,6 +47,12 @@ type SalarieDocumentsSectionProps = {
   onInvoiceVatEnabledChange: (value: boolean) => void;
   invoiceAmountAlreadyPaid: string;
   onInvoiceAmountAlreadyPaidChange: (value: string) => void;
+  invoiceFraisKm: string;
+  onInvoiceFraisKmChange: (value: string) => void;
+  invoiceFraisRepas: string;
+  onInvoiceFraisRepasChange: (value: string) => void;
+  invoiceFraisNuitee: string;
+  onInvoiceFraisNuiteeChange: (value: string) => void;
   weekdayLabels: string[];
   craCalendarCells: CraCalendarCell[];
   craEntriesByDate: Map<string, CraEntryDraft>;
@@ -119,6 +125,12 @@ export function SalarieDocumentsSection({
   onInvoiceVatEnabledChange,
   invoiceAmountAlreadyPaid,
   onInvoiceAmountAlreadyPaidChange,
+  invoiceFraisKm,
+  onInvoiceFraisKmChange,
+  invoiceFraisRepas,
+  onInvoiceFraisRepasChange,
+  invoiceFraisNuitee,
+  onInvoiceFraisNuiteeChange,
   weekdayLabels,
   craCalendarCells,
   craEntriesByDate,
@@ -469,6 +481,12 @@ export function SalarieDocumentsSection({
             onInvoiceVatEnabledChange={onInvoiceVatEnabledChange}
             invoiceAmountAlreadyPaid={invoiceAmountAlreadyPaid}
             onInvoiceAmountAlreadyPaidChange={onInvoiceAmountAlreadyPaidChange}
+            invoiceFraisKm={invoiceFraisKm}
+            onInvoiceFraisKmChange={onInvoiceFraisKmChange}
+            invoiceFraisRepas={invoiceFraisRepas}
+            onInvoiceFraisRepasChange={onInvoiceFraisRepasChange}
+            invoiceFraisNuitee={invoiceFraisNuitee}
+            onInvoiceFraisNuiteeChange={onInvoiceFraisNuiteeChange}
             weekdayLabels={weekdayLabels}
             craCalendarCells={craCalendarCells}
             craEntriesByDate={craEntriesByDate}

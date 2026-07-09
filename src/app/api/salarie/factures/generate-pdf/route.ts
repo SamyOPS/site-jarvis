@@ -17,6 +17,9 @@ type InvoiceGeneratePayload = {
   discountGranted?: unknown;
   vatEnabled?: unknown;
   amountAlreadyPaid?: unknown;
+  fraisKm?: unknown;
+  fraisRepas?: unknown;
+  fraisNuitee?: unknown;
 };
 
 function parseEntries(entries: InvoiceEntryInput[] | undefined) {
@@ -43,6 +46,10 @@ function formatInvoiceNumber(periodMonth: string) {
   return periodMonth.replace(/-/g, "");
 }
 
+function roundToCents(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 function parseAmountAlreadyPaid(value: unknown) {
   if (value === undefined || value === null || value === "") {
     return 0;
@@ -51,7 +58,18 @@ function parseAmountAlreadyPaid(value: unknown) {
   if (!Number.isFinite(parsed) || parsed < 0) {
     throw new Error("Le montant deja paye doit etre un nombre positif ou nul.");
   }
-  return parsed;
+  return roundToCents(parsed);
+}
+
+function parseExpenseAmount(value: unknown, label: string) {
+  if (value === undefined || value === null || value === "") {
+    return 0;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`Le montant des ${label} doit etre un nombre positif ou nul.`);
+  }
+  return roundToCents(parsed);
 }
 
 export async function POST(request: Request) {
@@ -81,10 +99,16 @@ export async function POST(request: Request) {
     const discountGranted = body.discountGranted === true;
     const vatEnabled = body.vatEnabled === true;
     let amountAlreadyPaid = 0;
+    let fraisKm = 0;
+    let fraisRepas = 0;
+    let fraisNuitee = 0;
     try {
       amountAlreadyPaid = parseAmountAlreadyPaid(body.amountAlreadyPaid);
+      fraisKm = parseExpenseAmount(body.fraisKm, "frais kilometriques");
+      fraisRepas = parseExpenseAmount(body.fraisRepas, "frais de repas");
+      fraisNuitee = parseExpenseAmount(body.fraisNuitee, "frais de nuitee");
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Montant deja paye invalide." }, { status: 400 });
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Montant invalide." }, { status: 400 });
     }
 
     if (!entries.length || workedDaysCount <= 0) {
@@ -177,6 +201,9 @@ export async function POST(request: Request) {
       discountGranted,
       vatEnabled,
       amountAlreadyPaid,
+      fraisKm,
+      fraisRepas,
+      fraisNuitee,
     });
 
     const { error: uploadError } = await adminClient.storage.from(storageBucket).upload(storagePath, pdfBuffer, {
@@ -253,6 +280,10 @@ export async function POST(request: Request) {
         vat_enabled: vatEnabled,
         vat_rate: vatEnabled ? 0.2 : 0,
         amount_already_paid: amountAlreadyPaid,
+        frais_km: fraisKm,
+        frais_repas: fraisRepas,
+        frais_nuitee: fraisNuitee,
+        frais_total: fraisKm + fraisRepas + fraisNuitee,
       },
     });
 

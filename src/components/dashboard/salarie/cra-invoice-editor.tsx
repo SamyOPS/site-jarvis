@@ -32,6 +32,12 @@ type SalarieCraInvoiceEditorProps = {
   onInvoiceVatEnabledChange: (value: boolean) => void;
   invoiceAmountAlreadyPaid: string;
   onInvoiceAmountAlreadyPaidChange: (value: string) => void;
+  invoiceFraisKm: string;
+  onInvoiceFraisKmChange: (value: string) => void;
+  invoiceFraisRepas: string;
+  onInvoiceFraisRepasChange: (value: string) => void;
+  invoiceFraisNuitee: string;
+  onInvoiceFraisNuiteeChange: (value: string) => void;
   weekdayLabels: string[];
   craCalendarCells: CraCalendarCell[];
   craEntriesByDate: Map<string, CraEntryDraft>;
@@ -62,6 +68,12 @@ export function SalarieCraInvoiceEditor({
   onInvoiceVatEnabledChange,
   invoiceAmountAlreadyPaid,
   onInvoiceAmountAlreadyPaidChange,
+  invoiceFraisKm,
+  onInvoiceFraisKmChange,
+  invoiceFraisRepas,
+  onInvoiceFraisRepasChange,
+  invoiceFraisNuitee,
+  onInvoiceFraisNuiteeChange,
   weekdayLabels,
   craCalendarCells,
   craEntriesByDate,
@@ -182,9 +194,61 @@ export function SalarieCraInvoiceEditor({
                   step="0.01"
                   value={invoiceAmountAlreadyPaid}
                   onChange={(event) => onInvoiceAmountAlreadyPaidChange(event.target.value)}
+                  onWheel={(event) => event.currentTarget.blur()}
                   className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
                   placeholder="0.00"
                 />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div>
+                <p className="text-sm font-medium">Frais professionnels</p>
+                <p className="text-sm text-[#0A1A2F]/70">
+                  Montants HT a refacturer sur cette facture. Laisse a 0 si aucun frais. Les frais suivent la TVA (si
+                  activee) mais ne sont pas escomptes.
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Frais kilometriques (EUR)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={invoiceFraisKm}
+                    onChange={(event) => onInvoiceFraisKmChange(event.target.value)}
+                    onWheel={(event) => event.currentTarget.blur()}
+                    className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Frais de repas (EUR)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={invoiceFraisRepas}
+                    onChange={(event) => onInvoiceFraisRepasChange(event.target.value)}
+                    onWheel={(event) => event.currentTarget.blur()}
+                    className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Frais de nuitee (EUR)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={invoiceFraisNuitee}
+                    onChange={(event) => onInvoiceFraisNuiteeChange(event.target.value)}
+                    onWheel={(event) => event.currentTarget.blur()}
+                    className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
+                    placeholder="0.00"
+                  />
+                </div>
               </div>
             </div>
 
@@ -288,6 +352,7 @@ export function SalarieCraInvoiceEditor({
                           onChange={(event) =>
                             updateCraEntry(entry.workDate, { dayQuantity: event.target.value })
                           }
+                          onWheel={(event) => event.currentTarget.blur()}
                           className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
                         />
                       </div>

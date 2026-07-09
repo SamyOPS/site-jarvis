@@ -137,6 +137,9 @@ export default function SalarieWorkspace({
   const [invoiceDiscountGranted, setInvoiceDiscountGranted] = useState(false);
   const [invoiceVatEnabled, setInvoiceVatEnabled] = useState(false);
   const [invoiceAmountAlreadyPaid, setInvoiceAmountAlreadyPaid] = useState("");
+  const [invoiceFraisKm, setInvoiceFraisKm] = useState("");
+  const [invoiceFraisRepas, setInvoiceFraisRepas] = useState("");
+  const [invoiceFraisNuitee, setInvoiceFraisNuitee] = useState("");
   const [craGenerating, setCraGenerating] = useState(false);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -1005,6 +1008,9 @@ export default function SalarieWorkspace({
     setInvoiceDiscountGranted(false);
     setInvoiceVatEnabled(false);
     setInvoiceAmountAlreadyPaid("");
+    setInvoiceFraisKm("");
+    setInvoiceFraisRepas("");
+    setInvoiceFraisNuitee("");
   }, []);
 
   const handleCraPeriodMonthChange = useCallback((nextPeriodMonth: string) => {
@@ -1121,6 +1127,9 @@ export default function SalarieWorkspace({
       discountGranted: invoiceDiscountGranted,
       vatEnabled: invoiceVatEnabled,
       amountAlreadyPaid: invoiceAmountAlreadyPaid.trim() === "" ? 0 : Number(invoiceAmountAlreadyPaid),
+      fraisKm: invoiceFraisKm.trim() === "" ? 0 : Number(invoiceFraisKm),
+      fraisRepas: invoiceFraisRepas.trim() === "" ? 0 : Number(invoiceFraisRepas),
+      fraisNuitee: invoiceFraisNuitee.trim() === "" ? 0 : Number(invoiceFraisNuitee),
     };
 
     const run = async () => {
@@ -1142,7 +1151,7 @@ export default function SalarieWorkspace({
     };
 
     void run();
-  }, [callSalarieApi, craEntries, craPeriodMonth, invoiceAmountAlreadyPaid, invoiceDiscountGranted, invoiceVatEnabled, loadDashboardData, profile]);
+  }, [callSalarieApi, craEntries, craPeriodMonth, invoiceAmountAlreadyPaid, invoiceDiscountGranted, invoiceFraisKm, invoiceFraisNuitee, invoiceFraisRepas, invoiceVatEnabled, loadDashboardData, profile]);
 
   const handlePasswordUpdate = useCallback(async () => {
     if (!supabase) return;
@@ -1478,6 +1487,12 @@ export default function SalarieWorkspace({
               onInvoiceVatEnabledChange={setInvoiceVatEnabled}
               invoiceAmountAlreadyPaid={invoiceAmountAlreadyPaid}
               onInvoiceAmountAlreadyPaidChange={setInvoiceAmountAlreadyPaid}
+              invoiceFraisKm={invoiceFraisKm}
+              onInvoiceFraisKmChange={setInvoiceFraisKm}
+              invoiceFraisRepas={invoiceFraisRepas}
+              onInvoiceFraisRepasChange={setInvoiceFraisRepas}
+              invoiceFraisNuitee={invoiceFraisNuitee}
+              onInvoiceFraisNuiteeChange={setInvoiceFraisNuitee}
               weekdayLabels={weekdayLabels}
               craCalendarCells={craCalendarCells}
               craEntriesByDate={craEntriesByDate}
