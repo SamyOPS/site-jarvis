@@ -203,9 +203,7 @@ type ApplicationNotificationParams = {
   candidateEmail: string;
   candidatePhone?: string | null;
   jobTitle: string;
-  message?: string | null;
   cvLink?: string | null;
-  coverLetterLink?: string | null;
 };
 
 function formatDueDate(dueAt: string | null | undefined) {
@@ -290,15 +288,9 @@ export async function notifyAdminOfApplication(params: ApplicationNotificationPa
   const phoneLine = params.candidatePhone
     ? `<p>Telephone : <strong>${escapeHtml(params.candidatePhone)}</strong></p>`
     : "";
-  const messageLine = params.message
-    ? `<p style="white-space:pre-wrap;background:#f5f5f5;padding:12px;border-radius:8px">${escapeHtml(params.message)}</p>`
-    : "";
   const cvLine = params.cvLink
     ? `<li><a href="${params.cvLink}">Telecharger le CV</a></li>`
-    : "";
-  const coverLetterLine = params.coverLetterLink
-    ? `<li><a href="${params.coverLetterLink}">Telecharger la lettre de motivation</a></li>`
-    : "";
+    : "<li>CV indisponible (echec de l'upload, contacter le candidat).</li>";
 
   const html = renderShell(`
     <p>Bonjour,</p>
@@ -306,10 +298,8 @@ export async function notifyAdminOfApplication(params: ApplicationNotificationPa
     <p>Candidat : <strong>${escapeHtml(params.candidateName)}</strong></p>
     <p>Email : <strong>${escapeHtml(params.candidateEmail)}</strong></p>
     ${phoneLine}
-    ${messageLine}
     <ul>
       ${cvLine}
-      ${coverLetterLine}
     </ul>
   `);
 

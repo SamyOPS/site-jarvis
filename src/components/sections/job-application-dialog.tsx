@@ -13,29 +13,23 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 
 type JobApplicationDialogProps = {
   jobId: string;
   jobTitle: string;
 };
 
-type FileKind = "cv" | "coverLetter";
-
 const acceptedExtensions = ".pdf,.doc,.docx";
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogProps) {
   const cvInputRef = useRef<HTMLInputElement>(null);
-  const coverLetterInputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [message, setMessage] = useState("");
   const [cv, setCv] = useState<File | null>(null);
-  const [coverLetter, setCoverLetter] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [serverMessage, setServerMessage] = useState("");
@@ -45,12 +39,9 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
     setLastName("");
     setEmail("");
     setPhone("");
-    setMessage("");
     setCv(null);
-    setCoverLetter(null);
     setErrors({});
     if (cvInputRef.current) cvInputRef.current.value = "";
-    if (coverLetterInputRef.current) coverLetterInputRef.current.value = "";
   };
 
   const validate = () => {
@@ -63,19 +54,15 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleFile = (kind: FileKind, file: File | null) => {
+  const handleFile = (file: File | null) => {
     if (!file) return;
-    if (kind === "cv") {
-      setCv(file);
-      setErrors((current) => ({ ...current, cv: "" }));
-      return;
-    }
-    setCoverLetter(file);
+    setCv(file);
+    setErrors((current) => ({ ...current, cv: "" }));
   };
 
-  const handleDrop = (kind: FileKind) => (event: DragEvent<HTMLDivElement>) => {
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    handleFile(kind, event.dataTransfer.files.item(0));
+    handleFile(event.dataTransfer.files.item(0));
   };
 
   const handleSubmit = async () => {
@@ -89,9 +76,7 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
     formData.set("lastName", lastName.trim());
     formData.set("email", email.trim());
     formData.set("phone", phone.trim());
-    formData.set("message", message.trim());
     if (cv) formData.set("cv", cv);
-    if (coverLetter) formData.set("coverLetter", coverLetter);
 
     try {
       const response = await fetch("/api/applications", {
@@ -168,30 +153,14 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
               </Field>
             </div>
 
-            <Field label="Message de motivation (optionnel)">
-              <Textarea
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="Présentez brièvement votre profil et vos motivations."
-                className="min-h-28"
-              />
-            </Field>
-
-            <div className="mt-8 grid gap-5 md:grid-cols-2">
+            <div className="mt-8">
               <UploadZone
                 title="Déposer votre CV"
                 file={cv}
                 error={errors.cv}
                 inputRef={cvInputRef}
-                onDrop={handleDrop("cv")}
-                onSelect={(file) => handleFile("cv", file)}
-              />
-              <UploadZone
-                title="Déposer votre lettre de motivation"
-                file={coverLetter}
-                inputRef={coverLetterInputRef}
-                onDrop={handleDrop("coverLetter")}
-                onSelect={(file) => handleFile("coverLetter", file)}
+                onDrop={handleDrop}
+                onSelect={handleFile}
               />
             </div>
 

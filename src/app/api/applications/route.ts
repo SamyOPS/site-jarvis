@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { sanitizeFileName } from "@/lib/document-storage";
 import { notifyAdminOfApplication } from "@/lib/email";
@@ -15,10 +15,10 @@ const allowedMimeTypes = new Set([
 const allowedExtensions = new Set(["pdf", "doc", "docx"]);
 const maxFileSize = 5 * 1024 * 1024;
 const storageBucket = "application-documents";
+const applicationsTable = "job_applications";
+const signedUrlTtlSeconds = 60 * 60 * 24 * 7;
 
 export async function POST(request: Request) {
-  const uploadedPaths: string[] = [];
-
   try {
     const formData = await request.formData();
     const jobId = String(formData.get("jobId") ?? "").trim();
@@ -26,12 +26,10 @@ export async function POST(request: Request) {
     const lastName = String(formData.get("lastName") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const phone = String(formData.get("phone") ?? "").trim();
-    const message = String(formData.get("message") ?? "").trim();
     const cv = formData.get("cv");
-    const coverLetter = formData.get("coverLetter");
 
     if (!jobId || !firstName || !lastName || !email) {
-      return NextResponse.json({ error: "Nom, prÃ©nom, e-mail et offre sont obligatoires." }, { status: 400 });
+      return NextResponse.json({ error: "Nom, prénom, e-mail et offre sont obligatoires." }, { status: 400 });
     }
     if (!emailRegex.test(email)) {
       return NextResponse.json({ error: "Adresse e-mail invalide." }, { status: 400 });
@@ -45,93 +43,86 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `CV : ${cvValidation}` }, { status: 400 });
     }
 
-    if (coverLetter instanceof File) {
-      const coverLetterValidation = validateApplicationFile(coverLetter);
-      if (coverLetterValidation) {
-        return NextResponse.json({ error: `Lettre de motivation : ${coverLetterValidation}` }, { status: 400 });
-      }
-    }
-
     const client = getCvSupabaseClient();
-    const { data: offer, error: offerError } = await client
-      .from("appels_offres")
-      .select("id,title,status")
-      .eq("id", jobId)
-      .eq("status", "published")
-      .is("deleted_at", null)
-      .maybeSingle();
-
-    if (offerError || !offer) {
-      return NextResponse.json({ error: "Offre introuvable ou non publiÃ©e." }, { status: 404 });
-    }
-
-    await ensureApplicationBucket(client);
-
     const applicationId = crypto.randomUUID();
-    const cvPath = await uploadApplicationFile(client, applicationId, "cv", cv);
-    uploadedPaths.push(cvPath);
 
-    const coverLetterPath =
-      coverLetter instanceof File
-        ? await uploadApplicationFile(client, applicationId, "lettre-motivation", coverLetter)
-        : null;
-    if (coverLetterPath) uploadedPaths.push(coverLetterPath);
-
-    const { data: insertedApplication, error: insertError } = await insertApplicationWithSchemaFallback(client, {
-      id: applicationId,
-      job_id: jobId,
-      first_name: firstName,
-      last_name: lastName,
-      email,
-      phone: phone || null,
-      message: message || null,
-      cv_url: cvPath,
-      cover_letter_url: coverLetterPath,
-      status: "submitted",
-    });
-
-    const databaseInsertIsBlockedByLegacySchema = insertError
-      ? isLegacyApplicationSchemaError(insertError.message)
-      : false;
-
-    if ((insertError || !insertedApplication) && !databaseInsertIsBlockedByLegacySchema) {
-      await client.storage.from(storageBucket).remove(uploadedPaths);
-      return NextResponse.json(
-        { error: insertError?.message ?? "Impossible d'enregistrer la candidature." },
-        { status: 400 },
-      );
+    // Titre de l'offre (best-effort — ne doit jamais bloquer la candidature).
+    let jobTitle = "Offre d'emploi";
+    try {
+      const { data: offer } = await client
+        .from("appels_offres")
+        .select("title")
+        .eq("id", jobId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (offer?.title) jobTitle = String(offer.title);
+    } catch (offerError) {
+      console.error("[applications] lookup offre échoué", offerError);
     }
 
-    const [cvSigned, coverLetterSigned] = await Promise.all([
-      client.storage.from(storageBucket).createSignedUrl(cvPath, 60 * 60 * 24 * 7),
-      coverLetterPath
-        ? client.storage.from(storageBucket).createSignedUrl(coverLetterPath, 60 * 60 * 24 * 7)
-        : Promise.resolve({ data: null, error: null }),
-    ]);
+    // Upload du CV dans le Storage du projet CV (best-effort).
+    let cvPath: string | null = null;
+    try {
+      await ensureApplicationBucket(client);
+      cvPath = await uploadApplicationFile(client, applicationId, "cv", cv);
+    } catch (uploadError) {
+      console.error("[applications] upload CV échoué", uploadError);
+    }
 
+    // Lien signé vers le CV pour l'e-mail (valable 7 jours).
+    let cvLink: string | null = null;
+    if (cvPath) {
+      const { data: signed } = await client.storage
+        .from(storageBucket)
+        .createSignedUrl(cvPath, signedUrlTtlSeconds);
+      cvLink = signed?.signedUrl ?? null;
+    }
+
+    // Enregistrement en base (best-effort — un échec ne bloque ni l'e-mail
+    // ni la réponse au candidat, et ne supprime pas le CV uploadé).
+    let stored = false;
+    try {
+      const { error: insertError } = await client.from(applicationsTable).insert({
+        id: applicationId,
+        job_id: jobId,
+        job_title: jobTitle,
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        phone: phone || null,
+        cv_path: cvPath,
+        cv_filename: cv.name,
+        status: "submitted",
+      });
+      if (insertError) {
+        console.error("[applications] enregistrement base échoué", insertError.message);
+      } else {
+        stored = true;
+      }
+    } catch (dbError) {
+      console.error("[applications] enregistrement base échoué", dbError);
+    }
+
+    // Notification e-mail — toujours envoyée à l'adresse de destination.
     const recipients = getApplicationRecipients();
+    let emailed = false;
     if (recipients.length) {
       try {
-        await notifyAdminOfApplication({
+        const result = await notifyAdminOfApplication({
           adminEmails: recipients,
           candidateName: `${firstName} ${lastName}`,
           candidateEmail: email,
           candidatePhone: phone || null,
-          jobTitle: String(offer.title ?? "Offre d'emploi"),
-          message: message || null,
-          cvLink: cvSigned.data?.signedUrl ?? null,
-          coverLetterLink: coverLetterSigned.data?.signedUrl ?? null,
+          jobTitle,
+          cvLink,
         });
+        emailed = Boolean(result?.ok);
       } catch (emailError) {
-        console.error("[applications] notification email failed", emailError);
+        console.error("[applications] notification e-mail échouée", emailError);
       }
     }
 
-    return NextResponse.json({
-      ok: true,
-      applicationId: insertedApplication?.id ?? applicationId,
-      stored: Boolean(insertedApplication),
-    });
+    return NextResponse.json({ ok: true, applicationId, stored, emailed });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Erreur serveur." },
@@ -143,10 +134,10 @@ export async function POST(request: Request) {
 function validateApplicationFile(file: File) {
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   if (!allowedExtensions.has(extension)) {
-    return "format non autorisÃ©. Formats acceptÃ©s : PDF, DOC, DOCX.";
+    return "format non autorisé. Formats acceptés : PDF, DOC, DOCX.";
   }
   if (file.type && !allowedMimeTypes.has(file.type)) {
-    return "type de fichier non autorisÃ©.";
+    return "type de fichier non autorisé.";
   }
   if (file.size > maxFileSize) {
     return "fichier trop volumineux. Taille maximale : 5 Mo.";
@@ -199,53 +190,8 @@ async function ensureApplicationBucket(client: ReturnType<typeof getCvSupabaseCl
   }
 }
 
-async function insertApplicationWithSchemaFallback(
-  client: ReturnType<typeof getCvSupabaseClient>,
-  payload: Record<string, string | null>,
-) {
-  const nextPayload = { ...payload };
-  const removedColumns = new Set<string>();
-
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const result = await client
-      .from("applications")
-      .insert(nextPayload)
-      .select("id")
-      .single();
-
-    if (!result.error) {
-      return result;
-    }
-
-    const missingColumn = getMissingSchemaColumn(result.error.message);
-    if (!missingColumn || removedColumns.has(missingColumn) || !(missingColumn in nextPayload)) {
-      return result;
-    }
-
-    removedColumns.add(missingColumn);
-    delete nextPayload[missingColumn];
-  }
-
-  return client
-    .from("applications")
-    .insert(nextPayload)
-    .select("id")
-    .single();
-}
-
-function getMissingSchemaColumn(message: string) {
-  const match = /Could not find the '([^']+)' column/i.exec(message);
-  return match?.[1] ?? null;
-}
-
-function isLegacyApplicationSchemaError(message: string) {
-  return /null value in column "cv_id"/i.test(message);
-}
-
 function getApplicationRecipients() {
-  const raw =
-    process.env.APPLICATIONS_TO_EMAIL ||
-    "am@jarvis-connect.fr";
+  const raw = process.env.APPLICATIONS_TO_EMAIL || "am@jarvis-connect.fr";
 
   return raw
     .split(",")
