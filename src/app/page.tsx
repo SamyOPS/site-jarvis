@@ -76,6 +76,7 @@ export default function Home() {
     { name: "Groupe Cofel", logo: "/client/Cofel.png", logoScale: 1.0 },
     { name: "HP", logo: "/client/HP.png", logoScale: 1.0 },
     { name: "TP ICAP", logo: "/client/icap.png", logoScale: 0.8 },
+    { name: "Jacquemus", logo: "/client/Jacquemus-Logo.png", logoScale: 1.0 },
     { name: "Les Mousquetaires", logo: "/client/lesmousquetaires.png", logoScale: 0.9 },
     { name: "Linxens", logo: "/client/LINXENS.png", logoScale: 0.9 },
     { name: "LVMH", logo: "/client/LVMH.png", logoScale: 0.8 },
