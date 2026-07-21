@@ -38,7 +38,7 @@ type FieldConfig = {
   step?: string;
 };
 
-const fields: FieldConfig[] = [
+const generalFields: FieldConfig[] = [
   { key: "firstName", label: "Prenom" },
   { key: "lastName", label: "Nom" },
   { key: "companyName", label: "Societe", className: "md:col-span-2" },
@@ -50,11 +50,38 @@ const fields: FieldConfig[] = [
   { key: "country", label: "Pays" },
   { key: "phone", label: "Telephone" },
   { key: "email", label: "Email", className: "md:col-span-2" },
-  { key: "siret", label: "SIRET (auto-entrepreneur uniquement)" },
+];
+
+const autoEntrepreneurFields: FieldConfig[] = [
+  { key: "siret", label: "SIRET" },
   { key: "dailyRate", label: "Tarif journalier", type: "number", min: "0", step: "0.01" },
   { key: "iban", label: "IBAN" },
   { key: "bic", label: "BIC" },
 ];
+
+function renderField(
+  field: FieldConfig,
+  form: BillingProfileFormState,
+  onChange: (form: BillingProfileFormState) => void,
+) {
+  return (
+    <div key={field.key} className={`space-y-1 ${field.className ?? ""}`.trim()}>
+      <Label>{field.label}</Label>
+      <Input
+        type={field.type}
+        min={field.min}
+        step={field.step}
+        value={form[field.key]}
+        onChange={(event) =>
+          onChange({
+            ...form,
+            [field.key]: event.target.value,
+          })
+        }
+      />
+    </div>
+  );
+}
 
 export function BillingProfileCard({
   form,
@@ -82,24 +109,20 @@ export function BillingProfileCard({
           {saving ? "Enregistrement..." : "Enregistrer"}
         </Button>
       </CardHeader>
-      <CardContent className="grid gap-3 md:grid-cols-2">
-        {fields.map((field) => (
-          <div key={field.key} className={`space-y-1 ${field.className ?? ""}`.trim()}>
-            <Label>{field.label}</Label>
-            <Input
-              type={field.type}
-              min={field.min}
-              step={field.step}
-              value={form[field.key]}
-              onChange={(event) =>
-                onChange({
-                  ...form,
-                  [field.key]: event.target.value,
-                })
-              }
-            />
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 md:grid-cols-2">
+          {generalFields.map((field) => renderField(field, form, onChange))}
+        </div>
+
+        <fieldset className="rounded-xl border border-[#0A1A2F]/15 px-4 pb-4 pt-2">
+          <legend className="px-2 text-sm font-semibold text-[#0A1A2F]/70">
+            Reserve aux auto-entrepreneurs{" "}
+            <span className="font-normal text-[#0A1A2F]/50">(optionnel)</span>
+          </legend>
+          <div className="grid gap-3 md:grid-cols-2">
+            {autoEntrepreneurFields.map((field) => renderField(field, form, onChange))}
           </div>
-        ))}
+        </fieldset>
       </CardContent>
     </Card>
   );

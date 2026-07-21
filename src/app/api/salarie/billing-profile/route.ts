@@ -33,12 +33,17 @@ function getOptionalString(value: unknown) {
   return normalized || null;
 }
 
-function parseBillingProfilePayload(payload: BillingProfilePayload) {
-  const dailyRate = Number(payload.dailyRate);
-  if (!Number.isFinite(dailyRate) || dailyRate <= 0) {
+function getOptionalDailyRate(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
     throw new Error('Le champ "tarif journalier" est invalide.');
   }
+  return parsed;
+}
 
+function parseBillingProfilePayload(payload: BillingProfilePayload) {
   return {
     first_name: getRequiredString(payload.firstName, "prenom"),
     last_name: getRequiredString(payload.lastName, "nom"),
@@ -52,9 +57,9 @@ function parseBillingProfilePayload(payload: BillingProfilePayload) {
     phone: getRequiredString(payload.phone, "telephone"),
     email: getRequiredString(payload.email, "email"),
     siret: getOptionalString(payload.siret),
-    iban: getRequiredString(payload.iban, "IBAN"),
-    bic: getRequiredString(payload.bic, "BIC"),
-    daily_rate: dailyRate,
+    iban: getOptionalString(payload.iban),
+    bic: getOptionalString(payload.bic),
+    daily_rate: getOptionalDailyRate(payload.dailyRate),
     updated_at: new Date().toISOString(),
   };
 }
