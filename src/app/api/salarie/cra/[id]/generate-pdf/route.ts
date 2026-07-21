@@ -31,7 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: craRecord, error: craError } = await adminClient
       .from("cra_records")
-      .select("id,employee_id,period_month,status,first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,worked_days_count,notes,pdf_version,employee_document_id")
+      .select("id,employee_id,period_month,status,first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,worked_days_count,paid_leave_days,sick_leave_days,exceptional_leave_days,unpaid_leave_days,notes,pdf_version,employee_document_id")
       .eq("id", id)
       .eq("employee_id", profile.id)
       .single();
@@ -100,6 +100,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         bic: craRecord.bic,
         dailyRate: Number(craRecord.daily_rate),
         workedDaysCount: Number(craRecord.worked_days_count),
+        paidLeaveDays: Number(craRecord.paid_leave_days ?? 0),
+        sickLeaveDays: Number(craRecord.sick_leave_days ?? 0),
+        exceptionalLeaveDays: Number(craRecord.exceptional_leave_days ?? 0),
+        unpaidLeaveDays: Number(craRecord.unpaid_leave_days ?? 0),
         periodMonth: craRecord.period_month,
         notes: craRecord.notes,
         entries: (entries ?? []).map((entry) => ({

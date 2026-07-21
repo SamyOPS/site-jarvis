@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import type {
   CraCalendarCell,
   CraEntryDraft,
+  CraLeaveDaysDraft,
   CraSummaryRow,
   DocumentFolderRow,
   SalarieDocumentRow as DocumentRow,
@@ -41,6 +42,8 @@ type SalarieDocumentsSectionProps = {
   craDraftTotalDays: number;
   craNotes: string;
   onCraNotesChange: (value: string) => void;
+  craLeaveDays: CraLeaveDaysDraft;
+  onCraLeaveDaysChange: (value: CraLeaveDaysDraft) => void;
   invoiceDiscountGranted: boolean;
   onInvoiceDiscountGrantedChange: (value: boolean) => void;
   invoiceVatEnabled: boolean;
@@ -119,6 +122,8 @@ export function SalarieDocumentsSection({
   craDraftTotalDays,
   craNotes,
   onCraNotesChange,
+  craLeaveDays,
+  onCraLeaveDaysChange,
   invoiceDiscountGranted,
   onInvoiceDiscountGrantedChange,
   invoiceVatEnabled,
@@ -475,6 +480,8 @@ export function SalarieDocumentsSection({
             craDraftTotalDays={craDraftTotalDays}
             craNotes={craNotes}
             onCraNotesChange={onCraNotesChange}
+            craLeaveDays={craLeaveDays}
+            onCraLeaveDaysChange={onCraLeaveDaysChange}
             invoiceDiscountGranted={invoiceDiscountGranted}
             onInvoiceDiscountGrantedChange={onInvoiceDiscountGrantedChange}
             invoiceVatEnabled={invoiceVatEnabled}

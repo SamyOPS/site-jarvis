@@ -12,9 +12,30 @@ type CraCreatePayload = {
   periodMonth?: unknown;
   notes?: unknown;
   entries?: CraEntryInput[];
+  paidLeaveDays?: unknown;
+  sickLeaveDays?: unknown;
+  exceptionalLeaveDays?: unknown;
+  unpaidLeaveDays?: unknown;
 };
 
 const craSelectFields = "id,period_month,status,worked_days_count,pdf_version,employee_document_id,created_at,updated_at";
+
+function getLeaveDays(value: unknown, label: string) {
+  const parsed = Number(value ?? 0);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`Le champ "${label}" doit etre un nombre de jours positif.`);
+  }
+  return parsed;
+}
+
+function parseLeaveDays(payload: CraCreatePayload) {
+  return {
+    paid_leave_days: getLeaveDays(payload.paidLeaveDays, "conge paye"),
+    sick_leave_days: getLeaveDays(payload.sickLeaveDays, "arret maladie"),
+    exceptional_leave_days: getLeaveDays(payload.exceptionalLeaveDays, "conge exceptionnel"),
+    unpaid_leave_days: getLeaveDays(payload.unpaidLeaveDays, "conge sans solde"),
+  };
+}
 
 function parseEntries(entries: CraEntryInput[] | undefined) {
   return (entries ?? []).map((entry, index) => {
@@ -91,6 +112,7 @@ export async function POST(request: Request) {
     const periodMonth = toIsoMonthStart(String(body.periodMonth));
     const entries = parseEntries(body.entries);
     const workedDaysCount = entries.reduce((total, entry) => total + entry.day_quantity, 0);
+    const leaveDays = parseLeaveDays(body);
 
     const { data: existingRecord, error: existingError } = await adminClient
       .from("cra_records")
@@ -125,6 +147,7 @@ export async function POST(request: Request) {
         .update({
           status: "draft",
           worked_days_count: workedDaysCount,
+          ...leaveDays,
           notes: getNotes(body.notes),
           updated_at: new Date().toISOString(),
         })
@@ -175,6 +198,7 @@ export async function POST(request: Request) {
         status: "draft",
         ...billingProfile,
         worked_days_count: workedDaysCount,
+        ...leaveDays,
         notes: getNotes(body.notes),
       })
       .select(craSelectFields)

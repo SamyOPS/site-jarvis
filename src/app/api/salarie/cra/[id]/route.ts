@@ -12,6 +12,10 @@ type CraUpdatePayload = {
   periodMonth?: unknown;
   notes?: unknown;
   entries?: CraEntryInput[];
+  paidLeaveDays?: unknown;
+  sickLeaveDays?: unknown;
+  exceptionalLeaveDays?: unknown;
+  unpaidLeaveDays?: unknown;
 };
 
 function parseEntries(entries: CraEntryInput[] | undefined) {
@@ -38,6 +42,15 @@ function getNotes(value: unknown, fallback: string | null) {
   if (value === undefined) return fallback;
   const normalized = String(value ?? "").trim();
   return normalized || null;
+}
+
+function getLeaveDays(value: unknown, fallback: number, label: string) {
+  if (value === undefined) return fallback;
+  const parsed = Number(value ?? 0);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`Le champ "${label}" doit etre un nombre de jours positif.`);
+  }
+  return parsed;
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -102,7 +115,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { data: existingRecord, error: existingError } = await adminClient
       .from("cra_records")
-      .select("id,period_month,status,notes")
+      .select("id,period_month,status,notes,paid_leave_days,sick_leave_days,exceptional_leave_days,unpaid_leave_days")
       .eq("id", id)
       .eq("employee_id", profile.id)
       .single();
@@ -125,6 +138,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         period_month: nextPeriodMonth,
         notes: getNotes(body.notes, existingRecord.notes),
         worked_days_count: workedDaysCount,
+        paid_leave_days: getLeaveDays(body.paidLeaveDays, Number(existingRecord.paid_leave_days ?? 0), "conge paye"),
+        sick_leave_days: getLeaveDays(body.sickLeaveDays, Number(existingRecord.sick_leave_days ?? 0), "arret maladie"),
+        exceptional_leave_days: getLeaveDays(body.exceptionalLeaveDays, Number(existingRecord.exceptional_leave_days ?? 0), "conge exceptionnel"),
+        unpaid_leave_days: getLeaveDays(body.unpaidLeaveDays, Number(existingRecord.unpaid_leave_days ?? 0), "conge sans solde"),
         status: "draft",
         updated_at: new Date().toISOString(),
       })

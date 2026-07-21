@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type {
   CraCalendarCell,
   CraEntryDraft,
+  CraLeaveDaysDraft,
   CraSummaryRow,
 } from "@/features/dashboard/salarie/types";
 import { getFrenchHolidayName } from "@/features/dashboard/salarie/holidays";
@@ -26,6 +27,8 @@ type SalarieCraInvoiceEditorProps = {
   craDraftTotalDays: number;
   craNotes: string;
   onCraNotesChange: (value: string) => void;
+  craLeaveDays: CraLeaveDaysDraft;
+  onCraLeaveDaysChange: (value: CraLeaveDaysDraft) => void;
   invoiceDiscountGranted: boolean;
   onInvoiceDiscountGrantedChange: (value: boolean) => void;
   invoiceVatEnabled: boolean;
@@ -62,6 +65,8 @@ export function SalarieCraInvoiceEditor({
   craDraftTotalDays,
   craNotes,
   onCraNotesChange,
+  craLeaveDays,
+  onCraLeaveDaysChange,
   invoiceDiscountGranted,
   onInvoiceDiscountGrantedChange,
   invoiceVatEnabled,
@@ -164,6 +169,41 @@ export function SalarieCraInvoiceEditor({
                 <div className="flex h-10 items-center rounded-md bg-slate-50 px-3 text-sm">
                   {craDraftTotalDays.toFixed(2)} jour(s)
                 </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div>
+                <p className="text-sm font-medium">Absences et conges</p>
+                <p className="text-sm text-[#0A1A2F]/70">
+                  Nombre de jours a reporter sur le CRA. Laisse a 0 si aucun.
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+                {(
+                  [
+                    { key: "paid", label: "Conge paye" },
+                    { key: "sick", label: "Arret maladie" },
+                    { key: "exceptional", label: "Conge exceptionnel" },
+                    { key: "unpaid", label: "Conge sans solde" },
+                  ] as const
+                ).map((item) => (
+                  <div key={item.key} className="space-y-1">
+                    <label className="text-sm font-medium">{item.label}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={craLeaveDays[item.key]}
+                      onChange={(event) =>
+                        onCraLeaveDaysChange({ ...craLeaveDays, [item.key]: event.target.value })
+                      }
+                      onWheel={(event) => event.currentTarget.blur()}
+                      className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
+                      placeholder="0"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 

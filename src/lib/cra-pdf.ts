@@ -21,6 +21,10 @@ type CraPdfInput = {
   bic: string;
   dailyRate: number;
   workedDaysCount: number;
+  paidLeaveDays?: number;
+  sickLeaveDays?: number;
+  exceptionalLeaveDays?: number;
+  unpaidLeaveDays?: number;
   periodMonth: string;
   notes: string | null;
   entries: CraPdfEntry[];
@@ -175,10 +179,10 @@ function buildCraPdfContent(input: CraPdfInput, withLogo: boolean) {
 
   y -= 24;
   addField("Total de jours travaille :", `${formatDayCount(input.workedDaysCount)} jour(s)`);
-  addField("Conge paye :", "0 jour(s)");
-  addField("Arret maladie :", "0 jour(s)");
-  addField("Conge exceptionnel :", "0 jour(s)");
-  addField("Conge sans solde :", "0 jour(s)");
+  addField("Conge paye :", `${formatDayCount(input.paidLeaveDays ?? 0)} jour(s)`);
+  addField("Arret maladie :", `${formatDayCount(input.sickLeaveDays ?? 0)} jour(s)`);
+  addField("Conge exceptionnel :", `${formatDayCount(input.exceptionalLeaveDays ?? 0)} jour(s)`);
+  addField("Conge sans solde :", `${formatDayCount(input.unpaidLeaveDays ?? 0)} jour(s)`);
   addField("Heures supplementaires :", "0 heure(s), dont 0 heure(s) de nuit");
 
   y -= 28;

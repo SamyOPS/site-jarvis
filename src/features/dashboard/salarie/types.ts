@@ -80,6 +80,20 @@ export type CraEntryDraft = {
   label: string;
 };
 
+export type CraLeaveDaysDraft = {
+  paid: string;
+  sick: string;
+  exceptional: string;
+  unpaid: string;
+};
+
+export const emptyCraLeaveDays = (): CraLeaveDaysDraft => ({
+  paid: "",
+  sick: "",
+  exceptional: "",
+  unpaid: "",
+});
+
 export type CraCalendarCell = {
   isoDate: string | null;
   dayNumber: number | null;

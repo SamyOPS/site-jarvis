@@ -29,6 +29,7 @@ import { matchesSalarieDocumentFilters, normalizeDocumentLabel } from "@/feature
 import type { SalarieWorkspaceRouteProps } from "@/features/dashboard/salarie/navigation";
 import type {
   CraEntryDraft,
+  CraLeaveDaysDraft,
   CraSummaryRow,
   DocumentFolderRow,
   SalarieDocumentRow as DocumentRow,
@@ -37,9 +38,15 @@ import type {
   SalarieRequestRow as RequestRow,
   SalarieRequestStatus as RequestStatus,
 } from "@/features/dashboard/salarie/types";
+import { emptyCraLeaveDays } from "@/features/dashboard/salarie/types";
 import { formatDate, formatDocumentStatus, formatMonth, normalizeJoinOne, type DocumentStatus } from "@/lib/dashboard-formatters";
 import { browserSupabase as supabase } from "@/lib/supabase-browser";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
+
+const leaveDaysToInput = (value: number | null | undefined) => {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) && parsed > 0 ? String(parsed) : "";
+};
 
 const emptyBillingProfileForm = (): BillingProfileFormState => ({
   firstName: "",
@@ -134,6 +141,7 @@ export default function SalarieWorkspace({
   const [craPeriodMonth, setCraPeriodMonth] = useState(currentMonthInputValue);
   const [craNotes, setCraNotes] = useState("");
   const [craEntries, setCraEntries] = useState<CraEntryDraft[]>([]);
+  const [craLeaveDays, setCraLeaveDays] = useState<CraLeaveDaysDraft>(emptyCraLeaveDays);
   const [invoiceDiscountGranted, setInvoiceDiscountGranted] = useState(false);
   const [invoiceVatEnabled, setInvoiceVatEnabled] = useState(false);
   const [invoiceAmountAlreadyPaid, setInvoiceAmountAlreadyPaid] = useState("");
@@ -628,7 +636,15 @@ export default function SalarieWorkspace({
 
   const loadCraDetail = useCallback(async (craId: string) => {
     const payload = (await callSalarieApi(`/api/salarie/cra/${craId}`)) as {
-      cra?: { id: string; period_month: string; notes: string | null };
+      cra?: {
+        id: string;
+        period_month: string;
+        notes: string | null;
+        paid_leave_days?: number | null;
+        sick_leave_days?: number | null;
+        exceptional_leave_days?: number | null;
+        unpaid_leave_days?: number | null;
+      };
       entries?: { work_date: string; day_quantity: number; label: string | null }[];
     };
     if (!payload.cra) {
@@ -638,6 +654,12 @@ export default function SalarieWorkspace({
     setSelectedCraId(payload.cra.id);
     setCraPeriodMonth(payload.cra.period_month.slice(0, 7));
     setCraNotes(payload.cra.notes ?? "");
+    setCraLeaveDays({
+      paid: leaveDaysToInput(payload.cra.paid_leave_days),
+      sick: leaveDaysToInput(payload.cra.sick_leave_days),
+      exceptional: leaveDaysToInput(payload.cra.exceptional_leave_days),
+      unpaid: leaveDaysToInput(payload.cra.unpaid_leave_days),
+    });
     setCraEntries(
       sortCraEntries(
         (payload.entries ?? []).map((entry) => ({
@@ -1005,6 +1027,7 @@ export default function SalarieWorkspace({
     setCraPeriodMonth(currentMonthInputValue());
     setCraNotes("");
     setCraEntries([]);
+    setCraLeaveDays(emptyCraLeaveDays());
     setInvoiceDiscountGranted(false);
     setInvoiceVatEnabled(false);
     setInvoiceAmountAlreadyPaid("");
@@ -1073,6 +1096,10 @@ export default function SalarieWorkspace({
     const payload = {
       periodMonth: craPeriodMonth,
       notes: craNotes,
+      paidLeaveDays: Number(craLeaveDays.paid || 0),
+      sickLeaveDays: Number(craLeaveDays.sick || 0),
+      exceptionalLeaveDays: Number(craLeaveDays.exceptional || 0),
+      unpaidLeaveDays: Number(craLeaveDays.unpaid || 0),
       entries: craEntries.filter((entry) => entry.workDate.trim()).map((entry) => ({
         workDate: entry.workDate,
         dayQuantity: Number(entry.dayQuantity || 0),
@@ -1097,7 +1124,7 @@ export default function SalarieWorkspace({
 
     await loadCraDetail(response.cra.id);
     return response.cra.id;
-  }, [billingProfileReady, callSalarieApi, craEntries, craNotes, craPeriodMonth, loadCraDetail, loadCraItems, selectedCraId]);
+  }, [billingProfileReady, callSalarieApi, craEntries, craLeaveDays, craNotes, craPeriodMonth, loadCraDetail, loadCraItems, selectedCraId]);
 
   const handleGenerateCraPdf = useCallback(async () => {
     try {
@@ -1481,6 +1508,8 @@ export default function SalarieWorkspace({
               craDraftTotalDays={craDraftTotalDays}
               craNotes={craNotes}
               onCraNotesChange={setCraNotes}
+              craLeaveDays={craLeaveDays}
+              onCraLeaveDaysChange={setCraLeaveDays}
               invoiceDiscountGranted={invoiceDiscountGranted}
               onInvoiceDiscountGrantedChange={setInvoiceDiscountGranted}
               invoiceVatEnabled={invoiceVatEnabled}
