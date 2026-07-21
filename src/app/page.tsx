@@ -63,7 +63,7 @@ export default function Home() {
     { name: "Aramis", logo: "/client/aramisa.svg", logoScale: 1.1 },
     { name: "Barrière", logo: "/client/Barriere.png", logoScale: 1.05},
     { name: "BNP Paribas", logo: "/client/bnp.png", logoScale: 1.0 },
-    { name: "Bolloré", logo: "/client/bollore-full.svg", logoScale: 1.12, cardWidth: 340, cardPadding: 8 },
+    { name: "Bolloré", logo: "/client/bollore.png", logoScale: 1.0 },
     { name: "BPCE", logo: "/client/bpce.png", logoScale: 1.0 },
     { name: "Burberry", logo: "/client/burberry.png", logoScale: 0.95 },
     { name: "CGI", logo: "/client/CGI.png", logoScale: 0.7 },
