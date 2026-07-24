@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS public.job_applications (
   last_name text NOT NULL DEFAULT '',
   email text NOT NULL,
   phone text,
+  salary_expectation numeric CHECK (salary_expectation IS NULL OR salary_expectation >= 0),
   cv_path text,
   cv_filename text,
   status text NOT NULL DEFAULT 'submitted',

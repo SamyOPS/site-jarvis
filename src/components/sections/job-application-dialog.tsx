@@ -29,6 +29,7 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [salaryExpectation, setSalaryExpectation] = useState("");
   const [cv, setCv] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
@@ -39,6 +40,7 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
     setLastName("");
     setEmail("");
     setPhone("");
+    setSalaryExpectation("");
     setCv(null);
     setErrors({});
     if (cvInputRef.current) cvInputRef.current.value = "";
@@ -49,6 +51,10 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
     if (!lastName.trim()) nextErrors.lastName = "Le nom est obligatoire.";
     if (!firstName.trim()) nextErrors.firstName = "Le prénom est obligatoire.";
     if (!emailRegex.test(email.trim())) nextErrors.email = "Adresse e-mail invalide.";
+    const salary = Number(salaryExpectation.trim());
+    if (!salaryExpectation.trim() || !Number.isFinite(salary) || salary <= 0) {
+      nextErrors.salaryExpectation = "Indiquez votre prétention salariale annuelle.";
+    }
     if (!cv) nextErrors.cv = "Le CV est obligatoire.";
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -76,6 +82,7 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
     formData.set("lastName", lastName.trim());
     formData.set("email", email.trim());
     formData.set("phone", phone.trim());
+    formData.set("salaryExpectation", salaryExpectation.trim());
     if (cv) formData.set("cv", cv);
 
     try {
@@ -150,6 +157,17 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
               </Field>
               <Field label="Numéro de téléphone">
                 <Input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+33 6 00 00 00 00" />
+              </Field>
+              <Field label="Prétention salariale annuelle (€ brut / an)" error={errors.salaryExpectation}>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  inputMode="numeric"
+                  value={salaryExpectation}
+                  onChange={(event) => setSalaryExpectation(event.target.value)}
+                  placeholder="Ex : 45000"
+                />
               </Field>
             </div>
 

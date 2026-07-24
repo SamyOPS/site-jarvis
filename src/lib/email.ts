@@ -203,8 +203,15 @@ type ApplicationNotificationParams = {
   candidateEmail: string;
   candidatePhone?: string | null;
   jobTitle: string;
+  salaryExpectation?: number | null;
   cvLink?: string | null;
 };
+
+function formatSalaryExpectation(value: number) {
+  const rounded = Math.round(value);
+  const withSeparators = String(rounded).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return `${withSeparators} EUR / an`;
+}
 
 function formatDueDate(dueAt: string | null | undefined) {
   if (!dueAt) return null;
@@ -288,6 +295,10 @@ export async function notifyAdminOfApplication(params: ApplicationNotificationPa
   const phoneLine = params.candidatePhone
     ? `<p>Telephone : <strong>${escapeHtml(params.candidatePhone)}</strong></p>`
     : "";
+  const salaryLine =
+    typeof params.salaryExpectation === "number" && params.salaryExpectation > 0
+      ? `<p>Pretention salariale : <strong>${escapeHtml(formatSalaryExpectation(params.salaryExpectation))}</strong></p>`
+      : "";
   const cvLine = params.cvLink
     ? `<li><a href="${params.cvLink}">Telecharger le CV</a></li>`
     : "<li>CV indisponible (echec de l'upload, contacter le candidat).</li>";
@@ -298,6 +309,7 @@ export async function notifyAdminOfApplication(params: ApplicationNotificationPa
     <p>Candidat : <strong>${escapeHtml(params.candidateName)}</strong></p>
     <p>Email : <strong>${escapeHtml(params.candidateEmail)}</strong></p>
     ${phoneLine}
+    ${salaryLine}
     <ul>
       ${cvLine}
     </ul>

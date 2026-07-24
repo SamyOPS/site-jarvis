@@ -26,6 +26,7 @@ export async function POST(request: Request) {
     const lastName = String(formData.get("lastName") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const phone = String(formData.get("phone") ?? "").trim();
+    const salaryRaw = String(formData.get("salaryExpectation") ?? "").trim();
     const cv = formData.get("cv");
 
     if (!jobId || !firstName || !lastName || !email) {
@@ -33,6 +34,10 @@ export async function POST(request: Request) {
     }
     if (!emailRegex.test(email)) {
       return NextResponse.json({ error: "Adresse e-mail invalide." }, { status: 400 });
+    }
+    const salaryExpectation = Number(salaryRaw);
+    if (!salaryRaw || !Number.isFinite(salaryExpectation) || salaryExpectation <= 0) {
+      return NextResponse.json({ error: "La prétention salariale annuelle est obligatoire." }, { status: 400 });
     }
     if (!(cv instanceof File)) {
       return NextResponse.json({ error: "Le CV est obligatoire." }, { status: 400 });
@@ -90,6 +95,7 @@ export async function POST(request: Request) {
         last_name: lastName,
         email,
         phone: phone || null,
+        salary_expectation: salaryExpectation,
         cv_path: cvPath,
         cv_filename: cv.name,
         status: "submitted",
@@ -114,6 +120,7 @@ export async function POST(request: Request) {
           candidateEmail: email,
           candidatePhone: phone || null,
           jobTitle,
+          salaryExpectation,
           cvLink,
         });
         emailed = Boolean(result?.ok);
