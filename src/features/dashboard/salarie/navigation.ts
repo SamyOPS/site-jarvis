@@ -11,6 +11,7 @@ export type SalarieDashboardSubSection =
   | "docs_tous"
   | "docs_a_deposer"
   | "docs_cra_facture"
+  | "docs_conge"
   | "docs_corbeille";
 
 export type SalarieWorkspaceRouteProps = {
@@ -34,6 +35,10 @@ export const SALARIE_WORKSPACE_ROUTES = {
   documentsCraFacture: {
     currentSection: "documents",
     currentSubSection: "docs_cra_facture",
+  },
+  documentsConge: {
+    currentSection: "documents",
+    currentSubSection: "docs_conge",
   },
   documentsCorbeille: {
     currentSection: "documents",

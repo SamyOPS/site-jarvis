@@ -174,7 +174,7 @@ export function SalarieCraInvoiceEditor({
 
             <div className="space-y-2">
               <div>
-                <p className="text-sm font-medium">Absences et conges</p>
+                <p className="text-sm font-medium">Absences et congés</p>
                 <p className="text-sm text-[#0A1A2F]/70">
                   Nombre de jours a reporter sur le CRA. Laisse a 0 si aucun.
                 </p>
@@ -182,10 +182,10 @@ export function SalarieCraInvoiceEditor({
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
                 {(
                   [
-                    { key: "paid", label: "Conge paye" },
+                    { key: "paid", label: "Congé payé" },
                     { key: "sick", label: "Arret maladie" },
-                    { key: "exceptional", label: "Conge exceptionnel" },
-                    { key: "unpaid", label: "Conge sans solde" },
+                    { key: "exceptional", label: "Congé exceptionnel" },
+                    { key: "unpaid", label: "Congé sans solde" },
                   ] as const
                 ).map((item) => (
                   <div key={item.key} className="space-y-1">

@@ -79,6 +79,13 @@ export function SalarieSidebarNav({
               CRA & Facture
             </Link>
             <Link
+              href="/dashboard/salarie/documents/conge"
+              onClick={handleNavigate}
+              className={subItemClass(currentSubSection === "docs_conge")}
+            >
+              Congés
+            </Link>
+            <Link
               href="/dashboard/salarie/documents/corbeille"
               onClick={handleNavigate}
               className={subItemClass(currentSubSection === "docs_corbeille")}

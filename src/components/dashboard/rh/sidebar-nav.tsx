@@ -107,6 +107,13 @@ export function RhSidebarNav({
               CRA & Facture
             </Link>
             <Link
+              href="/dashboard/rh/documents/conge"
+              onClick={handleNavigate}
+              className={subItemClass(currentSubSection === "docs_conge")}
+            >
+              Congés
+            </Link>
+            <Link
               href="/dashboard/rh/documents/a-valider"
               onClick={handleNavigate}
               className={subItemClass(currentSubSection === "docs_a_valider")}

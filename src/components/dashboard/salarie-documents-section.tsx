@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { SalarieCraInvoiceEditor } from "@/components/dashboard/salarie/cra-invoice-editor";
+import { SalarieLeaveRequestEditor, type LeaveRequestPayload } from "@/components/dashboard/salarie/leave-request-editor";
 import { SalarieDocumentsListView } from "@/components/dashboard/salarie/documents-list-view";
 import { SalariePendingRequests } from "@/components/dashboard/salarie/pending-requests";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,8 @@ type SalarieDocumentsSectionProps = {
   onCraNotesChange: (value: string) => void;
   craLeaveDays: CraLeaveDaysDraft;
   onCraLeaveDaysChange: (value: CraLeaveDaysDraft) => void;
+  leaveGenerating: boolean;
+  onGenerateLeavePdf: (payload: LeaveRequestPayload) => void | Promise<void>;
   invoiceDiscountGranted: boolean;
   onInvoiceDiscountGrantedChange: (value: boolean) => void;
   invoiceVatEnabled: boolean;
@@ -124,6 +127,8 @@ export function SalarieDocumentsSection({
   onCraNotesChange,
   craLeaveDays,
   onCraLeaveDaysChange,
+  leaveGenerating,
+  onGenerateLeavePdf,
   invoiceDiscountGranted,
   onInvoiceDiscountGrantedChange,
   invoiceVatEnabled,
@@ -501,6 +506,11 @@ export function SalarieDocumentsSection({
             toggleCraWorkDate={toggleCraWorkDate}
             formatCraEntryDateLabel={formatCraEntryDateLabel}
             updateCraEntry={updateCraEntry}
+          />
+        ) : currentSubSection === "docs_conge" ? (
+          <SalarieLeaveRequestEditor
+            generating={leaveGenerating}
+            onGenerate={onGenerateLeavePdf}
           />
         ) : currentSubSection === "docs_a_deposer" ? (
           <SalariePendingRequests

@@ -6,6 +6,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { Search, SlidersHorizontal } from "lucide-react";
 
 import type { BillingProfileFormState } from "@/components/dashboard/billing-profile-card";
+import type { LeaveRequestPayload } from "@/components/dashboard/salarie/leave-request-editor";
 import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
 import { DashboardMobileHeader } from "@/components/dashboard/mobile-header";
 import { DashboardProfileMenu } from "@/components/dashboard/profile-menu";
@@ -150,6 +151,7 @@ export default function SalarieWorkspace({
   const [invoiceFraisNuitee, setInvoiceFraisNuitee] = useState("");
   const [craGenerating, setCraGenerating] = useState(false);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
+  const [leaveGenerating, setLeaveGenerating] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -1180,6 +1182,27 @@ export default function SalarieWorkspace({
     void run();
   }, [callSalarieApi, craEntries, craPeriodMonth, invoiceAmountAlreadyPaid, invoiceDiscountGranted, invoiceFraisKm, invoiceFraisNuitee, invoiceFraisRepas, invoiceVatEnabled, loadDashboardData, profile]);
 
+  const handleGenerateLeavePdf = useCallback(
+    async (payload: LeaveRequestPayload) => {
+      try {
+        setLeaveGenerating(true);
+        setActionMessage(null);
+        await callSalarieApi("/api/salarie/conge/generate-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        await (profile ? loadDashboardData(profile.id) : Promise.resolve());
+        setActionMessage("Demande de congé generee et ajoutee aux documents.");
+      } catch (error) {
+        setActionMessage(error instanceof Error ? error.message : "Generation de la demande de congé impossible.");
+      } finally {
+        setLeaveGenerating(false);
+      }
+    },
+    [callSalarieApi, loadDashboardData, profile],
+  );
+
   const handlePasswordUpdate = useCallback(async () => {
     if (!supabase) return;
 
@@ -1322,9 +1345,11 @@ export default function SalarieWorkspace({
       ? "Documents a deposer"
       : currentSubSection === "docs_cra_facture"
         ? "CRA & Facture"
-        : currentSubSection === "docs_corbeille"
-          ? "Corbeille"
-          : "Mes documents";
+        : currentSubSection === "docs_conge"
+          ? "Demande de congé"
+          : currentSubSection === "docs_corbeille"
+            ? "Corbeille"
+            : "Mes documents";
   const showFolderTrash = currentSubSection === "docs_corbeille";
   const selectedCraSummary = useMemo(
     () => craItems.find((item) => item.id === selectedCraId) ?? null,
@@ -1502,6 +1527,8 @@ export default function SalarieWorkspace({
               onGenerateInvoicePdf={handleGenerateInvoicePdf}
               craGenerating={craGenerating}
               invoiceGenerating={invoiceGenerating}
+              leaveGenerating={leaveGenerating}
+              onGenerateLeavePdf={handleGenerateLeavePdf}
               craPeriodMonth={craPeriodMonth}
               onCraPeriodMonthChange={handleCraPeriodMonthChange}
               shiftMonthInputValue={shiftMonthInputValue}

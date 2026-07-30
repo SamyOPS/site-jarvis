@@ -12,6 +12,7 @@ import { DashboardMobileHeader } from "@/components/dashboard/mobile-header";
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { RhOffersSection } from "@/components/dashboard/rh-offers-section";
 import { RhDocumentsSection } from "@/components/dashboard/rh-documents-section";
+import type { RhLeaveRequestPayload } from "@/components/dashboard/rh/leave-request-editor";
 import { DashboardProfileMenu } from "@/components/dashboard/profile-menu";
 import { RhOverviewSection } from "@/components/dashboard/rh-overview-section";
 import { RhSidebarNav } from "@/components/dashboard/rh/sidebar-nav";
@@ -161,6 +162,8 @@ export default function RhWorkspace({
   const [invoiceAmountAlreadyPaid, setInvoiceAmountAlreadyPaid] = useState("");
   const [craGenerating, setCraGenerating] = useState(false);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
+  const [leaveGenerating, setLeaveGenerating] = useState(false);
+  const [collaborateurSearch, setCollaborateurSearch] = useState("");
   const [billingProfiles, setBillingProfiles] = useState<
     {
       employeeId: string;
@@ -1161,6 +1164,17 @@ export default function RhWorkspace({
     });
   }, [documents]);
   const collaborateursRows = useMemo(() => currentSubSection === "collab_actifs" ? employees.filter((employee) => employee.employment_status === "active") : currentSubSection === "collab_inactifs" ? employees.filter((employee) => ["inactive", "exited"].includes(employee.employment_status ?? "")) : employees, [currentSubSection, employees]);
+  const visibleCollaborateurs = useMemo(() => {
+    const query = collaborateurSearch.trim().toLowerCase();
+    if (!query) return collaborateursRows;
+    return collaborateursRows.filter((employee) =>
+      [employee.full_name, employee.company_name, employee.esn_partenaire, employee.email]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [collaborateursRows, collaborateurSearch]);
   const salarieUploadableTypes = useMemo(() => documentTypes.filter((documentType) => documentType.allowedUploaderRoles.length === 0 || documentType.allowedUploaderRoles.includes("salarie")), [documentTypes]);
   const rhUploadableTypes = useMemo(() => documentTypes.filter((documentType) => documentType.allowedUploaderRoles.length === 0 || documentType.allowedUploaderRoles.includes("rh")), [documentTypes]);
   // Restrict the document type to those allowed for the selected employee.
@@ -1534,6 +1548,29 @@ export default function RhWorkspace({
       setInvoiceGenerating(false);
     }
   }, [buildRhGeneratePayload, callRhDocumentsApi, refreshDashboardData]);
+
+  const handleGenerateRhLeavePdf = useCallback(
+    async (payload: RhLeaveRequestPayload) => {
+      setLeaveGenerating(true);
+      setSaveMessage(null);
+      try {
+        await callRhDocumentsApi("/api/rh/conge/generate-pdf", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+        setSaveMessage("Demande de congé generee avec succes.");
+        await refreshDashboardData();
+      } catch (error) {
+        setSaveMessage(error instanceof Error ? error.message : "Generation impossible.");
+      } finally {
+        setLeaveGenerating(false);
+      }
+    },
+    [callRhDocumentsApi, refreshDashboardData],
+  );
 
   const handleDeleteRhDocument = useCallback(async (document: RHDocumentRow, permanent = false) => {
     if (!session?.access_token) {
@@ -2234,11 +2271,20 @@ export default function RhWorkspace({
 	                    ) : null}
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-lg">
+                  <div className="space-y-3">
+                    <input
+                      type="search"
+                      value={collaborateurSearch}
+                      onChange={(event) => setCollaborateurSearch(event.target.value)}
+                      placeholder="Rechercher un collaborateur (nom, entreprise, ESN, email)..."
+                      className="h-10 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm"
+                    />
+                    <div className="overflow-x-auto rounded-lg">
                       <table className="min-w-full text-sm">
                         <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Nom</th><th className="px-3 py-2">Entreprise</th><th className="px-3 py-2">ESN partenaire</th><th className="px-3 py-2">Email</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Connexion</th><th className="px-3 py-2">Derniere connexion</th><th className="px-3 py-2">Demandes ouvertes</th></tr></thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">{collaborateursRows.map((employee) => <tr key={employee.id}><td className="px-3 py-2"><Link href={`/dashboard/rh/collaborateurs/${employee.id}`} className="hover:underline">{employee.full_name ?? "-"}</Link></td><td className="px-3 py-2">{employee.company_name ?? "-"}</td><td className="px-3 py-2">{employee.esn_partenaire ?? "-"}</td><td className="px-3 py-2">{employee.email}</td><td className="px-3 py-2">{employee.employment_status ?? "-"}</td><td className="px-3 py-2">{isRecentlyActive(employee.id) ? "Actif recemment" : "Hors ligne"}</td><td className="px-3 py-2">{formatLastSignIn(employee.id)}</td><td className="px-3 py-2">{requests.filter((request) => request.employeeId === employee.id && ["pending", "uploaded", "rejected", "expired"].includes(request.status)).length}</td></tr>)}</tbody>
+                      <tbody className="divide-y divide-slate-200 bg-white">{visibleCollaborateurs.length ? visibleCollaborateurs.map((employee) => <tr key={employee.id}><td className="px-3 py-2"><Link href={`/dashboard/rh/collaborateurs/${employee.id}`} className="hover:underline">{employee.full_name ?? "-"}</Link></td><td className="px-3 py-2">{employee.company_name ?? "-"}</td><td className="px-3 py-2">{employee.esn_partenaire ?? "-"}</td><td className="px-3 py-2">{employee.email}</td><td className="px-3 py-2">{employee.employment_status ?? "-"}</td><td className="px-3 py-2">{isRecentlyActive(employee.id) ? "Actif recemment" : "Hors ligne"}</td><td className="px-3 py-2">{formatLastSignIn(employee.id)}</td><td className="px-3 py-2">{requests.filter((request) => request.employeeId === employee.id && ["pending", "uploaded", "rejected", "expired"].includes(request.status)).length}</td></tr>) : <tr><td colSpan={8} className="px-3 py-6 text-center text-[#0A1A2F]/60">Aucun collaborateur trouve.</td></tr>}</tbody>
                     </table>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -2272,6 +2318,8 @@ export default function RhWorkspace({
               employees={employees}
               craGenerating={craGenerating}
               invoiceGenerating={invoiceGenerating}
+              leaveGenerating={leaveGenerating}
+              onGenerateLeavePdf={handleGenerateRhLeavePdf}
 	              craPeriodMonth={craPeriodMonth}
 	              craDraftTotalDays={craDraftTotalDays}
 	              craNotes={craNotes}

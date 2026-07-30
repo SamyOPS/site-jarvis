@@ -3,6 +3,7 @@ import { ChevronDown } from "lucide-react";
 
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { RhCraInvoiceEditor } from "@/components/dashboard/rh/cra-invoice-editor";
+import { RhLeaveRequestEditor, type RhLeaveRequestPayload } from "@/components/dashboard/rh/leave-request-editor";
 import { RhDocumentsListView } from "@/components/dashboard/rh/documents-list-view";
 import { RhDocumentsReviewList } from "@/components/dashboard/rh/documents-review-list";
 import { RhPendingValidationList } from "@/components/dashboard/rh/pending-validation-list";
@@ -45,6 +46,8 @@ type RhDocumentsSectionProps = {
   employees: { id: string; full_name: string | null; email: string }[];
   craGenerating: boolean;
   invoiceGenerating: boolean;
+  leaveGenerating: boolean;
+  onGenerateLeavePdf: (payload: RhLeaveRequestPayload) => void | Promise<void>;
   craPeriodMonth: string;
   craDraftTotalDays: number;
   craNotes: string;
@@ -125,6 +128,8 @@ export function RhDocumentsSection({
   employees,
   craGenerating,
   invoiceGenerating,
+  leaveGenerating,
+  onGenerateLeavePdf,
   craPeriodMonth,
   craDraftTotalDays,
   craNotes,
@@ -368,6 +373,8 @@ export function RhDocumentsSection({
       ? "Tous les documents"
       : currentSubSection === "docs_cra_facture"
       ? "CRA & Facture"
+      : currentSubSection === "docs_conge"
+      ? "Demande de congé"
       : currentSubSection === "docs_tous"
       ? "Documents entreprise"
       : currentSubSection === "docs_salaries"
@@ -594,6 +601,12 @@ export function RhDocumentsSection({
             resetCraEditor={resetCraEditor}
             toggleCraWorkDate={toggleCraWorkDate}
             updateCraEntry={updateCraEntry}
+          />
+        ) : currentSubSection === "docs_conge" ? (
+          <RhLeaveRequestEditor
+            employees={employees}
+            generating={leaveGenerating}
+            onGenerate={onGenerateLeavePdf}
           />
         ) : currentSubSection === "docs_mes_demandes" ? (
           <RhRequestsTable
