@@ -33,7 +33,7 @@ const navLinks = [
   { label: "Clients", href: "/#clients" },
   { label: "Actualités", href: "/#actualites" },
   { label: "Formations", href: "/#formations" },
-  { label: "Offres", href: "/#offres" },
+  { label: "Offres", href: "/offres" },
 ];
 
 export function HomeHeader() {
