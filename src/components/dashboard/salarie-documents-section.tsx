@@ -190,6 +190,7 @@ export function SalarieDocumentsSection({
   const [documentsMenuOpen, setDocumentsMenuOpen] = useState(false);
   const documentsMenuRef = useRef<HTMLDivElement | null>(null);
   const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null);
+  const isPayslipsSubSection = currentSubSection === "docs_fiches_paie";
   const trashFolderItems = useMemo<SalarieDocumentsListItem[]>(
     () =>
       [...trashedFolders]
@@ -465,7 +466,14 @@ export function SalarieDocumentsSection({
             ) : null}
           </div>
         ) : (
-          <h2 className="text-lg font-semibold text-[#0A1A2F]">{documentsCardTitle}</h2>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-[#0A1A2F]">{documentsCardTitle}</h2>
+            {isPayslipsSubSection ? (
+              <p className="mt-0.5 text-xs text-[#0A1A2F]/60">
+                Fiches de paie deposees par le service RH : consultation et telechargement.
+              </p>
+            ) : null}
+          </div>
         )}
       </div>
       <div>
@@ -554,6 +562,12 @@ export function SalarieDocumentsSection({
             deletingDocumentId={deletingDocumentId}
             savingDocumentId={savingDocumentId}
             setDraggedDocumentId={setDraggedDocumentId}
+            readOnly={isPayslipsSubSection}
+            emptyMessage={
+              isPayslipsSubSection
+                ? "Aucune fiche de paie disponible pour le moment."
+                : undefined
+            }
           />
         )}
       </div>

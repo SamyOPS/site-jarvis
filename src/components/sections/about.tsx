@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { motion } from "motion/react";
 
+import { Distinctions } from "@/components/sections/distinctions";
+
 interface AboutProps {
   title?: string;
   description?: string;
@@ -117,6 +119,8 @@ export const About = ({
             <p className="text-base leading-relaxed text-[#4B5563]">
               {breakout.description}
             </p>
+
+            <Distinctions className="mt-2" />
           </motion.div>
         </div>
       </div>

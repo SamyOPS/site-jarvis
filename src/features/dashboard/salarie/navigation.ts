@@ -9,6 +9,7 @@ export type SalarieDashboardSubSection =
   | "candidatures"
   | "cvs"
   | "docs_tous"
+  | "docs_fiches_paie"
   | "docs_a_deposer"
   | "docs_cra_facture"
   | "docs_conge"
@@ -27,6 +28,10 @@ export const SALARIE_WORKSPACE_ROUTES = {
   documents: {
     currentSection: "documents",
     currentSubSection: "docs_tous",
+  },
+  documentsFichesPaie: {
+    currentSection: "documents",
+    currentSubSection: "docs_fiches_paie",
   },
   documentsADeposer: {
     currentSection: "documents",

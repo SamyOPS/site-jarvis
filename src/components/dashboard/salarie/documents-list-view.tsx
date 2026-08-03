@@ -48,6 +48,13 @@ type SalarieDocumentsListViewProps = {
   deletingDocumentId: string | null;
   savingDocumentId: string | null;
   setDraggedDocumentId: (value: string | null) => void;
+  /**
+   * Vue consultation seule (fiches de paie deposees par les RH) : pas de
+   * renommage, de suppression ni de deplacement, et pas de filtre de type
+   * puisque la liste ne contient qu'une seule famille de documents.
+   */
+  readOnly?: boolean;
+  emptyMessage?: string;
 };
 
 export function SalarieDocumentsListView({
@@ -84,11 +91,19 @@ export function SalarieDocumentsListView({
   deletingDocumentId,
   savingDocumentId,
   setDraggedDocumentId,
+  readOnly = false,
+  emptyMessage = "Aucun document depose pour le moment.",
 }: SalarieDocumentsListViewProps) {
   return (
     <div className="space-y-1">
       <DocumentFiltersBar
-        fields={showFolderTrash ? ["type", "period"] : ["type", "period", "status"]}
+        fields={
+          showFolderTrash
+            ? ["type", "period"]
+            : readOnly
+              ? ["period"]
+              : ["type", "period", "status"]
+        }
         values={{
           type: documentTypeFilter,
           period: documentPeriodFilter,
@@ -225,7 +240,9 @@ export function SalarieDocumentsListView({
             item.rowType === "folder" ||
             (item.document.fileName.toLowerCase().endsWith(".pdf") && !!item.document.storagePath)
           }
-          getDraggableId={(item) => (item.rowType === "document" ? item.document.id : null)}
+          getDraggableId={(item) =>
+            !readOnly && item.rowType === "document" ? item.document.id : null
+          }
           onDragItemStart={(item) => {
             if (item.rowType !== "document") return;
             setDraggedDocumentId(item.document.id);
@@ -350,7 +367,7 @@ export function SalarieDocumentsListView({
                     Voir commentaire RH
                   </Button>
                 ) : null}
-                {document.status !== "validated" ? (
+                {readOnly ? null : document.status !== "validated" ? (
                   <>
                     <Button
                       type="button"
@@ -393,7 +410,7 @@ export function SalarieDocumentsListView({
           }}
         />
       ) : (
-        <p className="text-sm text-[#0A1A2F]/70">Aucun document depose pour le moment.</p>
+        <p className="text-sm text-[#0A1A2F]/70">{emptyMessage}</p>
       )}
     </div>
   );

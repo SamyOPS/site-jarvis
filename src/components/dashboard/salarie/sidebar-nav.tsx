@@ -30,6 +30,10 @@ export function SalarieSidebarNav({
     `block rounded-lg px-2 py-1.5 transition hover:bg-white/70 ${
       active ? "bg-white font-semibold text-[#0A1A2F]" : "text-[#0A1A2F]/65"
     }`;
+  const nestedSubItemClass = (active: boolean) =>
+    `block rounded-lg px-2 py-1 transition hover:bg-white/70 ${
+      active ? "bg-white font-semibold text-[#0A1A2F]" : "text-[#0A1A2F]/55"
+    }`;
 
   return (
     <div className="flex h-full flex-col gap-4 px-4 py-5">
@@ -71,6 +75,15 @@ export function SalarieSidebarNav({
             >
               Tous mes documents
             </Link>
+            <div className="ml-2 space-y-1 border-l border-slate-200 pl-2">
+              <Link
+                href="/dashboard/salarie/documents/fiches-de-paie"
+                onClick={handleNavigate}
+                className={nestedSubItemClass(currentSubSection === "docs_fiches_paie")}
+              >
+                Fiches de paie
+              </Link>
+            </div>
             <Link
               href="/dashboard/salarie/documents/cra-facture"
               onClick={handleNavigate}

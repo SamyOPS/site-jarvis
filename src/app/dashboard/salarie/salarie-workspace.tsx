@@ -26,7 +26,11 @@ import {
   sortCraEntries,
   WEEKDAY_LABELS,
 } from "@/features/dashboard/salarie/cra";
-import { matchesSalarieDocumentFilters, normalizeDocumentLabel } from "@/features/dashboard/salarie/document-filters";
+import {
+  isPayslipDocumentLabel,
+  matchesSalarieDocumentFilters,
+  normalizeDocumentLabel,
+} from "@/features/dashboard/salarie/document-filters";
 import type { SalarieWorkspaceRouteProps } from "@/features/dashboard/salarie/navigation";
 import type {
   CraEntryDraft,
@@ -1287,6 +1291,9 @@ export default function SalarieWorkspace({
         return normalizedLabel.includes("cra") || normalizedLabel.includes("facture");
       });
     }
+    if (currentSubSection === "docs_fiches_paie") {
+      return activeDocuments.filter((document) => isPayslipDocumentLabel(document.typeLabel));
+    }
     if (currentSubSection === "docs_tous") {
       if (!currentFolderId) {
         return activeDocuments.filter(
@@ -1343,13 +1350,15 @@ export default function SalarieWorkspace({
   const documentsCardTitle =
     currentSubSection === "docs_a_deposer"
       ? "Documents a deposer"
-      : currentSubSection === "docs_cra_facture"
-        ? "CRA & Facture"
-        : currentSubSection === "docs_conge"
-          ? "Demande de congé"
-          : currentSubSection === "docs_corbeille"
-            ? "Corbeille"
-            : "Mes documents";
+      : currentSubSection === "docs_fiches_paie"
+        ? "Mes fiches de paie"
+        : currentSubSection === "docs_cra_facture"
+          ? "CRA & Facture"
+          : currentSubSection === "docs_conge"
+            ? "Demande de congé"
+            : currentSubSection === "docs_corbeille"
+              ? "Corbeille"
+              : "Mes documents";
   const showFolderTrash = currentSubSection === "docs_corbeille";
   const selectedCraSummary = useMemo(
     () => craItems.find((item) => item.id === selectedCraId) ?? null,
