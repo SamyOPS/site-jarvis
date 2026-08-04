@@ -1,3 +1,4 @@
+import { getFrenchHolidayName } from "@/features/dashboard/salarie/holidays";
 import type { CraCalendarCell, CraEntryDraft } from "@/features/dashboard/salarie/types";
 
 export const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
@@ -54,6 +55,38 @@ export function buildCalendarCells(monthValue: string): CraCalendarCell[] {
   }
 
   return cells;
+}
+
+/**
+ * Un jour est ouvre s'il n'est ni un week-end ni un jour ferie francais. C'est la
+ * meme regle que le style grise des cases du calendrier CRA : le remplissage
+ * rapide coche donc exactement les cases non grisees.
+ */
+export function isWorkingDate(isoDate: string) {
+  const parsed = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+  if ([0, 6].includes(parsed.getDay())) {
+    return false;
+  }
+  return !getFrenchHolidayName(isoDate);
+}
+
+export function buildWorkingDatesForMonth(monthValue: string) {
+  return buildCalendarCells(monthValue)
+    .map((cell) => cell.isoDate)
+    .filter((isoDate): isoDate is string => Boolean(isoDate))
+    .filter(isWorkingDate);
+}
+
+export function formatCraPeriodLabel(monthValue: string) {
+  const parsed = new Date(`${monthValue}-01T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return monthValue;
+  }
+
+  return parsed.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 }
 
 export function formatCraEntryDateLabel(value: string) {

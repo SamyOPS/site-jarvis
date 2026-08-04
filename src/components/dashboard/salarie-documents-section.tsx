@@ -3,7 +3,12 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
-import { SalarieCraInvoiceEditor } from "@/components/dashboard/salarie/cra-invoice-editor";
+import type { BillingProfileFormState } from "@/components/dashboard/billing-profile-card";
+import {
+  SalarieCraInvoiceEditor,
+  type CraInvoiceTab,
+  type SalarieInvoiceSettings,
+} from "@/components/dashboard/salarie/cra-invoice-editor";
 import { SalarieLeaveRequestEditor, type LeaveRequestPayload } from "@/components/dashboard/salarie/leave-request-editor";
 import { SalarieDocumentsListView } from "@/components/dashboard/salarie/documents-list-view";
 import { SalariePendingRequests } from "@/components/dashboard/salarie/pending-requests";
@@ -29,16 +34,21 @@ type SalarieDocumentsSectionProps = {
   preferencesAuthToken?: string | null;
   currentSubSection: string;
   documentsCardTitle: string;
+  craFactureTab?: CraInvoiceTab;
   billingProfileReady: boolean;
+  billingProfileForm: BillingProfileFormState;
   selectedCraId: string | null;
   selectedCraSummary: Pick<CraSummaryRow, "status" | "pdf_version"> | null;
+  craItems: CraSummaryRow[];
+  onSelectCra: (craId: string) => void | Promise<void>;
   resetCraEditor: () => void;
   onGenerateCraPdf: () => void | Promise<void>;
   onGenerateInvoicePdf: () => void | Promise<void>;
   craGenerating: boolean;
   invoiceGenerating: boolean;
+  craCalendarMonth: string;
   craPeriodMonth: string;
-  onCraPeriodMonthChange: (value: string) => void;
+  onCraCalendarMonthChange: (value: string) => void;
   shiftMonthInputValue: (value: string, offset: number) => string;
   craDraftTotalDays: number;
   craNotes: string;
@@ -47,23 +57,16 @@ type SalarieDocumentsSectionProps = {
   onCraLeaveDaysChange: (value: CraLeaveDaysDraft) => void;
   leaveGenerating: boolean;
   onGenerateLeavePdf: (payload: LeaveRequestPayload) => void | Promise<void>;
-  invoiceDiscountGranted: boolean;
-  onInvoiceDiscountGrantedChange: (value: boolean) => void;
-  invoiceVatEnabled: boolean;
-  onInvoiceVatEnabledChange: (value: boolean) => void;
-  invoiceAmountAlreadyPaid: string;
-  onInvoiceAmountAlreadyPaidChange: (value: string) => void;
-  invoiceFraisKm: string;
-  onInvoiceFraisKmChange: (value: string) => void;
-  invoiceFraisRepas: string;
-  onInvoiceFraisRepasChange: (value: string) => void;
-  invoiceFraisNuitee: string;
-  onInvoiceFraisNuiteeChange: (value: string) => void;
+  invoice: SalarieInvoiceSettings;
+  onInvoiceChange: (value: SalarieInvoiceSettings) => void;
+  nextInvoiceSequence: number;
   weekdayLabels: string[];
   craCalendarCells: CraCalendarCell[];
   craEntriesByDate: Map<string, CraEntryDraft>;
   craEntries: CraEntryDraft[];
-  toggleCraWorkDate: (workDate: string) => void;
+  onCycleCraWorkDate: (workDate: string) => void;
+  onFillCraWorkingDays: () => void;
+  onClearCraEntries: () => void;
   formatCraEntryDateLabel: (value: string) => string;
   updateCraEntry: (workDate: string, patch: { dayQuantity?: string; label?: string }) => void;
   visibleDocuments: DocumentRow[];
@@ -111,16 +114,21 @@ export function SalarieDocumentsSection({
   preferencesAuthToken,
   currentSubSection,
   documentsCardTitle,
+  craFactureTab,
   billingProfileReady,
+  billingProfileForm,
   selectedCraId,
   selectedCraSummary,
+  craItems,
+  onSelectCra,
   resetCraEditor,
   onGenerateCraPdf,
   onGenerateInvoicePdf,
   craGenerating,
   invoiceGenerating,
+  craCalendarMonth,
   craPeriodMonth,
-  onCraPeriodMonthChange,
+  onCraCalendarMonthChange,
   shiftMonthInputValue,
   craDraftTotalDays,
   craNotes,
@@ -129,23 +137,16 @@ export function SalarieDocumentsSection({
   onCraLeaveDaysChange,
   leaveGenerating,
   onGenerateLeavePdf,
-  invoiceDiscountGranted,
-  onInvoiceDiscountGrantedChange,
-  invoiceVatEnabled,
-  onInvoiceVatEnabledChange,
-  invoiceAmountAlreadyPaid,
-  onInvoiceAmountAlreadyPaidChange,
-  invoiceFraisKm,
-  onInvoiceFraisKmChange,
-  invoiceFraisRepas,
-  onInvoiceFraisRepasChange,
-  invoiceFraisNuitee,
-  onInvoiceFraisNuiteeChange,
+  invoice,
+  onInvoiceChange,
+  nextInvoiceSequence,
   weekdayLabels,
   craCalendarCells,
   craEntriesByDate,
   craEntries,
-  toggleCraWorkDate,
+  onCycleCraWorkDate,
+  onFillCraWorkingDays,
+  onClearCraEntries,
   formatCraEntryDateLabel,
   updateCraEntry,
   visibleDocuments,
@@ -479,39 +480,37 @@ export function SalarieDocumentsSection({
       <div>
         {currentSubSection === "docs_cra_facture" ? (
           <SalarieCraInvoiceEditor
+            initialTab={craFactureTab}
             billingProfileReady={billingProfileReady}
+            billingProfileForm={billingProfileForm}
             selectedCraId={selectedCraId}
             selectedCraSummary={selectedCraSummary}
+            craItems={craItems}
+            onSelectCra={onSelectCra}
             resetCraEditor={resetCraEditor}
             onGenerateCraPdf={onGenerateCraPdf}
             onGenerateInvoicePdf={onGenerateInvoicePdf}
             craGenerating={craGenerating}
             invoiceGenerating={invoiceGenerating}
+            craCalendarMonth={craCalendarMonth}
             craPeriodMonth={craPeriodMonth}
-            onCraPeriodMonthChange={onCraPeriodMonthChange}
+            onCraCalendarMonthChange={onCraCalendarMonthChange}
             shiftMonthInputValue={shiftMonthInputValue}
             craDraftTotalDays={craDraftTotalDays}
             craNotes={craNotes}
             onCraNotesChange={onCraNotesChange}
             craLeaveDays={craLeaveDays}
             onCraLeaveDaysChange={onCraLeaveDaysChange}
-            invoiceDiscountGranted={invoiceDiscountGranted}
-            onInvoiceDiscountGrantedChange={onInvoiceDiscountGrantedChange}
-            invoiceVatEnabled={invoiceVatEnabled}
-            onInvoiceVatEnabledChange={onInvoiceVatEnabledChange}
-            invoiceAmountAlreadyPaid={invoiceAmountAlreadyPaid}
-            onInvoiceAmountAlreadyPaidChange={onInvoiceAmountAlreadyPaidChange}
-            invoiceFraisKm={invoiceFraisKm}
-            onInvoiceFraisKmChange={onInvoiceFraisKmChange}
-            invoiceFraisRepas={invoiceFraisRepas}
-            onInvoiceFraisRepasChange={onInvoiceFraisRepasChange}
-            invoiceFraisNuitee={invoiceFraisNuitee}
-            onInvoiceFraisNuiteeChange={onInvoiceFraisNuiteeChange}
+            invoice={invoice}
+            onInvoiceChange={onInvoiceChange}
+            nextInvoiceSequence={nextInvoiceSequence}
             weekdayLabels={weekdayLabels}
             craCalendarCells={craCalendarCells}
             craEntriesByDate={craEntriesByDate}
             craEntries={craEntries}
-            toggleCraWorkDate={toggleCraWorkDate}
+            onCycleCraWorkDate={onCycleCraWorkDate}
+            onFillCraWorkingDays={onFillCraWorkingDays}
+            onClearCraEntries={onClearCraEntries}
             formatCraEntryDateLabel={formatCraEntryDateLabel}
             updateCraEntry={updateCraEntry}
           />

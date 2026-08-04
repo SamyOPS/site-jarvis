@@ -6,6 +6,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { Search, SlidersHorizontal } from "lucide-react";
 
 import type { BillingProfileFormState } from "@/components/dashboard/billing-profile-card";
+import type { SalarieInvoiceSettings } from "@/components/dashboard/salarie/cra-invoice-editor";
 import type { LeaveRequestPayload } from "@/components/dashboard/salarie/leave-request-editor";
 import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
 import { DashboardMobileHeader } from "@/components/dashboard/mobile-header";
@@ -20,8 +21,10 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   buildCalendarCells,
+  buildWorkingDatesForMonth,
   currentMonthInputValue,
   formatCraEntryDateLabel,
+  formatCraPeriodLabel,
   shiftMonthInputValue,
   sortCraEntries,
   WEEKDAY_LABELS,
@@ -52,6 +55,19 @@ const leaveDaysToInput = (value: number | null | undefined) => {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) && parsed > 0 ? String(parsed) : "";
 };
+
+const emptyInvoiceSettings = (): SalarieInvoiceSettings => ({
+  discountGranted: false,
+  vatEnabled: false,
+  amountAlreadyPaid: "",
+  fraisKm: "",
+  fraisRepas: "",
+  fraisNuitee: "",
+});
+
+function toInvoiceAmount(value: string) {
+  return value.trim() === "" ? 0 : Number(value);
+}
 
 const emptyBillingProfileForm = (): BillingProfileFormState => ({
   firstName: "",
@@ -95,6 +111,7 @@ let salarieDashboardCache: SalarieDashboardCache | null = null;
 export default function SalarieWorkspace({
   currentSection = defaultRouteProps.currentSection,
   currentSubSection = defaultRouteProps.currentSubSection,
+  craFactureTab,
 }: SalarieWorkspaceRouteProps) {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
@@ -143,16 +160,15 @@ export default function SalarieWorkspace({
   const [billingProfileSaving, setBillingProfileSaving] = useState(false);
   const [craItems, setCraItems] = useState<CraSummaryRow[]>([]);
   const [selectedCraId, setSelectedCraId] = useState<string | null>(null);
-  const [craPeriodMonth, setCraPeriodMonth] = useState(currentMonthInputValue);
+  // Mois affiche par le calendrier. La periode du document, elle, est deduite des
+  // jours coches (voir craPeriodMonth plus bas) : il n'y a plus de champ periode.
+  const [craCalendarMonth, setCraCalendarMonth] = useState(currentMonthInputValue);
   const [craNotes, setCraNotes] = useState("");
   const [craEntries, setCraEntries] = useState<CraEntryDraft[]>([]);
   const [craLeaveDays, setCraLeaveDays] = useState<CraLeaveDaysDraft>(emptyCraLeaveDays);
-  const [invoiceDiscountGranted, setInvoiceDiscountGranted] = useState(false);
-  const [invoiceVatEnabled, setInvoiceVatEnabled] = useState(false);
-  const [invoiceAmountAlreadyPaid, setInvoiceAmountAlreadyPaid] = useState("");
-  const [invoiceFraisKm, setInvoiceFraisKm] = useState("");
-  const [invoiceFraisRepas, setInvoiceFraisRepas] = useState("");
-  const [invoiceFraisNuitee, setInvoiceFraisNuitee] = useState("");
+  const [invoiceSettings, setInvoiceSettings] = useState<SalarieInvoiceSettings>(
+    emptyInvoiceSettings,
+  );
   const [craGenerating, setCraGenerating] = useState(false);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
   const [leaveGenerating, setLeaveGenerating] = useState(false);
@@ -578,24 +594,28 @@ export default function SalarieWorkspace({
   const loadBillingProfile = useCallback(async () => {
     setBillingProfileLoading(true);
     try {
+      // Toutes ces colonnes sont nullables en base : daily_rate / iban / bic / siret
+      // ne concernent que les auto-entrepreneurs (migration optional_billing_fields),
+      // et les autres peuvent etre vides sur un profil incomplet. On les traite donc
+      // toutes comme nullables, et le formulaire ne manipule que des chaines.
       const payload = (await callSalarieApi("/api/salarie/billing-profile")) as {
-        profile?: {
-          first_name: string;
-          last_name: string;
-          company_name: string;
+        profile?: Partial<{
+          first_name: string | null;
+          last_name: string | null;
+          company_name: string | null;
           esn_partenaire: string | null;
-          address_line_1: string;
+          address_line_1: string | null;
           address_line_2: string | null;
-          postal_code: string;
-          city: string;
-          country: string;
-          phone: string;
-          email: string;
+          postal_code: string | null;
+          city: string | null;
+          country: string | null;
+          phone: string | null;
+          email: string | null;
           siret: string | null;
-          iban: string;
-          bic: string;
-          daily_rate: number;
-        } | null;
+          iban: string | null;
+          bic: string | null;
+          daily_rate: number | null;
+        }> | null;
       };
 
       if (!payload.profile) {
@@ -613,20 +633,20 @@ export default function SalarieWorkspace({
       }
 
       setBillingProfileForm({
-        firstName: payload.profile.first_name,
-        lastName: payload.profile.last_name,
-        companyName: payload.profile.company_name,
+        firstName: payload.profile.first_name ?? "",
+        lastName: payload.profile.last_name ?? "",
+        companyName: payload.profile.company_name ?? "",
         esnPartenaire: payload.profile.esn_partenaire ?? "",
-        addressLine1: payload.profile.address_line_1,
+        addressLine1: payload.profile.address_line_1 ?? "",
         addressLine2: payload.profile.address_line_2 ?? "",
-        postalCode: payload.profile.postal_code,
-        city: payload.profile.city,
-        country: payload.profile.country,
-        phone: payload.profile.phone,
-        email: payload.profile.email,
+        postalCode: payload.profile.postal_code ?? "",
+        city: payload.profile.city ?? "",
+        country: payload.profile.country ?? "",
+        phone: payload.profile.phone ?? "",
+        email: payload.profile.email ?? "",
         siret: payload.profile.siret ?? "",
-        iban: payload.profile.iban,
-        bic: payload.profile.bic,
+        iban: payload.profile.iban ?? "",
+        bic: payload.profile.bic ?? "",
         dailyRate: String(payload.profile.daily_rate ?? ""),
       });
       setBillingProfileReady(true);
@@ -658,7 +678,7 @@ export default function SalarieWorkspace({
     }
 
     setSelectedCraId(payload.cra.id);
-    setCraPeriodMonth(payload.cra.period_month.slice(0, 7));
+    setCraCalendarMonth(payload.cra.period_month.slice(0, 7));
     setCraNotes(payload.cra.notes ?? "");
     setCraLeaveDays({
       paid: leaveDaysToInput(payload.cra.paid_leave_days),
@@ -1028,44 +1048,115 @@ export default function SalarieWorkspace({
     }
   }, [getSignedDocumentUrl]);
 
+  // Un CRA couvre un seul mois : la periode est celle des jours coches, et a defaut
+  // de selection celle du mois affiche. Declaree avant les callbacks de generation,
+  // qui la referencent dans leurs dependances.
+  const craPeriodMonth = useMemo(
+    () => craEntries[0]?.workDate.slice(0, 7) ?? craCalendarMonth,
+    [craCalendarMonth, craEntries],
+  );
+
   const resetCraEditor = useCallback(() => {
     setSelectedCraId(null);
-    setCraPeriodMonth(currentMonthInputValue());
+    setCraCalendarMonth(currentMonthInputValue());
     setCraNotes("");
     setCraEntries([]);
     setCraLeaveDays(emptyCraLeaveDays());
-    setInvoiceDiscountGranted(false);
-    setInvoiceVatEnabled(false);
-    setInvoiceAmountAlreadyPaid("");
-    setInvoiceFraisKm("");
-    setInvoiceFraisRepas("");
-    setInvoiceFraisNuitee("");
+    setInvoiceSettings(emptyInvoiceSettings());
   }, []);
 
-  const handleCraPeriodMonthChange = useCallback((nextPeriodMonth: string) => {
-    setCraPeriodMonth(nextPeriodMonth);
-    setCraEntries((previousEntries) =>
-      sortCraEntries(previousEntries.filter((entry) => entry.workDate.startsWith(`${nextPeriodMonth}-`))),
-    );
+  // La navigation du calendrier ne touche plus aux jours coches : les selections
+  // d'un autre mois sont conservees au lieu d'etre silencieusement supprimees.
+  const handleCraCalendarMonthChange = useCallback((nextCalendarMonth: string) => {
+    setCraCalendarMonth(nextCalendarMonth);
   }, []);
 
-  const toggleCraWorkDate = useCallback((workDate: string) => {
-    setCraEntries((previousEntries) => {
-      const existingEntry = previousEntries.find((entry) => entry.workDate === workDate);
-      if (existingEntry) {
-        return previousEntries.filter((entry) => entry.workDate !== workDate);
+  /**
+   * Un CRA couvre un seul mois. Avant d'ajouter un jour hors du mois deja saisi,
+   * on demande confirmation puis on remplace la selection. Renvoie false si le
+   * salarie refuse.
+   */
+  const confirmCraMonthSwitch = useCallback(
+    (targetMonth: string) => {
+      const currentMonth = craEntries[0]?.workDate.slice(0, 7);
+      if (!currentMonth || currentMonth === targetMonth) {
+        return true;
       }
 
-      return sortCraEntries([
-        ...previousEntries,
-        {
-          workDate,
-          dayQuantity: "1",
-          label: "",
-        },
-      ]);
+      return window.confirm(
+        `Un CRA couvre un seul mois. Remplacer la selection de ${formatCraPeriodLabel(currentMonth)} par ${formatCraPeriodLabel(targetMonth)} ?`,
+      );
+    },
+    [craEntries],
+  );
+
+  /**
+   * Un clic fait defiler la quantite du jour : non coche -> 1 jour -> 1/2 journee
+   * -> retire. Remplace le champ numerique par jour de l'ancienne liste.
+   */
+  const cycleCraWorkDate = useCallback(
+    (workDate: string) => {
+      const existingEntry = craEntries.find((entry) => entry.workDate === workDate);
+
+      if (!existingEntry) {
+        if (!confirmCraMonthSwitch(workDate.slice(0, 7))) return;
+        setCraEntries((previousEntries) => {
+          const keptEntries = previousEntries.filter((entry) =>
+            entry.workDate.startsWith(`${workDate.slice(0, 7)}-`),
+          );
+          return sortCraEntries([...keptEntries, { workDate, dayQuantity: "1", label: "" }]);
+        });
+        return;
+      }
+
+      if (Number(existingEntry.dayQuantity) === 1) {
+        setCraEntries((previousEntries) =>
+          sortCraEntries(
+            previousEntries.map((entry) =>
+              entry.workDate === workDate ? { ...entry, dayQuantity: "0.5" } : entry,
+            ),
+          ),
+        );
+        return;
+      }
+
+      setCraEntries((previousEntries) =>
+        previousEntries.filter((entry) => entry.workDate !== workDate),
+      );
+    },
+    [confirmCraMonthSwitch, craEntries],
+  );
+
+  const fillCraWorkingDays = useCallback(() => {
+    if (!confirmCraMonthSwitch(craCalendarMonth)) return;
+
+    const workingDates = buildWorkingDatesForMonth(craCalendarMonth);
+    setCraEntries((previousEntries) => {
+      const previousByDate = new Map(previousEntries.map((entry) => [entry.workDate, entry]));
+      return sortCraEntries(
+        workingDates.map(
+          (workDate) =>
+            previousByDate.get(workDate) ?? { workDate, dayQuantity: "1", label: "" },
+        ),
+      );
     });
+  }, [confirmCraMonthSwitch, craCalendarMonth]);
+
+  const clearCraEntries = useCallback(() => {
+    setCraEntries([]);
   }, []);
+
+  const handleSelectCra = useCallback(
+    async (craId: string) => {
+      try {
+        setActionMessage(null);
+        await loadCraDetail(craId);
+      } catch (error) {
+        setActionMessage(error instanceof Error ? error.message : "Chargement du CRA impossible.");
+      }
+    },
+    [loadCraDetail],
+  );
 
   const updateCraEntry = useCallback((workDate: string, patch: Partial<CraEntryDraft>) => {
     setCraEntries((previousEntries) =>
@@ -1157,12 +1248,12 @@ export default function SalarieWorkspace({
         dayQuantity: Number(entry.dayQuantity || 0),
         label: entry.label,
       })),
-      discountGranted: invoiceDiscountGranted,
-      vatEnabled: invoiceVatEnabled,
-      amountAlreadyPaid: invoiceAmountAlreadyPaid.trim() === "" ? 0 : Number(invoiceAmountAlreadyPaid),
-      fraisKm: invoiceFraisKm.trim() === "" ? 0 : Number(invoiceFraisKm),
-      fraisRepas: invoiceFraisRepas.trim() === "" ? 0 : Number(invoiceFraisRepas),
-      fraisNuitee: invoiceFraisNuitee.trim() === "" ? 0 : Number(invoiceFraisNuitee),
+      discountGranted: invoiceSettings.discountGranted,
+      vatEnabled: invoiceSettings.vatEnabled,
+      amountAlreadyPaid: toInvoiceAmount(invoiceSettings.amountAlreadyPaid),
+      fraisKm: toInvoiceAmount(invoiceSettings.fraisKm),
+      fraisRepas: toInvoiceAmount(invoiceSettings.fraisRepas),
+      fraisNuitee: toInvoiceAmount(invoiceSettings.fraisNuitee),
     };
 
     const run = async () => {
@@ -1184,7 +1275,7 @@ export default function SalarieWorkspace({
     };
 
     void run();
-  }, [callSalarieApi, craEntries, craPeriodMonth, invoiceAmountAlreadyPaid, invoiceDiscountGranted, invoiceFraisKm, invoiceFraisNuitee, invoiceFraisRepas, invoiceVatEnabled, loadDashboardData, profile]);
+  }, [callSalarieApi, craEntries, craPeriodMonth, invoiceSettings, loadDashboardData, profile]);
 
   const handleGenerateLeavePdf = useCallback(
     async (payload: LeaveRequestPayload) => {
@@ -1372,7 +1463,23 @@ export default function SalarieWorkspace({
     () => craEntries.reduce((total, entry) => total + (Number(entry.dayQuantity) || 0), 0),
     [craEntries],
   );
-  const craCalendarCells = useMemo(() => buildCalendarCells(craPeriodMonth), [craPeriodMonth]);
+  const craCalendarCells = useMemo(() => buildCalendarCells(craCalendarMonth), [craCalendarMonth]);
+  /**
+   * Rang provisoire de la prochaine facture du mois, pour l'apercu seulement.
+   * Reproduit le comptage de /api/salarie/factures/generate-pdf : on part de
+   * `documents` brut, sans exclure les documents en corbeille, car le serveur
+   * compte deliberement toutes les factures deja emises pour ne jamais reattribuer
+   * un numero. Le numero definitif reste attribue a la generation.
+   */
+  const nextInvoiceSequence = useMemo(() => {
+    const periodStart = `${craPeriodMonth}-01`;
+    const alreadyIssued = documents.filter(
+      (document) =>
+        (document.periodMonth ?? "").slice(0, 10) === periodStart &&
+        normalizeDocumentLabel(document.typeLabel).includes("facture"),
+    ).length;
+    return alreadyIssued + 1;
+  }, [craPeriodMonth, documents]);
   const displayName = useMemo(() => {
     const meta = (user?.user_metadata ?? {}) as { full_name?: string; name?: string; display_name?: string };
     return meta.full_name ?? meta.name ?? meta.display_name ?? profile?.full_name ?? profile?.email ?? "utilisateur";
@@ -1528,9 +1635,13 @@ export default function SalarieWorkspace({
               preferencesAuthToken={session?.access_token ?? null}
               currentSubSection={currentSubSection}
               documentsCardTitle={documentsCardTitle}
+              craFactureTab={craFactureTab}
               billingProfileReady={billingProfileReady}
+              billingProfileForm={billingProfileForm}
               selectedCraId={selectedCraId}
               selectedCraSummary={selectedCraSummary}
+              craItems={craItems}
+              onSelectCra={handleSelectCra}
               resetCraEditor={resetCraEditor}
               onGenerateCraPdf={handleGenerateCraPdf}
               onGenerateInvoicePdf={handleGenerateInvoicePdf}
@@ -1538,31 +1649,25 @@ export default function SalarieWorkspace({
               invoiceGenerating={invoiceGenerating}
               leaveGenerating={leaveGenerating}
               onGenerateLeavePdf={handleGenerateLeavePdf}
+              craCalendarMonth={craCalendarMonth}
               craPeriodMonth={craPeriodMonth}
-              onCraPeriodMonthChange={handleCraPeriodMonthChange}
+              onCraCalendarMonthChange={handleCraCalendarMonthChange}
               shiftMonthInputValue={shiftMonthInputValue}
               craDraftTotalDays={craDraftTotalDays}
               craNotes={craNotes}
               onCraNotesChange={setCraNotes}
               craLeaveDays={craLeaveDays}
               onCraLeaveDaysChange={setCraLeaveDays}
-              invoiceDiscountGranted={invoiceDiscountGranted}
-              onInvoiceDiscountGrantedChange={setInvoiceDiscountGranted}
-              invoiceVatEnabled={invoiceVatEnabled}
-              onInvoiceVatEnabledChange={setInvoiceVatEnabled}
-              invoiceAmountAlreadyPaid={invoiceAmountAlreadyPaid}
-              onInvoiceAmountAlreadyPaidChange={setInvoiceAmountAlreadyPaid}
-              invoiceFraisKm={invoiceFraisKm}
-              onInvoiceFraisKmChange={setInvoiceFraisKm}
-              invoiceFraisRepas={invoiceFraisRepas}
-              onInvoiceFraisRepasChange={setInvoiceFraisRepas}
-              invoiceFraisNuitee={invoiceFraisNuitee}
-              onInvoiceFraisNuiteeChange={setInvoiceFraisNuitee}
+              invoice={invoiceSettings}
+              onInvoiceChange={setInvoiceSettings}
+              nextInvoiceSequence={nextInvoiceSequence}
               weekdayLabels={weekdayLabels}
               craCalendarCells={craCalendarCells}
               craEntriesByDate={craEntriesByDate}
               craEntries={craEntries}
-              toggleCraWorkDate={toggleCraWorkDate}
+              onCycleCraWorkDate={cycleCraWorkDate}
+              onFillCraWorkingDays={fillCraWorkingDays}
+              onClearCraEntries={clearCraEntries}
               formatCraEntryDateLabel={formatCraEntryDateLabel}
               updateCraEntry={updateCraEntry}
               visibleDocuments={visibleDocuments}

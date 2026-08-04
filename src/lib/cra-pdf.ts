@@ -53,6 +53,26 @@ function bytesToHex(value: Uint8Array) {
   return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+/**
+ * La conversion base64 -> hex du logo represente l'essentiel du cout de generation
+ * (environ 13 ms sur 43 ko), alors que le logo est toujours le meme fichier. On
+ * memorise donc le dernier resultat : indispensable pour l'apercu live, qui
+ * reconstruit le PDF a chaque modification de la saisie.
+ */
+let cachedLogoSource: string | null = null;
+let cachedLogoHex: string | null = null;
+
+function logoHexFromBase64(logoRgbBase64: string) {
+  if (cachedLogoSource === logoRgbBase64 && cachedLogoHex) {
+    return cachedLogoHex;
+  }
+
+  const hex = bytesToHex(base64ToBytes(logoRgbBase64));
+  cachedLogoSource = logoRgbBase64;
+  cachedLogoHex = hex;
+  return hex;
+}
+
 function normalizePdfText(value: string) {
   return value
     .normalize("NFD")
@@ -61,8 +81,23 @@ function normalizePdfText(value: string) {
     .replace(/[()\\]/g, "\\$&");
 }
 
+const pdfTextEncoder = new TextEncoder();
+
+/**
+ * Encodage octet a octet du document. TextEncoder est environ 150x plus rapide que
+ * `Uint8Array.from(value, charCodeAt)` et produit exactement les memes octets, mais
+ * uniquement parce que le contenu est garanti ASCII : `normalizePdfText` (plus haut)
+ * remplace tout caractere hors \x20-\x7E, et le flux binaire du logo est encode en
+ * hexadecimal ASCII. En UTF-8 un ASCII pur tient sur un octet, donc les valeurs de
+ * /Length et les offsets de la table xref restent exacts.
+ *
+ * ATTENTION : introduire du contenu non ASCII dans le PDF sans repasser par
+ * normalizePdfText desynchroniserait silencieusement /Length et tous les offsets.
+ * `byteLength` ci-dessus fait deja la meme hypothese (il retourne value.length dans
+ * le navigateur), cette contrainte n'est donc pas nouvelle.
+ */
 function binaryStringToBytes(value: string) {
-  return Uint8Array.from(value, (char) => char.charCodeAt(0));
+  return pdfTextEncoder.encode(value);
 }
 
 function formatPeriodLabel(value: string) {
@@ -202,7 +237,7 @@ function buildCraPdfContent(input: CraPdfInput, withLogo: boolean) {
 }
 
 function createPdfString(content: string, logoRgbBase64?: string | null) {
-  const logoHex = logoRgbBase64 ? `${bytesToHex(base64ToBytes(logoRgbBase64))}>` : null;
+  const logoHex = logoRgbBase64 ? `${logoHexFromBase64(logoRgbBase64)}>` : null;
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",

@@ -18,6 +18,8 @@ export type SalarieDashboardSubSection =
 export type SalarieWorkspaceRouteProps = {
   currentSection: SalarieDashboardSection;
   currentSubSection: SalarieDashboardSubSection;
+  /** Onglet ouvert par defaut sur la page CRA & Facture. */
+  craFactureTab?: "cra" | "facture";
 };
 
 export const SALARIE_WORKSPACE_ROUTES = {
@@ -40,6 +42,16 @@ export const SALARIE_WORKSPACE_ROUTES = {
   documentsCraFacture: {
     currentSection: "documents",
     currentSubSection: "docs_cra_facture",
+  },
+  documentsCra: {
+    currentSection: "documents",
+    currentSubSection: "docs_cra_facture",
+    craFactureTab: "cra",
+  },
+  documentsFacture: {
+    currentSection: "documents",
+    currentSubSection: "docs_cra_facture",
+    craFactureTab: "facture",
   },
   documentsConge: {
     currentSection: "documents",

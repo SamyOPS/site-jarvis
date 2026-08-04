@@ -1,4 +1,6 @@
-﻿type InvoicePdfInput = {
+﻿import { computeInvoiceTotals } from "@/features/dashboard/salarie/invoice-totals";
+
+export type InvoicePdfInput = {
   invoiceNumber: string;
   issueDate: string;
   dueDate: string;
@@ -222,23 +224,21 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
   const issueDateLabel = formatDate(input.issueDate);
   const dueDateLabel = formatDate(input.dueDate);
   const periodLabel = formatPeriodRangeLabel(input);
-  const quantity = Number(input.quantity) || 0;
-  const dailyRate = Number(input.dailyRate) || 0;
-  const serviceHt = quantity * dailyRate;
-  const fraisKm = Math.max(0, Number(input.fraisKm) || 0);
-  const fraisRepas = Math.max(0, Number(input.fraisRepas) || 0);
-  const fraisNuitee = Math.max(0, Number(input.fraisNuitee) || 0);
-  const fraisTotal = fraisKm + fraisRepas + fraisNuitee;
-  const totalHt = serviceHt + fraisTotal;
-  const discountRate = input.discountGranted ? 0.02 : 0;
-  // L'escompte ne porte que sur la prestation, jamais sur les frais refactures.
-  const discountAmount = serviceHt * discountRate;
-  const totalAfterDiscount = Math.max(0, totalHt - discountAmount);
-  const vatRate = input.vatEnabled ? 0.2 : 0;
-  const vatAmount = totalAfterDiscount * vatRate;
-  const amountAlreadyPaid = Math.max(0, Number(input.amountAlreadyPaid) || 0);
-  const totalTtc = totalAfterDiscount + vatAmount;
-  const remainingToPay = Math.max(0, totalTtc - amountAlreadyPaid);
+  const {
+    quantity,
+    dailyRate,
+    serviceHt,
+    fraisKm,
+    fraisRepas,
+    fraisNuitee,
+    totalHt,
+    discountAmount,
+    totalAfterDiscount,
+    vatAmount,
+    amountAlreadyPaid,
+    totalTtc,
+    remainingToPay,
+  } = computeInvoiceTotals(input);
   const vatRateLabel = input.vatEnabled ? "20%" : "0%";
 
   const descriptionFontSize = 9;

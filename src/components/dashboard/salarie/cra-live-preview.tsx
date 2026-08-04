@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PdfPreviewFrame } from "@/components/dashboard/salarie/cra/pdf-preview-frame";
 import { buildCraPdfBytes } from "@/lib/cra-pdf";
 
 type BillingProfilePreview = {
@@ -29,12 +29,35 @@ type CraEntryPreview = {
   label: string;
 };
 
+type CraLeaveDaysPreview = {
+  paid: string;
+  sick: string;
+  exceptional: string;
+  unpaid: string;
+};
+
+/**
+ * Les colonnes du profil de facturation sont nullables en base (iban, bic, siret et
+ * daily_rate ne concernent que les auto-entrepreneurs) : l'apercu doit tolerer un
+ * champ absent plutot que de casser le rendu de la page.
+ */
+function text(value: string | null | undefined) {
+  return (value ?? "").trim();
+}
+
+function days(value: string | null | undefined) {
+  return Number(value || 0) || 0;
+}
+
 type CraLivePreviewProps = {
   billingProfile: BillingProfilePreview;
   periodMonth: string;
   notes: string;
   entries: CraEntryPreview[];
   totalDays: number;
+  leaveDays: CraLeaveDaysPreview;
+  enabled?: boolean;
+  disabledLabel?: string;
 };
 
 export function CraLivePreview({
@@ -43,107 +66,85 @@ export function CraLivePreview({
   notes,
   entries,
   totalDays,
+  leaveDays,
+  enabled = true,
+  disabledLabel,
 }: CraLivePreviewProps) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [logoRgbBase64, setLogoRgbBase64] = useState<string | null>(null);
-
-  const pdfInput = useMemo(
-    () => ({
-      firstName: billingProfile.firstName.trim(),
-      lastName: billingProfile.lastName.trim(),
-      companyName: billingProfile.companyName.trim(),
-      esnPartenaire: billingProfile.esnPartenaire.trim() || null,
-      addressLine1: billingProfile.addressLine1.trim(),
-      addressLine2: billingProfile.addressLine2.trim() || null,
-      postalCode: billingProfile.postalCode.trim(),
-      city: billingProfile.city.trim(),
-      country: billingProfile.country.trim(),
-      phone: billingProfile.phone.trim(),
-      email: billingProfile.email.trim(),
-      siret: billingProfile.siret.trim() || null,
-      iban: billingProfile.iban.trim(),
-      bic: billingProfile.bic.trim(),
-      dailyRate: Number(billingProfile.dailyRate || 0),
-      workedDaysCount: totalDays,
-      periodMonth: periodMonth || new Date().toISOString().slice(0, 7),
-      notes: notes.trim() || null,
-      entries: entries
-        .filter(
-          (entry) =>
-            entry.workDate.trim() ||
-            entry.label.trim() ||
-            Number(entry.dayQuantity || 0) > 0,
-        )
-        .map((entry) => ({
-          workDate: entry.workDate.trim(),
-          dayQuantity: Number(entry.dayQuantity || 0),
-          label: entry.label.trim() || null,
-        })),
-    }),
-    [billingProfile, entries, notes, periodMonth, totalDays],
-  );
+  // null = chargement en cours, { value } = resolu (le logo peut legitimement etre
+  // absent). Distinguer les deux evite de construire un premier PDF sans logo,
+  // aussitot remplace par un second avec logo.
+  const [logo, setLogo] = useState<{ value: string | null } | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
 
     void fetch("/logonoir-rgb120.b64")
-      .then((response) => response.text())
+      .then((response) => (response.ok ? response.text() : null))
       .then((value) => {
-        if (!cancelled) {
-          setLogoRgbBase64(value.trim());
-        }
+        if (cancelled) return;
+        const trimmed = value?.trim() ?? "";
+        // Une page d'erreur HTML renvoyee a la place du fichier ferait echouer atob :
+        // on valide que le corps ressemble bien a du base64.
+        const isBase64 = trimmed.length > 0 && /^[A-Za-z0-9+/\r\n]+={0,2}$/.test(trimmed);
+        setLogo({ value: isBase64 ? trimmed : null });
       })
       .catch(() => {
-        if (!cancelled) {
-          setLogoRgbBase64(null);
-        }
+        if (!cancelled) setLogo({ value: null });
       });
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [enabled]);
 
-  useEffect(() => {
-    const pdfBytes = buildCraPdfBytes(pdfInput, logoRgbBase64);
-    const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
-    const nextUrl = URL.createObjectURL(pdfBlob);
+  const pdfInput = useMemo(
+    () => ({
+      firstName: text(billingProfile.firstName),
+      lastName: text(billingProfile.lastName),
+      companyName: text(billingProfile.companyName),
+      esnPartenaire: text(billingProfile.esnPartenaire) || null,
+      addressLine1: text(billingProfile.addressLine1),
+      addressLine2: text(billingProfile.addressLine2) || null,
+      postalCode: text(billingProfile.postalCode),
+      city: text(billingProfile.city),
+      country: text(billingProfile.country),
+      phone: text(billingProfile.phone),
+      email: text(billingProfile.email),
+      siret: text(billingProfile.siret) || null,
+      iban: text(billingProfile.iban),
+      bic: text(billingProfile.bic),
+      dailyRate: Number(billingProfile.dailyRate || 0),
+      workedDaysCount: totalDays,
+      paidLeaveDays: days(leaveDays.paid),
+      sickLeaveDays: days(leaveDays.sick),
+      exceptionalLeaveDays: days(leaveDays.exceptional),
+      unpaidLeaveDays: days(leaveDays.unpaid),
+      periodMonth: periodMonth || new Date().toISOString().slice(0, 7),
+      notes: text(notes) || null,
+      entries: entries
+        .filter(
+          (entry) =>
+            text(entry.workDate) || text(entry.label) || Number(entry.dayQuantity || 0) > 0,
+        )
+        .map((entry) => ({
+          workDate: text(entry.workDate),
+          dayQuantity: Number(entry.dayQuantity || 0),
+          label: text(entry.label) || null,
+        })),
+    }),
+    [billingProfile, entries, leaveDays, notes, periodMonth, totalDays],
+  );
 
-    setPreviewUrl((currentUrl) => {
-      if (currentUrl) {
-        URL.revokeObjectURL(currentUrl);
-      }
-      return nextUrl;
-    });
-
-    return () => {
-      URL.revokeObjectURL(nextUrl);
-    };
-  }, [logoRgbBase64, pdfInput]);
+  const logoValue = logo?.value ?? null;
+  const build = useCallback(() => buildCraPdfBytes(pdfInput, logoValue), [logoValue, pdfInput]);
 
   return (
-    <Card className="border-slate-200 shadow-none xl:sticky xl:top-6">
-      <CardHeader>
-        <CardTitle className="text-base">PDF en direct</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-sm text-[#0A1A2F]/70">
-          Apercu du PDF final genere a partir des donnees saisies.
-        </p>
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-          {previewUrl ? (
-            <iframe
-              title="Apercu PDF CRA"
-              src={previewUrl}
-              className="h-[760px] w-full bg-white"
-            />
-          ) : (
-            <div className="flex h-[760px] items-center justify-center text-sm text-[#0A1A2F]/60">
-              Generation de l&apos;apercu...
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+    <PdfPreviewFrame
+      title="Apercu PDF CRA"
+      build={build}
+      enabled={enabled && logo !== null}
+      disabledLabel={disabledLabel}
+    />
   );
 }
