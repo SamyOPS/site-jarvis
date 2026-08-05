@@ -13,6 +13,7 @@ import { SalarieLeaveRequestEditor, type LeaveRequestPayload } from "@/component
 import { SalarieDocumentsListView } from "@/components/dashboard/salarie/documents-list-view";
 import { SalariePendingRequests } from "@/components/dashboard/salarie/pending-requests";
 import { Button } from "@/components/ui/button";
+import type { CraTimeUnit } from "@/features/dashboard/salarie/types";
 import type {
   CraCalendarCell,
   CraEntryDraft,
@@ -67,6 +68,12 @@ type SalarieDocumentsSectionProps = {
   onCycleCraWorkDate: (workDate: string) => void;
   onFillCraWorkingDays: () => void;
   onClearCraEntries: () => void;
+  craTimeUnit: CraTimeUnit;
+  craHoursPerDay: number;
+  craDraftTotalHours: number;
+  onSetCraEntryHours: (workDate: string, hours: number) => void;
+  onRemoveCraWorkDate: (workDate: string) => void;
+  onApplyCraHoursToAllEntries: (hours: number) => void;
   formatCraEntryDateLabel: (value: string) => string;
   updateCraEntry: (workDate: string, patch: { dayQuantity?: string; label?: string }) => void;
   visibleDocuments: DocumentRow[];
@@ -147,6 +154,12 @@ export function SalarieDocumentsSection({
   onCycleCraWorkDate,
   onFillCraWorkingDays,
   onClearCraEntries,
+  craTimeUnit,
+  craHoursPerDay,
+  craDraftTotalHours,
+  onSetCraEntryHours,
+  onRemoveCraWorkDate,
+  onApplyCraHoursToAllEntries,
   formatCraEntryDateLabel,
   updateCraEntry,
   visibleDocuments,
@@ -511,6 +524,12 @@ export function SalarieDocumentsSection({
             onCycleCraWorkDate={onCycleCraWorkDate}
             onFillCraWorkingDays={onFillCraWorkingDays}
             onClearCraEntries={onClearCraEntries}
+            craTimeUnit={craTimeUnit}
+            craHoursPerDay={craHoursPerDay}
+            craDraftTotalHours={craDraftTotalHours}
+            onSetCraEntryHours={onSetCraEntryHours}
+            onRemoveCraWorkDate={onRemoveCraWorkDate}
+            onApplyCraHoursToAllEntries={onApplyCraHoursToAllEntries}
             formatCraEntryDateLabel={formatCraEntryDateLabel}
             updateCraEntry={updateCraEntry}
           />

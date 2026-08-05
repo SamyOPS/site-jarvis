@@ -80,6 +80,27 @@ export function buildWorkingDatesForMonth(monthValue: string) {
     .filter(isWorkingDate);
 }
 
+/**
+ * Heures d'une entree. `hours` fait foi quand il est renseigne ; sinon on retombe sur
+ * l'equivalent de la quantite de jours. Ce repli couvre les CRA saisis avant
+ * l'introduction du mode horaire, et les entrees creees en mode journee : elles
+ * s'affichent correctement si le consultant bascule en mode horaire.
+ */
+export function craEntryHours(
+  entry: Pick<CraEntryDraft, "hours" | "dayQuantity">,
+  hoursPerDay: number,
+) {
+  const explicitHours = Number(entry.hours);
+  if (Number.isFinite(explicitHours) && explicitHours > 0) {
+    return explicitHours;
+  }
+  return (Number(entry.dayQuantity) || 0) * hoursPerDay;
+}
+
+export function formatCraHours(value: number) {
+  return `${value.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h`;
+}
+
 export function formatCraPeriodLabel(monthValue: string) {
   const parsed = new Date(`${monthValue}-01T00:00:00`);
   if (Number.isNaN(parsed.getTime())) {

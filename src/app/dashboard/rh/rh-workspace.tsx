@@ -1272,6 +1272,8 @@ export default function RhWorkspace({
         {
           workDate,
           dayQuantity: "1",
+          // Le CRA cote RH se saisit en journees : aucune heure declaree.
+          hours: "",
           label: "",
         },
       ]);

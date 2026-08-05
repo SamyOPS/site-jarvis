@@ -19,6 +19,7 @@ import type {
   CraEntryDraft,
   CraLeaveDaysDraft,
   CraSummaryRow,
+  CraTimeUnit,
 } from "@/features/dashboard/salarie/types";
 import { cn } from "@/lib/utils";
 
@@ -121,6 +122,12 @@ type SalarieCraInvoiceEditorProps = {
   onCycleCraWorkDate: (workDate: string) => void;
   onFillCraWorkingDays: () => void;
   onClearCraEntries: () => void;
+  craTimeUnit: CraTimeUnit;
+  craHoursPerDay: number;
+  craDraftTotalHours: number;
+  onSetCraEntryHours: (workDate: string, hours: number) => void;
+  onRemoveCraWorkDate: (workDate: string) => void;
+  onApplyCraHoursToAllEntries: (hours: number) => void;
   formatCraEntryDateLabel: (value: string) => string;
   updateCraEntry: (workDate: string, patch: { dayQuantity?: string; label?: string }) => void;
 };
@@ -157,6 +164,12 @@ export function SalarieCraInvoiceEditor({
   onCycleCraWorkDate,
   onFillCraWorkingDays,
   onClearCraEntries,
+  craTimeUnit,
+  craHoursPerDay,
+  craDraftTotalHours,
+  onSetCraEntryHours,
+  onRemoveCraWorkDate,
+  onApplyCraHoursToAllEntries,
   formatCraEntryDateLabel,
   updateCraEntry,
 }: SalarieCraInvoiceEditorProps) {
@@ -253,6 +266,12 @@ export function SalarieCraInvoiceEditor({
           serviceAmountLabel={
             hasDailyRate ? formatInvoiceAmount(craDraftTotalDays * dailyRate) : null
           }
+          timeUnit={craTimeUnit}
+          hoursPerDay={craHoursPerDay}
+          totalHours={craDraftTotalHours}
+          onSetEntryHours={onSetCraEntryHours}
+          onRemoveWorkDate={onRemoveCraWorkDate}
+          onApplyHoursToAllEntries={onApplyCraHoursToAllEntries}
         />
 
         <TabsContent value="cra" className="space-y-4">

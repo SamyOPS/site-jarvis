@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { sumCraEntryHours } from "@/lib/cra-entries";
 import { buildCraPdfBuffer } from "@/lib/cra-pdf";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { getRhRecipientsForEmployee, notifyRhOfDocument } from "@/lib/email";
@@ -46,7 +47,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: entries, error: entriesError } = await adminClient
       .from("cra_entries")
-      .select("work_date,day_quantity,label")
+      .select("work_date,day_quantity,hours,label")
       .eq("cra_id", craRecord.id)
       .order("work_date", { ascending: true });
 
@@ -100,6 +101,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         bic: craRecord.bic,
         dailyRate: Number(craRecord.daily_rate),
         workedDaysCount: Number(craRecord.worked_days_count),
+        // Somme des heures des entrees : nul pour un CRA saisi en journees, la ligne
+        // d'heures du PDF reste alors absente.
+        workedHoursCount: sumCraEntryHours(entries ?? []),
         paidLeaveDays: Number(craRecord.paid_leave_days ?? 0),
         sickLeaveDays: Number(craRecord.sick_leave_days ?? 0),
         exceptionalLeaveDays: Number(craRecord.exceptional_leave_days ?? 0),

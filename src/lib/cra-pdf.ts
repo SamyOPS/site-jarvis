@@ -21,6 +21,12 @@ type CraPdfInput = {
   bic: string;
   dailyRate: number;
   workedDaysCount: number;
+  /**
+   * Total d'heures declarees. Renseigne uniquement pour les consultants en saisie
+   * horaire : a 0 ou absent, la ligne d'heures n'apparait pas et le PDF est identique
+   * a ce qu'il a toujours ete.
+   */
+  workedHoursCount?: number | null;
   paidLeaveDays?: number;
   sickLeaveDays?: number;
   exceptionalLeaveDays?: number;
@@ -213,7 +219,17 @@ function buildCraPdfContent(input: CraPdfInput, withLogo: boolean) {
   addField("Periode :", periodLabel);
 
   y -= 24;
-  addField("Total de jours travaille :", `${formatDayCount(input.workedDaysCount)} jour(s)`);
+  // En saisie horaire, l'equivalent en jours n'a pas de sens a l'affichage (8 h sur une
+  // base de 7 h donnerait "1,14 jour(s)") : on annonce le volume horaire. La quantite en
+  // jours reste celle que facture la facture, visible dans son propre recapitulatif.
+  if (Number(input.workedHoursCount ?? 0) > 0) {
+    addField(
+      "Total d'heures travaillees :",
+      `${formatDayCount(Number(input.workedHoursCount))} heure(s)`,
+    );
+  } else {
+    addField("Total de jours travaille :", `${formatDayCount(input.workedDaysCount)} jour(s)`);
+  }
   addField("Conge paye :", `${formatDayCount(input.paidLeaveDays ?? 0)} jour(s)`);
   addField("Arret maladie :", `${formatDayCount(input.sickLeaveDays ?? 0)} jour(s)`);
   addField("Conge exceptionnel :", `${formatDayCount(input.exceptionalLeaveDays ?? 0)} jour(s)`);

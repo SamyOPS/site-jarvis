@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight, Minus, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { formatCraPeriodLabel } from "@/features/dashboard/salarie/cra";
+import { craEntryHours, formatCraHours, formatCraPeriodLabel } from "@/features/dashboard/salarie/cra";
 import { getFrenchHolidayName } from "@/features/dashboard/salarie/holidays";
-import type { CraCalendarCell, CraEntryDraft } from "@/features/dashboard/salarie/types";
+import type {
+  CraCalendarCell,
+  CraEntryDraft,
+  CraTimeUnit,
+} from "@/features/dashboard/salarie/types";
 import { cn } from "@/lib/utils";
 
 type WorkDaysCalendarProps = {
@@ -26,6 +30,13 @@ type WorkDaysCalendarProps = {
   formatEntryDateLabel: (value: string) => string;
   /** Montant HT de la prestation, affiche a cote du total de jours quand un TJM est connu. */
   serviceAmountLabel?: string | null;
+  /** "day" (defaut historique) ou "hour". */
+  timeUnit?: CraTimeUnit;
+  hoursPerDay?: number;
+  totalHours?: number;
+  onSetEntryHours?: (workDate: string, hours: number) => void;
+  onRemoveWorkDate?: (workDate: string) => void;
+  onApplyHoursToAllEntries?: (hours: number) => void;
 };
 
 export function WorkDaysCalendar({
@@ -44,9 +55,37 @@ export function WorkDaysCalendar({
   onUpdateEntry,
   formatEntryDateLabel,
   serviceAmountLabel,
+  timeUnit = "day",
+  hoursPerDay = 7,
+  totalHours = 0,
+  onSetEntryHours,
+  onRemoveWorkDate,
+  onApplyHoursToAllEntries,
 }: WorkDaysCalendarProps) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [pendingCommentDate, setPendingCommentDate] = useState("");
+  // Un seul editeur d'heures ouvert a la fois : la grille reste lisible.
+  const [editingDate, setEditingDate] = useState<string | null>(null);
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const isHourly = timeUnit === "hour";
+
+  useEffect(() => {
+    if (!editingDate) return;
+
+    const closeOnOutside = (event: MouseEvent) => {
+      if (!editorRef.current?.contains(event.target as Node)) setEditingDate(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setEditingDate(null);
+    };
+
+    window.addEventListener("mousedown", closeOnOutside);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("mousedown", closeOnOutside);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [editingDate]);
 
   const commentedEntries = entries.filter((entry) => entry.label.trim());
   const commentableEntries = entries.filter((entry) => !entry.label.trim());
@@ -84,16 +123,44 @@ export function WorkDaysCalendar({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-[#0A1A2F]">
-            {totalDays.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} jour
-            {totalDays > 1 ? "s" : ""}
-          </span>
+          {isHourly ? (
+            // Pas d'equivalent en jours ici : il tomberait sur des decimales peu
+            // parlantes. Il reste affiche dans le recapitulatif de la facture, seul
+            // endroit ou il sert.
+            <span className="text-sm font-semibold text-[#0A1A2F]">
+              {formatCraHours(totalHours)}
+            </span>
+          ) : (
+            <span className="text-sm font-semibold text-[#0A1A2F]">
+              {totalDays.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} jour
+              {totalDays > 1 ? "s" : ""}
+            </span>
+          )}
           {serviceAmountLabel ? (
             <span className="text-sm text-[#0A1A2F]/60">· {serviceAmountLabel} HT</span>
           ) : null}
           <Button type="button" variant="outline" size="sm" onClick={onFillWorkingDays}>
             Tous les jours ouvres
           </Button>
+          {isHourly && entries.length && onApplyHoursToAllEntries ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const answer = window.prompt(
+                  "Appliquer combien d'heures a chaque jour coche ?",
+                  String(hoursPerDay),
+                );
+                if (answer === null) return;
+                const parsed = Number(answer.replace(",", "."));
+                if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 24) return;
+                onApplyHoursToAllEntries(parsed);
+              }}
+            >
+              Appliquer a tous
+            </Button>
+          ) : null}
           {entries.length ? (
             <Button
               type="button"
@@ -149,40 +216,132 @@ export function WorkDaysCalendar({
             const holidayName = getFrenchHolidayName(isoDate);
             const isDimmed = isWeekend || Boolean(holidayName);
             const entry = entriesByDate.get(isoDate);
-            const isHalfDay = entry ? Number(entry.dayQuantity) === 0.5 : false;
+            const isHalfDay = !isHourly && entry ? Number(entry.dayQuantity) === 0.5 : false;
+            const entryHours = entry ? craEntryHours(entry, hoursPerDay) : 0;
+            const isEditing = isHourly && editingDate === isoDate;
 
             return (
-              <button
-                key={isoDate}
-                type="button"
-                onClick={() => onCycleWorkDate(isoDate)}
-                title={holidayName ?? (entry ? "Cliquer pour passer en demi-journee" : undefined)}
-                className={cn(
-                  "relative aspect-square rounded-lg border text-sm transition-colors",
-                  entry
-                    ? "border-[#2aa0dd] bg-[#2aa0dd] font-semibold text-white"
-                    : isDimmed
-                      ? "border-transparent bg-slate-100 text-slate-400 hover:bg-slate-200"
-                      : "border-slate-200 bg-white text-[#0A1A2F] hover:border-[#2aa0dd]/40 hover:bg-slate-50",
-                )}
-                aria-pressed={Boolean(entry)}
-              >
-                {dayNumber}
-                {isHalfDay ? (
-                  <span className="absolute bottom-0.5 right-1 text-[10px] font-bold leading-none">
-                    ½
-                  </span>
+              <div key={isoDate} className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Mode horaire : le second clic ouvre l'editeur au lieu d'enchainer
+                    // sur la demi-journee.
+                    if (isHourly && entry) {
+                      setEditingDate((current) => (current === isoDate ? null : isoDate));
+                      return;
+                    }
+                    onCycleWorkDate(isoDate);
+                  }}
+                  title={
+                    holidayName ??
+                    (entry
+                      ? isHourly
+                        ? "Cliquer pour modifier les heures"
+                        : "Cliquer pour passer en demi-journee"
+                      : undefined)
+                  }
+                  className={cn(
+                    "relative aspect-square w-full rounded-lg border transition-colors",
+                    isHourly ? "text-xs" : "text-sm",
+                    entry
+                      ? "border-[#2aa0dd] bg-[#2aa0dd] font-semibold text-white"
+                      : isDimmed
+                        ? "border-transparent bg-slate-100 text-slate-400 hover:bg-slate-200"
+                        : "border-slate-200 bg-white text-[#0A1A2F] hover:border-[#2aa0dd]/40 hover:bg-slate-50",
+                    isEditing ? "ring-2 ring-[#2aa0dd]/40 ring-offset-1" : "",
+                  )}
+                  aria-pressed={Boolean(entry)}
+                >
+                  {isHourly && entry ? (
+                    <span className="flex h-full flex-col items-center justify-center leading-tight">
+                      <span className="text-[10px] font-normal opacity-80">{dayNumber}</span>
+                      <span className="font-semibold">
+                        {entryHours.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}h
+                      </span>
+                    </span>
+                  ) : (
+                    dayNumber
+                  )}
+                  {isHalfDay ? (
+                    <span className="absolute bottom-0.5 right-1 text-[10px] font-bold leading-none">
+                      ½
+                    </span>
+                  ) : null}
+                  {entry?.label.trim() ? (
+                    <span className="absolute left-1 top-1 h-1.5 w-1.5 rounded-full bg-white/90" />
+                  ) : null}
+                </button>
+
+                {isEditing && entry ? (
+                  <div
+                    ref={editorRef}
+                    className="absolute left-1/2 top-full z-30 mt-1 w-44 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+                  >
+                    <p className="mb-1.5 px-1 text-[11px] capitalize text-[#0A1A2F]/60">
+                      {formatEntryDateLabel(isoDate)}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => onSetEntryHours?.(isoDate, entryHours - 0.5)}
+                        disabled={entryHours <= 0.5}
+                        aria-label="Retirer une demi-heure"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </Button>
+                      <input
+                        type="number"
+                        min="0.5"
+                        max="24"
+                        step="0.5"
+                        value={entry.hours || String(entryHours)}
+                        onChange={(event) => {
+                          const parsed = Number(event.target.value);
+                          if (Number.isFinite(parsed) && parsed > 0) {
+                            onSetEntryHours?.(isoDate, parsed);
+                          }
+                        }}
+                        onWheel={(event) => event.currentTarget.blur()}
+                        className="h-8 w-full rounded-md border border-slate-300 px-2 text-center text-sm"
+                        autoFocus
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => onSetEntryHours?.(isoDate, entryHours + 0.5)}
+                        disabled={entryHours >= 24}
+                        aria-label="Ajouter une demi-heure"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onRemoveWorkDate?.(isoDate);
+                        setEditingDate(null);
+                      }}
+                      className="mt-1.5 w-full rounded-md px-2 py-1 text-xs text-red-600 transition hover:bg-red-50"
+                    >
+                      Retirer ce jour
+                    </button>
+                  </div>
                 ) : null}
-                {entry?.label.trim() ? (
-                  <span className="absolute left-1 top-1 h-1.5 w-1.5 rounded-full bg-white/90" />
-                ) : null}
-              </button>
+              </div>
             );
           })}
         </div>
 
         <p className="mt-3 text-xs text-[#0A1A2F]/55">
-          Un clic coche une journee, un second la passe en demi-journee, un troisieme la retire.
+          {isHourly
+            ? `Un clic coche le jour a ${formatCraHours(hoursPerDay)}, un second ouvre la saisie des heures.`
+            : "Un clic coche une journee, un second la passe en demi-journee, un troisieme la retire."}
         </p>
       </div>
 

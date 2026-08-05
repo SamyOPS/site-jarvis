@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import {
   buildCalendarCells,
   buildWorkingDatesForMonth,
+  craEntryHours,
   currentMonthInputValue,
   formatCraEntryDateLabel,
   formatCraPeriodLabel,
@@ -35,6 +36,10 @@ import {
   normalizeDocumentLabel,
 } from "@/features/dashboard/salarie/document-filters";
 import type { SalarieWorkspaceRouteProps } from "@/features/dashboard/salarie/navigation";
+import {
+  DEFAULT_HOURS_PER_DAY,
+  type CraTimeUnit,
+} from "@/features/dashboard/salarie/types";
 import type {
   CraEntryDraft,
   CraLeaveDaysDraft,
@@ -85,6 +90,8 @@ const emptyBillingProfileForm = (): BillingProfileFormState => ({
   iban: "",
   bic: "",
   dailyRate: "",
+  timeUnit: "day",
+  hoursPerDay: String(DEFAULT_HOURS_PER_DAY),
 });
 
 const weekdayLabels = WEEKDAY_LABELS;
@@ -615,6 +622,8 @@ export default function SalarieWorkspace({
           iban: string | null;
           bic: string | null;
           daily_rate: number | null;
+          time_unit: string | null;
+          hours_per_day: number | null;
         }> | null;
       };
 
@@ -648,6 +657,8 @@ export default function SalarieWorkspace({
         iban: payload.profile.iban ?? "",
         bic: payload.profile.bic ?? "",
         dailyRate: String(payload.profile.daily_rate ?? ""),
+        timeUnit: payload.profile.time_unit === "hour" ? "hour" : "day",
+        hoursPerDay: String(payload.profile.hours_per_day ?? DEFAULT_HOURS_PER_DAY),
       });
       setBillingProfileReady(true);
     } finally {
@@ -671,7 +682,12 @@ export default function SalarieWorkspace({
         exceptional_leave_days?: number | null;
         unpaid_leave_days?: number | null;
       };
-      entries?: { work_date: string; day_quantity: number; label: string | null }[];
+      entries?: {
+        work_date: string;
+        day_quantity: number;
+        hours: number | null;
+        label: string | null;
+      }[];
     };
     if (!payload.cra) {
       throw new Error("CRA introuvable.");
@@ -691,6 +707,9 @@ export default function SalarieWorkspace({
         (payload.entries ?? []).map((entry) => ({
           workDate: entry.work_date,
           dayQuantity: String(entry.day_quantity),
+          // Vide pour un CRA saisi en journees : craEntryHours retombe alors sur
+          // l'equivalent de la quantite de jours.
+          hours: entry.hours === null || entry.hours === undefined ? "" : String(entry.hours),
           label: entry.label ?? "",
         })),
       ),
@@ -1056,6 +1075,30 @@ export default function SalarieWorkspace({
     [craCalendarMonth, craEntries],
   );
 
+  // Unite de saisie du CRA, portee par le profil de facturation du consultant. Les
+  // consultants au forfait journalier ne voient aucun changement.
+  const craTimeUnit: CraTimeUnit =
+    billingProfileForm.timeUnit === "hour" ? "hour" : "day";
+  const craHoursPerDay =
+    Number(billingProfileForm.hoursPerDay) > 0
+      ? Number(billingProfileForm.hoursPerDay)
+      : DEFAULT_HOURS_PER_DAY;
+
+  /**
+   * Chaque entree porte a la fois ses heures et sa quantite de jours, maintenues
+   * coherentes a l'ecriture. Basculer d'unite n'exige donc aucune conversion : la
+   * valeur de l'autre unite est deja la.
+   */
+  const buildCraEntry = useCallback(
+    (workDate: string, hours: number, label = ""): CraEntryDraft => ({
+      workDate,
+      hours: String(hours),
+      dayQuantity: String(hours / craHoursPerDay),
+      label,
+    }),
+    [craHoursPerDay],
+  );
+
   const resetCraEditor = useCallback(() => {
     setSelectedCraId(null);
     setCraCalendarMonth(currentMonthInputValue());
@@ -1091,8 +1134,10 @@ export default function SalarieWorkspace({
   );
 
   /**
-   * Un clic fait defiler la quantite du jour : non coche -> 1 jour -> 1/2 journee
-   * -> retire. Remplace le champ numerique par jour de l'ancienne liste.
+   * Mode journee : un clic fait defiler la quantite, non coche -> 1 jour -> 1/2 journee
+   * -> retire.
+   * Mode horaire : un clic coche a la base contractuelle. Le second clic n'enchaine pas
+   * sur la demi-journee, c'est le calendrier qui ouvre son editeur d'heures.
    */
   const cycleCraWorkDate = useCallback(
     (workDate: string) => {
@@ -1104,16 +1149,20 @@ export default function SalarieWorkspace({
           const keptEntries = previousEntries.filter((entry) =>
             entry.workDate.startsWith(`${workDate.slice(0, 7)}-`),
           );
-          return sortCraEntries([...keptEntries, { workDate, dayQuantity: "1", label: "" }]);
+          return sortCraEntries([...keptEntries, buildCraEntry(workDate, craHoursPerDay)]);
         });
         return;
       }
+
+      if (craTimeUnit === "hour") return;
 
       if (Number(existingEntry.dayQuantity) === 1) {
         setCraEntries((previousEntries) =>
           sortCraEntries(
             previousEntries.map((entry) =>
-              entry.workDate === workDate ? { ...entry, dayQuantity: "0.5" } : entry,
+              entry.workDate === workDate
+                ? { ...entry, dayQuantity: "0.5", hours: String(craHoursPerDay / 2) }
+                : entry,
             ),
           ),
         );
@@ -1124,7 +1173,51 @@ export default function SalarieWorkspace({
         previousEntries.filter((entry) => entry.workDate !== workDate),
       );
     },
-    [confirmCraMonthSwitch, craEntries],
+    [buildCraEntry, confirmCraMonthSwitch, craEntries, craHoursPerDay, craTimeUnit],
+  );
+
+  /** Saisie horaire d'un jour deja coche. La quantite de jours suit automatiquement. */
+  const setCraEntryHours = useCallback(
+    (workDate: string, hours: number) => {
+      if (!Number.isFinite(hours) || hours <= 0) return;
+      const cappedHours = Math.min(24, hours);
+      setCraEntries((previousEntries) =>
+        sortCraEntries(
+          previousEntries.map((entry) =>
+            entry.workDate === workDate
+              ? {
+                  ...entry,
+                  hours: String(cappedHours),
+                  dayQuantity: String(cappedHours / craHoursPerDay),
+                }
+              : entry,
+          ),
+        ),
+      );
+    },
+    [craHoursPerDay],
+  );
+
+  const removeCraWorkDate = useCallback((workDate: string) => {
+    setCraEntries((previousEntries) =>
+      previousEntries.filter((entry) => entry.workDate !== workDate),
+    );
+  }, []);
+
+  /** Applique le meme volume horaire a tous les jours deja coches. */
+  const applyCraHoursToAllEntries = useCallback(
+    (hours: number) => {
+      if (!Number.isFinite(hours) || hours <= 0) return;
+      const cappedHours = Math.min(24, hours);
+      setCraEntries((previousEntries) =>
+        previousEntries.map((entry) => ({
+          ...entry,
+          hours: String(cappedHours),
+          dayQuantity: String(cappedHours / craHoursPerDay),
+        })),
+      );
+    },
+    [craHoursPerDay],
   );
 
   const fillCraWorkingDays = useCallback(() => {
@@ -1136,11 +1229,11 @@ export default function SalarieWorkspace({
       return sortCraEntries(
         workingDates.map(
           (workDate) =>
-            previousByDate.get(workDate) ?? { workDate, dayQuantity: "1", label: "" },
+            previousByDate.get(workDate) ?? buildCraEntry(workDate, craHoursPerDay),
         ),
       );
     });
-  }, [confirmCraMonthSwitch, craCalendarMonth]);
+  }, [buildCraEntry, confirmCraMonthSwitch, craCalendarMonth, craHoursPerDay]);
 
   const clearCraEntries = useCallback(() => {
     setCraEntries([]);
@@ -1200,6 +1293,9 @@ export default function SalarieWorkspace({
       entries: craEntries.filter((entry) => entry.workDate.trim()).map((entry) => ({
         workDate: entry.workDate,
         dayQuantity: Number(entry.dayQuantity || 0),
+        // Les heures ne partent qu'en mode horaire : un CRA saisi en journees garde
+        // hours a NULL en base, et c'est ce qui masque la ligne d'heures du PDF.
+        hours: craTimeUnit === "hour" ? craEntryHours(entry, craHoursPerDay) : null,
         label: entry.label,
       })),
     };
@@ -1221,7 +1317,7 @@ export default function SalarieWorkspace({
 
     await loadCraDetail(response.cra.id);
     return response.cra.id;
-  }, [billingProfileReady, callSalarieApi, craEntries, craLeaveDays, craNotes, craPeriodMonth, loadCraDetail, loadCraItems, selectedCraId]);
+  }, [billingProfileReady, callSalarieApi, craEntries, craHoursPerDay, craLeaveDays, craNotes, craPeriodMonth, craTimeUnit, loadCraDetail, loadCraItems, selectedCraId]);
 
   const handleGenerateCraPdf = useCallback(async () => {
     try {
@@ -1459,9 +1555,22 @@ export default function SalarieWorkspace({
     () => new Map(craEntries.map((entry) => [entry.workDate, entry])),
     [craEntries],
   );
+  const craDraftTotalHours = useMemo(
+    () =>
+      craEntries.reduce((total, entry) => total + craEntryHours(entry, craHoursPerDay), 0),
+    [craEntries, craHoursPerDay],
+  );
+  /**
+   * Equivalent en jours. En mode horaire il derive du total d'heures, ce qui laisse la
+   * facture et son apercu corrects sans y toucher : tous deux consomment deja cette
+   * valeur.
+   */
   const craDraftTotalDays = useMemo(
-    () => craEntries.reduce((total, entry) => total + (Number(entry.dayQuantity) || 0), 0),
-    [craEntries],
+    () =>
+      craTimeUnit === "hour"
+        ? craDraftTotalHours / craHoursPerDay
+        : craEntries.reduce((total, entry) => total + (Number(entry.dayQuantity) || 0), 0),
+    [craDraftTotalHours, craEntries, craHoursPerDay, craTimeUnit],
   );
   const craCalendarCells = useMemo(() => buildCalendarCells(craCalendarMonth), [craCalendarMonth]);
   /**
@@ -1668,6 +1777,12 @@ export default function SalarieWorkspace({
               onCycleCraWorkDate={cycleCraWorkDate}
               onFillCraWorkingDays={fillCraWorkingDays}
               onClearCraEntries={clearCraEntries}
+              craTimeUnit={craTimeUnit}
+              craHoursPerDay={craHoursPerDay}
+              craDraftTotalHours={craDraftTotalHours}
+              onSetCraEntryHours={setCraEntryHours}
+              onRemoveCraWorkDate={removeCraWorkDate}
+              onApplyCraHoursToAllEntries={applyCraHoursToAllEntries}
               formatCraEntryDateLabel={formatCraEntryDateLabel}
               updateCraEntry={updateCraEntry}
               visibleDocuments={visibleDocuments}

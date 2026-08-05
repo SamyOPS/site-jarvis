@@ -2,18 +2,13 @@ import { NextResponse } from "next/server";
 
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { getRhRecipientsForEmployee, notifyRhOfDocument } from "@/lib/email";
+import { parseCraEntries, toCraEntryUnit, type CraEntryInput } from "@/lib/cra-entries";
 import { buildInvoicePdfBuffer } from "@/lib/invoice-pdf";
 import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toDocumentDate, toIsoMonthStart } from "@/lib/server-supabase";
 
-type InvoiceEntryInput = {
-  workDate?: unknown;
-  dayQuantity?: unknown;
-  label?: unknown;
-};
-
 type InvoiceGeneratePayload = {
   periodMonth?: unknown;
-  entries?: InvoiceEntryInput[];
+  entries?: CraEntryInput[];
   discountGranted?: unknown;
   vatEnabled?: unknown;
   amountAlreadyPaid?: unknown;
@@ -21,26 +16,6 @@ type InvoiceGeneratePayload = {
   fraisRepas?: unknown;
   fraisNuitee?: unknown;
 };
-
-function parseEntries(entries: InvoiceEntryInput[] | undefined) {
-  return (entries ?? []).map((entry, index) => {
-    const workDate = String(entry.workDate ?? "").trim();
-    const parsedDate = new Date(workDate);
-    const dayQuantity = Number(entry.dayQuantity);
-    if (!workDate || Number.isNaN(parsedDate.getTime())) {
-      throw new Error(`La date de la ligne ${index + 1} est invalide.`);
-    }
-    if (!Number.isFinite(dayQuantity) || dayQuantity <= 0 || dayQuantity > 1) {
-      throw new Error(`La quantite de la ligne ${index + 1} doit etre comprise entre 0 et 1.`);
-    }
-
-    return {
-      workDate: parsedDate.toISOString().slice(0, 10),
-      dayQuantity,
-      label: String(entry.label ?? "").trim() || null,
-    };
-  });
-}
 
 function formatInvoiceNumber(periodMonth: string) {
   return periodMonth.replace(/-/g, "");
@@ -90,10 +65,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "La periode est obligatoire." }, { status: 400 });
     }
 
+    // Le profil est lu AVANT l'analyse des lignes : en saisie horaire c'est lui qui
+    // porte la base d'heures dont day_quantity est derive.
+    const { data: billingProfile, error: billingError } = await adminClient
+      .from("employee_billing_profiles")
+      .select("first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,time_unit,hours_per_day")
+      .eq("employee_id", profile.id)
+      .single();
+
+    if (billingError || !billingProfile) {
+      return NextResponse.json({ error: billingError?.message ?? "Profil de facturation introuvable." }, { status: 400 });
+    }
+
     const periodMonth = toIsoMonthStart(String(body.periodMonth));
-    const entries = parseEntries(body.entries);
-    const workedDaysCount = entries.reduce((total, entry) => total + entry.dayQuantity, 0);
-    const sortedWorkDates = entries.map((entry) => entry.workDate).sort();
+    const entries = parseCraEntries(body.entries, toCraEntryUnit(billingProfile));
+    const workedDaysCount = entries.reduce((total, entry) => total + entry.day_quantity, 0);
+    const sortedWorkDates = entries.map((entry) => entry.work_date).sort();
     const periodStart = sortedWorkDates[0] ?? null;
     const periodEnd = sortedWorkDates[sortedWorkDates.length - 1] ?? null;
     const discountGranted = body.discountGranted === true;
@@ -113,16 +100,6 @@ export async function POST(request: Request) {
 
     if (!entries.length || workedDaysCount <= 0) {
       return NextResponse.json({ error: "Ajoute au moins un jour travaille pour generer la facture." }, { status: 400 });
-    }
-
-    const { data: billingProfile, error: billingError } = await adminClient
-      .from("employee_billing_profiles")
-      .select("first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate")
-      .eq("employee_id", profile.id)
-      .single();
-
-    if (billingError || !billingProfile) {
-      return NextResponse.json({ error: billingError?.message ?? "Profil de facturation introuvable." }, { status: 400 });
     }
 
     const dailyRate = Number(billingProfile.daily_rate ?? 0);

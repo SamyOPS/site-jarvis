@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { CRA_ENTRY_UNIT_COLUMNS, parseCraEntries, toCraEntryUnit, type CraEntryInput } from "@/lib/cra-entries";
 import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toIsoMonthStart } from "@/lib/server-supabase";
-
-type CraEntryInput = {
-  workDate?: unknown;
-  dayQuantity?: unknown;
-  label?: unknown;
-};
 
 type CraCreatePayload = {
   periodMonth?: unknown;
@@ -35,26 +30,6 @@ function parseLeaveDays(payload: CraCreatePayload) {
     exceptional_leave_days: getLeaveDays(payload.exceptionalLeaveDays, "conge exceptionnel"),
     unpaid_leave_days: getLeaveDays(payload.unpaidLeaveDays, "conge sans solde"),
   };
-}
-
-function parseEntries(entries: CraEntryInput[] | undefined) {
-  return (entries ?? []).map((entry, index) => {
-    const workDate = String(entry.workDate ?? "").trim();
-    const parsedDate = new Date(workDate);
-    const dayQuantity = Number(entry.dayQuantity);
-    if (!workDate || Number.isNaN(parsedDate.getTime())) {
-      throw new Error(`La date de la ligne ${index + 1} est invalide.`);
-    }
-    if (!Number.isFinite(dayQuantity) || dayQuantity <= 0 || dayQuantity > 1) {
-      throw new Error(`La quantite de la ligne ${index + 1} doit etre comprise entre 0 et 1.`);
-    }
-
-    return {
-      work_date: parsedDate.toISOString().slice(0, 10),
-      day_quantity: dayQuantity,
-      label: String(entry.label ?? "").trim() || null,
-    };
-  });
 }
 
 function getNotes(value: unknown) {
@@ -110,7 +85,13 @@ export async function POST(request: Request) {
     }
 
     const periodMonth = toIsoMonthStart(String(body.periodMonth));
-    const entries = parseEntries(body.entries);
+    const { data: entryUnitRow } = await adminClient
+      .from("employee_billing_profiles")
+      .select(CRA_ENTRY_UNIT_COLUMNS)
+      .eq("employee_id", profile.id)
+      .maybeSingle();
+    const entryUnit = toCraEntryUnit(entryUnitRow);
+    const entries = parseCraEntries(body.entries, entryUnit);
     const workedDaysCount = entries.reduce((total, entry) => total + entry.day_quantity, 0);
     const leaveDays = parseLeaveDays(body);
 

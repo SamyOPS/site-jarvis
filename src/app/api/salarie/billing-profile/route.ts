@@ -18,6 +18,8 @@ type BillingProfilePayload = {
   iban?: unknown;
   bic?: unknown;
   dailyRate?: unknown;
+  timeUnit?: unknown;
+  hoursPerDay?: unknown;
 };
 
 function getRequiredString(value: unknown, label: string) {
@@ -43,6 +45,24 @@ function getOptionalDailyRate(value: unknown) {
   return parsed;
 }
 
+function getTimeUnit(value: unknown) {
+  const raw = String(value ?? "").trim() || "day";
+  if (raw !== "day" && raw !== "hour") {
+    throw new Error('Le champ "unite de saisie" est invalide.');
+  }
+  return raw;
+}
+
+function getOptionalHoursPerDay(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 24) {
+    throw new Error('Le champ "heures par jour" doit etre compris entre 0 et 24.');
+  }
+  return parsed;
+}
+
 function parseBillingProfilePayload(payload: BillingProfilePayload) {
   return {
     first_name: getRequiredString(payload.firstName, "prenom"),
@@ -60,6 +80,8 @@ function parseBillingProfilePayload(payload: BillingProfilePayload) {
     iban: getOptionalString(payload.iban),
     bic: getOptionalString(payload.bic),
     daily_rate: getOptionalDailyRate(payload.dailyRate),
+    time_unit: getTimeUnit(payload.timeUnit),
+    hours_per_day: getOptionalHoursPerDay(payload.hoursPerDay),
     updated_at: new Date().toISOString(),
   };
 }
@@ -79,7 +101,7 @@ export async function GET(request: Request) {
     const { adminClient, profile } = authorized;
     const { data, error } = await adminClient
       .from("employee_billing_profiles")
-      .select("employee_id,first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,created_at,updated_at")
+      .select("employee_id,first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,time_unit,hours_per_day,created_at,updated_at")
       .eq("employee_id", profile.id)
       .maybeSingle();
 
@@ -118,7 +140,7 @@ export async function PUT(request: Request) {
         employee_id: profile.id,
         ...payload,
       })
-      .select("employee_id,first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,created_at,updated_at")
+      .select("employee_id,first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,time_unit,hours_per_day,created_at,updated_at")
       .single();
 
     if (error || !data) {

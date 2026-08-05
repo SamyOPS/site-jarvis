@@ -77,8 +77,18 @@ export type CraSummaryRow = {
 export type CraEntryDraft = {
   workDate: string;
   dayQuantity: string;
+  /**
+   * Volume horaire du jour. Renseigne uniquement en mode horaire, ou il fait foi :
+   * dayQuantity en est alors derive (hours / hoursPerDay). Vide en mode journee.
+   */
+  hours: string;
   label: string;
 };
+
+/** Unite de saisie du CRA, portee par le profil de facturation du consultant. */
+export type CraTimeUnit = "day" | "hour";
+
+export const DEFAULT_HOURS_PER_DAY = 7;
 
 export type CraLeaveDaysDraft = {
   paid: string;

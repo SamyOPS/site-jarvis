@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { CRA_ENTRY_UNIT_COLUMNS, parseCraEntries, toCraEntryUnit, type CraEntryInput } from "@/lib/cra-entries";
 import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toIsoMonthStart } from "@/lib/server-supabase";
-
-type CraEntryInput = {
-  workDate?: unknown;
-  dayQuantity?: unknown;
-  label?: unknown;
-};
 
 type CraUpdatePayload = {
   periodMonth?: unknown;
@@ -17,26 +12,6 @@ type CraUpdatePayload = {
   exceptionalLeaveDays?: unknown;
   unpaidLeaveDays?: unknown;
 };
-
-function parseEntries(entries: CraEntryInput[] | undefined) {
-  return (entries ?? []).map((entry, index) => {
-    const workDate = String(entry.workDate ?? "").trim();
-    const parsedDate = new Date(workDate);
-    const dayQuantity = Number(entry.dayQuantity);
-    if (!workDate || Number.isNaN(parsedDate.getTime())) {
-      throw new Error(`La date de la ligne ${index + 1} est invalide.`);
-    }
-    if (!Number.isFinite(dayQuantity) || dayQuantity <= 0 || dayQuantity > 1) {
-      throw new Error(`La quantite de la ligne ${index + 1} doit etre comprise entre 0 et 1.`);
-    }
-
-    return {
-      work_date: parsedDate.toISOString().slice(0, 10),
-      day_quantity: dayQuantity,
-      label: String(entry.label ?? "").trim() || null,
-    };
-  });
-}
 
 function getNotes(value: unknown, fallback: string | null) {
   if (value === undefined) return fallback;
@@ -128,7 +103,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Un CRA valide ne peut plus etre modifie." }, { status: 400 });
     }
 
-    const entries = body.entries ? parseEntries(body.entries) : null;
+    const { data: entryUnitRow } = await adminClient
+      .from("employee_billing_profiles")
+      .select(CRA_ENTRY_UNIT_COLUMNS)
+      .eq("employee_id", profile.id)
+      .maybeSingle();
+    const entryUnit = toCraEntryUnit(entryUnitRow);
+    const entries = body.entries ? parseCraEntries(body.entries, entryUnit) : null;
     const nextPeriodMonth = body.periodMonth ? toIsoMonthStart(String(body.periodMonth)) : existingRecord.period_month;
     const workedDaysCount = entries ? entries.reduce((total, entry) => total + entry.day_quantity, 0) : undefined;
 
