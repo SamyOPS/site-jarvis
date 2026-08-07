@@ -26,6 +26,12 @@ import {
   currentMonthInputValue,
   sortCraEntries,
 } from "@/features/dashboard/salarie/cra";
+import { RhBatchUploadDialog } from "@/components/dashboard/rh/batch-upload-dialog";
+import {
+  buildBatchUploadRows,
+  getBatchRowIssue,
+  type BatchUploadRow,
+} from "@/features/dashboard/rh/document-batch";
 import { matchesRhDocumentFilters } from "@/features/dashboard/rh/document-filters";
 import type { RhWorkspaceRouteProps } from "@/features/dashboard/rh/navigation";
 import type { CraEntryDraft } from "@/features/dashboard/salarie/types";
@@ -152,6 +158,10 @@ export default function RhWorkspace({
   const [rhUploadPeriodMonth, setRhUploadPeriodMonth] = useState("");
   const [rhUploadFile, setRhUploadFile] = useState<File | null>(null);
   const [uploadingRhDocument, setUploadingRhDocument] = useState(false);
+  const [rhBatchDialogOpen, setRhBatchDialogOpen] = useState(false);
+  const [rhBatchDefaultTypeId, setRhBatchDefaultTypeId] = useState("");
+  const [rhBatchRows, setRhBatchRows] = useState<BatchUploadRow[]>([]);
+  const [uploadingRhBatch, setUploadingRhBatch] = useState(false);
   const [generateEmployeeId, setGenerateEmployeeId] = useState("");
   const [generateBillingProfileEmployeeId, setGenerateBillingProfileEmployeeId] = useState("");
   const [craPeriodMonth, setCraPeriodMonth] = useState(currentMonthInputValue());
@@ -1243,6 +1253,71 @@ export default function RhWorkspace({
     setRhUploadPeriodMonth("");
     setRhUploadFile(null);
   }, []);
+
+  const resetRhBatchDialog = useCallback(() => {
+    setRhBatchRows([]);
+    setUploadingRhBatch(false);
+  }, []);
+
+  /**
+   * Recalcule les lignes a partir des fichiers choisis. La correspondance se fait cote
+   * client : la liste des salaries avec leur nom complet est deja chargee.
+   */
+  const handleRhBatchFilesSelected = useCallback(
+    (files: File[]) => {
+      setSaveMessage(null);
+      setRhBatchRows(buildBatchUploadRows(files, employees, rhBatchDefaultTypeId));
+    },
+    [employees, rhBatchDefaultTypeId],
+  );
+
+  const handleRhBatchRowChange = useCallback((key: string, patch: Partial<BatchUploadRow>) => {
+    setRhBatchRows((previousRows) =>
+      previousRows.map((row) =>
+        row.key === key
+          ? // Toute modification manuelle efface l'erreur precedente : la ligne redevient
+            // deposable sans avoir a rouvrir le dialogue.
+            { ...row, ...patch, status: row.status === "error" ? "pending" : row.status, error: null }
+          : row,
+      ),
+    );
+  }, []);
+
+  const handleRhBatchRemoveRow = useCallback((key: string) => {
+    setRhBatchRows((previousRows) => previousRows.filter((row) => row.key !== key));
+  }, []);
+
+  /** Un changement de type par defaut se propage aux lignes encore intouchees. */
+  const handleRhBatchDefaultTypeChange = useCallback(
+    (documentTypeId: string) => {
+      setRhBatchDefaultTypeId(documentTypeId);
+      setRhBatchRows((previousRows) =>
+        previousRows.map((row) =>
+          row.status === "pending" && row.documentTypeId === rhBatchDefaultTypeId
+            ? { ...row, documentTypeId }
+            : row,
+        ),
+      );
+    },
+    [rhBatchDefaultTypeId],
+  );
+
+  /** Un document de meme collaborateur, type et periode existe-t-il deja ? */
+  const isRhBatchRowDuplicate = useCallback(
+    (row: BatchUploadRow) => {
+      if (!row.employeeId || !row.documentTypeId) return false;
+      // period_month est une colonne date ("2026-08-01") : on compare sur "YYYY-MM" pour
+      // rester juste meme si le format renvoye gagnait une partie horaire.
+      return documents.some(
+        (document) =>
+          !document.deletedAt &&
+          document.employeeId === row.employeeId &&
+          document.documentTypeId === row.documentTypeId &&
+          (document.periodMonth ?? "").slice(0, 7) === row.periodMonth,
+      );
+    },
+    [documents],
+  );
   const resetCraEditor = useCallback(() => {
     setGenerateEmployeeId(selectedEmployeeId ?? "");
     setGenerateBillingProfileEmployeeId("");
@@ -1475,6 +1550,99 @@ export default function RhWorkspace({
     setSaveMessage("Document RH depose.");
     await refreshDashboardData();
   }, [refreshDashboardData, resetRhUploadDialog, rhUploadDocumentTypeId, rhUploadEmployeeId, rhUploadFile, rhUploadPeriodMonth, selectedRhUploadType?.requiresPeriod, session]);
+  /**
+   * Depose le lot en appelant la route unitaire existante, un appel par fichier.
+   *
+   * Volontairement pas d'endpoint de lot : la route porte deja le controle d'affectation
+   * RH, la restriction de type par salarie, la validation de periode, la notification du
+   * salarie et la cloture de la demande correspondante.
+   */
+  const handleRhBatchUpload = useCallback(async () => {
+    if (!session?.access_token) {
+      setSaveMessage("Session RH manquante.");
+      return;
+    }
+
+    const pendingRows = rhBatchRows.filter(
+      (row) => row.status !== "done" && !getBatchRowIssue(row, documentTypes),
+    );
+    if (!pendingRows.length) return;
+
+    setUploadingRhBatch(true);
+    setSaveMessage(null);
+    setRhBatchRows((previousRows) =>
+      previousRows.map((row) =>
+        pendingRows.some((pending) => pending.key === row.key)
+          ? { ...row, status: "uploading", error: null }
+          : row,
+      ),
+    );
+
+    const uploadRow = async (row: BatchUploadRow) => {
+      const formData = new FormData();
+      formData.set("employeeId", row.employeeId);
+      formData.set("documentTypeId", row.documentTypeId);
+      if (row.periodMonth) formData.set("periodMonth", row.periodMonth);
+      formData.set("file", row.file);
+
+      try {
+        const response = await fetch("/api/rh/documents/upload", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: formData,
+        });
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) {
+          return { key: row.key, error: payload?.error ?? "Depot impossible." };
+        }
+        return { key: row.key, error: null };
+      } catch (error) {
+        return {
+          key: row.key,
+          error: error instanceof Error ? error.message : "Depot impossible.",
+        };
+      }
+    };
+
+    // Concurrence bornee : un lot de 30 fiches de paie ne doit pas ouvrir 30 requetes
+    // simultanees. Chaque ligne est mise a jour des qu'elle aboutit.
+    const CONCURRENCY = 3;
+    const queue = [...pendingRows];
+    let successCount = 0;
+    let failureCount = 0;
+
+    const worker = async () => {
+      for (;;) {
+        const row = queue.shift();
+        if (!row) return;
+        const result = await uploadRow(row);
+        if (result.error) failureCount += 1;
+        else successCount += 1;
+        setRhBatchRows((previousRows) =>
+          previousRows.map((current) =>
+            current.key === result.key
+              ? {
+                  ...current,
+                  status: result.error ? "error" : "done",
+                  error: result.error,
+                }
+              : current,
+          ),
+        );
+      }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker));
+
+    setUploadingRhBatch(false);
+    setSaveMessage(
+      failureCount
+        ? `${successCount} document(s) depose(s), ${failureCount} en echec.`
+        : `${successCount} document(s) depose(s).`,
+    );
+    await refreshDashboardData();
+  }, [documentTypes, refreshDashboardData, rhBatchRows, session]);
+
   const buildRhGeneratePayload = useCallback((kind: "cra" | "facture") => {
     if (!generateEmployeeId || !generateBillingProfileEmployeeId || !craPeriodMonth) {
       setSaveMessage("Choisis un collaborateur, un profil de facturation et une periode.");
@@ -2310,6 +2478,11 @@ export default function RhWorkspace({
                 setSaveMessage(null);
                 setRhUploadDialogOpen(true);
               }}
+              onOpenRhBatchUploadDialog={() => {
+                setSaveMessage(null);
+                resetRhBatchDialog();
+                setRhBatchDialogOpen(true);
+              }}
               onOpenRequestDialog={() => {
                 setSaveMessage(null);
                 openRequestDialog();
@@ -2537,6 +2710,26 @@ export default function RhWorkspace({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <RhBatchUploadDialog
+        open={rhBatchDialogOpen}
+        onOpenChange={(open) => {
+          setRhBatchDialogOpen(open);
+          if (!open) resetRhBatchDialog();
+        }}
+        rows={rhBatchRows}
+        employees={employees}
+        documentTypes={rhUploadableTypes}
+        defaultDocumentTypeId={rhBatchDefaultTypeId}
+        onDefaultDocumentTypeChange={handleRhBatchDefaultTypeChange}
+        onFilesSelected={handleRhBatchFilesSelected}
+        onRowChange={handleRhBatchRowChange}
+        onRemoveRow={handleRhBatchRemoveRow}
+        allowedTypeIdsForEmployee={allowedTypeIdsForEmployee}
+        isDuplicate={isRhBatchRowDuplicate}
+        onSubmit={handleRhBatchUpload}
+        uploading={uploadingRhBatch}
+      />
 
       {loading && <DashboardLoadingOverlay message="Chargement des donnees..." />}
     </div>

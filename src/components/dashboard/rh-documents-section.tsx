@@ -33,6 +33,7 @@ type RhDocumentsSectionProps = {
   onDocumentStatusFilterChange: (value: string) => void;
   onDocumentCreatorFilterChange: (value: string) => void;
   onOpenRhUploadDialog: () => void;
+  onOpenRhBatchUploadDialog: () => void;
   onOpenRequestDialog: () => void;
   generateEmployeeId: string;
   generateBillingProfileEmployeeId: string;
@@ -121,6 +122,7 @@ export function RhDocumentsSection({
   onDocumentStatusFilterChange,
   onDocumentCreatorFilterChange,
   onOpenRhUploadDialog,
+  onOpenRhBatchUploadDialog,
   onOpenRequestDialog,
   generateEmployeeId,
   generateBillingProfileEmployeeId,
@@ -518,6 +520,16 @@ export function RhDocumentsSection({
                           }}
                         >
                           Importer un fichier
+                        </button>
+                        <button
+                          type="button"
+                          className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F] transition hover:bg-slate-50"
+                          onClick={() => {
+                            setDocumentsMenuOpen(false);
+                            onOpenRhBatchUploadDialog();
+                          }}
+                        >
+                          Importer un lot
                         </button>
                         <button
                           type="button"
