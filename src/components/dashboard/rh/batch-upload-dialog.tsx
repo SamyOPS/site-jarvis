@@ -73,7 +73,15 @@ export function RhBatchUploadDialog({
   const doneCount = rows.filter((row) => row.status === "done").length;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      // Fermer en cours de depot laissait les envois se poursuivre alors que les lignes
+      // et leur statut disparaissaient : plus aucun retour sur ce qui a abouti ou echoue.
+      onOpenChange={(next) => {
+        if (uploading && !next) return;
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>Deposer un lot de documents</DialogTitle>
@@ -106,8 +114,16 @@ export function RhBatchUploadDialog({
                 type="file"
                 multiple
                 accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                onChange={(event) => onFilesSelected(Array.from(event.target.files ?? []))}
-                className="block w-full text-xs text-[#0A1A2F]/70 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-medium"
+                // Remplacer le lot pendant un depot ferait atterrir les resultats en vol
+                // sur des lignes qui ne sont plus les memes.
+                disabled={uploading}
+                onChange={(event) => {
+                  onFilesSelected(Array.from(event.target.files ?? []));
+                  // Sans ce reset, reselectionner exactement les memes fichiers ne
+                  // declenche aucun onChange et le dialogue parait inerte.
+                  event.target.value = "";
+                }}
+                className="block w-full text-xs text-[#0A1A2F]/70 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-medium disabled:opacity-50"
               />
             </div>
           </div>
@@ -299,7 +315,12 @@ export function RhBatchUploadDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={uploading}
+          >
             Fermer
           </Button>
           <Button

@@ -1271,17 +1271,34 @@ export default function RhWorkspace({
     [employees, rhBatchDefaultTypeId],
   );
 
-  const handleRhBatchRowChange = useCallback((key: string, patch: Partial<BatchUploadRow>) => {
-    setRhBatchRows((previousRows) =>
-      previousRows.map((row) =>
-        row.key === key
-          ? // Toute modification manuelle efface l'erreur precedente : la ligne redevient
-            // deposable sans avoir a rouvrir le dialogue.
-            { ...row, ...patch, status: row.status === "error" ? "pending" : row.status, error: null }
-          : row,
-      ),
-    );
-  }, []);
+  const handleRhBatchRowChange = useCallback(
+    (key: string, patch: Partial<BatchUploadRow>) => {
+      setRhBatchRows((previousRows) =>
+        previousRows.map((row) => {
+          if (row.key !== key) return row;
+
+          // Toute modification manuelle efface l'erreur precedente : la ligne redevient
+          // deposable sans avoir a rouvrir le dialogue.
+          const nextRow = {
+            ...row,
+            ...patch,
+            status: row.status === "error" ? ("pending" as const) : row.status,
+            error: null,
+          };
+
+          // Le type retenu doit rester autorise pour le collaborateur de la ligne. Sans ce
+          // reset, changer de collaborateur laissait un type absent de la liste : le select
+          // affichait « Choisir » alors que l'ancien type partait quand meme au serveur.
+          const allowed = allowedTypeIdsForEmployee(nextRow.employeeId);
+          if (nextRow.documentTypeId && allowed && !allowed.has(nextRow.documentTypeId)) {
+            return { ...nextRow, documentTypeId: "" };
+          }
+          return nextRow;
+        }),
+      );
+    },
+    [allowedTypeIdsForEmployee],
+  );
 
   const handleRhBatchRemoveRow = useCallback((key: string) => {
     setRhBatchRows((previousRows) => previousRows.filter((row) => row.key !== key));
