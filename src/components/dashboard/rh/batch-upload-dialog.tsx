@@ -136,6 +136,9 @@ export function RhBatchUploadDialog({
                   <tbody className="divide-y divide-slate-100">
                     {rows.map((row) => {
                       const issue = getBatchRowIssue(row, documentTypes);
+                      // Vide hors ambiguite : aucun salarie n'est alors retire de la liste.
+                      const promotedCandidateIds =
+                        row.match.status === "ambiguous" ? row.match.candidateIds : [];
                       const allowed = allowedTypeIdsForEmployee(row.employeeId);
                       const selectableTypes = allowed
                         ? documentTypes.filter((type) => allowed.has(type.id))
@@ -168,13 +171,21 @@ export function RhBatchUploadDialog({
                             >
                               <option value="">
                                 {row.match.status === "ambiguous"
-                                  ? `${row.match.candidateIds.length} correspondances`
-                                  : "Aucune correspondance"}
+                                  ? `${row.match.candidateIds.length} correspondances, a choisir`
+                                  : row.match.status === "unmatched"
+                                    ? "Aucune correspondance"
+                                    : "Choisir un collaborateur"}
                               </option>
-                              {/* Les homonymes detectes sont proposes en tete de liste. */}
-                              {row.match.status === "ambiguous"
+                              {/*
+                                Seuls les homonymes d'une correspondance ambigue sont
+                                remontes en tete. En correspondance unique la liste doit
+                                rester complete : sortir le salarie trouve de la liste
+                                priverait le select de l'option correspondant a sa valeur,
+                                et il afficherait la premiere option a la place.
+                              */}
+                              {promotedCandidateIds.length
                                 ? employees
-                                    .filter((employee) => row.match.candidateIds.includes(employee.id))
+                                    .filter((employee) => promotedCandidateIds.includes(employee.id))
                                     .map((employee) => (
                                       <option key={`c-${employee.id}`} value={employee.id}>
                                         {employeeLabel(employee)}
@@ -182,7 +193,7 @@ export function RhBatchUploadDialog({
                                     ))
                                 : null}
                               {employees
-                                .filter((employee) => !row.match.candidateIds.includes(employee.id))
+                                .filter((employee) => !promotedCandidateIds.includes(employee.id))
                                 .map((employee) => (
                                   <option key={employee.id} value={employee.id}>
                                     {employeeLabel(employee)}
