@@ -224,6 +224,16 @@ export function matchEmployee(
   };
 }
 
+/**
+ * Choix explicite « aucun collaborateur » : le document est alors rattache au RH lui-meme,
+ * comme le faisait le depot unitaire.
+ *
+ * A ne pas confondre avec la chaine vide, qui signifie « pas encore attribue » et doit
+ * rester bloquante. Sans cette distinction, un document dont le nom n'a rien donne partirait
+ * silencieusement dans les documents du RH au lieu d'etre signale a verifier.
+ */
+export const BATCH_NO_EMPLOYEE = "__none__";
+
 export type BatchUploadRowStatus = "pending" | "uploading" | "done" | "error";
 
 export type BatchUploadRow = {
@@ -250,6 +260,13 @@ export function buildBatchUploadRows(
   files: File[],
   employees: EmployeeMatchCandidate[],
   defaultDocumentTypeId: string,
+  /**
+   * Collaborateur impose, quand le depot est ouvert depuis la fiche d'un collaborateur.
+   * Il prend le pas sur la reconnaissance par nom de fichier : sur la fiche de Dupont, le RH
+   * depose les documents de Dupont. La periode reste deduite du nom, et chaque ligne reste
+   * modifiable dans le tableau de revue.
+   */
+  presetEmployeeId?: string,
 ): BatchUploadRow[] {
   batchSequence += 1;
   const batchId = batchSequence;
@@ -261,7 +278,8 @@ export function buildBatchUploadRows(
     return {
       key: `b${batchId}-${index}-${file.name}-${file.size}`,
       file,
-      employeeId: match.status === "matched" ? match.candidateIds[0] : "",
+      employeeId:
+        presetEmployeeId || (match.status === "matched" ? match.candidateIds[0] : ""),
       documentTypeId: defaultDocumentTypeId,
       periodMonth: periodMonth ?? "",
       match,

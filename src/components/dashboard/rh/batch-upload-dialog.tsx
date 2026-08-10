@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  BATCH_NO_EMPLOYEE,
   getBatchRowIssue,
   type BatchRowIssue,
   type BatchUploadRow,
@@ -84,10 +85,11 @@ export function RhBatchUploadDialog({
     >
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
-          <DialogTitle>Deposer un lot de documents</DialogTitle>
+          <DialogTitle>Deposer des documents</DialogTitle>
           <DialogDescription>
-            Le collaborateur et la periode sont deduits du nom du fichier (annee mois nom).
-            Verifie chaque ligne avant de deposer : le collaborateur est notifie par e-mail.
+            Un fichier ou plusieurs, au choix. Le collaborateur et la periode sont deduits du
+            nom du fichier (annee mois nom). Verifie chaque ligne avant de deposer : le
+            collaborateur est notifie par e-mail.
           </DialogDescription>
         </DialogHeader>
 
@@ -191,6 +193,16 @@ export function RhBatchUploadDialog({
                                   : row.match.status === "unmatched"
                                     ? "Aucune correspondance"
                                     : "Choisir un collaborateur"}
+                              </option>
+                              {/*
+                                Reprend la possibilite du depot unitaire : un document sans
+                                destinataire est rattache au RH. Ce choix doit rester
+                                explicite — l'option vide au-dessus continue de bloquer la
+                                ligne, sinon un document non reconnu partirait ici sans que
+                                personne l'ait decide.
+                              */}
+                              <option value={BATCH_NO_EMPLOYEE}>
+                                Aucun collaborateur (document interne)
                               </option>
                               {/*
                                 Seuls les homonymes d'une correspondance ambigue sont

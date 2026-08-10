@@ -28,6 +28,7 @@ import {
 } from "@/features/dashboard/salarie/cra";
 import { RhBatchUploadDialog } from "@/components/dashboard/rh/batch-upload-dialog";
 import {
+  BATCH_NO_EMPLOYEE,
   buildBatchUploadRows,
   getBatchRowIssue,
   type BatchUploadRow,
@@ -152,16 +153,12 @@ export default function RhWorkspace({
   const [collabDocPeriodFilter, setCollabDocPeriodFilter] = useState("all");
   const [collabDocStatusFilter, setCollabDocStatusFilter] = useState("all");
   const [collabDocOwnerFilter, setCollabDocOwnerFilter] = useState("all");
-  const [rhUploadDialogOpen, setRhUploadDialogOpen] = useState(false);
-  const [rhUploadEmployeeId, setRhUploadEmployeeId] = useState("");
-  const [rhUploadDocumentTypeId, setRhUploadDocumentTypeId] = useState("");
-  const [rhUploadPeriodMonth, setRhUploadPeriodMonth] = useState("");
-  const [rhUploadFile, setRhUploadFile] = useState<File | null>(null);
-  const [uploadingRhDocument, setUploadingRhDocument] = useState(false);
   const [rhBatchDialogOpen, setRhBatchDialogOpen] = useState(false);
   const [rhBatchDefaultTypeId, setRhBatchDefaultTypeId] = useState("");
   const [rhBatchRows, setRhBatchRows] = useState<BatchUploadRow[]>([]);
   const [uploadingRhBatch, setUploadingRhBatch] = useState(false);
+  /** Collaborateur impose quand le depot est ouvert depuis la fiche d'un collaborateur. */
+  const [rhBatchPresetEmployeeId, setRhBatchPresetEmployeeId] = useState("");
   const [generateEmployeeId, setGenerateEmployeeId] = useState("");
   const [generateBillingProfileEmployeeId, setGenerateBillingProfileEmployeeId] = useState("");
   const [craPeriodMonth, setCraPeriodMonth] = useState(currentMonthInputValue());
@@ -1191,7 +1188,9 @@ export default function RhWorkspace({
   // null/empty restriction = all types allowed.
   const allowedTypeIdsForEmployee = useCallback(
     (employeeId: string): Set<string> | null => {
-      if (!employeeId) return null;
+      // Un document interne n'appartient a aucun collaborateur : aucune restriction de type
+      // par salarie ne s'y applique.
+      if (!employeeId || employeeId === BATCH_NO_EMPLOYEE) return null;
       const allowed = typeRestrictionsByEmployee[employeeId];
       if (!allowed || allowed.length === 0) return null;
       return new Set(allowed);
@@ -1203,24 +1202,13 @@ export default function RhWorkspace({
     if (!allowed) return salarieUploadableTypes;
     return salarieUploadableTypes.filter((documentType) => allowed.has(documentType.id));
   }, [allowedTypeIdsForEmployee, requestEmployeeId, salarieUploadableTypes]);
-  const rhUploadableTypesForEmployee = useMemo(() => {
-    const allowed = allowedTypeIdsForEmployee(rhUploadEmployeeId);
-    if (!allowed) return rhUploadableTypes;
-    return rhUploadableTypes.filter((documentType) => allowed.has(documentType.id));
-  }, [allowedTypeIdsForEmployee, rhUploadEmployeeId, rhUploadableTypes]);
   const selectedRequestType = useMemo(() => salarieUploadableTypes.find((documentType) => documentType.id === requestDocumentTypeId) ?? null, [requestDocumentTypeId, salarieUploadableTypes]);
-  const selectedRhUploadType = useMemo(() => rhUploadableTypes.find((documentType) => documentType.id === rhUploadDocumentTypeId) ?? null, [rhUploadDocumentTypeId, rhUploadableTypes]);
   // If the chosen employee no longer allows the currently selected type, clear it.
   useEffect(() => {
     if (requestDocumentTypeId && !requestableTypesForEmployee.some((type) => type.id === requestDocumentTypeId)) {
       setRequestDocumentTypeId("");
     }
   }, [requestDocumentTypeId, requestableTypesForEmployee]);
-  useEffect(() => {
-    if (rhUploadDocumentTypeId && !rhUploadableTypesForEmployee.some((type) => type.id === rhUploadDocumentTypeId)) {
-      setRhUploadDocumentTypeId("");
-    }
-  }, [rhUploadDocumentTypeId, rhUploadableTypesForEmployee]);
 
   const handleSignOut = useCallback(async () => {
     if (!supabase) return;
@@ -1247,17 +1235,25 @@ export default function RhWorkspace({
     setRequestDialogOpen(true);
   }, []);
 
-  const resetRhUploadDialog = useCallback(() => {
-    setRhUploadEmployeeId("");
-    setRhUploadDocumentTypeId("");
-    setRhUploadPeriodMonth("");
-    setRhUploadFile(null);
-  }, []);
-
   const resetRhBatchDialog = useCallback(() => {
     setRhBatchRows([]);
     setUploadingRhBatch(false);
+    setRhBatchPresetEmployeeId("");
   }, []);
+
+  /**
+   * Ouvre le depot. `employeeId` impose le collaborateur quand on part de sa fiche ; sinon
+   * l'attribution vient du nom de fichier.
+   */
+  const openRhBatchDialog = useCallback(
+    (employeeId?: string) => {
+      setSaveMessage(null);
+      resetRhBatchDialog();
+      setRhBatchPresetEmployeeId(employeeId ?? "");
+      setRhBatchDialogOpen(true);
+    },
+    [resetRhBatchDialog],
+  );
 
   /**
    * Recalcule les lignes a partir des fichiers choisis. La correspondance se fait cote
@@ -1266,9 +1262,11 @@ export default function RhWorkspace({
   const handleRhBatchFilesSelected = useCallback(
     (files: File[]) => {
       setSaveMessage(null);
-      setRhBatchRows(buildBatchUploadRows(files, employees, rhBatchDefaultTypeId));
+      setRhBatchRows(
+        buildBatchUploadRows(files, employees, rhBatchDefaultTypeId, rhBatchPresetEmployeeId),
+      );
     },
-    [employees, rhBatchDefaultTypeId],
+    [employees, rhBatchDefaultTypeId, rhBatchPresetEmployeeId],
   );
 
   const handleRhBatchRowChange = useCallback(
@@ -1322,7 +1320,9 @@ export default function RhWorkspace({
   /** Un document de meme collaborateur, type et periode existe-t-il deja ? */
   const isRhBatchRowDuplicate = useCallback(
     (row: BatchUploadRow) => {
-      if (!row.employeeId || !row.documentTypeId) return false;
+      if (!row.employeeId || row.employeeId === BATCH_NO_EMPLOYEE || !row.documentTypeId) {
+        return false;
+      }
       // period_month est une colonne date ("2026-08-01") : on compare sur "YYYY-MM" pour
       // rester juste meme si le format renvoye gagnait une partie horaire.
       return documents.some(
@@ -1519,54 +1519,6 @@ export default function RhWorkspace({
     await refreshDashboardData();
   }, [refreshDashboardData]);
 
-  const handleRhUpload = useCallback(async () => {
-    if (!session?.access_token) {
-      setSaveMessage("Session RH manquante.");
-      return;
-    }
-    if (!rhUploadDocumentTypeId || !rhUploadFile) {
-      setSaveMessage("Choisis un type de document et un fichier.");
-      return;
-    }
-    if (selectedRhUploadType?.requiresPeriod && !rhUploadPeriodMonth) {
-      setSaveMessage("Ce type de document demande une periode.");
-      return;
-    }
-
-    setUploadingRhDocument(true);
-    setSaveMessage(null);
-
-    const formData = new FormData();
-    if (rhUploadEmployeeId) {
-      formData.set("employeeId", rhUploadEmployeeId);
-    }
-    formData.set("documentTypeId", rhUploadDocumentTypeId);
-    if (rhUploadPeriodMonth) {
-      formData.set("periodMonth", rhUploadPeriodMonth);
-    }
-    formData.set("file", rhUploadFile);
-
-    const response = await fetch("/api/rh/documents/upload", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: formData,
-    });
-
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    if (!response.ok) {
-      setSaveMessage(payload?.error ?? "Depot RH impossible.");
-      setUploadingRhDocument(false);
-      return;
-    }
-
-    setUploadingRhDocument(false);
-    setRhUploadDialogOpen(false);
-    resetRhUploadDialog();
-    setSaveMessage("Document RH depose.");
-    await refreshDashboardData();
-  }, [refreshDashboardData, resetRhUploadDialog, rhUploadDocumentTypeId, rhUploadEmployeeId, rhUploadFile, rhUploadPeriodMonth, selectedRhUploadType?.requiresPeriod, session]);
   /**
    * Depose le lot en appelant la route unitaire existante, un appel par fichier.
    *
@@ -1597,7 +1549,11 @@ export default function RhWorkspace({
 
     const uploadRow = async (row: BatchUploadRow) => {
       const formData = new FormData();
-      formData.set("employeeId", row.employeeId);
+      // Champ omis pour un document interne : la route rattache alors le document au RH,
+      // exactement comme le faisait le depot unitaire sans collaborateur.
+      if (row.employeeId !== BATCH_NO_EMPLOYEE) {
+        formData.set("employeeId", row.employeeId);
+      }
       formData.set("documentTypeId", row.documentTypeId);
       if (row.periodMonth) formData.set("periodMonth", row.periodMonth);
       formData.set("file", row.file);
@@ -2359,14 +2315,11 @@ export default function RhWorkspace({
 		                                  type="button"
 		                                  className="w-full rounded-md px-3 py-2 text-left text-sm text-[#0A1A2F] hover:bg-slate-50"
 		                                  onClick={() => {
-		                                    resetRhUploadDialog();
-		                                    setRhUploadEmployeeId(selectedEmployee.id);
-		                                    setSaveMessage(null);
-		                                    setRhUploadDialogOpen(true);
+		                                    openRhBatchDialog(selectedEmployee.id);
 		                                    setCollabDocumentsMenuOpen(false);
 		                                  }}
 		                                >
-		                                  Importer un fichier
+		                                  Importer des documents
 		                                </button>
 		                              </div>
 		                            ) : null}
@@ -2491,15 +2444,7 @@ export default function RhWorkspace({
               onDocumentPeriodFilterChange={setDocumentPeriodFilter}
               onDocumentStatusFilterChange={setDocumentStatusFilter}
               onDocumentCreatorFilterChange={setDocumentCreatorFilter}
-              onOpenRhUploadDialog={() => {
-                setSaveMessage(null);
-                setRhUploadDialogOpen(true);
-              }}
-              onOpenRhBatchUploadDialog={() => {
-                setSaveMessage(null);
-                resetRhBatchDialog();
-                setRhBatchDialogOpen(true);
-              }}
+              onOpenRhUploadDialog={() => openRhBatchDialog()}
               onOpenRequestDialog={() => {
                 setSaveMessage(null);
                 openRequestDialog();
@@ -2661,68 +2606,6 @@ export default function RhWorkspace({
             </Button>
             <Button type="button" onClick={() => void handleCreateRequest()} disabled={creatingRequest}>
               {creatingRequest ? "Creation..." : "Creer la demande"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={rhUploadDialogOpen}
-        onOpenChange={(open) => {
-          setRhUploadDialogOpen(open);
-          if (!open) resetRhUploadDialog();
-        }}
-      >
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Deposer un document RH</DialogTitle>
-            <DialogDescription>
-              Le document sera enregistre comme depose par le RH et le collaborateur est optionnel.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Collaborateur (optionnel)</label>
-                <select value={rhUploadEmployeeId} onChange={(event) => setRhUploadEmployeeId(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm">
-                  <option value="">Aucun collaborateur</option>
-                  {employees.map((employee) => (
-                    <option key={employee.id} value={employee.id}>{employee.full_name ?? employee.email}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Type de document</label>
-                <select value={rhUploadDocumentTypeId} onChange={(event) => setRhUploadDocumentTypeId(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm">
-                  <option value="">Choisir un type</option>
-                  {rhUploadableTypesForEmployee.map((documentType) => (
-                    <option key={documentType.id} value={documentType.id}>{documentType.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">
-                  Periode {selectedRhUploadType?.requiresPeriod ? "(obligatoire)" : "(optionnelle)"}
-                </label>
-                <input type="month" value={rhUploadPeriodMonth} onChange={(event) => setRhUploadPeriodMonth(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Fichier</label>
-                <input type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onChange={(event) => setRhUploadFile(event.target.files?.[0] ?? null)} className="block w-full text-xs text-[#0A1A2F]/70 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-medium" />
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => { setRhUploadDialogOpen(false); resetRhUploadDialog(); }}>
-              Annuler
-            </Button>
-            <Button type="button" onClick={() => void handleRhUpload()} disabled={uploadingRhDocument}>
-              {uploadingRhDocument ? "Depot..." : "Deposer le document RH"}
             </Button>
           </DialogFooter>
         </DialogContent>
