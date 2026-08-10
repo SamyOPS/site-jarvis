@@ -42,6 +42,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [profileStatus, setProfileStatus] = useState<Status>({ type: "idle" });
   const [profileUpdatingId, setProfileUpdatingId] = useState<string | null>(null);
+  const [roleUpdatingId, setRoleUpdatingId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [userDeleteStatus, setUserDeleteStatus] = useState<Status>({ type: "idle" });
   const [offerSaving, setOfferSaving] = useState(false);
@@ -144,6 +145,17 @@ export default function DashboardPage() {
     }
     const next = Object.fromEntries((payload?.items ?? []).map((item) => [item.userId, item]));
     setActivityByUserId(next);
+  }, []);
+
+  // Le jeton capture au montage expire au bout d'une heure alors que la page, elle, reste
+  // ouverte et affichee : la liste des comptes continue de s'afficher pendant que chaque
+  // action admin part avec un JWT perime et retombe en 401. On redemande donc le jeton au
+  // moment de l'appel — supabase le rafraichit de lui-meme s'il a expire.
+  const getFreshAccessToken = useCallback(async () => {
+    if (!supabase) return null;
+    const { session: currentSession } = await safeGetClientSession(supabase);
+    setSession(currentSession);
+    return currentSession?.access_token ?? null;
   }, []);
 
   useEffect(() => {
@@ -313,11 +325,75 @@ export default function DashboardPage() {
     setProfileUpdatingId(null);
   };
 
-  const handleDeleteUser = async (targetProfile: ProfileRow) => {
-    if (!session?.access_token) {
-      setUserDeleteStatus({ type: "error", message: "Session admin manquante." });
+  const handleRoleChange = async (targetProfile: ProfileRow, nextRole: string) => {
+    if (nextRole === (targetProfile.role ?? "")) return;
+
+    // Accorder les droits d'administration depuis une liste merite une confirmation
+    // explicite : c'est le seul changement de cette page qui ouvre tout le back-office.
+    if (nextRole === "admin") {
+      const confirmed = window.confirm(
+        `Donner les droits administrateur a ${targetProfile.email} ? Ce compte aura acces a la gestion de tous les utilisateurs.`,
+      );
+      if (!confirmed) return;
+    }
+
+    setRoleUpdatingId(targetProfile.id);
+    setProfileStatus({ type: "idle" });
+
+    const accessToken = await getFreshAccessToken();
+    if (!accessToken) {
+      setProfileStatus({
+        type: "error",
+        message: "Session admin expiree. Reconnecte-toi pour changer un type de compte.",
+      });
+      setRoleUpdatingId(null);
       return;
     }
+
+    const response = await fetch(
+      `/api/admin/users/${encodeURIComponent(targetProfile.id)}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ role: nextRole }),
+      },
+    );
+    const payload = (await response.json().catch(() => null)) as
+      | { error?: string; profile?: ProfileRow }
+      | null;
+
+    if (!response.ok) {
+      setProfileStatus({
+        type: "error",
+        // Le code HTTP est conserve : sans lui, un echec sans corps JSON exploitable
+        // ne laisse aucune prise pour diagnostiquer.
+        message:
+          payload?.error ?? `Changement de type de compte impossible (HTTP ${response.status}).`,
+      });
+      setRoleUpdatingId(null);
+      return;
+    }
+
+    setAllProfiles((previous) =>
+      previous.map((profile) =>
+        profile.id === targetProfile.id ? { ...profile, role: nextRole } : profile,
+      ),
+    );
+    setProfileStatus({
+      type: "success",
+      message: `${targetProfile.email} est maintenant ${nextRole}.`,
+    });
+    setRoleUpdatingId(null);
+
+    // Les listes RH / salaries de la carte Affectations viennent d'une autre requete :
+    // sans ce rechargement, le compte resterait dans son ancienne colonne.
+    await loadRhCollaboratorAssignments(accessToken);
+  };
+
+  const handleDeleteUser = async (targetProfile: ProfileRow) => {
     if (targetProfile.id === user?.id) {
       setUserDeleteStatus({
         type: "error",
@@ -332,12 +408,23 @@ export default function DashboardPage() {
 
     setDeletingUserId(targetProfile.id);
     setUserDeleteStatus({ type: "idle" });
+
+    const accessToken = await getFreshAccessToken();
+    if (!accessToken) {
+      setUserDeleteStatus({
+        type: "error",
+        message: "Session admin expiree. Reconnecte-toi pour supprimer un compte.",
+      });
+      setDeletingUserId(null);
+      return;
+    }
+
     const response = await fetch(
       `/api/admin/users/${encodeURIComponent(targetProfile.id)}`,
       {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       }
     );
@@ -345,7 +432,7 @@ export default function DashboardPage() {
     if (!response.ok) {
       setUserDeleteStatus({
         type: "error",
-        message: payload?.error ?? "Suppression du compte impossible.",
+        message: payload?.error ?? `Suppression du compte impossible (HTTP ${response.status}).`,
       });
       setDeletingUserId(null);
       return;
@@ -412,13 +499,24 @@ export default function DashboardPage() {
   };
 
   const handleSaveAssignments = async () => {
-    if (!session?.access_token || !selectedRhId) return;
+    if (!selectedRhId) return;
     setAssignmentSaving(true);
     setAssignmentStatus({ type: "idle" });
+
+    const accessToken = await getFreshAccessToken();
+    if (!accessToken) {
+      setAssignmentStatus({
+        type: "error",
+        message: "Session admin expiree. Reconnecte-toi pour enregistrer les affectations.",
+      });
+      setAssignmentSaving(false);
+      return;
+    }
+
     const response = await fetch("/api/admin/rh-collaborators", {
       method: "PUT",
       headers: {
-        Authorization: `Bearer ${session.access_token}`,
+        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -431,7 +529,8 @@ export default function DashboardPage() {
     if (!response.ok) {
       setAssignmentStatus({
         type: "error",
-        message: payload?.error ?? "Enregistrement des affectations impossible.",
+        message:
+          payload?.error ?? `Enregistrement des affectations impossible (HTTP ${response.status}).`,
       });
       setAssignmentSaving(false);
       return;
@@ -700,9 +799,11 @@ export default function DashboardPage() {
           profileStatus={profileStatus}
           userDeleteStatus={userDeleteStatus}
           profileUpdatingId={profileUpdatingId}
+          roleUpdatingId={roleUpdatingId}
           deletingUserId={deletingUserId}
           currentUserId={user?.id}
           onProfessionalStatusChange={handleProfessionalStatusChange}
+          onRoleChange={handleRoleChange}
           onDeleteUser={handleDeleteUser}
         />
 
@@ -722,8 +823,17 @@ export default function DashboardPage() {
           onToggleAssignedEmployee={toggleAssignedEmployee}
           onToggleEmployeeDocumentType={toggleEmployeeDocumentType}
           onReload={() => {
-            if (!session?.access_token) return;
-            void loadRhCollaboratorAssignments(session.access_token);
+            void (async () => {
+              const accessToken = await getFreshAccessToken();
+              if (!accessToken) {
+                setAssignmentStatus({
+                  type: "error",
+                  message: "Session admin expiree. Reconnecte-toi.",
+                });
+                return;
+              }
+              await loadRhCollaboratorAssignments(accessToken);
+            })();
           }}
           onSave={handleSaveAssignments}
         />
