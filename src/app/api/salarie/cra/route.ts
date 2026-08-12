@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { CRA_ENTRY_UNIT_COLUMNS, parseCraEntries, toCraEntryUnit, type CraEntryInput } from "@/lib/cra-entries";
+import { sumAbsenceDays } from "@/lib/cra-entries";
 import { loadEmployeeMissions, syncCraMissionLines } from "@/lib/missions";
 import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toIsoMonthStart } from "@/lib/server-supabase";
 
@@ -111,10 +112,15 @@ export async function POST(request: Request) {
     }
 
     const entries = parseCraEntries(body.entries, missionUnits, fallbackUnit);
-    // Ne totalise que les lignes saisies en journees : une mission facturee a l'heure ne
-    // se convertit plus en jours, ses heures sont comptees a part sur sa propre ligne.
-    const workedDaysCount = entries.reduce((total, entry) => total + (entry.day_quantity ?? 0), 0);
-    const leaveDays = parseLeaveDays(body);
+    // Ne totalise que les journees TRAVAILLEES : une mission facturee a l'heure ne se
+    // convertit plus en jours, et les absences ont leurs propres compteurs.
+    const workedDaysCount = entries.reduce(
+      (total, entry) => total + (entry.absence_type ? 0 : (entry.day_quantity ?? 0)),
+      0,
+    );
+    // Les compteurs d'absence sont deduits des jours pointes sur le calendrier, plus
+    // saisis a la main : ils ne peuvent donc plus diverger du detail.
+    const leaveDays = sumAbsenceDays(entries);
 
     const { data: existingRecord, error: existingError } = await adminClient
       .from("cra_records")

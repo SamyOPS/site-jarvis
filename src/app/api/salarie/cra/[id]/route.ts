@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { CRA_ENTRY_UNIT_COLUMNS, parseCraEntries, toCraEntryUnit, type CraEntryInput } from "@/lib/cra-entries";
+import { CRA_ENTRY_UNIT_COLUMNS, parseCraEntries, sumAbsenceDays, toCraEntryUnit, type CraEntryInput } from "@/lib/cra-entries";
 import { loadEmployeeMissions, syncCraMissionLines } from "@/lib/missions";
 import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toIsoMonthStart } from "@/lib/server-supabase";
 
@@ -133,10 +133,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       ? parseCraEntries(body.entries, missionUnits, fallbackUnit)
       : null;
     const nextPeriodMonth = body.periodMonth ? toIsoMonthStart(String(body.periodMonth)) : existingRecord.period_month;
-    // Ne totalise que les lignes saisies en journees : les heures ne se convertissent plus.
+    // Ne totalise que les journees TRAVAILLEES : les heures ne se convertissent plus, et
+    // les absences ont leurs propres compteurs.
     const workedDaysCount = entries
-      ? entries.reduce((total, entry) => total + (entry.day_quantity ?? 0), 0)
+      ? entries.reduce(
+          (total, entry) => total + (entry.absence_type ? 0 : (entry.day_quantity ?? 0)),
+          0,
+        )
       : undefined;
+    // Deduits des jours pointes sur le calendrier des que les lignes sont fournies.
+    const leaveDays = entries ? sumAbsenceDays(entries) : null;
 
     const { data: updatedRecord, error: updateError } = await adminClient
       .from("cra_records")
@@ -144,10 +150,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         period_month: nextPeriodMonth,
         notes: getNotes(body.notes, existingRecord.notes),
         worked_days_count: workedDaysCount,
-        paid_leave_days: getLeaveDays(body.paidLeaveDays, Number(existingRecord.paid_leave_days ?? 0), "conge paye"),
-        sick_leave_days: getLeaveDays(body.sickLeaveDays, Number(existingRecord.sick_leave_days ?? 0), "arret maladie"),
-        exceptional_leave_days: getLeaveDays(body.exceptionalLeaveDays, Number(existingRecord.exceptional_leave_days ?? 0), "conge exceptionnel"),
-        unpaid_leave_days: getLeaveDays(body.unpaidLeaveDays, Number(existingRecord.unpaid_leave_days ?? 0), "conge sans solde"),
+        paid_leave_days: leaveDays?.paid_leave_days ?? Number(existingRecord.paid_leave_days ?? 0),
+        sick_leave_days: leaveDays?.sick_leave_days ?? Number(existingRecord.sick_leave_days ?? 0),
+        exceptional_leave_days:
+          leaveDays?.exceptional_leave_days ?? Number(existingRecord.exceptional_leave_days ?? 0),
+        unpaid_leave_days:
+          leaveDays?.unpaid_leave_days ?? Number(existingRecord.unpaid_leave_days ?? 0),
         status: "draft",
         updated_at: new Date().toISOString(),
       })

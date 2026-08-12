@@ -18,7 +18,6 @@ import type { CraTimeUnit } from "@/features/dashboard/salarie/types";
 import type {
   CraCalendarCell,
   CraEntryDraft,
-  CraLeaveDaysDraft,
   CraSummaryRow,
   DocumentFolderRow,
   SalarieDocumentRow as DocumentRow,
@@ -54,8 +53,6 @@ type SalarieDocumentsSectionProps = {
   craDraftTotalDays: number;
   craNotes: string;
   onCraNotesChange: (value: string) => void;
-  craLeaveDays: CraLeaveDaysDraft;
-  onCraLeaveDaysChange: (value: CraLeaveDaysDraft) => void;
   leaveGenerating: boolean;
   onGenerateLeavePdf: (payload: LeaveRequestPayload) => void | Promise<void>;
   invoice: SalarieInvoiceSettings;
@@ -76,6 +73,9 @@ type SalarieDocumentsSectionProps = {
   activeMissionId: string;
   onSelectMission: (missionId: string) => void;
   craInvoiceLines: InvoiceLineInput[];
+  activeAbsenceType: string;
+  onSelectAbsence: (absenceType: string) => void;
+  craAbsenceTotals: Map<string, number>;
   onApplyCraHoursToAllEntries: (hours: number) => void;
   formatCraEntryDateLabel: (value: string) => string;
   updateCraEntry: (workDate: string, patch: { dayQuantity?: string; label?: string }) => void;
@@ -142,8 +142,6 @@ export function SalarieDocumentsSection({
   craDraftTotalDays,
   craNotes,
   onCraNotesChange,
-  craLeaveDays,
-  onCraLeaveDaysChange,
   leaveGenerating,
   onGenerateLeavePdf,
   invoice,
@@ -164,6 +162,9 @@ export function SalarieDocumentsSection({
   activeMissionId,
   onSelectMission,
   craInvoiceLines,
+  activeAbsenceType,
+  onSelectAbsence,
+  craAbsenceTotals,
   onApplyCraHoursToAllEntries,
   formatCraEntryDateLabel,
   updateCraEntry,
@@ -516,8 +517,6 @@ export function SalarieDocumentsSection({
             craDraftTotalDays={craDraftTotalDays}
             craNotes={craNotes}
             onCraNotesChange={onCraNotesChange}
-            craLeaveDays={craLeaveDays}
-            onCraLeaveDaysChange={onCraLeaveDaysChange}
             invoice={invoice}
             onInvoiceChange={onInvoiceChange}
             weekdayLabels={weekdayLabels}
@@ -536,6 +535,9 @@ export function SalarieDocumentsSection({
             activeMissionId={activeMissionId}
             onSelectMission={onSelectMission}
             craInvoiceLines={craInvoiceLines}
+            activeAbsenceType={activeAbsenceType}
+            onSelectAbsence={onSelectAbsence}
+            craAbsenceTotals={craAbsenceTotals}
             onApplyCraHoursToAllEntries={onApplyCraHoursToAllEntries}
             formatCraEntryDateLabel={formatCraEntryDateLabel}
             updateCraEntry={updateCraEntry}

@@ -42,7 +42,6 @@ import type { SalarieWorkspaceRouteProps } from "@/features/dashboard/salarie/na
 import type { CraTimeUnit } from "@/features/dashboard/salarie/types";
 import type {
   CraEntryDraft,
-  CraLeaveDaysDraft,
   CraSummaryRow,
   DocumentFolderRow,
   SalarieDocumentRow as DocumentRow,
@@ -51,15 +50,10 @@ import type {
   SalarieRequestRow as RequestRow,
   SalarieRequestStatus as RequestStatus,
 } from "@/features/dashboard/salarie/types";
-import { emptyCraLeaveDays } from "@/features/dashboard/salarie/types";
 import { formatDate, formatDocumentStatus, formatMonth, normalizeJoinOne, type DocumentStatus } from "@/lib/dashboard-formatters";
 import { browserSupabase as supabase } from "@/lib/supabase-browser";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
 
-const leaveDaysToInput = (value: number | null | undefined) => {
-  const parsed = Number(value ?? 0);
-  return Number.isFinite(parsed) && parsed > 0 ? String(parsed) : "";
-};
 
 const emptyInvoiceSettings = (): SalarieInvoiceSettings => ({
   discountGranted: false,
@@ -172,7 +166,6 @@ export default function SalarieWorkspace({
   const [craCalendarMonth, setCraCalendarMonth] = useState(currentMonthInputValue);
   const [craNotes, setCraNotes] = useState("");
   const [craEntries, setCraEntries] = useState<CraEntryDraft[]>([]);
-  const [craLeaveDays, setCraLeaveDays] = useState<CraLeaveDaysDraft>(emptyCraLeaveDays);
   const [invoiceSettings, setInvoiceSettings] = useState<SalarieInvoiceSettings>(
     emptyInvoiceSettings,
   );
@@ -678,7 +671,8 @@ export default function SalarieWorkspace({
       entries?: {
         work_date: string;
         mission_id: string | null;
-        day_quantity: number;
+        absence_type: string | null;
+        day_quantity: number | null;
         hours: number | null;
         label: string | null;
       }[];
@@ -690,12 +684,8 @@ export default function SalarieWorkspace({
     setSelectedCraId(payload.cra.id);
     setCraCalendarMonth(payload.cra.period_month.slice(0, 7));
     setCraNotes(payload.cra.notes ?? "");
-    setCraLeaveDays({
-      paid: leaveDaysToInput(payload.cra.paid_leave_days),
-      sick: leaveDaysToInput(payload.cra.sick_leave_days),
-      exceptional: leaveDaysToInput(payload.cra.exceptional_leave_days),
-      unpaid: leaveDaysToInput(payload.cra.unpaid_leave_days),
-    });
+    // Les compteurs d'absence de `cra_records` ne sont plus rechargés : ils se déduisent
+    // des lignes d'absence du calendrier, qui arrivent avec les entrées.
     setCraEntries(
       sortCraEntries(
         (payload.entries ?? []).map((entry) => ({
@@ -703,7 +693,10 @@ export default function SalarieWorkspace({
           // Vide pour un CRA anterieur au multi-entreprises : la ligne retombe alors sur
           // l'unite du profil de facturation.
           missionId: entry.mission_id ?? "",
-          dayQuantity: String(entry.day_quantity),
+          absenceType: entry.absence_type ?? "",
+          dayQuantity: entry.day_quantity === null || entry.day_quantity === undefined
+            ? ""
+            : String(entry.day_quantity),
           // Vide pour un CRA saisi en journees : craEntryHours retombe alors sur
           // l'equivalent de la quantite de jours.
           hours: entry.hours === null || entry.hours === undefined ? "" : String(entry.hours),
@@ -1068,6 +1061,25 @@ export default function SalarieWorkspace({
 
   /** Mission sur laquelle porte le prochain clic dans le calendrier. */
   const [activeMissionId, setActiveMissionId] = useState<string>("");
+  /**
+   * Type d'absence actif. Non vide, les clics pointent une absence au lieu d'une journee
+   * travaillee — c'est le meme calendrier, on change seulement ce qu'on pose dessus.
+   */
+  const [activeAbsenceType, setActiveAbsenceType] = useState<string>("");
+
+  /**
+   * Travail et absence sont deux modes exclusifs : choisir une entreprise quitte
+   * forcement le mode absence. Sans cela, la puce de l'entreprise s'allumait mais les
+   * clics continuaient de poser des conges.
+   */
+  const selectMission = useCallback((missionId: string) => {
+    setActiveAbsenceType("");
+    setActiveMissionId(missionId);
+  }, []);
+
+  const selectAbsence = useCallback((absenceType: string) => {
+    setActiveAbsenceType(absenceType);
+  }, []);
 
   // La mission active suit la liste : premiere mission par defaut, et on ne reste jamais
   // sur une mission qui vient d'etre archivee.
@@ -1106,12 +1118,26 @@ export default function SalarieWorkspace({
       return {
         workDate,
         missionId,
+        absenceType: "",
         hours: isHourly ? String(quantity) : "",
         dayQuantity: isHourly ? "" : String(quantity),
         label,
       };
     },
     [missionUnitOf],
+  );
+
+  /** Une absence se compte toujours en journees, jamais en heures. */
+  const buildAbsenceEntry = useCallback(
+    (workDate: string, dayQuantity: number, absenceType: string, label = ""): CraEntryDraft => ({
+      workDate,
+      missionId: "",
+      absenceType,
+      hours: "",
+      dayQuantity: String(dayQuantity),
+      label,
+    }),
+    [],
   );
 
   /**
@@ -1137,7 +1163,6 @@ export default function SalarieWorkspace({
     setCraCalendarMonth(currentMonthInputValue());
     setCraNotes("");
     setCraEntries([]);
-    setCraLeaveDays(emptyCraLeaveDays());
     setInvoiceSettings(emptyInvoiceSettings());
   }, []);
 
@@ -1174,6 +1199,58 @@ export default function SalarieWorkspace({
    */
   const cycleCraWorkDate = useCallback(
     (workDate: string, missionId: string = activeMissionId) => {
+      // Mode absence : le cycle est plus simple — non pointe -> 1 j -> 1/2 j -> retire.
+      if (activeAbsenceType) {
+        const existingAbsence = craEntries.find(
+          (entry) => entry.workDate === workDate && entry.absenceType,
+        );
+
+        if (!existingAbsence) {
+          if (!confirmCraMonthSwitch(workDate.slice(0, 7))) return;
+          setCraEntries((previousEntries) =>
+            sortCraEntries([
+              ...previousEntries.filter((entry) =>
+                entry.workDate.startsWith(`${workDate.slice(0, 7)}-`),
+              ),
+              buildAbsenceEntry(workDate, 1, activeAbsenceType),
+            ]),
+          );
+          return;
+        }
+
+        // Un autre type d'absence sur ce jour : on remplace, une seule absence par jour.
+        if (existingAbsence.absenceType !== activeAbsenceType) {
+          setCraEntries((previousEntries) =>
+            sortCraEntries(
+              previousEntries.map((entry) =>
+                entry.workDate === workDate && entry.absenceType
+                  ? { ...entry, absenceType: activeAbsenceType }
+                  : entry,
+              ),
+            ),
+          );
+          return;
+        }
+
+        if (Number(existingAbsence.dayQuantity) === 1) {
+          setCraEntries((previousEntries) =>
+            sortCraEntries(
+              previousEntries.map((entry) =>
+                entry.workDate === workDate && entry.absenceType
+                  ? { ...entry, dayQuantity: "0.5" }
+                  : entry,
+              ),
+            ),
+          );
+          return;
+        }
+
+        setCraEntries((previousEntries) =>
+          previousEntries.filter((entry) => !(entry.workDate === workDate && entry.absenceType)),
+        );
+        return;
+      }
+
       const timeUnit = missionUnitOf(missionId);
       const existingEntry = craEntries.find(
         (entry) => entry.workDate === workDate && entry.missionId === missionId,
@@ -1216,7 +1293,9 @@ export default function SalarieWorkspace({
       );
     },
     [
+      activeAbsenceType,
       activeMissionId,
+      buildAbsenceEntry,
       buildCraEntry,
       confirmCraMonthSwitch,
       craEntries,
@@ -1477,14 +1556,20 @@ export default function SalarieWorkspace({
       throw new Error("Renseigne d'abord ton profil de facturation.");
     }
 
+    // Les compteurs d'absence ne sont plus envoyes : le serveur les deduit des jours
+    // pointes sur le calendrier, ils ne peuvent donc pas diverger du detail.
     const payload = {
       periodMonth: craPeriodMonth,
       notes: craNotes,
-      paidLeaveDays: Number(craLeaveDays.paid || 0),
-      sickLeaveDays: Number(craLeaveDays.sick || 0),
-      exceptionalLeaveDays: Number(craLeaveDays.exceptional || 0),
-      unpaidLeaveDays: Number(craLeaveDays.unpaid || 0),
       entries: craEntries.filter((entry) => entry.workDate.trim()).map((entry) => {
+        if (entry.absenceType) {
+          return {
+            workDate: entry.workDate,
+            absenceType: entry.absenceType,
+            dayQuantity: Number(entry.dayQuantity || 0),
+            label: entry.label,
+          };
+        }
         const isHourly = missionUnitOf(entry.missionId) === "hour";
         return {
           workDate: entry.workDate,
@@ -1515,7 +1600,7 @@ export default function SalarieWorkspace({
 
     await loadCraDetail(response.cra.id);
     return response.cra.id;
-  }, [billingProfileReady, callSalarieApi, craEntries, craLeaveDays, craNotes, craPeriodMonth, loadCraDetail, loadCraItems, missionUnitOf, selectedCraId]);
+  }, [billingProfileReady, callSalarieApi, craEntries, craNotes, craPeriodMonth, loadCraDetail, loadCraItems, missionUnitOf, selectedCraId]);
 
   const handleGenerateCraPdf = useCallback(async () => {
     try {
@@ -1539,7 +1624,8 @@ export default function SalarieWorkspace({
       periodMonth: craPeriodMonth,
       // `hours` et `missionId` sont indispensables : sans eux, la generation echouait pour
       // toute mission facturee a l'heure, parseCraEntries exigeant les heures.
-      entries: craEntries.filter((entry) => entry.workDate.trim()).map((entry) => {
+      // Les absences sont ecartees : elles ne se facturent pas.
+      entries: craEntries.filter((entry) => entry.workDate.trim() && !entry.absenceType).map((entry) => {
         const isHourly = missionUnitOf(entry.missionId) === "hour";
         return {
           workDate: entry.workDate,
@@ -1774,6 +1860,8 @@ export default function SalarieWorkspace({
   const craTotalsByMission = useMemo(() => {
     const totals = new Map<string, { quantity: number; unit: CraTimeUnit }>();
     for (const entry of craEntries) {
+      // Les absences ne sont pas facturees : elles n'entrent dans aucune ligne.
+      if (entry.absenceType) continue;
       const unit = missionUnitOf(entry.missionId);
       const current = totals.get(entry.missionId) ?? { quantity: 0, unit };
       totals.set(entry.missionId, {
@@ -1791,18 +1879,31 @@ export default function SalarieWorkspace({
     () => craEntries.reduce((total, entry) => total + craEntryHours(entry), 0),
     [craEntries],
   );
-  /** Total des journees, missions au jour seulement. Les deux ne s'additionnent pas. */
+  /** Total des journees travaillees, missions au jour seulement. Absences exclues. */
   const craDraftTotalDays = useMemo(
     () =>
       craEntries.reduce(
         (total, entry) =>
-          missionUnitOf(entry.missionId) === "hour"
+          entry.absenceType || missionUnitOf(entry.missionId) === "hour"
             ? total
             : total + (Number(entry.dayQuantity) || 0),
         0,
       ),
     [craEntries, missionUnitOf],
   );
+
+  /** Totaux d'absence par type, deduits du calendrier. */
+  const craAbsenceTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const entry of craEntries) {
+      if (!entry.absenceType) continue;
+      totals.set(
+        entry.absenceType,
+        (totals.get(entry.absenceType) ?? 0) + (Number(entry.dayQuantity) || 0),
+      );
+    }
+    return totals;
+  }, [craEntries]);
   /** Missions dans la forme attendue par le calendrier. */
   const craMissions = useMemo<CalendarMission[]>(
     () =>
@@ -2015,8 +2116,6 @@ export default function SalarieWorkspace({
               craDraftTotalDays={craDraftTotalDays}
               craNotes={craNotes}
               onCraNotesChange={setCraNotes}
-              craLeaveDays={craLeaveDays}
-              onCraLeaveDaysChange={setCraLeaveDays}
               invoice={invoiceSettings}
               onInvoiceChange={setInvoiceSettings}
               weekdayLabels={weekdayLabels}
@@ -2033,8 +2132,11 @@ export default function SalarieWorkspace({
               onRemoveCraWorkDate={removeCraWorkDate}
               craMissions={craMissions}
               activeMissionId={activeMissionId}
-              onSelectMission={setActiveMissionId}
+              onSelectMission={selectMission}
               craInvoiceLines={craInvoiceLines}
+              activeAbsenceType={activeAbsenceType}
+              onSelectAbsence={selectAbsence}
+              craAbsenceTotals={craAbsenceTotals}
               onApplyCraHoursToAllEntries={applyCraHoursToAllEntries}
               formatCraEntryDateLabel={formatCraEntryDateLabel}
               updateCraEntry={updateCraEntry}

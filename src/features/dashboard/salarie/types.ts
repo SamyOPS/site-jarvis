@@ -82,6 +82,11 @@ export type CraEntryDraft = {
    * Vide pour les CRA anterieurs au multi-entreprises.
    */
   missionId: string;
+  /**
+   * Type d'absence (paid, sick, exceptional, unpaid). Vide pour une journee travaillee.
+   * Exclusif avec `missionId` : une journee est travaillee chez un client, ou absente.
+   */
+  absenceType: string;
   /** Quantite en journees. Vide pour une mission facturee a l'heure. */
   dayQuantity: string;
   /** Quantite en heures. Vide pour une mission facturee au jour. */
@@ -89,9 +94,21 @@ export type CraEntryDraft = {
   label: string;
 };
 
-/** Identifie une entree de CRA : une journee pour une entreprise donnee. */
+/** Identifie une entree de CRA : une journee pour une entreprise donnee, ou une absence. */
 export const craEntryKey = (entry: { workDate: string; missionId: string }) =>
   `${entry.workDate}|${entry.missionId}`;
+
+/** Libelles des types d'absence, dans l'ordre d'affichage. */
+export const ABSENCE_LABELS = [
+  { value: "paid", label: "Conge paye" },
+  { value: "sick", label: "Arret maladie" },
+  { value: "exceptional", label: "Conge exceptionnel" },
+  { value: "unpaid", label: "Conge sans solde" },
+] as const;
+
+export function absenceLabel(value: string) {
+  return ABSENCE_LABELS.find((item) => item.value === value)?.label ?? "Absence";
+}
 
 /** Unite de saisie du CRA, portee par la mission (a defaut par le profil de facturation). */
 export type CraTimeUnit = "day" | "hour";

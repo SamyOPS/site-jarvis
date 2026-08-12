@@ -34,7 +34,22 @@ const MISSION_COLORS = [
   { bg: "bg-[#0ea5e9]", border: "border-[#0ea5e9]" },
 ];
 
-export function missionColor(missions: CalendarMission[], missionId: string) {
+/** Les absences se distinguent des clients : teintes neutres, jamais une couleur de mission. */
+const ABSENCE_COLORS: Record<string, { bg: string; border: string }> = {
+  paid: { bg: "bg-[#64748b]", border: "border-[#64748b]" },
+  sick: { bg: "bg-[#b45309]", border: "border-[#b45309]" },
+  exceptional: { bg: "bg-[#7c3aed]", border: "border-[#7c3aed]" },
+  unpaid: { bg: "bg-[#475569]", border: "border-[#475569]" },
+};
+
+export function missionColor(
+  missions: CalendarMission[],
+  missionId: string,
+  absenceType?: string | null,
+) {
+  if (absenceType) {
+    return ABSENCE_COLORS[absenceType] ?? ABSENCE_COLORS.paid;
+  }
   const index = missions.findIndex((mission) => mission.id === missionId);
   return MISSION_COLORS[(index < 0 ? 0 : index) % MISSION_COLORS.length];
 }
@@ -72,6 +87,12 @@ type WorkDaysCalendarProps = {
   missions?: CalendarMission[];
   activeMissionId?: string;
   onSelectMission?: (missionId: string) => void;
+  /** Types d'absence pointables sur le calendrier. */
+  absenceTypes?: readonly { value: string; label: string }[];
+  activeAbsenceType?: string;
+  onSelectAbsence?: (absenceType: string) => void;
+  /** Totaux d'absence par type, affiches sur les puces. */
+  absenceTotals?: Map<string, number>;
 };
 
 export function WorkDaysCalendar({
@@ -99,6 +120,10 @@ export function WorkDaysCalendar({
   missions = [],
   activeMissionId = "",
   onSelectMission,
+  absenceTypes = [],
+  activeAbsenceType = "",
+  onSelectAbsence,
+  absenceTotals,
 }: WorkDaysCalendarProps) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [pendingCommentDate, setPendingCommentDate] = useState("");
@@ -243,14 +268,16 @@ export function WorkDaysCalendar({
             </div>
           ))}
         </div>
-        {/* Barre des entreprises : n'apparait qu'a partir de deux, pour qu'un consultant
-            mono-entreprise retrouve exactement l'ecran d'avant. */}
-        {isMultiMission ? (
+        {/* Ce que pose le prochain clic : une entreprise, ou une absence. La barre des
+            entreprises n'apparait qu'a partir de deux, pour qu'un consultant
+            mono-entreprise retrouve son ecran d'avant. */}
+        {isMultiMission || absenceTypes.length ? (
           <div className="mb-2 flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-[#0A1A2F]/55">Saisir pour :</span>
-            {missions.map((mission) => {
+            <span className="text-xs text-[#0A1A2F]/55">Pointer :</span>
+
+            {(isMultiMission ? missions : []).map((mission) => {
               const color = missionColor(missions, mission.id);
-              const isActive = mission.id === activeMissionId;
+              const isActive = !activeAbsenceType && mission.id === activeMissionId;
               return (
                 <button
                   key={mission.id}
@@ -272,6 +299,53 @@ export function WorkDaysCalendar({
                 </button>
               );
             })}
+
+            {/* Un consultant mono-entreprise n'a pas de puce client : il lui en faut une
+                pour revenir au travail apres avoir pointe une absence. */}
+            {!isMultiMission && absenceTypes.length ? (
+              <button
+                type="button"
+                onClick={() => onSelectAbsence?.("")}
+                aria-pressed={!activeAbsenceType}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition",
+                  !activeAbsenceType
+                    ? "border-[#2aa0dd] bg-slate-50 font-semibold text-[#0A1A2F]"
+                    : "border-slate-200 text-[#0A1A2F]/65 hover:border-slate-300",
+                )}
+              >
+                <span className="h-2.5 w-2.5 rounded-sm bg-[#2aa0dd]" />
+                <span>Travail</span>
+              </button>
+            ) : null}
+
+            {absenceTypes.map((absence) => {
+              const color = missionColor(missions, "", absence.value);
+              const isActive = activeAbsenceType === absence.value;
+              const total = absenceTotals?.get(absence.value) ?? 0;
+              return (
+                <button
+                  key={absence.value}
+                  type="button"
+                  onClick={() => onSelectAbsence?.(isActive ? "" : absence.value)}
+                  aria-pressed={isActive}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition",
+                    isActive
+                      ? `${color.border} bg-slate-50 font-semibold text-[#0A1A2F]`
+                      : "border-slate-200 text-[#0A1A2F]/65 hover:border-slate-300",
+                  )}
+                >
+                  <span className={cn("h-2.5 w-2.5 rounded-sm", color.bg)} />
+                  <span>{absence.label}</span>
+                  {total > 0 ? (
+                    <span className="text-[10px] text-[#0A1A2F]/45">
+                      {total.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} j
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
         ) : null}
 
@@ -288,8 +362,10 @@ export function WorkDaysCalendar({
             const holidayName = getFrenchHolidayName(isoDate);
             const isDimmed = isWeekend || Boolean(holidayName);
             const dayEntries = entriesByDate.get(isoDate) ?? [];
-            const entry =
-              dayEntries.find((item) => item.missionId === activeMissionId) ?? dayEntries[0];
+            // En mode absence, c'est l'absence du jour qui pilote l'affichage de la case.
+            const entry = activeAbsenceType
+              ? (dayEntries.find((item) => item.absenceType) ?? dayEntries[0])
+              : (dayEntries.find((item) => item.missionId === activeMissionId) ?? dayEntries[0]);
             const hasEntries = dayEntries.length > 0;
             const isHalfDay =
               !isHourly && dayEntries.length === 1 && entry
@@ -308,6 +384,12 @@ export function WorkDaysCalendar({
                 <button
                   type="button"
                   onClick={() => {
+                    // Mode absence : le clic enchaine toujours le cycle 1 j -> 1/2 j ->
+                    // retire, l'editeur de repartition ne concerne que le travail.
+                    if (activeAbsenceType) {
+                      onCycleWorkDate(isoDate);
+                      return;
+                    }
                     // Mode horaire ou plusieurs entreprises : le second clic ouvre
                     // l'editeur au lieu d'enchainer sur la demi-journee.
                     if ((isHourly || isMultiMission) && hasEntries) {
@@ -334,7 +416,9 @@ export function WorkDaysCalendar({
                       : isDimmed
                         ? "border-transparent bg-slate-100 text-slate-400 hover:bg-slate-200"
                         : "border-slate-200 bg-white text-[#0A1A2F] hover:border-[#2aa0dd]/40 hover:bg-slate-50",
-                    hasEntries ? missionColor(missions, entry?.missionId ?? "").border : "",
+                    hasEntries
+                      ? missionColor(missions, entry?.missionId ?? "", entry?.absenceType).border
+                      : "",
                     isEditing ? "ring-2 ring-[#2aa0dd]/40 ring-offset-1" : "",
                   )}
                   aria-pressed={hasEntries}
@@ -345,9 +429,9 @@ export function WorkDaysCalendar({
                     <span className="absolute inset-0 flex" aria-hidden="true">
                       {dayEntries.map((item) => (
                         <span
-                          key={item.missionId || "sans-mission"}
+                          key={item.absenceType || item.missionId || "sans-mission"}
                           style={{ flexGrow: Number(item.dayQuantity) || 0.5 }}
-                          className={missionColor(missions, item.missionId).bg}
+                          className={missionColor(missions, item.missionId, item.absenceType).bg}
                         />
                       ))}
                     </span>

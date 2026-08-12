@@ -7,6 +7,7 @@ import { ChevronDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
 
 import { CraHistory } from "@/components/dashboard/salarie/cra/cra-history";
+import { ABSENCE_LABELS } from "@/features/dashboard/salarie/types";
 import { formatInvoiceAmount, InvoiceSummary } from "@/components/dashboard/salarie/cra/invoice-summary";
 import {
   computeInvoiceTotals,
@@ -20,7 +21,6 @@ import { Button } from "@/components/ui/button";
 import type {
   CraCalendarCell,
   CraEntryDraft,
-  CraLeaveDaysDraft,
   CraSummaryRow,
   CraTimeUnit,
 } from "@/features/dashboard/salarie/types";
@@ -37,12 +37,6 @@ export type SalarieInvoiceSettings = {
   fraisNuitee: string;
 };
 
-const leaveFields = [
-  { key: "paid", label: "Conge paye" },
-  { key: "sick", label: "Arret maladie" },
-  { key: "exceptional", label: "Conge exceptionnel" },
-  { key: "unpaid", label: "Conge sans solde" },
-] as const;
 
 const expenseFields = [
   { key: "fraisKm", label: "Frais kilometriques" },
@@ -111,8 +105,6 @@ type SalarieCraInvoiceEditorProps = {
   craDraftTotalDays: number;
   craNotes: string;
   onCraNotesChange: (value: string) => void;
-  craLeaveDays: CraLeaveDaysDraft;
-  onCraLeaveDaysChange: (value: CraLeaveDaysDraft) => void;
   invoice: SalarieInvoiceSettings;
   onInvoiceChange: (value: SalarieInvoiceSettings) => void;
   weekdayLabels: string[];
@@ -140,6 +132,11 @@ type SalarieCraInvoiceEditorProps = {
   onSelectMission: (missionId: string) => void;
   /** Une ligne de facture par entreprise saisie, avec sa quantite et son tarif. */
   craInvoiceLines: InvoiceLineInput[];
+  /** Type d'absence actif : non vide, les clics pointent une absence. */
+  activeAbsenceType: string;
+  onSelectAbsence: (absenceType: string) => void;
+  /** Totaux d'absence par type, deduits du calendrier. */
+  craAbsenceTotals: Map<string, number>;
 };
 
 export function SalarieCraInvoiceEditor({
@@ -161,8 +158,6 @@ export function SalarieCraInvoiceEditor({
   craDraftTotalDays,
   craNotes,
   onCraNotesChange,
-  craLeaveDays,
-  onCraLeaveDaysChange,
   invoice,
   onInvoiceChange,
   weekdayLabels,
@@ -182,6 +177,9 @@ export function SalarieCraInvoiceEditor({
   activeMissionId,
   onSelectMission,
   craInvoiceLines,
+  activeAbsenceType,
+  onSelectAbsence,
+  craAbsenceTotals,
   formatCraEntryDateLabel,
   updateCraEntry,
 }: SalarieCraInvoiceEditorProps) {
@@ -209,8 +207,9 @@ export function SalarieCraInvoiceEditor({
   const hasEntries = craEntries.length > 0;
   const busy = craGenerating || invoiceGenerating;
 
-  const leaveDaysTotal = leaveFields.reduce(
-    (total, field) => total + toAmount(craLeaveDays[field.key]),
+  // Deduit des jours pointes, plus d'un formulaire : les deux ne peuvent plus diverger.
+  const leaveDaysTotal = Array.from(craAbsenceTotals.values()).reduce(
+    (total, value) => total + value,
     0,
   );
   const expensesTotal =
@@ -292,6 +291,10 @@ export function SalarieCraInvoiceEditor({
           missions={craMissions}
           activeMissionId={activeMissionId}
           onSelectMission={onSelectMission}
+          absenceTypes={ABSENCE_LABELS}
+          activeAbsenceType={activeAbsenceType}
+          onSelectAbsence={onSelectAbsence}
+          absenceTotals={craAbsenceTotals}
         />
 
         <TabsContent value="cra" className="space-y-4">
@@ -302,35 +305,19 @@ export function SalarieCraInvoiceEditor({
             </p>
           ) : null}
 
-          <CollapsibleSection
-            title="Absences et conges"
-            hint="aucune"
-            badge={
-              leaveDaysTotal > 0
-                ? `${leaveDaysTotal.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} j`
-                : null
-            }
-          >
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {leaveFields.map((field) => (
-                <div key={field.key} className="space-y-1">
-                  <label className="text-xs font-medium text-[#0A1A2F]/70">{field.label}</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={craLeaveDays[field.key]}
-                    onChange={(event) =>
-                      onCraLeaveDaysChange({ ...craLeaveDays, [field.key]: event.target.value })
-                    }
-                    onWheel={(event) => event.currentTarget.blur()}
-                    className="h-9 w-full rounded-md border border-slate-300 px-3 text-sm"
-                    placeholder="0"
-                  />
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
+          {/* Les absences se pointent sur le calendrier, via les puces au-dessus : il n'y a
+              plus de compteurs a saisir, leur total en decoule. */}
+          {leaveDaysTotal > 0 ? (
+            <p className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-[#0A1A2F]/70">
+              Absences pointees :{" "}
+              {ABSENCE_LABELS.filter((absence) => (craAbsenceTotals.get(absence.value) ?? 0) > 0)
+                .map(
+                  (absence) =>
+                    `${absence.label} ${(craAbsenceTotals.get(absence.value) ?? 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} j`,
+                )
+                .join(" · ")}
+            </p>
+          ) : null}
 
           <div className="space-y-1">
             <label className="text-sm font-medium text-[#0A1A2F]">Notes</label>

@@ -1365,6 +1365,8 @@ export default function RhWorkspace({
           // Le CRA cote RH ne selectionne pas encore de mission : la ligne retombe sur
           // l'unite du profil de facturation, comme un CRA anterieur au multi-entreprises.
           missionId: "",
+          // Le CRA cote RH ne pointe pas d'absence : elles se saisissent cote salarie.
+          absenceType: "",
           dayQuantity: "1",
           // Le CRA cote RH se saisit en journees : aucune heure declaree.
           hours: "",
