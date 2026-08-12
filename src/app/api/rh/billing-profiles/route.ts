@@ -19,7 +19,12 @@ type RhBillingProfilePayload = {
   iban?: unknown;
   bic?: unknown;
   dailyRate?: unknown;
+  employmentStatus?: unknown;
 };
+
+/** Statuts d'emploi acceptes pour un collaborateur. Liste fermee, validee cote serveur. */
+const EMPLOYMENT_STATUSES = ["active", "inactive", "exited"] as const;
+type EmploymentStatus = (typeof EMPLOYMENT_STATUSES)[number];
 
 function getRequiredString(value: unknown, label: string) {
   const normalized = String(value ?? "").trim();
@@ -243,6 +248,24 @@ export async function PUT(request: Request) {
       payload = parseBillingProfilePayload(body);
     } catch (error) {
       return NextResponse.json({ error: error instanceof Error ? error.message : "Profil de facturation invalide." }, { status: 400 });
+    }
+
+    // Le statut d'emploi du collaborateur est enregistre ici plutot que depuis le tableau de
+    // bord : ecrit directement dans `profiles` avec la cle anon, il echappait au controle
+    // d'affectation applique juste au-dessus.
+    const employmentStatusValue = body.employmentStatus;
+    if (employmentStatusValue !== undefined) {
+      if (!EMPLOYMENT_STATUSES.includes(employmentStatusValue as EmploymentStatus)) {
+        return NextResponse.json({ error: "Statut d'emploi invalide." }, { status: 400 });
+      }
+      const { error: employmentError } = await adminClient
+        .from("profiles")
+        .update({ employment_status: employmentStatusValue })
+        .eq("id", employeeId)
+        .eq("role", "salarie");
+      if (employmentError) {
+        return NextResponse.json({ error: employmentError.message }, { status: 400 });
+      }
     }
 
     const { data, error } = await adminClient

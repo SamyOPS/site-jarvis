@@ -12,6 +12,9 @@ type AuthorizedContext = {
   actorRole: string | null;
 };
 
+/** Longueur maximale d'un nom de dossier : les routes n'imposaient aucune borne. */
+export const MAX_FOLDER_NAME_LENGTH = 120;
+
 export async function getAuthorizedDocumentsContext(request: Request) {
   const accessToken = getAccessTokenFromRequest(request);
   if (!accessToken) {

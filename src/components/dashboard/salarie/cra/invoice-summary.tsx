@@ -1,6 +1,10 @@
 "use client";
 
-import { computeInvoiceTotals } from "@/features/dashboard/salarie/invoice-totals";
+import {
+  computeInvoiceTotals,
+  formatInvoiceQuantity,
+  type InvoiceLineInput,
+} from "@/features/dashboard/salarie/invoice-totals";
 import { cn } from "@/lib/utils";
 
 const amountFormatter = new Intl.NumberFormat("fr-FR", {
@@ -14,8 +18,8 @@ export function formatInvoiceAmount(value: number) {
 }
 
 type InvoiceSummaryProps = {
-  quantity: number;
-  dailyRate: number;
+  /** Une ligne par entreprise cliente. */
+  lines: InvoiceLineInput[];
   discountGranted: boolean;
   vatEnabled: boolean;
   amountAlreadyPaid: number;
@@ -31,8 +35,7 @@ type InvoiceSummaryProps = {
  * est exactement ce qui sera imprime.
  */
 export function InvoiceSummary({
-  quantity,
-  dailyRate,
+  lines,
   discountGranted,
   vatEnabled,
   amountAlreadyPaid,
@@ -41,8 +44,7 @@ export function InvoiceSummary({
   fraisNuitee,
 }: InvoiceSummaryProps) {
   const totals = computeInvoiceTotals({
-    quantity,
-    dailyRate,
+    lines,
     discountGranted,
     vatEnabled,
     amountAlreadyPaid,
@@ -51,12 +53,12 @@ export function InvoiceSummary({
     fraisNuitee,
   });
 
-  const rows: { label: string; value: string; muted?: boolean; strong?: boolean }[] = [
-    {
-      label: `Prestation · ${totals.quantity.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} j × ${formatInvoiceAmount(totals.dailyRate)}`,
-      value: formatInvoiceAmount(totals.serviceHt),
-    },
-  ];
+  // Une ligne par entreprise, chacune avec sa quantite dans son unite et son tarif.
+  const rows: { label: string; value: string; muted?: boolean; strong?: boolean }[] =
+    totals.lines.map((line) => ({
+      label: `${line.label} · ${formatInvoiceQuantity(line)} × ${formatInvoiceAmount(line.rate)}`,
+      value: formatInvoiceAmount(line.serviceHt),
+    }));
 
   if (totals.fraisKm > 0) {
     rows.push({ label: "Frais kilometriques", value: formatInvoiceAmount(totals.fraisKm) });

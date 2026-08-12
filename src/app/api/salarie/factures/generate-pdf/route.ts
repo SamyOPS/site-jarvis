@@ -2,8 +2,19 @@ import { NextResponse } from "next/server";
 
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { getRhRecipientsForEmployee, notifyRhOfDocument } from "@/lib/email";
-import { parseCraEntries, toCraEntryUnit, type CraEntryInput } from "@/lib/cra-entries";
+import {
+  parseCraEntries,
+  toCraEntryUnit,
+  type CraEntryInput,
+  type CraEntryUnit,
+} from "@/lib/cra-entries";
 import { buildInvoicePdfBuffer } from "@/lib/invoice-pdf";
+import { loadEmployeeMissions, missionLineQuantity } from "@/lib/missions";
+import {
+  computeInvoiceTotals,
+  type InvoiceLineInput,
+  type InvoiceLineUnit,
+} from "@/features/dashboard/salarie/invoice-totals";
 import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toDocumentDate, toIsoMonthStart } from "@/lib/server-supabase";
 
 type InvoiceGeneratePayload = {
@@ -65,11 +76,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "La periode est obligatoire." }, { status: 400 });
     }
 
-    // Le profil est lu AVANT l'analyse des lignes : en saisie horaire c'est lui qui
-    // porte la base d'heures dont day_quantity est derive.
+    // Le profil porte l'identite de l'emetteur, et l'unite de repli des lignes sans mission.
     const { data: billingProfile, error: billingError } = await adminClient
       .from("employee_billing_profiles")
-      .select("first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,time_unit,hours_per_day")
+      .select("first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,time_unit")
       .eq("employee_id", profile.id)
       .single();
 
@@ -78,8 +88,27 @@ export async function POST(request: Request) {
     }
 
     const periodMonth = toIsoMonthStart(String(body.periodMonth));
-    const entries = parseCraEntries(body.entries, toCraEntryUnit(billingProfile));
-    const workedDaysCount = entries.reduce((total, entry) => total + entry.day_quantity, 0);
+
+    // Les missions portent l'unite et le tarif de chaque entreprise. Le profil ne sert
+    // plus que de repli pour les lignes sans mission (CRA anterieurs au multi-entreprises).
+    let missionUnits: Map<string, CraEntryUnit>;
+    let missions;
+    try {
+      ({ missions, units: missionUnits } = await loadEmployeeMissions(adminClient, profile.id));
+    } catch (missionError) {
+      return NextResponse.json(
+        {
+          error:
+            missionError instanceof Error
+              ? missionError.message
+              : "Chargement des entreprises impossible.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const entries = parseCraEntries(body.entries, missionUnits, toCraEntryUnit(billingProfile));
+    const workedDaysCount = entries.reduce((total, entry) => total + (entry.day_quantity ?? 0), 0);
     const sortedWorkDates = entries.map((entry) => entry.work_date).sort();
     const periodStart = sortedWorkDates[0] ?? null;
     const periodEnd = sortedWorkDates[sortedWorkDates.length - 1] ?? null;
@@ -98,14 +127,61 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error instanceof Error ? error.message : "Montant invalide." }, { status: 400 });
     }
 
-    if (!entries.length || workedDaysCount <= 0) {
-      return NextResponse.json({ error: "Ajoute au moins un jour travaille pour generer la facture." }, { status: 400 });
+    // Une mission facturee a l'heure ne produit aucune journee : controler `workedDaysCount`
+    // seul rejetterait toutes ses factures. C'est la presence d'une quantite, quelle que
+    // soit son unite, qui compte.
+    const totalHours = entries.reduce((total, entry) => total + (entry.hours ?? 0), 0);
+    if (!entries.length || (workedDaysCount <= 0 && totalHours <= 0)) {
+      return NextResponse.json({ error: "Ajoute au moins un jour ou une heure travaille pour generer la facture." }, { status: 400 });
     }
 
-    const dailyRate = Number(billingProfile.daily_rate ?? 0);
-    if (!Number.isFinite(dailyRate) || dailyRate <= 0) {
-      return NextResponse.json({ error: "Le tarif journalier doit etre renseigne pour generer la facture." }, { status: 400 });
+    // Une ligne par entreprise saisie, chacune avec sa quantite dans son unite et son
+    // propre tarif : c'est ce qui permet de facturer une entreprise a l'heure et une autre
+    // au jour sur la meme facture.
+    const entriesByMission = new Map<string, typeof entries>();
+    for (const entry of entries) {
+      if (!entry.mission_id) continue;
+      entriesByMission.set(entry.mission_id, [
+        ...(entriesByMission.get(entry.mission_id) ?? []),
+        entry,
+      ]);
     }
+
+    const invoiceLines: InvoiceLineInput[] = [];
+    for (const [missionId, missionEntries] of entriesByMission.entries()) {
+      const mission = missions.find((item) => item.id === missionId);
+      if (!mission) continue;
+      const unit: InvoiceLineUnit = mission.rate_unit === "hour" ? "hour" : "day";
+      const quantity = missionLineQuantity(unit, missionEntries);
+      const rate = Number(mission.rate ?? 0);
+      if (quantity <= 0 || !Number.isFinite(rate) || rate <= 0) continue;
+      invoiceLines.push({
+        missionId,
+        label: mission.company_name,
+        quantity,
+        rate,
+        unit,
+      });
+    }
+
+    if (!invoiceLines.length) {
+      return NextResponse.json(
+        { error: "Aucune entreprise avec un tarif renseigne : la facture ne peut pas etre generee." },
+        { status: 400 },
+      );
+    }
+
+    // Meme fonction que le PDF et que le recapitulatif du dashboard : le montant trace
+    // dans l'historique est exactement celui imprime.
+    const invoiceTotals = computeInvoiceTotals({
+      lines: invoiceLines,
+      discountGranted,
+      vatEnabled,
+      amountAlreadyPaid,
+      fraisKm,
+      fraisRepas,
+      fraisNuitee,
+    });
 
     const { data: documentType, error: typeError } = await adminClient
       .from("document_types")
@@ -172,12 +248,10 @@ export async function POST(request: Request) {
       siret: billingProfile.siret,
       iban: billingProfile.iban ?? "",
       bic: billingProfile.bic ?? "",
-      companyName: billingProfile.company_name ?? "",
       periodMonth,
       periodStart,
       periodEnd,
-      quantity: workedDaysCount,
-      dailyRate,
+      lines: invoiceLines,
       discountGranted,
       vatEnabled,
       amountAlreadyPaid,
@@ -207,8 +281,9 @@ export async function POST(request: Request) {
       .limit(10);
 
     const requestRow =
+      // Rapprochement strict sur la periode : sans cela, une demande d'un autre mois etait
+      // marquee satisfaite par ce depot.
       (matchingRequest ?? []).find((row) => (row.period_month ?? "") === (periodMonth ?? "")) ??
-      (matchingRequest ?? [])[0] ??
       null;
 
     // Chaque generation cree une facture distincte : on n'ecrase plus la facture
@@ -252,9 +327,16 @@ export async function POST(request: Request) {
       payload: {
         generated_from: "invoice",
         period_month: periodMonth,
-        quantity: workedDaysCount,
-        daily_rate: dailyRate,
-        total_ht: workedDaysCount * dailyRate,
+        // Le detail par entreprise remplace le couple (quantite, tarif journalier) : une
+        // facture peut porter plusieurs lignes, dans des unites differentes.
+        lines: invoiceLines.map((line) => ({
+          mission_id: line.missionId,
+          company_name: line.label,
+          quantity: line.quantity,
+          unit: line.unit,
+          rate: line.rate,
+        })),
+        total_ht: invoiceTotals.totalHt,
         discount_granted: discountGranted,
         discount_rate: discountGranted ? 0.02 : 0,
         vat_enabled: vatEnabled,

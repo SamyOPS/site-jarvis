@@ -3,11 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+/**
+ * Identite de l'emetteur de la facture, et rien d'autre.
+ *
+ * L'entreprise cliente, l'ESN et le tarif appartiennent a la mission : ils varient d'une
+ * entreprise a l'autre, alors que ces coordonnees-ci sont celles du collaborateur.
+ */
 export type BillingProfileFormState = {
   firstName: string;
   lastName: string;
-  companyName: string;
-  esnPartenaire: string;
   addressLine1: string;
   addressLine2: string;
   postalCode: string;
@@ -18,10 +22,11 @@ export type BillingProfileFormState = {
   siret: string;
   iban: string;
   bic: string;
-  dailyRate: string;
-  /** "day" (journees, defaut) ou "hour" (heures par jour). */
+  /**
+   * Unite de repli, conservee pour les CRA anterieurs au multi-entreprises. L'unite
+   * effective est celle de la mission, reglee dans « Mes entreprises ».
+   */
   timeUnit: string;
-  hoursPerDay: string;
 };
 
 type BillingProfileCardProps = {
@@ -47,8 +52,6 @@ type FieldConfig = {
 const generalFields: FieldConfig[] = [
   { key: "firstName", label: "Prenom" },
   { key: "lastName", label: "Nom" },
-  { key: "companyName", label: "Societe", className: "md:col-span-2" },
-  { key: "esnPartenaire", label: "ESN partenaire", className: "md:col-span-2" },
   { key: "addressLine1", label: "Adresse", className: "md:col-span-2" },
   { key: "addressLine2", label: "Complement d'adresse", className: "md:col-span-2" },
   { key: "postalCode", label: "Code postal" },
@@ -58,30 +61,8 @@ const generalFields: FieldConfig[] = [
   { key: "email", label: "Email", className: "md:col-span-2" },
 ];
 
-const craEntryFields: FieldConfig[] = [
-  {
-    key: "timeUnit",
-    label: "Unite de saisie",
-    options: [
-      { value: "day", label: "Journees (1 j / demi-journee)" },
-      { value: "hour", label: "Heures par jour" },
-    ],
-    hint: "Determine la facon de remplir le calendrier du CRA.",
-  },
-];
-
-const hoursPerDayField: FieldConfig = {
-  key: "hoursPerDay",
-  label: "Heures par jour",
-  type: "number",
-  min: "0.5",
-  step: "0.5",
-  hint: "Base contractuelle, utilisee comme valeur par defaut et pour l'equivalent en jours.",
-};
-
 const autoEntrepreneurFields: FieldConfig[] = [
   { key: "siret", label: "SIRET" },
-  { key: "dailyRate", label: "Tarif journalier", type: "number", min: "0", step: "0.01" },
   { key: "iban", label: "IBAN" },
   { key: "bic", label: "BIC" },
 ];
@@ -138,7 +119,8 @@ export function BillingProfileCard({
         <div>
           <CardTitle>Profil de facturation</CardTitle>
           <p className="mt-1 text-sm text-[#0A1A2F]/70">
-            Ces informations sont utilisees pour le CRA et les futurs flux de facturation.
+            Tes coordonnees d&apos;emetteur, communes a toutes tes factures. L&apos;entreprise
+            cliente et son tarif se reglent dans « Mes entreprises ».
           </p>
         </div>
         <Button
@@ -155,17 +137,6 @@ export function BillingProfileCard({
         <div className="grid gap-3 md:grid-cols-2">
           {generalFields.map((field) => renderField(field, form, onChange))}
         </div>
-
-        <fieldset className="rounded-xl border border-[#0A1A2F]/15 px-4 pb-4 pt-2">
-          <legend className="px-2 text-sm font-semibold text-[#0A1A2F]/70">
-            Saisie du CRA
-          </legend>
-          <div className="grid gap-3 md:grid-cols-2">
-            {craEntryFields.map((field) => renderField(field, form, onChange))}
-            {/* La base horaire n'a de sens qu'en mode horaire : on evite un champ inerte. */}
-            {form.timeUnit === "hour" ? renderField(hoursPerDayField, form, onChange) : null}
-          </div>
-        </fieldset>
 
         <fieldset className="rounded-xl border border-[#0A1A2F]/15 px-4 pb-4 pt-2">
           <legend className="px-2 text-sm font-semibold text-[#0A1A2F]/70">

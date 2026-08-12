@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { CRA_ENTRY_UNIT_COLUMNS, parseCraEntries, toCraEntryUnit, type CraEntryInput } from "@/lib/cra-entries";
+import { loadEmployeeMissions, syncCraMissionLines } from "@/lib/missions";
 import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toIsoMonthStart } from "@/lib/server-supabase";
 
 type CraUpdatePayload = {
@@ -55,7 +56,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const { data: entries, error: entriesError } = await adminClient
       .from("cra_entries")
-      .select("id,work_date,day_quantity,label,created_at,updated_at")
+      // `hours` et `mission_id` sont indispensables : sans eux, recharger un CRA horaire
+      // perdait les heures explicites saisies par le collaborateur.
+      .select("id,work_date,mission_id,day_quantity,hours,label,created_at,updated_at")
       .eq("cra_id", craRecord.id)
       .order("work_date", { ascending: true });
 
@@ -108,10 +111,32 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .select(CRA_ENTRY_UNIT_COLUMNS)
       .eq("employee_id", profile.id)
       .maybeSingle();
-    const entryUnit = toCraEntryUnit(entryUnitRow);
-    const entries = body.entries ? parseCraEntries(body.entries, entryUnit) : null;
+    const fallbackUnit = toCraEntryUnit(entryUnitRow);
+
+    let missions;
+    let missionUnits;
+    try {
+      ({ missions, units: missionUnits } = await loadEmployeeMissions(adminClient, profile.id));
+    } catch (missionError) {
+      return NextResponse.json(
+        {
+          error:
+            missionError instanceof Error
+              ? missionError.message
+              : "Chargement des entreprises impossible.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const entries = body.entries
+      ? parseCraEntries(body.entries, missionUnits, fallbackUnit)
+      : null;
     const nextPeriodMonth = body.periodMonth ? toIsoMonthStart(String(body.periodMonth)) : existingRecord.period_month;
-    const workedDaysCount = entries ? entries.reduce((total, entry) => total + entry.day_quantity, 0) : undefined;
+    // Ne totalise que les lignes saisies en journees : les heures ne se convertissent plus.
+    const workedDaysCount = entries
+      ? entries.reduce((total, entry) => total + (entry.day_quantity ?? 0), 0)
+      : undefined;
 
     const { data: updatedRecord, error: updateError } = await adminClient
       .from("cra_records")
@@ -150,6 +175,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         if (insertEntriesError) {
           return NextResponse.json({ error: insertEntriesError.message }, { status: 400 });
         }
+      }
+
+      try {
+        await syncCraMissionLines(adminClient, existingRecord.id, entries, missions);
+      } catch (linesError) {
+        return NextResponse.json(
+          {
+            error:
+              linesError instanceof Error
+                ? linesError.message
+                : "Mise a jour du recapitulatif par entreprise impossible.",
+          },
+          { status: 400 },
+        );
       }
     }
 
@@ -229,8 +268,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         .limit(10);
 
       const matchingRequest =
+        // Rapprochement strict sur la periode : sans cela, une demande d'un autre mois etait
+        // remise en attente a tort.
         (matchingRequests ?? []).find((requestRow) => (requestRow.period_month ?? "") === (documentRow.period_month ?? "")) ??
-        (matchingRequests ?? [])[0] ??
         null;
 
       const { error: eventsDeleteError } = await adminClient.from("document_events").delete().eq("document_id", documentRow.id);

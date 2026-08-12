@@ -290,37 +290,56 @@ export default function DashboardPage() {
     profileId: string,
     nextStatus: ProfessionalStatus
   ) => {
-    if (!supabase) {
-      setProfileStatus({
-        type: "error",
-        message: "Configuration Supabase manquante.",
-      });
-      return;
-    }
-
     setProfileUpdatingId(profileId);
     setProfileStatus({ type: "idle" });
 
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({ professional_status: nextStatus })
-      .eq("id", profileId);
-
-    if (updateError) {
-      setProfileStatus({ type: "error", message: updateError.message });
-    } else {
+    // Ce statut est le verrou qui separe un compte auto-declare d'un compte reel : passer a
+    // "verified" ouvre l'acces aux routes metier. Il etait modifie directement avec la cle
+    // anon ; il passe desormais par la route admin, qui valide la valeur et interdit de
+    // modifier son propre compte.
+    const accessToken = await getFreshAccessToken();
+    if (!accessToken) {
       setProfileStatus({
-        type: "success",
-        message: `Statut mis a jour en ${nextStatus}.`,
+        type: "error",
+        message: "Session admin expiree. Reconnecte-toi pour changer un statut de compte.",
       });
-      setAllProfiles((prev) =>
-        prev.map((profile) =>
-          profile.id === profileId
-            ? { ...profile, professional_status: nextStatus }
-            : profile
-        )
-      );
+      setProfileUpdatingId(null);
+      return;
     }
+
+    const response = await fetch(
+      `/api/admin/users/${encodeURIComponent(profileId)}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ professionalStatus: nextStatus }),
+      },
+    );
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (!response.ok) {
+      setProfileStatus({
+        type: "error",
+        message: payload?.error ?? `Changement de statut impossible (HTTP ${response.status}).`,
+      });
+      setProfileUpdatingId(null);
+      return;
+    }
+
+    setProfileStatus({
+      type: "success",
+      message: `Statut mis a jour en ${nextStatus}.`,
+    });
+    setAllProfiles((prev) =>
+      prev.map((profile) =>
+        profile.id === profileId
+          ? { ...profile, professional_status: nextStatus }
+          : profile
+      )
+    );
 
     setProfileUpdatingId(null);
   };

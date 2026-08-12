@@ -5,8 +5,6 @@ import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError }
 type BillingProfilePayload = {
   firstName?: unknown;
   lastName?: unknown;
-  companyName?: unknown;
-  esnPartenaire?: unknown;
   addressLine1?: unknown;
   addressLine2?: unknown;
   postalCode?: unknown;
@@ -17,9 +15,7 @@ type BillingProfilePayload = {
   siret?: unknown;
   iban?: unknown;
   bic?: unknown;
-  dailyRate?: unknown;
   timeUnit?: unknown;
-  hoursPerDay?: unknown;
 };
 
 function getRequiredString(value: unknown, label: string) {
@@ -35,15 +31,6 @@ function getOptionalString(value: unknown) {
   return normalized || null;
 }
 
-function getOptionalDailyRate(value: unknown) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return null;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error('Le champ "tarif journalier" est invalide.');
-  }
-  return parsed;
-}
 
 function getTimeUnit(value: unknown) {
   const raw = String(value ?? "").trim() || "day";
@@ -53,22 +40,14 @@ function getTimeUnit(value: unknown) {
   return raw;
 }
 
-function getOptionalHoursPerDay(value: unknown) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return null;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 24) {
-    throw new Error('Le champ "heures par jour" doit etre compris entre 0 et 24.');
-  }
-  return parsed;
-}
-
 function parseBillingProfilePayload(payload: BillingProfilePayload) {
   return {
+    // L'entreprise cliente, l'ESN et le tarif ne sont plus ici : ils varient d'une mission
+    // a l'autre et vivent dans `employee_missions`. Les colonnes correspondantes de
+    // `employee_billing_profiles` sont conservees en base pour les CRA deja emis, mais ne
+    // sont plus ni exigees ni ecrites.
     first_name: getRequiredString(payload.firstName, "prenom"),
     last_name: getRequiredString(payload.lastName, "nom"),
-    company_name: getRequiredString(payload.companyName, "nom de la societe"),
-    esn_partenaire: getOptionalString(payload.esnPartenaire),
     address_line_1: getRequiredString(payload.addressLine1, "adresse"),
     address_line_2: getOptionalString(payload.addressLine2),
     postal_code: getRequiredString(payload.postalCode, "code postal"),
@@ -79,9 +58,7 @@ function parseBillingProfilePayload(payload: BillingProfilePayload) {
     siret: getOptionalString(payload.siret),
     iban: getOptionalString(payload.iban),
     bic: getOptionalString(payload.bic),
-    daily_rate: getOptionalDailyRate(payload.dailyRate),
     time_unit: getTimeUnit(payload.timeUnit),
-    hours_per_day: getOptionalHoursPerDay(payload.hoursPerDay),
     updated_at: new Date().toISOString(),
   };
 }
@@ -101,7 +78,7 @@ export async function GET(request: Request) {
     const { adminClient, profile } = authorized;
     const { data, error } = await adminClient
       .from("employee_billing_profiles")
-      .select("employee_id,first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,time_unit,hours_per_day,created_at,updated_at")
+      .select("employee_id,first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,time_unit,created_at,updated_at")
       .eq("employee_id", profile.id)
       .maybeSingle();
 
@@ -140,7 +117,7 @@ export async function PUT(request: Request) {
         employee_id: profile.id,
         ...payload,
       })
-      .select("employee_id,first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,time_unit,hours_per_day,created_at,updated_at")
+      .select("employee_id,first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,time_unit,created_at,updated_at")
       .single();
 
     if (error || !data) {

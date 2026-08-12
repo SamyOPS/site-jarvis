@@ -7,6 +7,7 @@ import { buildCraPdfBuffer } from "@/lib/cra-pdf";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { notifyEmployeeOfDocument } from "@/lib/email";
 import { buildInvoicePdfBuffer } from "@/lib/invoice-pdf";
+import { canRhAccessEmployee } from "@/lib/rh-access";
 import { toDocumentDate, toIsoMonthStart } from "@/lib/server-supabase";
 
 async function notifyEmployeeForGeneratedDocument(
@@ -174,6 +175,35 @@ export async function POST(request: Request) {
     const canUseBillingProfile = await canManageOwner(auth, billingProfileEmployeeId);
     if (!canUseBillingProfile) {
       return NextResponse.json({ error: "Acces refuse pour ce profil de facturation." }, { status: 403 });
+    }
+
+    // `canManageOwner` ne verifie que l'affectation, pas les types de documents autorises.
+    // Sans ce controle, un RH restreint a certains types pour un collaborateur pouvait quand
+    // meme lui generer un CRA ou une facture par ce chemin. Le code du type est `kind`.
+    if (auth.actorRole !== "admin") {
+      const { data: generatedType } = await auth.adminClient
+        .from("document_types")
+        .select("id")
+        .eq("code", kind)
+        .maybeSingle();
+
+      if (generatedType?.id) {
+        const access = await canRhAccessEmployee(
+          auth.adminClient,
+          auth.actorId,
+          employeeId,
+          generatedType.id,
+        );
+        if (!access.allowed) {
+          if (access.error) {
+            return NextResponse.json({ error: access.error }, { status: 400 });
+          }
+          return NextResponse.json(
+            { error: "Type de document non autorise pour ce RH sur ce collaborateur." },
+            { status: 403 },
+          );
+        }
+      }
     }
 
     const { data: billingProfile, error: billingError } = await auth.adminClient
@@ -489,10 +519,18 @@ export async function POST(request: Request) {
       siret: billingProfile.siret,
       iban: billingProfile.iban,
       bic: billingProfile.bic,
-      companyName: billingProfile.company_name,
       periodMonth: periodStart,
-      quantity: workedDaysCount,
-      dailyRate,
+      // Le chemin RH reste mono-entreprise : il lit encore le profil de facturation plutot
+      // que les missions du collaborateur. Une seule ligne, donc, jusqu'a son alignement
+      // sur le chemin salarie.
+      lines: [
+        {
+          label: billingProfile.company_name ?? "Client",
+          quantity: workedDaysCount,
+          rate: dailyRate,
+          unit: "day" as const,
+        },
+      ],
       discountGranted,
       vatEnabled,
       amountAlreadyPaid,

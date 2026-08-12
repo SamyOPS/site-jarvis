@@ -1,55 +1,17 @@
 import { NextResponse } from "next/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { buildEmployeeDocumentPath } from "@/lib/document-storage";
+import {
+  buildEmployeeDocumentPath,
+  safeDocumentContentType,
+  validateDocumentFile,
+} from "@/lib/document-storage";
 import { notifyEmployeeOfDocument } from "@/lib/email";
+import { canRhAccessEmployee } from "@/lib/rh-access";
 import {
   getAccessTokenFromRequest,
   getAuthorizedActor,
   isAuthorizedActorError,
 } from "@/lib/server-supabase";
-
-async function canRhAccessEmployee(
-  adminClient: SupabaseClient,
-  rhId: string,
-  employeeId: string,
-  documentTypeId?: string,
-) {
-  if (!employeeId || employeeId === rhId) {
-    return { allowed: true as const };
-  }
-
-  const { data, error } = await adminClient
-    .from("rh_employee_assignments")
-    .select("employee_id,allowed_document_type_ids")
-    .eq("rh_id", rhId)
-    .eq("employee_id", employeeId)
-    .maybeSingle();
-
-  const missingTable =
-    !!error && /rh_employee_assignments/i.test(error.message ?? "");
-  if (missingTable) {
-    return {
-      allowed: false as const,
-      error: "Controle des affectations RH indisponible.",
-    };
-  }
-  if (error) {
-    return { allowed: false as const, error: error.message };
-  }
-  if (!data?.employee_id) {
-    return { allowed: false as const };
-  }
-
-  // Empty / null array = no restriction (all document types allowed).
-  const allowedTypes = Array.isArray(data.allowed_document_type_ids)
-    ? data.allowed_document_type_ids.filter(Boolean)
-    : [];
-  if (documentTypeId && allowedTypes.length > 0 && !allowedTypes.includes(documentTypeId)) {
-    return { allowed: false as const };
-  }
-  return { allowed: true as const };
-}
 
 export async function POST(request: Request) {
   try {
@@ -72,6 +34,11 @@ export async function POST(request: Request) {
 
     if (!documentTypeId || !(file instanceof File)) {
       return NextResponse.json({ error: "Parametres incomplets pour le depot RH." }, { status: 400 });
+    }
+
+    const fileValidationError = validateDocumentFile(file);
+    if (fileValidationError) {
+      return NextResponse.json({ error: fileValidationError }, { status: 400 });
     }
 
     const periodMonth = periodMonthValue ? `${periodMonthValue}-01` : null;
@@ -128,7 +95,7 @@ export async function POST(request: Request) {
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     const { error: uploadError } = await adminClient.storage.from(storageBucket).upload(storagePath, fileBuffer, {
-      contentType: file.type || undefined,
+      contentType: safeDocumentContentType(file),
       upsert: false,
     });
 
@@ -175,9 +142,11 @@ export async function POST(request: Request) {
         .order("created_at", { ascending: false })
         .limit(10);
 
+      // Seule une demande de la meme periode est rapprochee. Le repli sur la demande la plus
+      // recente cloturait une demande d'un autre mois : deposer la fiche de paie de mars
+      // marquait « validee » celle de janvier, restee non satisfaite.
       requestWithSamePeriod =
         (matchingRequest ?? []).find((requestRow) => (requestRow.period_month ?? "") === (periodMonth ?? "")) ??
-        (matchingRequest ?? [])[0] ??
         null;
     }
 
@@ -198,10 +167,11 @@ export async function POST(request: Request) {
       },
     });
 
+    // Le document est deja cree a ce stade : un echec du suivi est signale en avertissement,
+    // pas en erreur. Repondre 400 faisait croire a un echec du depot et poussait a redeposer
+    // le meme fichier, creant un doublon.
     const [{ error: requestUpdateError }, { error: eventInsertError }] = await Promise.all([requestUpdatePromise, eventInsertPromise]);
-    if (requestUpdateError || eventInsertError) {
-      return NextResponse.json({ error: requestUpdateError?.message ?? eventInsertError?.message ?? "Le document RH a ete depose, mais le suivi n'est pas complet." }, { status: 400 });
-    }
+    const trackingWarning = requestUpdateError?.message ?? eventInsertError?.message ?? null;
 
     if (hasSelectedEmployee) {
       const { data: employeeRow } = await adminClient
@@ -220,7 +190,13 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, documentId: insertedDocument.id });
+    return NextResponse.json({
+      success: true,
+      documentId: insertedDocument.id,
+      ...(trackingWarning
+        ? { warning: "Le document RH a ete depose, mais le suivi n'est pas complet." }
+        : {}),
+    });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
   }
@@ -283,7 +259,6 @@ export async function DELETE(request: Request) {
 
     const matchingRequest =
       (matchingRequests ?? []).find((requestRow) => (requestRow.period_month ?? "") === (documentRow.period_month ?? "")) ??
-      (matchingRequests ?? [])[0] ??
       null;
 
     if (!permanent) {

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { buildEmployeeDocumentPath } from "@/lib/document-storage";
+import {
+  buildEmployeeDocumentPath,
+  safeDocumentContentType,
+  validateDocumentFile,
+} from "@/lib/document-storage";
 import { getRhRecipientsForEmployee, notifyRhOfDocument } from "@/lib/email";
 import {
   getAccessTokenFromRequest,
@@ -32,6 +36,11 @@ export async function POST(request: Request) {
 
     if (!documentTypeId || !(file instanceof File)) {
       return NextResponse.json({ error: "Parametres incomplets pour le depot." }, { status: 400 });
+    }
+
+    const fileValidationError = validateDocumentFile(file);
+    if (fileValidationError) {
+      return NextResponse.json({ error: fileValidationError }, { status: 400 });
     }
 
     const periodMonth = periodMonthValue ? `${periodMonthValue.slice(0, 7)}-01` : null;
@@ -89,7 +98,7 @@ export async function POST(request: Request) {
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     const { error: uploadError } = await adminClient.storage.from(storageBucket).upload(storagePath, fileBuffer, {
-      contentType: file.type || undefined,
+      contentType: safeDocumentContentType(file),
       upsert: false,
     });
     if (uploadError) {
@@ -139,21 +148,14 @@ export async function POST(request: Request) {
       },
     });
 
+    // Le document est deja cree a ce stade : un echec du suivi est signale en avertissement,
+    // pas en erreur. Repondre 400 faisait croire a un echec du depot et poussait a redeposer
+    // le meme fichier, creant un doublon.
     const [{ error: requestUpdateError }, { error: eventInsertError }] = await Promise.all([
       requestUpdatePromise,
       eventInsertPromise,
     ]);
-    if (requestUpdateError || eventInsertError) {
-      return NextResponse.json(
-        {
-          error:
-            requestUpdateError?.message ??
-            eventInsertError?.message ??
-            "Depot effectue, mais le suivi n'est pas complet.",
-        },
-        { status: 400 },
-      );
-    }
+    const trackingWarning = requestUpdateError?.message ?? eventInsertError?.message ?? null;
 
     try {
       const rhEmails = await getRhRecipientsForEmployee(adminClient, profile.id);
@@ -170,7 +172,13 @@ export async function POST(request: Request) {
       console.error("[email] notify RH (salarie upload) failed", emailError);
     }
 
-    return NextResponse.json({ success: true, documentId: insertedDocument.id });
+    return NextResponse.json({
+      success: true,
+      documentId: insertedDocument.id,
+      ...(trackingWarning
+        ? { warning: "Depot effectue, mais le suivi n'est pas complet." }
+        : {}),
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Erreur serveur." },

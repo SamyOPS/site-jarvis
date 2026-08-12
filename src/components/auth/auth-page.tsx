@@ -43,6 +43,44 @@ type AuthPageProps = {
   defaultMode?: AuthMode;
 };
 
+/**
+ * Demande au serveur de creer le profil du compte courant.
+ *
+ * Best-effort : un echec ne doit pas bloquer la connexion, le profil sera recree a la
+ * prochaine ouverture de session. Sans jeton (inscription en attente de confirmation
+ * d'e-mail), la creation est simplement reportee au premier login.
+ */
+async function bootstrapProfile(
+  accessToken: string | undefined,
+  body: { accountKind: RoleChoice; fullName?: string | null; companyName?: string | null },
+) {
+  if (!accessToken) return null;
+
+  try {
+    const response = await fetch("/api/auth/bootstrap-profile", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      profile?: { role?: string | null; professional_status?: string | null };
+      error?: string;
+    } | null;
+
+    if (!response.ok) {
+      console.warn("Creation de profil ignoree :", payload?.error ?? response.status);
+      return null;
+    }
+    return payload?.profile ?? null;
+  } catch (error) {
+    console.warn("Creation de profil ignoree :", error);
+    return null;
+  }
+}
+
 const getDashboardPath = (role?: string | null) => {
   if (role === "admin") return "/dashboard";
   if (role === "professional") return "/dashboard/pro";
@@ -217,14 +255,16 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
       }
 
       if (!profileRow && !profileSelectError) {
-        const { error: profileUpsertError } = await supabase.from("profiles").upsert({
-          id: data.user.id,
-          email: loginEmail,
-          role: resolvedRole ?? "candidate",
+        // Le profil est cree par le serveur : le rang ne peut pas etre choisi ici.
+        // `user_metadata.role` n'est plus utilise — l'utilisateur peut le reecrire lui-meme
+        // via `auth.updateUser`, il ne prouve donc rien.
+        const bootstrapped = await bootstrapProfile(data.session?.access_token, {
+          accountKind: "candidate",
         });
-
-        if (profileUpsertError) {
-          console.warn("Creation de profil ignoree :", profileUpsertError.message);
+        if (bootstrapped) {
+          resolvedRole = bootstrapped.role ?? resolvedRole;
+          resolvedProfessionalStatus =
+            bootstrapped.professional_status ?? resolvedProfessionalStatus;
         }
       }
     }
@@ -282,18 +322,13 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
     }
 
     if (data.user) {
-      const { error: profileError } = await supabase.from("profiles").upsert({
-        id: data.user.id,
-        email: signupEmail,
-        full_name: fullName || null,
-        company_name: isPro ? company : null,
-        role: mappedRole,
-        professional_status: mappedStatus,
+      // Le profil est cree cote serveur, qui decide seul du rang a partir du type de compte
+      // demande. Il etait auparavant ecrit directement ici, avec le role du formulaire.
+      await bootstrapProfile(data.session?.access_token, {
+        accountKind: roleChoice,
+        fullName: fullName || null,
+        companyName: isPro ? company : null,
       });
-
-      if (profileError) {
-        console.warn("Upsert profile ignoree:", profileError.message);
-      }
     }
 
     setStatus({

@@ -140,8 +140,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .limit(10);
 
     const requestRow =
+      // Rapprochement strict sur la periode : sans cela, une demande d'un autre mois etait
+      // marquee satisfaite par ce depot.
       (matchingRequest ?? []).find((row) => (row.period_month ?? "") === (craRecord.period_month ?? "")) ??
-      (matchingRequest ?? [])[0] ??
       null;
 
     let documentId = craRecord.employee_document_id;

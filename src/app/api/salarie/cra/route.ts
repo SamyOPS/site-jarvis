@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { CRA_ENTRY_UNIT_COLUMNS, parseCraEntries, toCraEntryUnit, type CraEntryInput } from "@/lib/cra-entries";
+import { loadEmployeeMissions, syncCraMissionLines } from "@/lib/missions";
 import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toIsoMonthStart } from "@/lib/server-supabase";
 
 type CraCreatePayload = {
@@ -85,14 +86,34 @@ export async function POST(request: Request) {
     }
 
     const periodMonth = toIsoMonthStart(String(body.periodMonth));
+    // Unite de repli pour les lignes sans mission : le reglage historique du profil.
     const { data: entryUnitRow } = await adminClient
       .from("employee_billing_profiles")
       .select(CRA_ENTRY_UNIT_COLUMNS)
       .eq("employee_id", profile.id)
       .maybeSingle();
-    const entryUnit = toCraEntryUnit(entryUnitRow);
-    const entries = parseCraEntries(body.entries, entryUnit);
-    const workedDaysCount = entries.reduce((total, entry) => total + entry.day_quantity, 0);
+    const fallbackUnit = toCraEntryUnit(entryUnitRow);
+
+    let missions;
+    let missionUnits;
+    try {
+      ({ missions, units: missionUnits } = await loadEmployeeMissions(adminClient, profile.id));
+    } catch (missionError) {
+      return NextResponse.json(
+        {
+          error:
+            missionError instanceof Error
+              ? missionError.message
+              : "Chargement des entreprises impossible.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const entries = parseCraEntries(body.entries, missionUnits, fallbackUnit);
+    // Ne totalise que les lignes saisies en journees : une mission facturee a l'heure ne
+    // se convertit plus en jours, ses heures sont comptees a part sur sa propre ligne.
+    const workedDaysCount = entries.reduce((total, entry) => total + (entry.day_quantity ?? 0), 0);
     const leaveDays = parseLeaveDays(body);
 
     const { data: existingRecord, error: existingError } = await adminClient
@@ -158,6 +179,20 @@ export async function POST(request: Request) {
         }
       }
 
+      try {
+        await syncCraMissionLines(adminClient, existingRecord.id, entries, missions);
+      } catch (linesError) {
+        return NextResponse.json(
+          {
+            error:
+              linesError instanceof Error
+                ? linesError.message
+                : "Mise a jour du recapitulatif par entreprise impossible.",
+          },
+          { status: 400 },
+        );
+      }
+
       return NextResponse.json({ success: true, cra: updatedRecord });
     }
 
@@ -201,6 +236,21 @@ export async function POST(request: Request) {
         await adminClient.from("cra_records").delete().eq("id", craRecord.id);
         return NextResponse.json({ error: entriesError.message }, { status: 400 });
       }
+    }
+
+    try {
+      await syncCraMissionLines(adminClient, craRecord.id, entries, missions);
+    } catch (linesError) {
+      await adminClient.from("cra_records").delete().eq("id", craRecord.id);
+      return NextResponse.json(
+        {
+          error:
+            linesError instanceof Error
+              ? linesError.message
+              : "Creation du recapitulatif par entreprise impossible.",
+        },
+        { status: 400 },
+      );
     }
 
     return NextResponse.json({ success: true, cra: craRecord });

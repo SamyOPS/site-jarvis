@@ -6,14 +6,17 @@ import { ChevronDown } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
 
-import type { BillingProfileFormState } from "@/components/dashboard/billing-profile-card";
 import { CraHistory } from "@/components/dashboard/salarie/cra/cra-history";
 import { formatInvoiceAmount, InvoiceSummary } from "@/components/dashboard/salarie/cra/invoice-summary";
-import { WorkDaysCalendar } from "@/components/dashboard/salarie/cra/work-days-calendar";
-import { CraLivePreview } from "@/components/dashboard/salarie/cra-live-preview";
-import { InvoiceLivePreview } from "@/components/dashboard/salarie/invoice-live-preview";
+import {
+  computeInvoiceTotals,
+  type InvoiceLineInput,
+} from "@/features/dashboard/salarie/invoice-totals";
+import {
+  WorkDaysCalendar,
+  type CalendarMission,
+} from "@/components/dashboard/salarie/cra/work-days-calendar";
 import { Button } from "@/components/ui/button";
-import { useMediaQuery } from "@/hooks/use-media-query";
 import type {
   CraCalendarCell,
   CraEntryDraft,
@@ -92,7 +95,6 @@ function CollapsibleSection({
 type SalarieCraInvoiceEditorProps = {
   initialTab?: CraInvoiceTab;
   billingProfileReady: boolean;
-  billingProfileForm: BillingProfileFormState;
   selectedCraId: string | null;
   selectedCraSummary: Pick<CraSummaryRow, "status" | "pdf_version"> | null;
   craItems: CraSummaryRow[];
@@ -113,29 +115,36 @@ type SalarieCraInvoiceEditorProps = {
   onCraLeaveDaysChange: (value: CraLeaveDaysDraft) => void;
   invoice: SalarieInvoiceSettings;
   onInvoiceChange: (value: SalarieInvoiceSettings) => void;
-  /** Rang provisoire de la prochaine facture du mois, pour l'apercu uniquement. */
-  nextInvoiceSequence: number;
   weekdayLabels: string[];
   craCalendarCells: CraCalendarCell[];
-  craEntriesByDate: Map<string, CraEntryDraft>;
+  craEntriesByDate: Map<string, CraEntryDraft[]>;
   craEntries: CraEntryDraft[];
-  onCycleCraWorkDate: (workDate: string) => void;
+  onCycleCraWorkDate: (workDate: string, missionId?: string) => void;
   onFillCraWorkingDays: () => void;
   onClearCraEntries: () => void;
   craTimeUnit: CraTimeUnit;
-  craHoursPerDay: number;
   craDraftTotalHours: number;
-  onSetCraEntryHours: (workDate: string, hours: number) => void;
-  onRemoveCraWorkDate: (workDate: string) => void;
+  onSetCraEntryHours: (workDate: string, hours: number, missionId?: string) => void;
+  onSetCraEntryDayQuantity: (workDate: string, dayQuantity: number, missionId?: string) => void;
+  onRemoveCraWorkDate: (workDate: string, missionId?: string) => void;
   onApplyCraHoursToAllEntries: (hours: number) => void;
   formatCraEntryDateLabel: (value: string) => string;
-  updateCraEntry: (workDate: string, patch: { dayQuantity?: string; label?: string }) => void;
+  updateCraEntry: (
+    workDate: string,
+    patch: { dayQuantity?: string; label?: string },
+    missionId?: string,
+  ) => void;
+  /** Entreprises du collaborateur. Vide = comportement mono-entreprise historique. */
+  craMissions: CalendarMission[];
+  activeMissionId: string;
+  onSelectMission: (missionId: string) => void;
+  /** Une ligne de facture par entreprise saisie, avec sa quantite et son tarif. */
+  craInvoiceLines: InvoiceLineInput[];
 };
 
 export function SalarieCraInvoiceEditor({
   initialTab = "cra",
   billingProfileReady,
-  billingProfileForm,
   selectedCraId,
   selectedCraSummary,
   craItems,
@@ -156,7 +165,6 @@ export function SalarieCraInvoiceEditor({
   onCraLeaveDaysChange,
   invoice,
   onInvoiceChange,
-  nextInvoiceSequence,
   weekdayLabels,
   craCalendarCells,
   craEntriesByDate,
@@ -165,11 +173,15 @@ export function SalarieCraInvoiceEditor({
   onFillCraWorkingDays,
   onClearCraEntries,
   craTimeUnit,
-  craHoursPerDay,
   craDraftTotalHours,
   onSetCraEntryHours,
+  onSetCraEntryDayQuantity,
   onRemoveCraWorkDate,
   onApplyCraHoursToAllEntries,
+  craMissions,
+  activeMissionId,
+  onSelectMission,
+  craInvoiceLines,
   formatCraEntryDateLabel,
   updateCraEntry,
 }: SalarieCraInvoiceEditorProps) {
@@ -179,16 +191,21 @@ export function SalarieCraInvoiceEditor({
     setTab(initialTab);
   }, [initialTab]);
 
-  const isWideViewport = useMediaQuery("(min-width: 1280px)");
-  const [narrowPreviewOpen, setNarrowPreviewOpen] = useState(false);
-  const previewEnabled = isWideViewport || narrowPreviewOpen;
-
-  // Fige l'horodatage au montage : un `new Date()` a chaque rendu relancerait la
-  // construction du PDF en boucle. Le serveur reste maitre de la date reelle.
-  const [issuedAtIso] = useState(() => new Date().toISOString());
-
-  const dailyRate = toAmount(billingProfileForm.dailyRate);
-  const hasDailyRate = dailyRate > 0;
+  // Le tarif appartient a la mission : la facture est facturable des qu'au moins une
+  // entreprise saisie porte un tarif.
+  const invoiceTotals = computeInvoiceTotals({
+    lines: craInvoiceLines,
+    discountGranted: invoice.discountGranted,
+    vatEnabled: invoice.vatEnabled,
+    amountAlreadyPaid: toAmount(invoice.amountAlreadyPaid),
+    fraisKm: toAmount(invoice.fraisKm),
+    fraisRepas: toAmount(invoice.fraisRepas),
+    fraisNuitee: toAmount(invoice.fraisNuitee),
+  });
+  const hasDailyRate = invoiceTotals.serviceHt > 0;
+  const missionsWithoutRate = craInvoiceLines
+    .filter((line) => line.quantity > 0 && line.rate <= 0)
+    .map((line) => line.label);
   const hasEntries = craEntries.length > 0;
   const busy = craGenerating || invoiceGenerating;
 
@@ -208,9 +225,9 @@ export function SalarieCraInvoiceEditor({
     );
 
   return (
-    <div className="grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(400px,0.95fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(480px,600px)]">
-      {/* min-w-0 est obligatoire : sans lui la largeur mini d'un element de grille
-          vaut min-content, et la grille 7 colonnes du calendrier deborderait. */}
+    <div className="min-w-0">
+      {/* min-w-0 est obligatoire : sans lui la largeur mini vaut min-content, et la
+          grille 7 colonnes du calendrier deborderait. */}
       <div className="min-w-0 space-y-4">
       {!billingProfileReady ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -264,14 +281,17 @@ export function SalarieCraInvoiceEditor({
           onUpdateEntry={updateCraEntry}
           formatEntryDateLabel={formatCraEntryDateLabel}
           serviceAmountLabel={
-            hasDailyRate ? formatInvoiceAmount(craDraftTotalDays * dailyRate) : null
+            hasDailyRate ? formatInvoiceAmount(invoiceTotals.serviceHt) : null
           }
           timeUnit={craTimeUnit}
-          hoursPerDay={craHoursPerDay}
           totalHours={craDraftTotalHours}
           onSetEntryHours={onSetCraEntryHours}
+          onSetEntryDayQuantity={onSetCraEntryDayQuantity}
           onRemoveWorkDate={onRemoveCraWorkDate}
           onApplyHoursToAllEntries={onApplyCraHoursToAllEntries}
+          missions={craMissions}
+          activeMissionId={activeMissionId}
+          onSelectMission={onSelectMission}
         />
 
         <TabsContent value="cra" className="space-y-4">
@@ -345,12 +365,17 @@ export function SalarieCraInvoiceEditor({
           {!hasDailyRate && billingProfileReady ? (
             <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <span>
-                Aucun tarif journalier dans ton profil de facturation : la facture ne peut pas
-                etre generee.
+                {missionsWithoutRate.length
+                  ? `Aucun tarif renseigne pour ${missionsWithoutRate.join(", ")} : la facture ne peut pas etre generee.`
+                  : "Aucune entreprise avec un tarif : la facture ne peut pas etre generee."}
               </span>
               <Link href="/dashboard/salarie/parametres" className="font-semibold underline">
-                Renseigner le TJM
+                Regler mes entreprises
               </Link>
+            </div>
+          ) : missionsWithoutRate.length ? (
+            <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              {`Sans tarif, ${missionsWithoutRate.join(", ")} n'apparaitra pas sur la facture.`}
             </div>
           ) : null}
 
@@ -425,8 +450,7 @@ export function SalarieCraInvoiceEditor({
 
           {hasEntries && hasDailyRate ? (
             <InvoiceSummary
-              quantity={craDraftTotalDays}
-              dailyRate={dailyRate}
+              lines={craInvoiceLines}
               discountGranted={invoice.discountGranted}
               vatEnabled={invoice.vatEnabled}
               amountAlreadyPaid={toAmount(invoice.amountAlreadyPaid)}
@@ -454,53 +478,6 @@ export function SalarieCraInvoiceEditor({
       </Tabs>
       </div>
 
-      {/* Colonne d'apercu. Le sticky se resout contre l'unique conteneur scrollable
-          du dashboard : n'ajouter aucun overflow-* entre les deux, sinon il casse. */}
-      <aside className="min-w-0 xl:sticky xl:top-0 xl:self-start">
-        <div className="rounded-xl border border-slate-200 bg-white p-2 xl:p-3">
-          <p className="mb-2 px-1 text-sm font-medium text-[#0A1A2F]">
-            Apercu {tab === "cra" ? "du CRA" : "de la facture"}
-          </p>
-
-          {previewEnabled ? (
-            tab === "cra" ? (
-              <CraLivePreview
-                billingProfile={billingProfileForm}
-                periodMonth={craPeriodMonth}
-                notes={craNotes}
-                entries={craEntries}
-                totalDays={craDraftTotalDays}
-                leaveDays={craLeaveDays}
-              />
-            ) : (
-              <InvoiceLivePreview
-                billingProfile={billingProfileForm}
-                entries={craEntries}
-                periodMonth={craPeriodMonth}
-                totalDays={craDraftTotalDays}
-                settings={invoice}
-                sequence={nextInvoiceSequence}
-                issuedAtIso={issuedAtIso}
-                enabled={hasDailyRate}
-                disabledLabel="Renseigne ton tarif journalier pour voir l'apercu de la facture."
-              />
-            )
-          ) : (
-            // Sous xl, on ne monte pas l'apercu : construire un PDF que l'ecran ne
-            // peut pas afficher confortablement serait du calcul pur perdu.
-            <button
-              type="button"
-              onClick={() => setNarrowPreviewOpen(true)}
-              className="flex aspect-[595/842] w-full max-w-[520px] mx-auto flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-6 text-center text-sm text-[#0A1A2F]/60 transition hover:border-[#2aa0dd]/50 hover:bg-slate-100"
-            >
-              <span className="font-medium text-[#0A1A2F]">Afficher l&apos;apercu</span>
-              <span className="text-xs">
-                Le vis-a-vis avec le calendrier s&apos;active sur un ecran plus large.
-              </span>
-            </button>
-          )}
-        </div>
-      </aside>
     </div>
   );
 }

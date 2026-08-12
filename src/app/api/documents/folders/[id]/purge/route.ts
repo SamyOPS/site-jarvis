@@ -95,22 +95,75 @@ export async function DELETE(request: Request, context: RouteContext) {
 
     const { data: docs, error: docsError } = await auth.adminClient
       .from("employee_documents")
-      .select("id,request_id,storage_bucket,storage_path")
+      .select("id,employee_id,request_id,storage_bucket,storage_path")
       .in("folder_id", subtreeFolderIds);
     if (docsError) {
       return NextResponse.json({ error: docsError.message }, { status: 400 });
     }
 
-    const documentIds = (docs ?? []).map((row: { id: string }) => row.id);
+    const nowIso = new Date().toISOString();
+
+    // Un sous-arbre peut contenir les documents d'autres salaries : un RH range ceux de ses
+    // collaborateurs dans ses propres dossiers (voir /api/documents/items/[id]/move). La mise
+    // a la corbeille du dossier ne detache que les documents encore actifs, donc ceux deja
+    // dans la corbeille arrivent ici encore rattachés. Ils sont detaches, jamais supprimes :
+    // la purge d'un dossier ne doit detruire que les documents de son proprietaire.
+    const ownedDocs = (docs ?? []).filter(
+      (row: { employee_id?: string | null }) => row.employee_id === folder.owner_user_id,
+    );
+    const foreignDocumentIds = (docs ?? [])
+      .filter((row: { employee_id?: string | null }) => row.employee_id !== folder.owner_user_id)
+      .map((row: { id: string }) => row.id);
+
+    for (const idsChunk of chunkArray(foreignDocumentIds, 500)) {
+      const { error: detachError } = await auth.adminClient
+        .from("employee_documents")
+        .update({ folder_id: null, updated_at: nowIso })
+        .in("id", idsChunk);
+      if (detachError) {
+        return NextResponse.json({ error: detachError.message }, { status: 400 });
+      }
+    }
+
+    const documentIds = ownedDocs.map((row: { id: string }) => row.id);
+
+    // Les fichiers partent avant les lignes qui les referencent. Dans l'ordre inverse, un
+    // echec du storage laisse des fichiers orphelins que plus aucune ligne ne designe : ils
+    // deviennent introuvables et impossibles a nettoyer.
+    const storagePathsByBucket = new Map<string, string[]>();
+    for (const row of ownedDocs) {
+      const bucket = String(
+        (row as { storage_bucket?: string | null }).storage_bucket ?? "employee-documents",
+      );
+      const path = String((row as { storage_path?: string | null }).storage_path ?? "");
+      if (!path) continue;
+      const list = storagePathsByBucket.get(bucket) ?? [];
+      list.push(path);
+      storagePathsByBucket.set(bucket, list);
+    }
+
+    for (const [bucket, paths] of storagePathsByBucket.entries()) {
+      for (const pathChunk of chunkArray(paths, 100)) {
+        const { error: storageRemoveError } = await auth.adminClient.storage
+          .from(bucket)
+          .remove(pathChunk);
+        if (storageRemoveError) {
+          return NextResponse.json(
+            { error: `Suppression des fichiers impossible : ${storageRemoveError.message}` },
+            { status: 400 },
+          );
+        }
+      }
+    }
+
     if (documentIds.length) {
       const requestIds = Array.from(
         new Set(
-          (docs ?? [])
+          ownedDocs
             .map((row: { request_id?: string | null }) => row.request_id)
             .filter((value: string | null | undefined): value is string => Boolean(value)),
         ),
       );
-      const nowIso = new Date().toISOString();
 
       if (requestIds.length) {
         for (const idsChunk of chunkArray(requestIds, 500)) {
@@ -166,26 +219,11 @@ export async function DELETE(request: Request, context: RouteContext) {
       }
     }
 
-    const storagePathsByBucket = new Map<string, string[]>();
-    for (const row of docs ?? []) {
-      const bucket = String((row as { storage_bucket?: string | null }).storage_bucket ?? "employee-documents");
-      const path = String((row as { storage_path?: string | null }).storage_path ?? "");
-      if (!path) continue;
-      const list = storagePathsByBucket.get(bucket) ?? [];
-      list.push(path);
-      storagePathsByBucket.set(bucket, list);
-    }
-
-    for (const [bucket, paths] of storagePathsByBucket.entries()) {
-      for (const pathChunk of chunkArray(paths, 100)) {
-        await auth.adminClient.storage.from(bucket).remove(pathChunk);
-      }
-    }
-
     return NextResponse.json({
       success: true,
       deletedFolders: subtreeFolderIds.length,
       deletedDocuments: documentIds.length,
+      detachedDocuments: foreignDocumentIds.length,
     });
   } catch (error) {
     return NextResponse.json(

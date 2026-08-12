@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { canManageOwner, getAuthorizedDocumentsContext } from "@/app/api/documents/_shared";
+import {
+  canManageOwner,
+  getAuthorizedDocumentsContext,
+  MAX_FOLDER_NAME_LENGTH,
+} from "@/app/api/documents/_shared";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -51,6 +55,12 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     if (!folderId || !name) {
       return NextResponse.json({ error: "id et name sont requis." }, { status: 400 });
+    }
+    if (name.length > MAX_FOLDER_NAME_LENGTH) {
+      return NextResponse.json(
+        { error: `Nom de dossier trop long (${MAX_FOLDER_NAME_LENGTH} caracteres maximum).` },
+        { status: 400 },
+      );
     }
 
     const { data: folder, error: folderError } = await auth.adminClient
@@ -132,12 +142,14 @@ export async function DELETE(request: Request, context: RouteContext) {
     const subtreeFolderIds = collectSubtreeFolderIds(folderId, (ownerFolders ?? []) as FolderNode[]);
     if (subtreeFolderIds.length) {
       const now = new Date().toISOString();
+      // Les documents des autres salaries sont detaches, y compris ceux deja dans la
+      // corbeille : restreindre aux documents actifs les laissait rattaches au dossier, et
+      // la purge definitive les detruisait ensuite avec leur fichier.
       const { error: moveForeignDocsError } = await auth.adminClient
         .from("employee_documents")
         .update({ folder_id: null, updated_at: now })
         .in("folder_id", subtreeFolderIds)
-        .neq("employee_id", folder.owner_user_id)
-        .is("deleted_at", null);
+        .neq("employee_id", folder.owner_user_id);
       if (moveForeignDocsError) {
         return NextResponse.json({ error: moveForeignDocsError.message }, { status: 400 });
       }

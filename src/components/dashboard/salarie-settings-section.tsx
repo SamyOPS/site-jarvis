@@ -2,6 +2,11 @@ import {
   BillingProfileCard,
   type BillingProfileFormState,
 } from "@/components/dashboard/billing-profile-card";
+import {
+  MissionsCard,
+  type MissionFormState,
+  type MissionItem,
+} from "@/components/dashboard/missions-card";
 import { PasswordUpdateCard } from "@/components/dashboard/password-update-card";
 import {
   SettingsSummaryCard,
@@ -27,6 +32,12 @@ type SalarieSettingsSectionProps = {
   passwordForm: PasswordFormState;
   onPasswordFormChange: (form: PasswordFormState) => void;
   onPasswordSubmit: () => void | Promise<void>;
+  missions: MissionItem[];
+  onMissionSave: (form: MissionFormState) => void | Promise<void>;
+  onMissionDelete: (missionId: string) => void | Promise<void>;
+  missionsSaving: boolean;
+  missionsLoading: boolean;
+  missionsMessage: string | null;
 };
 
 export function SalarieSettingsSection({
@@ -43,6 +54,12 @@ export function SalarieSettingsSection({
   passwordForm,
   onPasswordFormChange,
   onPasswordSubmit,
+  missions,
+  onMissionSave,
+  onMissionDelete,
+  missionsSaving,
+  missionsLoading,
+  missionsMessage,
 }: SalarieSettingsSectionProps) {
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
@@ -61,6 +78,16 @@ export function SalarieSettingsSection({
         onSubmit={onBillingProfileSubmit}
         saving={billingProfileSaving}
         loading={billingProfileLoading}
+      />
+
+      <MissionsCard
+        className="xl:col-span-2"
+        missions={missions}
+        onSave={onMissionSave}
+        onDelete={onMissionDelete}
+        saving={missionsSaving}
+        loading={missionsLoading}
+        message={missionsMessage}
       />
 
       <PasswordUpdateCard

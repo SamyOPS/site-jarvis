@@ -13,6 +13,32 @@ import type {
 } from "@/features/dashboard/salarie/types";
 import { cn } from "@/lib/utils";
 
+/** Entreprise selectionnable dans le calendrier. */
+export type CalendarMission = {
+  id: string;
+  companyName: string;
+  timeUnit: CraTimeUnit;
+};
+
+/**
+ * Couleurs des entreprises, dans l'ordre de la liste. La premiere reprend exactement le
+ * bleu historique : un consultant mono-entreprise ne voit donc aucun changement.
+ * La couleur n'est jamais seule porteuse d'information — le popover nomme les entreprises.
+ */
+const MISSION_COLORS = [
+  { bg: "bg-[#2aa0dd]", border: "border-[#2aa0dd]" },
+  { bg: "bg-[#f59e0b]", border: "border-[#f59e0b]" },
+  { bg: "bg-[#10b981]", border: "border-[#10b981]" },
+  { bg: "bg-[#8b5cf6]", border: "border-[#8b5cf6]" },
+  { bg: "bg-[#ef4444]", border: "border-[#ef4444]" },
+  { bg: "bg-[#0ea5e9]", border: "border-[#0ea5e9]" },
+];
+
+export function missionColor(missions: CalendarMission[], missionId: string) {
+  const index = missions.findIndex((mission) => mission.id === missionId);
+  return MISSION_COLORS[(index < 0 ? 0 : index) % MISSION_COLORS.length];
+}
+
 type WorkDaysCalendarProps = {
   calendarMonth: string;
   periodMonth: string;
@@ -21,22 +47,31 @@ type WorkDaysCalendarProps = {
   weekdayLabels: string[];
   calendarCells: CraCalendarCell[];
   entries: CraEntryDraft[];
-  entriesByDate: Map<string, CraEntryDraft>;
+  /** Une date peut porter plusieurs entreprises. */
+  entriesByDate: Map<string, CraEntryDraft[]>;
   totalDays: number;
-  onCycleWorkDate: (workDate: string) => void;
+  onCycleWorkDate: (workDate: string, missionId?: string) => void;
   onFillWorkingDays: () => void;
   onClearEntries: () => void;
-  onUpdateEntry: (workDate: string, patch: { dayQuantity?: string; label?: string }) => void;
+  onUpdateEntry: (
+    workDate: string,
+    patch: { dayQuantity?: string; label?: string },
+    missionId?: string,
+  ) => void;
   formatEntryDateLabel: (value: string) => string;
   /** Montant HT de la prestation, affiche a cote du total de jours quand un TJM est connu. */
   serviceAmountLabel?: string | null;
-  /** "day" (defaut historique) ou "hour". */
+  /** "day" (defaut historique) ou "hour". Unite de la mission active. */
   timeUnit?: CraTimeUnit;
-  hoursPerDay?: number;
   totalHours?: number;
-  onSetEntryHours?: (workDate: string, hours: number) => void;
-  onRemoveWorkDate?: (workDate: string) => void;
+  onSetEntryHours?: (workDate: string, hours: number, missionId?: string) => void;
+  onSetEntryDayQuantity?: (workDate: string, dayQuantity: number, missionId?: string) => void;
+  onRemoveWorkDate?: (workDate: string, missionId?: string) => void;
   onApplyHoursToAllEntries?: (hours: number) => void;
+  /** Entreprises du collaborateur. Vide = comportement mono-entreprise historique. */
+  missions?: CalendarMission[];
+  activeMissionId?: string;
+  onSelectMission?: (missionId: string) => void;
 };
 
 export function WorkDaysCalendar({
@@ -56,18 +91,23 @@ export function WorkDaysCalendar({
   formatEntryDateLabel,
   serviceAmountLabel,
   timeUnit = "day",
-  hoursPerDay = 7,
   totalHours = 0,
   onSetEntryHours,
+  onSetEntryDayQuantity,
   onRemoveWorkDate,
   onApplyHoursToAllEntries,
+  missions = [],
+  activeMissionId = "",
+  onSelectMission,
 }: WorkDaysCalendarProps) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [pendingCommentDate, setPendingCommentDate] = useState("");
-  // Un seul editeur d'heures ouvert a la fois : la grille reste lisible.
+  // Un seul editeur ouvert a la fois : la grille reste lisible.
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const editorRef = useRef<HTMLDivElement | null>(null);
   const isHourly = timeUnit === "hour";
+  // Le popover de repartition ne sert que s'il y a plusieurs entreprises a departager.
+  const isMultiMission = missions.length > 1;
 
   useEffect(() => {
     if (!editingDate) return;
@@ -150,7 +190,7 @@ export function WorkDaysCalendar({
               onClick={() => {
                 const answer = window.prompt(
                   "Appliquer combien d'heures a chaque jour coche ?",
-                  String(hoursPerDay),
+                  String(totalHours > 0 && entries.length ? totalHours / entries.length : 7),
                 );
                 if (answer === null) return;
                 const parsed = Number(answer.replace(",", "."));
@@ -203,6 +243,38 @@ export function WorkDaysCalendar({
             </div>
           ))}
         </div>
+        {/* Barre des entreprises : n'apparait qu'a partir de deux, pour qu'un consultant
+            mono-entreprise retrouve exactement l'ecran d'avant. */}
+        {isMultiMission ? (
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-[#0A1A2F]/55">Saisir pour :</span>
+            {missions.map((mission) => {
+              const color = missionColor(missions, mission.id);
+              const isActive = mission.id === activeMissionId;
+              return (
+                <button
+                  key={mission.id}
+                  type="button"
+                  onClick={() => onSelectMission?.(mission.id)}
+                  aria-pressed={isActive}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition",
+                    isActive
+                      ? `${color.border} bg-slate-50 font-semibold text-[#0A1A2F]`
+                      : "border-slate-200 text-[#0A1A2F]/65 hover:border-slate-300",
+                  )}
+                >
+                  <span className={cn("h-2.5 w-2.5 rounded-sm", color.bg)} />
+                  <span className="max-w-[10rem] truncate">{mission.companyName}</span>
+                  <span className="text-[10px] text-[#0A1A2F]/45">
+                    {mission.timeUnit === "hour" ? "h" : "j"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {calendarCells.map((cell, index) => {
             const { isoDate, dayNumber } = cell;
@@ -215,65 +287,197 @@ export function WorkDaysCalendar({
             const isWeekend = [0, 6].includes(parsedDate.getDay());
             const holidayName = getFrenchHolidayName(isoDate);
             const isDimmed = isWeekend || Boolean(holidayName);
-            const entry = entriesByDate.get(isoDate);
-            const isHalfDay = !isHourly && entry ? Number(entry.dayQuantity) === 0.5 : false;
-            const entryHours = entry ? craEntryHours(entry, hoursPerDay) : 0;
-            const isEditing = isHourly && editingDate === isoDate;
+            const dayEntries = entriesByDate.get(isoDate) ?? [];
+            const entry =
+              dayEntries.find((item) => item.missionId === activeMissionId) ?? dayEntries[0];
+            const hasEntries = dayEntries.length > 0;
+            const isHalfDay =
+              !isHourly && dayEntries.length === 1 && entry
+                ? Number(entry.dayQuantity) === 0.5
+                : false;
+            const entryHours = entry ? craEntryHours(entry) : 0;
+            // Total de la journee toutes entreprises confondues, en equivalent jour.
+            const dayTotal = dayEntries.reduce(
+              (total, item) => total + (Number(item.dayQuantity) || 0),
+              0,
+            );
+            const isEditing = editingDate === isoDate && (isHourly || isMultiMission);
 
             return (
               <div key={isoDate} className="relative">
                 <button
                   type="button"
                   onClick={() => {
-                    // Mode horaire : le second clic ouvre l'editeur au lieu d'enchainer
-                    // sur la demi-journee.
-                    if (isHourly && entry) {
+                    // Mode horaire ou plusieurs entreprises : le second clic ouvre
+                    // l'editeur au lieu d'enchainer sur la demi-journee.
+                    if ((isHourly || isMultiMission) && hasEntries) {
                       setEditingDate((current) => (current === isoDate ? null : isoDate));
                       return;
                     }
-                    onCycleWorkDate(isoDate);
+                    onCycleWorkDate(isoDate, activeMissionId || undefined);
                   }}
                   title={
                     holidayName ??
-                    (entry
-                      ? isHourly
-                        ? "Cliquer pour modifier les heures"
-                        : "Cliquer pour passer en demi-journee"
+                    (hasEntries
+                      ? isMultiMission
+                        ? "Cliquer pour repartir la journee entre les entreprises"
+                        : isHourly
+                          ? "Cliquer pour modifier les heures"
+                          : "Cliquer pour passer en demi-journee"
                       : undefined)
                   }
                   className={cn(
-                    "relative aspect-square w-full rounded-lg border transition-colors",
+                    "relative aspect-square w-full overflow-hidden rounded-lg border transition-colors",
                     isHourly ? "text-xs" : "text-sm",
-                    entry
-                      ? "border-[#2aa0dd] bg-[#2aa0dd] font-semibold text-white"
+                    hasEntries
+                      ? "font-semibold text-white"
                       : isDimmed
                         ? "border-transparent bg-slate-100 text-slate-400 hover:bg-slate-200"
                         : "border-slate-200 bg-white text-[#0A1A2F] hover:border-[#2aa0dd]/40 hover:bg-slate-50",
+                    hasEntries ? missionColor(missions, entry?.missionId ?? "").border : "",
                     isEditing ? "ring-2 ring-[#2aa0dd]/40 ring-offset-1" : "",
                   )}
-                  aria-pressed={Boolean(entry)}
+                  aria-pressed={hasEntries}
                 >
-                  {isHourly && entry ? (
-                    <span className="flex h-full flex-col items-center justify-center leading-tight">
-                      <span className="text-[10px] font-normal opacity-80">{dayNumber}</span>
-                      <span className="font-semibold">
-                        {entryHours.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}h
-                      </span>
+                  {/* Bandes proportionnelles : une entreprise occupe toute la case, deux
+                      demi-journees la partagent en deux. */}
+                  {hasEntries ? (
+                    <span className="absolute inset-0 flex" aria-hidden="true">
+                      {dayEntries.map((item) => (
+                        <span
+                          key={item.missionId || "sans-mission"}
+                          style={{ flexGrow: Number(item.dayQuantity) || 0.5 }}
+                          className={missionColor(missions, item.missionId).bg}
+                        />
+                      ))}
                     </span>
-                  ) : (
-                    dayNumber
-                  )}
+                  ) : null}
+
+                  <span className="relative">
+                    {isHourly && entry && dayEntries.length === 1 ? (
+                      <span className="flex h-full flex-col items-center justify-center leading-tight">
+                        <span className="text-[10px] font-normal opacity-80">{dayNumber}</span>
+                        <span className="font-semibold">
+                          {entryHours.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}h
+                        </span>
+                      </span>
+                    ) : (
+                      dayNumber
+                    )}
+                  </span>
+
                   {isHalfDay ? (
                     <span className="absolute bottom-0.5 right-1 text-[10px] font-bold leading-none">
                       ½
                     </span>
                   ) : null}
-                  {entry?.label.trim() ? (
+                  {dayEntries.length > 1 ? (
+                    <span className="absolute bottom-0.5 right-1 text-[9px] font-bold leading-none">
+                      {dayTotal.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} j
+                    </span>
+                  ) : null}
+                  {dayEntries.some((item) => item.label.trim()) ? (
                     <span className="absolute left-1 top-1 h-1.5 w-1.5 rounded-full bg-white/90" />
                   ) : null}
                 </button>
 
-                {isEditing && entry ? (
+                {isEditing && isMultiMission ? (
+                  <div
+                    ref={editorRef}
+                    className="absolute left-1/2 top-full z-30 mt-1 w-72 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-2.5 shadow-lg"
+                  >
+                    <div className="mb-2 flex items-baseline justify-between gap-2">
+                      <p className="text-[11px] capitalize text-[#0A1A2F]/60">
+                        {formatEntryDateLabel(isoDate)}
+                      </p>
+                      <p
+                        className={cn(
+                          "text-[11px] font-semibold",
+                          dayTotal > 1 ? "text-amber-600" : "text-[#0A1A2F]/60",
+                        )}
+                      >
+                        total {dayTotal.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} j
+                      </p>
+                    </div>
+
+                    {/* Une ligne par entreprise, y compris celles non encore saisies :
+                        c'est ainsi qu'on ajoute une seconde entreprise a la journee. */}
+                    <ul className="space-y-1.5">
+                      {missions.map((mission) => {
+                        const missionEntry = dayEntries.find(
+                          (item) => item.missionId === mission.id,
+                        );
+                        const missionHours = missionEntry
+                          ? craEntryHours(missionEntry)
+                          : 0;
+                        const color = missionColor(missions, mission.id);
+
+                        return (
+                          <li key={mission.id} className="flex items-center gap-1.5">
+                            <span className={cn("h-2.5 w-2.5 shrink-0 rounded-sm", color.bg)} />
+                            <span className="min-w-0 flex-1 truncate text-xs text-[#0A1A2F]">
+                              {mission.companyName}
+                            </span>
+                            {mission.timeUnit === "hour" ? (
+                              <input
+                                type="number"
+                                min="0"
+                                max="24"
+                                step="0.5"
+                                value={missionEntry ? missionHours : ""}
+                                placeholder="0"
+                                onChange={(event) => {
+                                  const parsed = Number(event.target.value);
+                                  if (!event.target.value.trim() || parsed <= 0) {
+                                    onRemoveWorkDate?.(isoDate, mission.id);
+                                    return;
+                                  }
+                                  onSetEntryHours?.(isoDate, parsed, mission.id);
+                                }}
+                                onWheel={(event) => event.currentTarget.blur()}
+                                className="h-7 w-16 rounded-md border border-slate-300 px-1.5 text-center text-xs"
+                                aria-label={`Heures chez ${mission.companyName}`}
+                              />
+                            ) : (
+                              <select
+                                value={missionEntry?.dayQuantity ?? "0"}
+                                onChange={(event) =>
+                                  onSetEntryDayQuantity?.(
+                                    isoDate,
+                                    Number(event.target.value),
+                                    mission.id,
+                                  )
+                                }
+                                className="h-7 w-16 rounded-md border border-slate-300 px-1 text-center text-xs"
+                                aria-label={`Journee chez ${mission.companyName}`}
+                              >
+                                <option value="0">—</option>
+                                <option value="0.5">½ j</option>
+                                <option value="1">1 j</option>
+                              </select>
+                            )}
+                            <span className="w-3 text-[10px] text-[#0A1A2F]/45">
+                              {mission.timeUnit === "hour" ? "h" : ""}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onRemoveWorkDate?.(isoDate);
+                        setEditingDate(null);
+                      }}
+                      className="mt-2 w-full rounded-md px-2 py-1 text-xs text-red-600 transition hover:bg-red-50"
+                    >
+                      Retirer ce jour
+                    </button>
+                  </div>
+                ) : null}
+
+                {isEditing && !isMultiMission && entry ? (
                   <div
                     ref={editorRef}
                     className="absolute left-1/2 top-full z-30 mt-1 w-44 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
@@ -340,7 +544,7 @@ export function WorkDaysCalendar({
 
         <p className="mt-3 text-xs text-[#0A1A2F]/55">
           {isHourly
-            ? `Un clic coche le jour a ${formatCraHours(hoursPerDay)}, un second ouvre la saisie des heures.`
+            ? "Un clic coche le jour, un second ouvre la saisie des heures."
             : "Un clic coche une journee, un second la passe en demi-journee, un troisieme la retire."}
         </p>
       </div>

@@ -42,6 +42,33 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Acces refuse." }, { status: 403 });
     }
 
+    // Le dossier de destination doit appartenir au meme proprietaire : seul le dossier
+    // deplace etait controle, la destination ne l'etait pas du tout.
+    if (newParentId) {
+      if (newParentId === folderId) {
+        return NextResponse.json(
+          { error: "Un dossier ne peut pas etre son propre parent." },
+          { status: 400 },
+        );
+      }
+
+      const { data: parentFolder, error: parentError } = await auth.adminClient
+        .from("document_folders")
+        .select("id,owner_user_id,deleted_at")
+        .eq("id", newParentId)
+        .maybeSingle();
+      if (parentError) {
+        return NextResponse.json({ error: parentError.message }, { status: 400 });
+      }
+      if (
+        !parentFolder ||
+        parentFolder.deleted_at ||
+        parentFolder.owner_user_id !== folder.owner_user_id
+      ) {
+        return NextResponse.json({ error: "Dossier de destination invalide." }, { status: 400 });
+      }
+    }
+
     const { data, error } = await auth.adminClient.rpc("move_document_folder", {
       p_actor_user_id: auth.actorId,
       p_folder_id: folderId,

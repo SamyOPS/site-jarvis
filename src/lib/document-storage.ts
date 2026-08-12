@@ -1,3 +1,53 @@
+/**
+ * Formats acceptes pour un document RH ou salarie.
+ *
+ * Aligne sur ce que proposent les champs de depot du tableau de bord
+ * (`accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"`). Les routes ne validaient rien : n'importe
+ * quel fichier, de n'importe quelle taille, etait accepte et son `contentType` repris tel
+ * quel du navigateur — un .html deposé puis ouvert via URL signee s'executait dans le
+ * domaine du storage.
+ */
+export const ALLOWED_DOCUMENT_EXTENSIONS = new Set(["pdf", "png", "jpg", "jpeg", "doc", "docx"]);
+
+export const ALLOWED_DOCUMENT_MIME_TYPES = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+
+export const MAX_DOCUMENT_SIZE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Renvoie un message d'erreur, ou null si le fichier est acceptable.
+ *
+ * L'extension fait foi : `file.type` vient du navigateur et n'est pas fiable. Il est
+ * neanmoins refuse s'il est renseigne et hors liste, pour ne pas stocker un contentType
+ * arbitraire que le storage renverrait ensuite au telechargement.
+ */
+export function validateDocumentFile(file: File) {
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!ALLOWED_DOCUMENT_EXTENSIONS.has(extension)) {
+    return "Format non autorise. Formats acceptes : PDF, PNG, JPG, DOC, DOCX.";
+  }
+  if (file.type && !ALLOWED_DOCUMENT_MIME_TYPES.has(file.type)) {
+    return "Type de fichier non autorise.";
+  }
+  if (file.size === 0) {
+    return "Fichier vide.";
+  }
+  if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
+    return "Fichier trop volumineux. Taille maximale : 10 Mo.";
+  }
+  return null;
+}
+
+/** Type MIME sur pour le storage : celui du navigateur seulement s'il est dans la liste. */
+export function safeDocumentContentType(file: File) {
+  return file.type && ALLOWED_DOCUMENT_MIME_TYPES.has(file.type) ? file.type : undefined;
+}
+
 export function sanitizeFileName(fileName: string) {
   const trimmed = fileName.trim().toLowerCase();
   const parts = trimmed.split(".");

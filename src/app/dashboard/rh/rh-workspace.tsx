@@ -129,7 +129,6 @@ export default function RhWorkspace({
   >({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savingEmployee, setSavingEmployee] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordSaving, setPasswordSaving] = useState(false);
@@ -1363,6 +1362,9 @@ export default function RhWorkspace({
         ...previousEntries,
         {
           workDate,
+          // Le CRA cote RH ne selectionne pas encore de mission : la ligne retombe sur
+          // l'unite du profil de facturation, comme un CRA anterieur au multi-entreprises.
+          missionId: "",
           dayQuantity: "1",
           // Le CRA cote RH se saisit en journees : aucune heure declaree.
           hours: "",
@@ -1380,37 +1382,19 @@ export default function RhWorkspace({
     );
   }, []);
 
-  const handleSaveEmployee = async () => {
-    if (!supabase || !selectedEmployee || !activeDraft) return;
-    setSavingEmployee(true);
-    setSaveMessage(null);
-    const { error: updateError } = await supabase.from("profiles").update({ full_name: activeDraft.full_name || null, phone: activeDraft.phone || null, company_name: activeDraft.company_name || null, esn_partenaire: activeDraft.esn_partenaire || null, employment_status: activeDraft.employment_status }).eq("id", selectedEmployee.id);
-    if (updateError) {
-      setSaveMessage(updateError.message);
-      setSavingEmployee(false);
-      return;
-    }
-    await refreshDashboardData();
-    setSaveMessage("Informations mises a jour.");
-    setSavingEmployee(false);
-  };
-
   const handleSaveBillingProfile = useCallback(async () => {
     if (!supabase || !selectedEmployee || !activeBillingProfileDraft || !activeDraft) return;
     setBillingProfileSaving(true);
     setSaveMessage(null);
     try {
-      const { error: updateStatusError } = await supabase
-        .from("profiles")
-        .update({ employment_status: activeDraft.employment_status })
-        .eq("id", selectedEmployee.id);
-      if (updateStatusError) {
-        throw new Error(updateStatusError.message);
-      }
+      // Le statut d'emploi part avec le profil de facturation : la route verifie que le
+      // collaborateur releve bien du perimetre de ce RH, ce que l'ecriture directe dans
+      // `profiles` ne faisait pas.
       await callRhDocumentsApi("/api/rh/billing-profiles", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          employmentStatus: activeDraft.employment_status,
           employeeId: selectedEmployee.id,
           firstName: activeBillingProfileDraft.firstName,
           lastName: activeBillingProfileDraft.lastName,
@@ -1439,23 +1423,6 @@ export default function RhWorkspace({
       setBillingProfileSaving(false);
     }
   }, [activeBillingProfileDraft, activeDraft, callRhDocumentsApi, loadBillingProfiles, refreshDashboardData, selectedEmployee, supabase]);
-
-  const findMatchingRequest = useCallback((employeeId: string, documentTypeId: string, periodMonth: string | null) => {
-    return (
-      requests.find((request) =>
-        request.employeeId === employeeId &&
-        request.documentTypeId === documentTypeId &&
-        (request.periodMonth ?? "") === (periodMonth ?? "") &&
-        ["pending", "uploaded", "rejected", "expired"].includes(request.status),
-      ) ??
-      requests.find((request) =>
-        request.employeeId === employeeId &&
-        request.documentTypeId === documentTypeId &&
-        ["pending", "uploaded", "rejected", "expired"].includes(request.status),
-      ) ??
-      null
-    );
-  }, [requests]);
 
   const handleCreateRequest = useCallback(async () => {
     if (!requestEmployeeId || !requestDocumentTypeId) {
@@ -1840,7 +1807,10 @@ export default function RhWorkspace({
   }, [getSignedDocumentUrl]);
 
   const handleReviewDocument = useCallback(async (document: RHDocumentRow, nextStatus: "pending" | "validated" | "rejected") => {
-    if (!supabase || !user) return;
+    if (!session?.access_token) {
+      setSaveMessage("Session RH manquante.");
+      return;
+    }
 
     const reviewComment = (reviewDrafts[document.id] ?? "").trim();
     if (nextStatus === "rejected" && !reviewComment) {
@@ -1851,70 +1821,25 @@ export default function RhWorkspace({
     setReviewingDocumentId(document.id);
     setSaveMessage(null);
 
-    const reviewedAt = new Date().toISOString();
-    const nextReviewFields =
-      nextStatus === "pending"
-        ? {
-            reviewed_by: null,
-            reviewed_at: null,
-            review_comment: null,
-          }
-        : {
-            reviewed_by: user.id,
-            reviewed_at: reviewedAt,
-            review_comment: reviewComment || null,
-          };
-    const { error: documentError } = await supabase
-      .from("employee_documents")
-      .update({
-        status: nextStatus,
-        ...nextReviewFields,
-        updated_at: reviewedAt,
-      })
-      .eq("id", document.id);
-
-    if (documentError) {
-      setSaveMessage(documentError.message);
-      setReviewingDocumentId(null);
-      return;
-    }
-
-    const matchingRequest = findMatchingRequest(document.employeeId, document.documentTypeId, document.periodMonth);
-    const generatedRecordStatus = nextStatus === "pending" ? "submitted" : nextStatus;
-
-    const requestPromise = matchingRequest
-      ? supabase.from("document_requests").update({ status: nextStatus, updated_at: reviewedAt }).eq("id", matchingRequest.id)
-      : Promise.resolve({ error: null });
-
-    const generatedRecordPromise =
-      document.sourceKind === "generated" && document.documentTypeCode === "cra"
-        ? supabase
-            .from("cra_records")
-            .update({
-              status: generatedRecordStatus,
-              updated_at: reviewedAt,
-              submitted_at: nextStatus === "pending" ? reviewedAt : undefined,
-              validated_at: nextStatus === "validated" ? reviewedAt : null,
-              rejected_at: nextStatus === "rejected" ? reviewedAt : null,
-            })
-            .eq("employee_document_id", document.id)
-        : Promise.resolve({ error: null });
-
-    const eventPromise = supabase.from("document_events").insert({
-      document_id: document.id,
-      actor_id: user.id,
-      event_type: nextStatus,
-      payload: {
-        review_comment: reviewComment || null,
-        employee_id: document.employeeId,
-        document_type_id: document.documentTypeId,
+    // La revue passe par l'API : elle seule verifie que le collaborateur et le type de
+    // document relevent bien du perimetre de ce RH, et elle derive `reviewed_by` du jeton
+    // plutot que de faire confiance au navigateur.
+    const response = await fetch("/api/rh/documents/review", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        documentId: document.id,
+        status: nextStatus,
+        reviewComment,
+      }),
     });
 
-    const [{ error: requestError }, { error: generatedRecordError }, { error: eventError }] = await Promise.all([requestPromise, generatedRecordPromise, eventPromise]);
-
-    if (requestError || generatedRecordError || eventError) {
-      setSaveMessage(requestError?.message ?? generatedRecordError?.message ?? eventError?.message ?? "Le statut du document a ete mis a jour, mais le suivi n'est pas complet.");
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (!response.ok) {
+      setSaveMessage(payload?.error ?? "Mise a jour du statut impossible.");
       setReviewingDocumentId(null);
       await refreshDashboardData();
       return;
@@ -1924,7 +1849,7 @@ export default function RhWorkspace({
     setSaveMessage(nextStatus === "validated" ? "Document valide." : nextStatus === "rejected" ? "Document refuse." : "Document remis en attente.");
     setReviewingDocumentId(null);
     await refreshDashboardData();
-  }, [findMatchingRequest, refreshDashboardData, reviewDrafts, user]);
+  }, [refreshDashboardData, reviewDrafts, session]);
 
   const handlePasswordUpdate = useCallback(async () => {
     if (!supabase) return;

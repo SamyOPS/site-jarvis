@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { buildEmployeeDocumentPath } from "@/lib/document-storage";
+import {
+  buildEmployeeDocumentPath,
+  safeDocumentContentType,
+  validateDocumentFile,
+} from "@/lib/document-storage";
 import { getRhRecipientsForEmployee, notifyRhOfDocument } from "@/lib/email";
 import {
   getAccessTokenFromRequest,
@@ -117,6 +121,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     let replacedFile = false;
 
     if (file) {
+      const fileValidationError = validateDocumentFile(file);
+      if (fileValidationError) {
+        return NextResponse.json({ error: fileValidationError }, { status: 400 });
+      }
+
       nextStoragePath = buildEmployeeDocumentPath({
         employeeId: profile.id,
         documentTypeId,
@@ -125,7 +134,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       });
       const fileBuffer = Buffer.from(await file.arrayBuffer());
       const { error: uploadError } = await adminClient.storage.from(storageBucket).upload(nextStoragePath, fileBuffer, {
-        contentType: file.type || undefined,
+        contentType: safeDocumentContentType(file),
         upsert: false,
       });
       if (uploadError) {
@@ -238,6 +247,126 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Erreur serveur." },
+      { status: 500 },
+    );
+  }
+}
+
+/**
+ * Suppression definitive d'un document par le salarie.
+ *
+ * Les memes garde-fous que la mise a la corbeille (/trash) s'appliquent ici : un document
+ * valide par le RH n'est plus supprimable, et le passage par la corbeille est obligatoire.
+ * Le tableau de bord supprimait auparavant la ligne et le fichier directement depuis le
+ * navigateur, ce qui contournait ces deux regles.
+ */
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const accessToken = getAccessTokenFromRequest(request);
+    if (!accessToken) {
+      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
+    }
+
+    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
+    if (isAuthorizedActorError(authorized)) {
+      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
+    }
+    const { adminClient, profile } = authorized;
+
+    const { id } = await params;
+    const documentId = String(id ?? "").trim();
+    if (!documentId) {
+      return NextResponse.json({ error: "Document introuvable." }, { status: 400 });
+    }
+
+    const { data: document, error: documentError } = await adminClient
+      .from("employee_documents")
+      .select(
+        "id,employee_id,document_type_id,period_month,status,deleted_at,storage_bucket,storage_path",
+      )
+      .eq("id", documentId)
+      .maybeSingle();
+
+    if (documentError) {
+      return NextResponse.json({ error: documentError.message }, { status: 400 });
+    }
+    if (!document) {
+      return NextResponse.json({ error: "Document introuvable." }, { status: 404 });
+    }
+    if (document.employee_id !== profile.id) {
+      return NextResponse.json({ error: "Document non autorise." }, { status: 403 });
+    }
+    if (document.status === "validated") {
+      return NextResponse.json(
+        { error: "Ce document est valide par le RH et ne peut plus etre supprime." },
+        { status: 400 },
+      );
+    }
+    if (!document.deleted_at) {
+      return NextResponse.json(
+        { error: "Le document doit etre dans la corbeille avant suppression definitive." },
+        { status: 400 },
+      );
+    }
+
+    const now = new Date().toISOString();
+
+    // Le fichier part avant la ligne qui le designe : dans l'ordre inverse, un echec du
+    // storage laisse un fichier que plus rien ne reference, donc impossible a retrouver.
+    if (document.storage_path) {
+      const { error: storageRemoveError } = await adminClient.storage
+        .from(document.storage_bucket || "employee-documents")
+        .remove([document.storage_path]);
+      if (storageRemoveError) {
+        return NextResponse.json(
+          { error: `Suppression du fichier impossible : ${storageRemoveError.message}` },
+          { status: 400 },
+        );
+      }
+    }
+
+    const { error: craUnlinkError } = await adminClient
+      .from("cra_records")
+      .update({ status: "draft", employee_document_id: null, updated_at: now })
+      .eq("employee_document_id", documentId);
+    if (craUnlinkError) {
+      return NextResponse.json({ error: craUnlinkError.message }, { status: 400 });
+    }
+
+    const { error: eventsDeleteError } = await adminClient
+      .from("document_events")
+      .delete()
+      .eq("document_id", documentId);
+    if (eventsDeleteError) {
+      return NextResponse.json({ error: eventsDeleteError.message }, { status: 400 });
+    }
+
+    const { error: deleteError } = await adminClient
+      .from("employee_documents")
+      .delete()
+      .eq("id", documentId);
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 400 });
+    }
+
+    const matchingRequest = await findMatchingRequest(
+      adminClient,
+      profile.id,
+      document.document_type_id,
+      document.period_month,
+      ["validated", "uploaded", "rejected", "expired"],
+    );
+    if (matchingRequest) {
+      await adminClient
+        .from("document_requests")
+        .update({ status: "pending", updated_at: now })
+        .eq("id", matchingRequest.id);
+    }
+
+    return NextResponse.json({ success: true, permanent: true });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Erreur serveur." },

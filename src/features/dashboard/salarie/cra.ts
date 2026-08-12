@@ -86,15 +86,13 @@ export function buildWorkingDatesForMonth(monthValue: string) {
  * l'introduction du mode horaire, et les entrees creees en mode journee : elles
  * s'affichent correctement si le consultant bascule en mode horaire.
  */
-export function craEntryHours(
-  entry: Pick<CraEntryDraft, "hours" | "dayQuantity">,
-  hoursPerDay: number,
-) {
+/**
+ * Volume horaire d'une ligne. Il n'y a plus de conversion depuis les journees : une ligne
+ * saisie au jour ne represente aucune heure.
+ */
+export function craEntryHours(entry: Pick<CraEntryDraft, "hours">) {
   const explicitHours = Number(entry.hours);
-  if (Number.isFinite(explicitHours) && explicitHours > 0) {
-    return explicitHours;
-  }
-  return (Number(entry.dayQuantity) || 0) * hoursPerDay;
+  return Number.isFinite(explicitHours) && explicitHours > 0 ? explicitHours : 0;
 }
 
 export function formatCraHours(value: number) {

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { canManageOwner, getAuthorizedDocumentsContext } from "@/app/api/documents/_shared";
+import {
+  canManageOwner,
+  getAuthorizedDocumentsContext,
+  MAX_FOLDER_NAME_LENGTH,
+} from "@/app/api/documents/_shared";
 
 type CreateFolderPayload = {
   ownerUserId?: unknown;
@@ -75,10 +79,33 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    if (name.length > MAX_FOLDER_NAME_LENGTH) {
+      return NextResponse.json(
+        { error: `Nom de dossier trop long (${MAX_FOLDER_NAME_LENGTH} caracteres maximum).` },
+        { status: 400 },
+      );
+    }
 
     const allowed = await canManageOwner(context, ownerUserId);
     if (!allowed) {
       return NextResponse.json({ error: "Acces refuse." }, { status: 403 });
+    }
+
+    // Le parent doit exister, etre actif, et appartenir au meme proprietaire. Sans ce
+    // controle, un dossier pouvait etre rattache sous celui d'un autre utilisateur et
+    // l'arborescence devenait incoherente d'un compte a l'autre.
+    if (parentId) {
+      const { data: parentFolder, error: parentError } = await context.adminClient
+        .from("document_folders")
+        .select("id,owner_user_id,deleted_at")
+        .eq("id", parentId)
+        .maybeSingle();
+      if (parentError) {
+        return NextResponse.json({ error: parentError.message }, { status: 400 });
+      }
+      if (!parentFolder || parentFolder.deleted_at || parentFolder.owner_user_id !== ownerUserId) {
+        return NextResponse.json({ error: "Dossier parent invalide." }, { status: 400 });
+      }
     }
 
     const { data, error } = await context.adminClient

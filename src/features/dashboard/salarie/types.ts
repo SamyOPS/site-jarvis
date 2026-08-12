@@ -76,19 +76,26 @@ export type CraSummaryRow = {
 
 export type CraEntryDraft = {
   workDate: string;
-  dayQuantity: string;
   /**
-   * Volume horaire du jour. Renseigne uniquement en mode horaire, ou il fait foi :
-   * dayQuantity en est alors derive (hours / hoursPerDay). Vide en mode journee.
+   * Mission (entreprise cliente) a laquelle la ligne est imputee. Forme avec `workDate`
+   * la cle d'une entree : une meme journee peut porter plusieurs entreprises.
+   * Vide pour les CRA anterieurs au multi-entreprises.
    */
+  missionId: string;
+  /** Quantite en journees. Vide pour une mission facturee a l'heure. */
+  dayQuantity: string;
+  /** Quantite en heures. Vide pour une mission facturee au jour. */
   hours: string;
   label: string;
 };
 
-/** Unite de saisie du CRA, portee par le profil de facturation du consultant. */
+/** Identifie une entree de CRA : une journee pour une entreprise donnee. */
+export const craEntryKey = (entry: { workDate: string; missionId: string }) =>
+  `${entry.workDate}|${entry.missionId}`;
+
+/** Unite de saisie du CRA, portee par la mission (a defaut par le profil de facturation). */
 export type CraTimeUnit = "day" | "hour";
 
-export const DEFAULT_HOURS_PER_DAY = 7;
 
 export type CraLeaveDaysDraft = {
   paid: string;

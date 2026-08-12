@@ -199,28 +199,92 @@ export async function PUT(request: Request) {
       }
     }
 
-    const { error: deleteError } = await adminClient
+    // Le perimetre est mis a jour par differences, pas par « tout supprimer puis tout
+    // reinserer » : un echec de la reinsertion laissait le RH sans aucune affectation, et
+    // l'admin ne recevait qu'une erreur, sans savoir que l'etat avait deja ete detruit.
+    //
+    // Les retraits sont appliques en premier : si la suite echoue, il reste des acces
+    // manquants — reparables en rejouant l'enregistrement — plutot que des acces qui auraient
+    // du etre revoques.
+    const { data: existingRows, error: existingError } = await adminClient
       .from("rh_employee_assignments")
-      .delete()
+      .select("employee_id,allowed_document_type_ids")
       .eq("rh_id", rhId);
-    if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 400 });
+    if (existingError) {
+      return NextResponse.json({ error: existingError.message }, { status: 400 });
     }
 
-    if (employeeIds.length) {
+    const existingByEmployee = new Map(
+      (
+        (existingRows ?? []) as Array<{
+          employee_id: string;
+          allowed_document_type_ids: string[] | null;
+        }>
+      ).map((row) => [row.employee_id, row.allowed_document_type_ids ?? null] as const),
+    );
+
+    const nextEmployeeIds = new Set(employeeIds);
+    const removedEmployeeIds = Array.from(existingByEmployee.keys()).filter(
+      (employeeId) => !nextEmployeeIds.has(employeeId),
+    );
+
+    if (removedEmployeeIds.length) {
+      const { error: removeError } = await adminClient
+        .from("rh_employee_assignments")
+        .delete()
+        .eq("rh_id", rhId)
+        .in("employee_id", removedEmployeeIds);
+      if (removeError) {
+        return NextResponse.json({ error: removeError.message }, { status: 400 });
+      }
+    }
+
+    const sameRestrictions = (left: string[] | null, right: string[] | null) => {
+      if (!left?.length && !right?.length) return true;
+      if (!left || !right || left.length !== right.length) return false;
+      const sortedLeft = [...left].sort();
+      const sortedRight = [...right].sort();
+      return sortedLeft.every((value, index) => value === sortedRight[index]);
+    };
+
+    const rowsToInsert: Array<{
+      rh_id: string;
+      employee_id: string;
+      allowed_document_type_ids: string[] | null;
+    }> = [];
+
+    for (const employeeId of employeeIds) {
+      const allowed = restrictions[employeeId] ?? [];
+      // Empty array = no restriction (all document types allowed).
+      const nextAllowed = allowed.length ? allowed : null;
+
+      if (!existingByEmployee.has(employeeId)) {
+        rowsToInsert.push({
+          rh_id: rhId,
+          employee_id: employeeId,
+          allowed_document_type_ids: nextAllowed,
+        });
+        continue;
+      }
+
+      if (sameRestrictions(existingByEmployee.get(employeeId) ?? null, nextAllowed)) {
+        continue;
+      }
+
+      const { error: updateError } = await adminClient
+        .from("rh_employee_assignments")
+        .update({ allowed_document_type_ids: nextAllowed })
+        .eq("rh_id", rhId)
+        .eq("employee_id", employeeId);
+      if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 400 });
+      }
+    }
+
+    if (rowsToInsert.length) {
       const { error: insertError } = await adminClient
         .from("rh_employee_assignments")
-        .insert(
-          employeeIds.map((employeeId) => {
-            const allowed = restrictions[employeeId] ?? [];
-            return {
-              rh_id: rhId,
-              employee_id: employeeId,
-              // Empty array = no restriction (all document types allowed).
-              allowed_document_type_ids: allowed.length ? allowed : null,
-            };
-          }),
-        );
+        .insert(rowsToInsert);
       if (insertError) {
         return NextResponse.json({ error: insertError.message }, { status: 400 });
       }

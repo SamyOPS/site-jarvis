@@ -1,50 +1,51 @@
-import { DEFAULT_HOURS_PER_DAY, type CraTimeUnit } from "@/features/dashboard/salarie/types";
+import type { CraTimeUnit } from "@/features/dashboard/salarie/types";
 
 export type CraEntryInput = {
   workDate?: unknown;
+  /** Mission (entreprise cliente) a laquelle la ligne est imputee. */
+  missionId?: unknown;
   dayQuantity?: unknown;
   hours?: unknown;
   label?: unknown;
 };
 
+/**
+ * Unite d'une mission. Il n'existe aucune passerelle entre les deux : une mission a
+ * l'heure compte des heures, une mission au jour compte des jours.
+ */
 export type CraEntryUnit = {
   timeUnit: CraTimeUnit;
-  hoursPerDay: number;
 };
 
-export const DAY_UNIT: CraEntryUnit = {
-  timeUnit: "day",
-  hoursPerDay: DEFAULT_HOURS_PER_DAY,
-};
+export const DAY_UNIT: CraEntryUnit = { timeUnit: "day" };
 
 /**
- * Unite de saisie du consultant, lue depuis son profil de facturation. Toute valeur
- * inattendue retombe sur la saisie en journees, le comportement historique.
+ * Unite de repli, lue depuis le profil de facturation. Ne sert qu'aux lignes anterieures
+ * au multi-entreprises, qui n'ont pas de mission. Toute valeur inattendue retombe sur la
+ * saisie en journees, le comportement historique.
  */
 export function toCraEntryUnit(
-  row: { time_unit?: unknown; hours_per_day?: unknown } | null | undefined,
+  row: { time_unit?: unknown } | null | undefined,
 ): CraEntryUnit {
-  const hoursPerDay = Number(row?.hours_per_day);
-  return {
-    timeUnit: row?.time_unit === "hour" ? "hour" : "day",
-    hoursPerDay:
-      Number.isFinite(hoursPerDay) && hoursPerDay > 0 ? hoursPerDay : DEFAULT_HOURS_PER_DAY,
-  };
+  return { timeUnit: row?.time_unit === "hour" ? "hour" : "day" };
 }
 
 /**
- * Colonnes a lire pour connaitre l'unite de saisie.
+ * Colonne a lire pour connaitre l'unite de repli.
  *
  * Volontairement une requete dediee dans les routes CRA, jamais un ajout au `select` du
  * profil de facturation : le POST CRA fait `insert({ ...billingProfile })`, qui recopie
- * chaque colonne selectionnee dans `cra_records`. Y ajouter ces deux colonnes casserait
+ * chaque colonne selectionnee dans `cra_records`. Y ajouter cette colonne casserait
  * l'insert.
  */
-export const CRA_ENTRY_UNIT_COLUMNS = "time_unit,hours_per_day";
+export const CRA_ENTRY_UNIT_COLUMNS = "time_unit";
 
 export type ParsedCraEntry = {
   work_date: string;
-  day_quantity: number;
+  mission_id: string | null;
+  /** Quantite en journees. NULL pour une ligne facturee a l'heure. */
+  day_quantity: number | null;
+  /** Quantite en heures. NULL pour une ligne facturee au jour. */
   hours: number | null;
   label: string | null;
 };
@@ -52,15 +53,25 @@ export type ParsedCraEntry = {
 /**
  * Valide et normalise les lignes d'un CRA.
  *
- * En saisie horaire c'est `hours` qui fait foi et `day_quantity` qui en est derive : le
- * client ne peut donc pas imposer une quantite de jours incoherente avec les heures.
- * Une journee peut alors depasser un jour (9 h sur une base de 7 h = 1,29), c'est
- * pourquoi la borne haute de 1 ne s'applique qu'a la saisie en journees.
+ * Une ligne porte une seule quantite, celle de l'unite de sa mission : des heures, ou des
+ * journees. Aucune conversion entre les deux — il n'existe plus de base d'heures par jour.
+ *
+ * L'unite se resout PAR LIGNE, depuis la mission de l'entree : un meme CRA peut melanger
+ * une mission facturee au jour et une autre a l'heure. `missionUnits` porte les missions
+ * du collaborateur ; `fallbackUnit` couvre les lignes sans mission (CRA anterieurs au
+ * multi-entreprises, ou collaborateur sans mission enregistree).
+ *
+ * Un `missionId` absent de `missionUnits` est refuse : il finit sur une facture, il ne
+ * peut pas etre accepte sur parole. Deux lignes de meme date et meme mission sont refusees
+ * aussi — c'est ce que l'index unique interdit en base.
  */
 export function parseCraEntries(
   entries: CraEntryInput[] | undefined,
-  unit: CraEntryUnit,
+  missionUnits: Map<string, CraEntryUnit>,
+  fallbackUnit: CraEntryUnit = DAY_UNIT,
 ): ParsedCraEntry[] {
+  const seen = new Set<string>();
+
   return (entries ?? []).map((entry, index) => {
     const workDate = String(entry.workDate ?? "").trim();
     const parsedDate = new Date(workDate);
@@ -71,6 +82,21 @@ export function parseCraEntries(
     const label = String(entry.label ?? "").trim() || null;
     const work_date = parsedDate.toISOString().slice(0, 10);
 
+    const missionId = String(entry.missionId ?? "").trim() || null;
+    if (missionId && !missionUnits.has(missionId)) {
+      throw new Error(`L'entreprise de la ligne ${index + 1} est inconnue.`);
+    }
+
+    const key = `${work_date}|${missionId ?? ""}`;
+    if (seen.has(key)) {
+      throw new Error(
+        `La meme entreprise est saisie deux fois le ${work_date}. Regroupe les heures sur une seule ligne.`,
+      );
+    }
+    seen.add(key);
+
+    const unit = missionId ? (missionUnits.get(missionId) ?? fallbackUnit) : fallbackUnit;
+
     if (unit.timeUnit === "hour") {
       const hours = Number(entry.hours);
       if (!Number.isFinite(hours) || hours <= 0 || hours > 24) {
@@ -80,7 +106,8 @@ export function parseCraEntries(
       }
       return {
         work_date,
-        day_quantity: hours / unit.hoursPerDay,
+        mission_id: missionId,
+        day_quantity: null,
         hours,
         label,
       };
@@ -92,6 +119,7 @@ export function parseCraEntries(
     }
     return {
       work_date,
+      mission_id: missionId,
       day_quantity: dayQuantity,
       hours: null,
       label,

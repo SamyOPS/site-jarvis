@@ -1,4 +1,7 @@
-﻿import { computeInvoiceTotals } from "@/features/dashboard/salarie/invoice-totals";
+﻿import {
+  computeInvoiceTotals,
+  type InvoiceLineInput,
+} from "@/features/dashboard/salarie/invoice-totals";
 
 export type InvoicePdfInput = {
   invoiceNumber: string;
@@ -14,12 +17,15 @@ export type InvoicePdfInput = {
   siret: string | null;
   iban: string;
   bic: string;
-  companyName: string;
   periodMonth: string;
   periodStart?: string | null;
   periodEnd?: string | null;
-  quantity: number;
-  dailyRate: number;
+  /**
+   * Une ligne de prestation par entreprise cliente. L'entreprise n'est plus un champ
+   * unique de la facture : une meme facture peut en detailler plusieurs, chacune avec sa
+   * quantite, son unite et son tarif.
+   */
+  lines: InvoiceLineInput[];
   discountGranted?: boolean;
   vatEnabled?: boolean;
   amountAlreadyPaid?: number;
@@ -225,9 +231,7 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
   const dueDateLabel = formatDate(input.dueDate);
   const periodLabel = formatPeriodRangeLabel(input);
   const {
-    quantity,
-    dailyRate,
-    serviceHt,
+    lines: totalLines,
     fraisKm,
     fraisRepas,
     fraisNuitee,
@@ -243,19 +247,19 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
 
   const descriptionFontSize = 9;
   const descriptionLineHeight = 10;
+  // Une ligne de prestation par entreprise cliente. La quantite porte son unite, car deux
+  // lignes de la meme facture peuvent etre l'une en jours et l'autre en heures.
   const lineItems: {
     description: string;
     quantity: string;
     unitPrice: string;
     amount: string;
-  }[] = [
-    {
-      description: `Service IT chez ${input.companyName || "Client"}`,
-      quantity: formatQuantity(quantity),
-      unitPrice: formatAmount(dailyRate),
-      amount: formatAmount(serviceHt),
-    },
-  ];
+  }[] = totalLines.map((line) => ({
+    description: `Service IT chez ${line.label || "Client"}`,
+    quantity: `${formatQuantity(line.quantity)} ${line.unit === "hour" ? "h" : "j"}`,
+    unitPrice: formatAmount(line.rate),
+    amount: formatAmount(line.serviceHt),
+  }));
   if (fraisKm > 0) {
     lineItems.push({ description: "Frais kilometriques", quantity: "", unitPrice: "", amount: formatAmount(fraisKm) });
   }
@@ -378,7 +382,9 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
     ...rowSeparatorCommands,
     createTextCommand("Description", 58, tableHeaderTextY, "F2", 9),
     createTextCommand("Quantite", 180, tableHeaderTextY, "F2", 9),
-    createTextCommand("Tarif / journee HT", 246, tableHeaderTextY, "F2", 9),
+    // En-tete neutre : les lignes peuvent melanger un tarif journalier et un tarif horaire,
+    // l'unite est portee par la colonne Quantite.
+    createTextCommand("Tarif unitaire HT", 246, tableHeaderTextY, "F2", 9),
     createTextCommand("Montant", 348, tableHeaderTextY, "F2", 9),
     createTextCommand("TVA", 456, tableHeaderTextY, "F2", 9),
     ...rowCommands,

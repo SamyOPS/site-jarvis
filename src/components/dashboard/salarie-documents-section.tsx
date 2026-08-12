@@ -3,12 +3,13 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
-import type { BillingProfileFormState } from "@/components/dashboard/billing-profile-card";
 import {
   SalarieCraInvoiceEditor,
   type CraInvoiceTab,
   type SalarieInvoiceSettings,
 } from "@/components/dashboard/salarie/cra-invoice-editor";
+import type { CalendarMission } from "@/components/dashboard/salarie/cra/work-days-calendar";
+import type { InvoiceLineInput } from "@/features/dashboard/salarie/invoice-totals";
 import { SalarieLeaveRequestEditor, type LeaveRequestPayload } from "@/components/dashboard/salarie/leave-request-editor";
 import { SalarieDocumentsListView } from "@/components/dashboard/salarie/documents-list-view";
 import { SalariePendingRequests } from "@/components/dashboard/salarie/pending-requests";
@@ -37,7 +38,6 @@ type SalarieDocumentsSectionProps = {
   documentsCardTitle: string;
   craFactureTab?: CraInvoiceTab;
   billingProfileReady: boolean;
-  billingProfileForm: BillingProfileFormState;
   selectedCraId: string | null;
   selectedCraSummary: Pick<CraSummaryRow, "status" | "pdf_version"> | null;
   craItems: CraSummaryRow[];
@@ -60,19 +60,22 @@ type SalarieDocumentsSectionProps = {
   onGenerateLeavePdf: (payload: LeaveRequestPayload) => void | Promise<void>;
   invoice: SalarieInvoiceSettings;
   onInvoiceChange: (value: SalarieInvoiceSettings) => void;
-  nextInvoiceSequence: number;
   weekdayLabels: string[];
   craCalendarCells: CraCalendarCell[];
-  craEntriesByDate: Map<string, CraEntryDraft>;
+  craEntriesByDate: Map<string, CraEntryDraft[]>;
   craEntries: CraEntryDraft[];
-  onCycleCraWorkDate: (workDate: string) => void;
+  onCycleCraWorkDate: (workDate: string, missionId?: string) => void;
   onFillCraWorkingDays: () => void;
   onClearCraEntries: () => void;
   craTimeUnit: CraTimeUnit;
-  craHoursPerDay: number;
   craDraftTotalHours: number;
-  onSetCraEntryHours: (workDate: string, hours: number) => void;
-  onRemoveCraWorkDate: (workDate: string) => void;
+  onSetCraEntryHours: (workDate: string, hours: number, missionId?: string) => void;
+  onSetCraEntryDayQuantity: (workDate: string, dayQuantity: number, missionId?: string) => void;
+  onRemoveCraWorkDate: (workDate: string, missionId?: string) => void;
+  craMissions: CalendarMission[];
+  activeMissionId: string;
+  onSelectMission: (missionId: string) => void;
+  craInvoiceLines: InvoiceLineInput[];
   onApplyCraHoursToAllEntries: (hours: number) => void;
   formatCraEntryDateLabel: (value: string) => string;
   updateCraEntry: (workDate: string, patch: { dayQuantity?: string; label?: string }) => void;
@@ -123,7 +126,6 @@ export function SalarieDocumentsSection({
   documentsCardTitle,
   craFactureTab,
   billingProfileReady,
-  billingProfileForm,
   selectedCraId,
   selectedCraSummary,
   craItems,
@@ -146,7 +148,6 @@ export function SalarieDocumentsSection({
   onGenerateLeavePdf,
   invoice,
   onInvoiceChange,
-  nextInvoiceSequence,
   weekdayLabels,
   craCalendarCells,
   craEntriesByDate,
@@ -155,10 +156,14 @@ export function SalarieDocumentsSection({
   onFillCraWorkingDays,
   onClearCraEntries,
   craTimeUnit,
-  craHoursPerDay,
   craDraftTotalHours,
   onSetCraEntryHours,
+  onSetCraEntryDayQuantity,
   onRemoveCraWorkDate,
+  craMissions,
+  activeMissionId,
+  onSelectMission,
+  craInvoiceLines,
   onApplyCraHoursToAllEntries,
   formatCraEntryDateLabel,
   updateCraEntry,
@@ -495,7 +500,6 @@ export function SalarieDocumentsSection({
           <SalarieCraInvoiceEditor
             initialTab={craFactureTab}
             billingProfileReady={billingProfileReady}
-            billingProfileForm={billingProfileForm}
             selectedCraId={selectedCraId}
             selectedCraSummary={selectedCraSummary}
             craItems={craItems}
@@ -516,7 +520,6 @@ export function SalarieDocumentsSection({
             onCraLeaveDaysChange={onCraLeaveDaysChange}
             invoice={invoice}
             onInvoiceChange={onInvoiceChange}
-            nextInvoiceSequence={nextInvoiceSequence}
             weekdayLabels={weekdayLabels}
             craCalendarCells={craCalendarCells}
             craEntriesByDate={craEntriesByDate}
@@ -525,10 +528,14 @@ export function SalarieDocumentsSection({
             onFillCraWorkingDays={onFillCraWorkingDays}
             onClearCraEntries={onClearCraEntries}
             craTimeUnit={craTimeUnit}
-            craHoursPerDay={craHoursPerDay}
             craDraftTotalHours={craDraftTotalHours}
             onSetCraEntryHours={onSetCraEntryHours}
+            onSetCraEntryDayQuantity={onSetCraEntryDayQuantity}
             onRemoveCraWorkDate={onRemoveCraWorkDate}
+            craMissions={craMissions}
+            activeMissionId={activeMissionId}
+            onSelectMission={onSelectMission}
+            craInvoiceLines={craInvoiceLines}
             onApplyCraHoursToAllEntries={onApplyCraHoursToAllEntries}
             formatCraEntryDateLabel={formatCraEntryDateLabel}
             updateCraEntry={updateCraEntry}
