@@ -47,13 +47,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: entries, error: entriesError } = await adminClient
       .from("cra_entries")
-      .select("work_date,day_quantity,hours,label")
+      .select("work_date,mission_id,day_quantity,hours,label")
       .eq("cra_id", craRecord.id)
       .order("work_date", { ascending: true });
 
     if (entriesError) {
       return NextResponse.json({ error: entriesError.message }, { status: 400 });
     }
+
+    // Recapitulatif par entreprise, fige au moment du CRA. Vide pour un CRA anterieur au
+    // multi-entreprises : le PDF reprend alors exactement sa forme historique.
+    const { data: missionLines, error: missionLinesError } = await adminClient
+      .from("cra_mission_lines")
+      .select("mission_id,company_name,esn_partenaire,rate_unit,quantity")
+      .eq("cra_id", craRecord.id)
+      .order("company_name", { ascending: true });
+
+    if (missionLinesError) {
+      return NextResponse.json({ error: missionLinesError.message }, { status: 400 });
+    }
+
+    const companyByMissionId = new Map(
+      (missionLines ?? []).map((line: { mission_id: string | null; company_name: string }) => [
+        line.mission_id,
+        line.company_name,
+      ]),
+    );
 
     const { data: documentType, error: typeError } = await adminClient
       .from("document_types")
@@ -112,9 +131,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         notes: craRecord.notes,
         entries: (entries ?? []).map((entry) => ({
           workDate: entry.work_date,
-          dayQuantity: Number(entry.day_quantity),
+          dayQuantity: Number(entry.day_quantity ?? 0),
           label: entry.label,
+          companyName: companyByMissionId.get(entry.mission_id) ?? null,
         })),
+        companies: (missionLines ?? []).map(
+          (line: {
+            company_name: string;
+            esn_partenaire: string | null;
+            rate_unit: string;
+            quantity: number;
+          }) => ({
+            companyName: line.company_name,
+            esnPartenaire: line.esn_partenaire,
+            quantity: Number(line.quantity ?? 0),
+            unit: line.rate_unit === "hour" ? ("hour" as const) : ("day" as const),
+          }),
+        ),
       },
       logoRgbBase64.trim(),
     );

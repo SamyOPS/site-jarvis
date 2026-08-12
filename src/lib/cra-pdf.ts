@@ -2,6 +2,16 @@ type CraPdfEntry = {
   workDate: string;
   dayQuantity: number;
   label: string | null;
+  /** Entreprise de la ligne. Prefixe le commentaire des qu'il y a plusieurs clients. */
+  companyName?: string | null;
+};
+
+/** Total travaille chez une entreprise cliente, dans l'unite de la mission. */
+export type CraPdfCompanySummary = {
+  companyName: string;
+  esnPartenaire?: string | null;
+  quantity: number;
+  unit: "day" | "hour";
 };
 
 type CraPdfInput = {
@@ -34,6 +44,12 @@ type CraPdfInput = {
   periodMonth: string;
   notes: string | null;
   entries: CraPdfEntry[];
+  /**
+   * Recapitulatif par entreprise cliente. Absent ou vide => rendu strictement identique a
+   * l'historique (champs « Client : » / « ESN partenaire : » et total unique), ce qui
+   * laisse les CRA anterieurs au multi-entreprises inchanges.
+   */
+  companies?: CraPdfCompanySummary[];
 };
 
 function byteLength(value: string) {
@@ -170,13 +186,16 @@ function buildCraPdfContent(input: CraPdfInput, withLogo: boolean) {
   const clientName = input.companyName || "-";
   const partnerName = input.esnPartenaire ?? "-";
   const periodLabel = formatPeriodLabel(input.periodMonth);
+  // Des qu'il y a plusieurs clients, un commentaire seul ne dit pas chez qui il s'applique.
+  const multiCompany = (input.companies?.length ?? 0) > 1;
   const comments = [
     ...input.entries
       .filter((entry) => entry.label?.trim())
-      .map(
-        (entry) =>
-          `${formatEntryCommentDate(entry.workDate)} : ${entry.label?.trim() ?? "Journee travaillee"}`,
-      ),
+      .map((entry) => {
+        const date = formatEntryCommentDate(entry.workDate);
+        const where = multiCompany && entry.companyName ? ` (${entry.companyName})` : "";
+        return `${date}${where} : ${entry.label?.trim() ?? "Journee travaillee"}`;
+      }),
   ];
 
   if (input.notes?.trim()) {
@@ -214,21 +233,113 @@ function buildCraPdfContent(input: CraPdfInput, withLogo: boolean) {
   };
 
   addField("Technicien :", consultantName);
-  addField("Client :", clientName);
-  addField("ESN partenaire :", partnerName);
-  addField("Periode :", periodLabel);
 
-  y -= 24;
-  // En saisie horaire, l'equivalent en jours n'a pas de sens a l'affichage (8 h sur une
-  // base de 7 h donnerait "1,14 jour(s)") : on annonce le volume horaire. La quantite en
-  // jours reste celle que facture la facture, visible dans son propre recapitulatif.
-  if (Number(input.workedHoursCount ?? 0) > 0) {
-    addField(
-      "Total d'heures travaillees :",
-      `${formatDayCount(Number(input.workedHoursCount))} heure(s)`,
-    );
+  const companies = input.companies ?? [];
+
+  if (!companies.length) {
+    // Chemin historique, intact : un CRA anterieur au multi-entreprises produit le meme
+    // PDF qu'avant, au caractere pres.
+    addField("Client :", clientName);
+    addField("ESN partenaire :", partnerName);
+    addField("Periode :", periodLabel);
+
+    y -= 24;
+    // En saisie horaire, l'equivalent en jours n'a pas de sens a l'affichage : on annonce
+    // le volume horaire.
+    if (Number(input.workedHoursCount ?? 0) > 0) {
+      addField(
+        "Total d'heures travaillees :",
+        `${formatDayCount(Number(input.workedHoursCount))} heure(s)`,
+      );
+    } else {
+      addField("Total de jours travaille :", `${formatDayCount(input.workedDaysCount)} jour(s)`);
+    }
   } else {
-    addField("Total de jours travaille :", `${formatDayCount(input.workedDaysCount)} jour(s)`);
+    addField("Periode :", periodLabel);
+    y -= 12;
+
+    // Le PDF tient sur une seule page (createPdfString est mono-page) : au-dela de six
+    // entreprises, le reste est agrege pour ne pas deborder sur les conges et les
+    // commentaires qui suivent.
+    const MAX_ROWS = 6;
+    const shown = companies.slice(0, MAX_ROWS);
+    const overflow = companies.slice(MAX_ROWS);
+
+    const rowHeight = 18;
+    const drawRule = () => {
+      commands.push("0.75 0.8 0.87 RG", "1.2 w", `46 ${y + 12} m 504 ${y + 12} l S`);
+    };
+
+    // En-tete
+    commands.push("0.06 0.12 0.18 rg");
+    commands.push(createTextCommand("Client", 46, y, "F2", 9));
+    commands.push(createTextCommand("ESN partenaire", 250, y, "F2", 9));
+    commands.push(createTextCommand("Temps travaille", 400, y, "F2", 9));
+    y -= 6;
+    drawRule();
+    y -= rowHeight - 6;
+
+    // `wrapPdfText` produirait des lignes de hauteur variable : on tronque plutot, la
+    // hauteur du tableau reste ainsi previsible.
+    const truncate = (value: string, max: number) =>
+      value.length > max ? `${value.slice(0, max - 1)}.` : value;
+
+    for (const company of shown) {
+      commands.push("0 0 0 rg");
+      commands.push(createTextCommand(truncate(company.companyName || "-", 32), 46, y, "F1", 10));
+      commands.push(
+        createTextCommand(truncate(company.esnPartenaire || "-", 22), 250, y, "F1", 10),
+      );
+      commands.push(
+        createTextCommand(
+          `${formatDayCount(company.quantity)} ${company.unit === "hour" ? "heure(s)" : "jour(s)"}`,
+          400,
+          y,
+          "F1",
+          10,
+        ),
+      );
+      y -= rowHeight;
+    }
+
+    if (overflow.length) {
+      const overflowDays = overflow
+        .filter((company) => company.unit === "day")
+        .reduce((total, company) => total + company.quantity, 0);
+      const overflowHours = overflow
+        .filter((company) => company.unit === "hour")
+        .reduce((total, company) => total + company.quantity, 0);
+      const parts = [
+        overflowDays > 0 ? `${formatDayCount(overflowDays)} jour(s)` : null,
+        overflowHours > 0 ? `${formatDayCount(overflowHours)} heure(s)` : null,
+      ].filter(Boolean);
+
+      commands.push("0 0 0 rg");
+      commands.push(createTextCommand(`Autres (${overflow.length})`, 46, y, "F1", 10));
+      commands.push(createTextCommand("-", 250, y, "F1", 10));
+      commands.push(createTextCommand(parts.join(" + ") || "-", 400, y, "F1", 10));
+      y -= rowHeight;
+    }
+
+    // Total general : jours et heures ne s'additionnent pas, ils sont annonces separement.
+    const totalDays = companies
+      .filter((company) => company.unit === "day")
+      .reduce((total, company) => total + company.quantity, 0);
+    const totalHours = companies
+      .filter((company) => company.unit === "hour")
+      .reduce((total, company) => total + company.quantity, 0);
+    const totalParts = [
+      totalDays > 0 ? `${formatDayCount(totalDays)} jour(s)` : null,
+      totalHours > 0 ? `${formatDayCount(totalHours)} heure(s)` : null,
+    ].filter(Boolean);
+
+    y += 6;
+    drawRule();
+    y -= rowHeight;
+    commands.push("0.06 0.12 0.18 rg");
+    commands.push(createTextCommand("Total", 46, y, "F2", 10));
+    commands.push(createTextCommand(totalParts.join(" + ") || "0 jour(s)", 400, y, "F2", 10));
+    y -= rowHeight + 6;
   }
   addField("Conge paye :", `${formatDayCount(input.paidLeaveDays ?? 0)} jour(s)`);
   addField("Arret maladie :", `${formatDayCount(input.sickLeaveDays ?? 0)} jour(s)`);
