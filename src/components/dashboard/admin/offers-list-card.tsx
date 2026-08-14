@@ -13,22 +13,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type {
-  AdminJobOffer,
-  AdminOfferEditFormState,
-  AdminStatus,
-} from "@/features/dashboard/admin/types";
+import type { AsyncStatus } from "@/domain/common";
+import type { JobOffer } from "@/domain/offers";
+import type { AdminOfferEditFormState } from "@/features/dashboard/admin/types";
 
 type AdminOffersListCardProps = {
-  jobOffers: AdminJobOffer[];
-  offerActionStatus: AdminStatus;
+  jobOffers: JobOffer[];
+  offerActionStatus: AsyncStatus;
   offerActionId: string | null;
   editingOfferId: string | null;
   offerEditSaving: boolean;
-  offerEditStatus: AdminStatus;
+  offerEditStatus: AsyncStatus;
   offerEditForm: AdminOfferEditFormState;
   setOfferEditForm: Dispatch<SetStateAction<AdminOfferEditFormState>>;
-  onEditStart: (offer: AdminJobOffer) => void;
+  onEditStart: (offer: JobOffer) => void;
   onEditCancel: () => void;
   onEditSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
   onDelete: (offerId: string) => void | Promise<void>;

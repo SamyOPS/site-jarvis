@@ -1,33 +1,50 @@
-import type { RefObject } from "react";
+"use client";
+
+import { useEffect, useState } from "react";
 
 import Link from "next/link";
 import { Grip, LogOut, Settings, User as UserIcon } from "lucide-react";
 
+import { useDismissable } from "@/hooks/use-dismissable";
+
 type DashboardProfileMenuProps = {
-  menuRef: RefObject<HTMLDivElement | null>;
-  isOpen: boolean;
-  onToggle: () => void;
-  onClose: () => void;
   onSignOut: () => void | Promise<void>;
   email: string;
   displayName: string;
   roleLabel: string;
   settingsHref: string;
   settingsActive: boolean;
+  /**
+   * Change de valeur a chaque changement de route : le menu se referme alors, comme le
+   * faisait l'effet declare dans chaque espace. Le clic exterieur couvre deja le cas
+   * courant, ce garde-fou couvre les navigations qui n'en produisent pas.
+   */
+  routeKey?: string;
 };
 
+/**
+ * Le menu porte desormais son propre etat d'ouverture : les deux espaces le declaraient
+ * a l'identique et le lui repassaient en quatre props (`menuRef`, `isOpen`, `onToggle`,
+ * `onClose`), sans jamais s'en servir par ailleurs.
+ */
 export function DashboardProfileMenu({
-  menuRef,
-  isOpen,
-  onToggle,
-  onClose,
   onSignOut,
   email,
   displayName,
   roleLabel,
   settingsHref,
   settingsActive,
+  routeKey,
 }: DashboardProfileMenuProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useDismissable<HTMLDivElement>(isOpen, () => setIsOpen(false));
+  const onToggle = () => setIsOpen((open) => !open);
+  const onClose = () => setIsOpen(false);
+
+  useEffect(() => {
+    setIsOpen(false);
+  }, [routeKey]);
+
   return (
     <div ref={menuRef} className="hidden lg:fixed lg:right-4 lg:top-[18px] lg:block">
       <div className="relative">

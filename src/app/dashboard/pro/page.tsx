@@ -11,17 +11,15 @@ import { ProOfferCreateForm } from "@/components/dashboard/pro/offer-create-form
 import { ProOffersListCard } from "@/components/dashboard/pro/offers-list-card";
 import { ProProfileCard } from "@/components/dashboard/pro/profile-card";
 import { ProRejectedCard } from "@/components/dashboard/pro/rejected-card";
-import { ProSessionCard } from "@/components/dashboard/pro/session-card";
+import { DashboardSessionCard } from "@/components/dashboard/session-card";
 import { ProUnverifiedOfferPlaceholder } from "@/components/dashboard/pro/unverified-offer-placeholder";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
 import { browserSupabase } from "@/lib/supabase-browser";
 
 const supabase = browserSupabase;
-import type {
-  ProJobOffer as JobOffer,
-  ProProfileRow as ProfileRow,
-  ProStatus as Status,
-} from "@/features/dashboard/pro/types";
+import type { AsyncStatus } from "@/domain/common";
+import type { JobOffer } from "@/domain/offers";
+import type { ProProfileRow as ProfileRow } from "@/features/dashboard/pro/types";
 
 export default function ProDashboardPage() {
   const [session, setSession] = useState<Session | null>(null);
@@ -35,10 +33,10 @@ export default function ProDashboardPage() {
   const [offersLoading, setOffersLoading] = useState(false);
   const [offersError, setOffersError] = useState<string | null>(null);
   const [offerActionId, setOfferActionId] = useState<string | null>(null);
-  const [offerActionStatus, setOfferActionStatus] = useState<Status>({ type: "idle" });
+  const [offerActionStatus, setOfferActionStatus] = useState<AsyncStatus>({ type: "idle" });
   const [editingOfferId, setEditingOfferId] = useState<string | null>(null);
   const [offerEditSaving, setOfferEditSaving] = useState(false);
-  const [offerEditStatus, setOfferEditStatus] = useState<Status>({ type: "idle" });
+  const [offerEditStatus, setOfferEditStatus] = useState<AsyncStatus>({ type: "idle" });
   const [offerEditForm, setOfferEditForm] = useState({
     title: "",
     location: "",
@@ -53,7 +51,7 @@ export default function ProDashboardPage() {
     company_name: "",
   });
   const [offerSaving, setOfferSaving] = useState(false);
-  const [offerStatus, setOfferStatus] = useState<Status>({ type: "idle" });
+  const [offerStatus, setOfferStatus] = useState<AsyncStatus>({ type: "idle" });
   const [offerForm, setOfferForm] = useState({
     title: "",
     description: "",
@@ -386,7 +384,8 @@ export default function ProDashboardPage() {
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <ProProfileCard profile={profile} />
-              <ProSessionCard
+              <DashboardSessionCard
+                className="shadow-sm"
                 user={user}
                 sessionExpiry={sessionExpiry}
                 onSignOut={handleSignOut}

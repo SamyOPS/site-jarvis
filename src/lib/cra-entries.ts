@@ -1,4 +1,4 @@
-import type { CraTimeUnit } from "@/features/dashboard/salarie/types";
+import type { TimeUnit } from "@/domain/common";
 
 /** Types d'absence pointables sur le calendrier. */
 export const ABSENCE_TYPES = ["paid", "sick", "exceptional", "unpaid"] as const;
@@ -32,7 +32,7 @@ export type CraEntryInput = {
  * l'heure compte des heures, une mission au jour compte des jours.
  */
 export type CraEntryUnit = {
-  timeUnit: CraTimeUnit;
+  timeUnit: TimeUnit;
 };
 
 export const DAY_UNIT: CraEntryUnit = { timeUnit: "day" };

@@ -1,19 +1,16 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { SalarieRequestRow as RequestRow } from "@/features/dashboard/salarie/types";
+import { formatDate, formatMonth } from "@/lib/dashboard-formatters";
 
 type SalariePendingRequestsProps = {
   pendingRequests: RequestRow[];
   openUploadDialog: (requestId?: string) => void;
-  formatMonth: (value: string | null) => string;
-  formatDate: (value: string | null) => string;
 };
 
 export function SalariePendingRequests({
   pendingRequests,
   openUploadDialog,
-  formatMonth,
-  formatDate,
 }: SalariePendingRequestsProps) {
   return (
     <div className="space-y-6">

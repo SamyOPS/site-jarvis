@@ -8,25 +8,12 @@ type CraUpdatePayload = {
   periodMonth?: unknown;
   notes?: unknown;
   entries?: CraEntryInput[];
-  paidLeaveDays?: unknown;
-  sickLeaveDays?: unknown;
-  exceptionalLeaveDays?: unknown;
-  unpaidLeaveDays?: unknown;
 };
 
 function getNotes(value: unknown, fallback: string | null) {
   if (value === undefined) return fallback;
   const normalized = String(value ?? "").trim();
   return normalized || null;
-}
-
-function getLeaveDays(value: unknown, fallback: number, label: string) {
-  if (value === undefined) return fallback;
-  const parsed = Number(value ?? 0);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new Error(`Le champ "${label}" doit etre un nombre de jours positif.`);
-  }
-  return parsed;
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {

@@ -1,4 +1,4 @@
-import type { ChangeEvent, Dispatch, FormEvent, RefObject, SetStateAction } from "react";
+import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from "react";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 
@@ -25,7 +25,6 @@ type NewsEditorFormProps = {
   setForm: Dispatch<SetStateAction<NewsFormState>>;
   contentMode: NewsContentMode;
   setContentMode: Dispatch<SetStateAction<NewsContentMode>>;
-  contentRef: RefObject<HTMLTextAreaElement | null>;
   editingId: string | null;
   loading: boolean;
   uploading: boolean;

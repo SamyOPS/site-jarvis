@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { RequestListCard } from "@/components/dashboard/request-list-card";
+import { formatDate, formatMonth } from "@/lib/dashboard-formatters";
 
 type SalarieOverviewRequest = {
   id: string;
@@ -17,8 +18,6 @@ type SalarieOverviewSectionProps = {
   documentsCount: number;
   validatedDocumentsCount: number;
   pendingRequests: SalarieOverviewRequest[];
-  formatDate: (value: string | null) => string;
-  formatMonth: (value: string | null) => string;
   action: ReactNode;
 };
 
@@ -27,8 +26,6 @@ export function SalarieOverviewSection({
   documentsCount,
   validatedDocumentsCount,
   pendingRequests,
-  formatDate,
-  formatMonth,
   action,
 }: SalarieOverviewSectionProps) {
   return (

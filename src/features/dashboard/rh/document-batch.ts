@@ -6,8 +6,7 @@
  * ni reseau, pour etre testable directement.
  */
 
-import { normalizeDocumentLabel } from "@/features/dashboard/salarie/document-filters";
-import type { RhDocumentTypeRow } from "@/features/dashboard/rh/types";
+import { normalizeDocumentLabel, type DocumentTypeRow } from "@/domain/documents";
 
 /** Nombre minimum de caracteres pour qu'un jeton puisse porter une correspondance. */
 const MIN_SIGNIFICANT_TOKEN_LENGTH = 3;
@@ -299,7 +298,7 @@ export type BatchRowIssue = null | "no-employee" | "no-type" | "missing-period";
  */
 export function getBatchRowIssue(
   row: BatchUploadRow,
-  documentTypes: RhDocumentTypeRow[],
+  documentTypes: DocumentTypeRow[],
 ): BatchRowIssue {
   if (!row.employeeId) return "no-employee";
   if (!row.documentTypeId) return "no-type";

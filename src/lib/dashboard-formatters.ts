@@ -1,4 +1,4 @@
-export type DocumentStatus = "pending" | "validated" | "rejected";
+import type { DocumentStatus } from "@/domain/documents";
 
 export function normalizeJoinOne<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null;

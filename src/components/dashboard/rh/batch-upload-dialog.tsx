@@ -12,13 +12,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { DocumentTypeRow } from "@/domain/documents";
 import {
   BATCH_NO_EMPLOYEE,
   getBatchRowIssue,
   type BatchRowIssue,
   type BatchUploadRow,
 } from "@/features/dashboard/rh/document-batch";
-import type { RhDocumentTypeRow, RhProfileRow } from "@/features/dashboard/rh/types";
+import type { RhProfileRow } from "@/features/dashboard/rh/types";
 import { cn } from "@/lib/utils";
 
 const issueLabels: Record<Exclude<BatchRowIssue, null>, string> = {
@@ -32,7 +33,7 @@ type BatchUploadDialogProps = {
   onOpenChange: (open: boolean) => void;
   rows: BatchUploadRow[];
   employees: RhProfileRow[];
-  documentTypes: RhDocumentTypeRow[];
+  documentTypes: DocumentTypeRow[];
   defaultDocumentTypeId: string;
   onDefaultDocumentTypeChange: (documentTypeId: string) => void;
   onFilesSelected: (files: File[]) => void;

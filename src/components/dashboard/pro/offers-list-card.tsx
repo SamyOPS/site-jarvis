@@ -13,24 +13,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type {
-  ProJobOffer,
-  ProOfferEditFormState,
-  ProStatus,
-} from "@/features/dashboard/pro/types";
+import type { AsyncStatus } from "@/domain/common";
+import type { JobOffer, JobOfferFormState } from "@/domain/offers";
 
 type ProOffersListCardProps = {
-  jobOffers: ProJobOffer[];
+  jobOffers: JobOffer[];
   offersLoading: boolean;
   offersError: string | null;
-  offerActionStatus: ProStatus;
+  offerActionStatus: AsyncStatus;
   offerActionId: string | null;
   editingOfferId: string | null;
   offerEditSaving: boolean;
-  offerEditStatus: ProStatus;
-  offerEditForm: ProOfferEditFormState;
-  setOfferEditForm: Dispatch<SetStateAction<ProOfferEditFormState>>;
-  onEditStart: (offer: ProJobOffer) => void;
+  offerEditStatus: AsyncStatus;
+  offerEditForm: JobOfferFormState;
+  setOfferEditForm: Dispatch<SetStateAction<JobOfferFormState>>;
+  onEditStart: (offer: JobOffer) => void;
   onEditCancel: () => void;
   onEditSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
   onDelete: (offerId: string) => void | Promise<void>;

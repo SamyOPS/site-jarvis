@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatCraPeriodLabel } from "@/features/dashboard/salarie/cra";
+import { formatCraPeriodLabel } from "@/domain/cra";
 import type { CraSummaryRow } from "@/features/dashboard/salarie/types";
 
 const statusLabels: Record<string, string> = {

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { CraTimeUnit } from "@/features/dashboard/salarie/types";
+import type { TimeUnit } from "@/domain/common";
 
 import type { CraEntryUnit, ParsedCraEntry } from "@/lib/cra-entries";
 
@@ -112,7 +112,7 @@ export function parseMissionPayload(payload: MissionPayload | null): ParsedMissi
 export function toMissionEntryUnit(
   mission: { rate_unit?: unknown } | null | undefined,
 ): CraEntryUnit {
-  return { timeUnit: (mission?.rate_unit === "hour" ? "hour" : "day") as CraTimeUnit };
+  return { timeUnit: (mission?.rate_unit === "hour" ? "hour" : "day") as TimeUnit };
 }
 
 /**

@@ -7,7 +7,7 @@ import { ChevronDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
 
 import { CraHistory } from "@/components/dashboard/salarie/cra/cra-history";
-import { ABSENCE_LABELS } from "@/features/dashboard/salarie/types";
+import { ABSENCE_LABELS } from "@/domain/cra";
 import { formatInvoiceAmount, InvoiceSummary } from "@/components/dashboard/salarie/cra/invoice-summary";
 import {
   computeInvoiceTotals,
@@ -18,12 +18,9 @@ import {
   type CalendarMission,
 } from "@/components/dashboard/salarie/cra/work-days-calendar";
 import { Button } from "@/components/ui/button";
-import type {
-  CraCalendarCell,
-  CraEntryDraft,
-  CraSummaryRow,
-  CraTimeUnit,
-} from "@/features/dashboard/salarie/types";
+import type { TimeUnit } from "@/domain/common";
+import type { CraCalendarCell, CraEntryDraft } from "@/domain/cra";
+import type { CraSummaryRow } from "@/features/dashboard/salarie/types";
 import { cn } from "@/lib/utils";
 
 export type CraInvoiceTab = "cra" | "facture";
@@ -114,7 +111,7 @@ type SalarieCraInvoiceEditorProps = {
   onCycleCraWorkDate: (workDate: string, missionId?: string) => void;
   onFillCraWorkingDays: () => void;
   onClearCraEntries: () => void;
-  craTimeUnit: CraTimeUnit;
+  craTimeUnit: TimeUnit;
   craDraftTotalHours: number;
   onSetCraEntryHours: (workDate: string, hours: number, missionId?: string) => void;
   onSetCraEntryDayQuantity: (workDate: string, dayQuantity: number, missionId?: string) => void;

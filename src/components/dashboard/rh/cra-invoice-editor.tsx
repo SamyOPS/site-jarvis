@@ -7,9 +7,9 @@ import {
   formatCraEntryDateLabel,
   shiftMonthInputValue,
   WEEKDAY_LABELS,
-} from "@/features/dashboard/salarie/cra";
-import { getFrenchHolidayName } from "@/features/dashboard/salarie/holidays";
-import type { CraCalendarCell, CraEntryDraft } from "@/features/dashboard/salarie/types";
+} from "@/domain/cra";
+import { getFrenchHolidayName } from "@/domain/holidays";
+import type { CraCalendarCell, CraEntryDraft } from "@/domain/cra";
 
 type BillingProfileSummary = {
   employeeId: string;

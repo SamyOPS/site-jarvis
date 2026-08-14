@@ -1,23 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Minus, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { craEntryHours, formatCraHours, formatCraPeriodLabel } from "@/features/dashboard/salarie/cra";
-import { getFrenchHolidayName } from "@/features/dashboard/salarie/holidays";
-import type {
-  CraCalendarCell,
-  CraEntryDraft,
-  CraTimeUnit,
-} from "@/features/dashboard/salarie/types";
+import type { TimeUnit } from "@/domain/common";
+import { useDismissable } from "@/hooks/use-dismissable";
+import { craEntryHours, formatCraHours, formatCraPeriodLabel } from "@/domain/cra";
+import { getFrenchHolidayName } from "@/domain/holidays";
+import type { CraCalendarCell, CraEntryDraft } from "@/domain/cra";
 import { cn } from "@/lib/utils";
 
 /** Entreprise selectionnable dans le calendrier. */
 export type CalendarMission = {
   id: string;
   companyName: string;
-  timeUnit: CraTimeUnit;
+  timeUnit: TimeUnit;
 };
 
 /**
@@ -77,7 +75,7 @@ type WorkDaysCalendarProps = {
   /** Montant HT de la prestation, affiche a cote du total de jours quand un TJM est connu. */
   serviceAmountLabel?: string | null;
   /** "day" (defaut historique) ou "hour". Unite de la mission active. */
-  timeUnit?: CraTimeUnit;
+  timeUnit?: TimeUnit;
   totalHours?: number;
   onSetEntryHours?: (workDate: string, hours: number, missionId?: string) => void;
   onSetEntryDayQuantity?: (workDate: string, dayQuantity: number, missionId?: string) => void;
@@ -129,28 +127,12 @@ export function WorkDaysCalendar({
   const [pendingCommentDate, setPendingCommentDate] = useState("");
   // Un seul editeur ouvert a la fois : la grille reste lisible.
   const [editingDate, setEditingDate] = useState<string | null>(null);
-  const editorRef = useRef<HTMLDivElement | null>(null);
+  const editorRef = useDismissable<HTMLDivElement>(Boolean(editingDate), () =>
+    setEditingDate(null),
+  );
   const isHourly = timeUnit === "hour";
   // Le popover de repartition ne sert que s'il y a plusieurs entreprises a departager.
   const isMultiMission = missions.length > 1;
-
-  useEffect(() => {
-    if (!editingDate) return;
-
-    const closeOnOutside = (event: MouseEvent) => {
-      if (!editorRef.current?.contains(event.target as Node)) setEditingDate(null);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setEditingDate(null);
-    };
-
-    window.addEventListener("mousedown", closeOnOutside);
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      window.removeEventListener("mousedown", closeOnOutside);
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [editingDate]);
 
   const commentedEntries = entries.filter((entry) => entry.label.trim());
   const commentableEntries = entries.filter((entry) => !entry.label.trim());

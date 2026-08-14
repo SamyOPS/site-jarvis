@@ -1,6 +1,9 @@
-import { Download, Eye, FolderOpen, MessageSquareText, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { MessageSquareText, Pencil, Trash2 } from "lucide-react";
 
-import { DashboardDocumentList } from "@/components/dashboard/document-list";
+import {
+  DocumentsExplorerList,
+  DocumentViewDownloadActions,
+} from "@/components/dashboard/documents/explorer-list";
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,6 +60,13 @@ type SalarieDocumentsListViewProps = {
   emptyMessage?: string;
 };
 
+/**
+ * Vue documentaire de l'espace salarie.
+ *
+ * L'explorateur vit dans `DocumentsExplorerList` ; il ne reste ici que la barre de
+ * filtres et le menu d'actions propre au salarie — commentaire RH en lecture, renommage
+ * et suppression tant que le document n'est pas valide.
+ */
 export function SalarieDocumentsListView({
   storageScope,
   preferencesAuthToken,
@@ -95,323 +105,121 @@ export function SalarieDocumentsListView({
   emptyMessage = "Aucun document depose pour le moment.",
 }: SalarieDocumentsListViewProps) {
   return (
-    <div className="space-y-1">
-      <DocumentFiltersBar
-        fields={
-          showFolderTrash
-            ? ["type", "period"]
-            : readOnly
-              ? ["period"]
-              : ["type", "period", "status"]
-        }
-        values={{
-          type: documentTypeFilter,
-          period: documentPeriodFilter,
-          status: documentStatusFilter,
-          owner: "all",
-        }}
-        options={documentFilterOptions}
-        onChange={(field, value) => {
-          if (field === "type") onDocumentTypeFilterChange(value);
-          if (field === "period") onDocumentPeriodFilterChange(value);
-          if (field === "status") onDocumentStatusFilterChange(value);
-        }}
-      />
-      {showFolderTrash ? (
-        trashFolderItems.length || trashDocumentItems.length ? (
-          <div className="space-y-5">
-            {trashFolderItems.length ? (
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-[#0A1A2F]/80">Dossiers</p>
-                <DashboardDocumentList
-                  items={trashFolderItems}
-                  storageKey="salarie-documents-trash-columns"
-                  storageScope={storageScope}
-                  preferencesAuthToken={preferencesAuthToken}
-                  createdAtLabel="Date de mise a la corbeille"
-                  renderActionCell={(item) => {
-                    if (item.rowType !== "folder") return null;
-                    return (
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
-                          onClick={() => {
-                            void onRestoreFolder(item.folderId);
-                          }}
-                          aria-label={`Restaurer ${item.fileName}`}
-                          title="Restaurer"
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:text-red-700"
-                          onClick={() => {
-                            void onPurgeFolder(item.folderId);
-                          }}
-                          aria-label={`Supprimer definitivement ${item.fileName}`}
-                          title="Supprimer definitivement"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    );
-                  }}
-                />
-              </div>
-            ) : null}
-            {trashDocumentItems.length ? (
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-[#0A1A2F]/80">Documents</p>
-                <DashboardDocumentList
-                  items={trashDocumentItems}
-                  storageKey="salarie-documents-trash-documents-columns"
-                  storageScope={storageScope}
-                  preferencesAuthToken={preferencesAuthToken}
-                  createdAtLabel="Date de mise a la corbeille"
-                  renderActionCell={(item) => {
-                    if (item.rowType !== "document") return null;
-                    const document = item.document;
-                    return (
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
-                          onClick={() => {
-                            void onRestoreDocument(document);
-                          }}
-                          aria-label={`Restaurer ${item.fileName}`}
-                          title="Restaurer"
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:text-red-700"
-                          onClick={() => {
-                            void onPurgeDocument(document);
-                          }}
-                          disabled={deletingDocumentId === document.id}
-                          aria-label={`Supprimer definitivement ${item.fileName}`}
-                          title="Supprimer definitivement"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    );
-                  }}
-                />
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <p className="text-sm text-[#0A1A2F]/70">La corbeille est vide.</p>
-        )
-      ) : listItems.length ? (
-        <DashboardDocumentList
-          items={listItems}
-          storageKey="salarie-documents-columns"
-          storageScope={storageScope}
-          preferencesAuthToken={preferencesAuthToken}
-          columnControlPlacement="inline"
-          onItemDoubleClick={(item) => {
-            if (item.rowType === "folder") {
-              onNavigateFolder(item.folderId);
-              return;
-            }
-            const document = item.document;
-            if (
-              document.fileName.toLowerCase().endsWith(".pdf") &&
-              document.storagePath
-            ) {
-              void onViewDocument(document);
-            }
-          }}
-          isItemDoubleClickable={(item) =>
-            item.rowType === "folder" ||
-            (item.document.fileName.toLowerCase().endsWith(".pdf") && !!item.document.storagePath)
+    <DocumentsExplorerList<DocumentRow>
+      storageScope={storageScope}
+      preferencesAuthToken={preferencesAuthToken}
+      header={
+        <DocumentFiltersBar
+          fields={
+            showFolderTrash
+              ? ["type", "period"]
+              : readOnly
+                ? ["period"]
+                : ["type", "period", "status"]
           }
-          getDraggableId={(item) =>
-            !readOnly && item.rowType === "document" ? item.document.id : null
-          }
-          onDragItemStart={(item) => {
-            if (item.rowType !== "document") return;
-            setDraggedDocumentId(item.document.id);
+          values={{
+            type: documentTypeFilter,
+            period: documentPeriodFilter,
+            status: documentStatusFilter,
+            owner: "all",
           }}
-          onDragItemEnd={() => {
-            setDraggedDocumentId(null);
-          }}
-          canDropOnItem={(targetItem, draggedId) => {
-            if (targetItem.rowType !== "folder") return false;
-            const draggedDocument = documentsById.get(draggedId);
-            if (!draggedDocument) return false;
-            return (draggedDocument.folderId ?? null) !== targetItem.folderId;
-          }}
-          onItemDrop={async (targetItem, draggedId) => {
-            if (targetItem.rowType !== "folder") return;
-            const draggedDocument = documentsById.get(draggedId);
-            if (!draggedDocument) return;
-            await onMoveDocumentToFolder(draggedDocument, targetItem.folderId);
-          }}
-          renderActions={(item, closeMenu) => {
-            if (item.rowType === "folder") {
-              return (
-                <>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      closeMenu();
-                      onNavigateFolder(item.folderId);
-                    }}
-                    disabled={currentFolderId === item.folderId}
-                  >
-                    <FolderOpen className="mr-2 h-4 w-4" />
-                    Ouvrir le dossier
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      closeMenu();
-                      void onRenameFolder(item.folderId, item.fileName);
-                    }}
-                  >
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Renommer
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start text-red-600 hover:text-red-700"
-                    onClick={() => {
-                      closeMenu();
-                      void onDeleteFolder(item.folderId);
-                    }}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Supprimer
-                  </Button>
-                </>
-              );
-            }
-
-            const document = item.document;
-
-            return (
-              <>
-                {document.fileName.toLowerCase().endsWith(".pdf") ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      closeMenu();
-                      void onViewDocument(document);
-                    }}
-                    disabled={
-                      !document.storagePath ||
-                      viewingDocumentId === document.id ||
-                      downloadingDocumentId === document.id
-                    }
-                  >
-                    <Eye className="mr-2 h-4 w-4" />
-                    Visualiser
-                  </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => {
-                    closeMenu();
-                    void onDownloadDocument(document);
-                  }}
-                  disabled={
-                    !document.storagePath ||
-                    downloadingDocumentId === document.id ||
-                    viewingDocumentId === document.id
-                  }
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Télécharger
-                </Button>
-                {document.reviewComment ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      closeMenu();
-                      onOpenCommentDialog(document);
-                    }}
-                  >
-                    <MessageSquareText className="mr-2 h-4 w-4" />
-                    Voir commentaire RH
-                  </Button>
-                ) : null}
-                {readOnly ? null : document.status !== "validated" ? (
-                  <>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => {
-                        closeMenu();
-                        void onRenameDocument(document);
-                      }}
-                      disabled={
-                        deletingDocumentId === document.id || savingDocumentId === document.id
-                      }
-                    >
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Renommer
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start text-red-600 hover:text-red-700"
-                      onClick={() => {
-                        closeMenu();
-                        void onDeleteDocument(document);
-                      }}
-                      disabled={
-                        deletingDocumentId === document.id || savingDocumentId === document.id
-                      }
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Supprimer
-                    </Button>
-                  </>
-                ) : (
-                  <Badge variant="outline">Verrouillé</Badge>
-                )}
-              </>
-            );
+          options={documentFilterOptions}
+          onChange={(field, value) => {
+            if (field === "type") onDocumentTypeFilterChange(value);
+            if (field === "period") onDocumentPeriodFilterChange(value);
+            if (field === "status") onDocumentStatusFilterChange(value);
           }}
         />
-      ) : (
-        <p className="text-sm text-[#0A1A2F]/70">{emptyMessage}</p>
+      }
+      showTrash={showFolderTrash}
+      trashFolderItems={trashFolderItems}
+      trashDocumentItems={trashDocumentItems}
+      items={listItems}
+      documentsById={documentsById}
+      currentFolderId={currentFolderId}
+      storageKeys={{
+        main: "salarie-documents-columns",
+        trashFolders: "salarie-documents-trash-columns",
+        trashDocuments: "salarie-documents-trash-documents-columns",
+      }}
+      emptyMessage={emptyMessage}
+      readOnly={readOnly}
+      onNavigateFolder={onNavigateFolder}
+      onMoveDocumentToFolder={onMoveDocumentToFolder}
+      onRenameFolder={onRenameFolder}
+      onDeleteFolder={onDeleteFolder}
+      onRestoreFolder={onRestoreFolder}
+      onPurgeFolder={onPurgeFolder}
+      onRestoreDocument={onRestoreDocument}
+      onPurgeDocument={onPurgeDocument}
+      purgingDocumentId={deletingDocumentId}
+      onViewDocument={onViewDocument}
+      setDraggedId={setDraggedDocumentId}
+      renderDocumentActions={(document, closeMenu) => (
+        <>
+          <DocumentViewDownloadActions
+            document={document}
+            closeMenu={closeMenu}
+            onViewDocument={onViewDocument}
+            onDownloadDocument={onDownloadDocument}
+            viewingDocumentId={viewingDocumentId}
+            downloadingDocumentId={downloadingDocumentId}
+          />
+          {document.reviewComment ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => {
+                closeMenu();
+                onOpenCommentDialog(document);
+              }}
+            >
+              <MessageSquareText className="mr-2 h-4 w-4" />
+              Voir commentaire RH
+            </Button>
+          ) : null}
+          {readOnly ? null : document.status !== "validated" ? (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => {
+                  closeMenu();
+                  void onRenameDocument(document);
+                }}
+                disabled={
+                  deletingDocumentId === document.id || savingDocumentId === document.id
+                }
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Renommer
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-red-600 hover:text-red-700"
+                onClick={() => {
+                  closeMenu();
+                  void onDeleteDocument(document);
+                }}
+                disabled={
+                  deletingDocumentId === document.id || savingDocumentId === document.id
+                }
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Supprimer
+              </Button>
+            </>
+          ) : (
+            <Badge variant="outline">Verrouillé</Badge>
+          )}
+        </>
       )}
-    </div>
+    />
   );
 }

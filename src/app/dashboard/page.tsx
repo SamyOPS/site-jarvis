@@ -10,20 +10,20 @@ import { AdminAssignmentsCard } from "@/components/dashboard/admin/assignments-c
 import { AdminNotesCard } from "@/components/dashboard/admin/notes-card";
 import { AdminOfferCreateForm } from "@/components/dashboard/admin/offer-create-form";
 import { AdminOffersListCard } from "@/components/dashboard/admin/offers-list-card";
-import { AdminSessionCard } from "@/components/dashboard/admin/session-card";
+import { DashboardSessionCard } from "@/components/dashboard/session-card";
 import { AdminUsersListCard } from "@/components/dashboard/admin/users-list-card";
 import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
 import { browserSupabase } from "@/lib/supabase-browser";
+import type { AsyncStatus } from "@/domain/common";
+import type { JobOffer } from "@/domain/offers";
 import type {
   AdminAssignmentUser as AssignmentUser,
   AdminDocumentType as DocumentType,
-  AdminJobOffer as JobOffer,
   AdminProfileRow as ProfileRow,
   AdminRhAssignmentsByRh as RhAssignmentsByRh,
   AdminRhTypeRestrictions as RhTypeRestrictions,
   AdminRhTypeRestrictionsByRh as RhTypeRestrictionsByRh,
-  AdminStatus as Status,
   AdminUserActivityRow as UserActivityRow,
 } from "@/features/dashboard/admin/types";
 
@@ -40,18 +40,18 @@ export default function DashboardPage() {
   const [jobOffers, setJobOffers] = useState<JobOffer[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [profileStatus, setProfileStatus] = useState<Status>({ type: "idle" });
+  const [profileStatus, setProfileStatus] = useState<AsyncStatus>({ type: "idle" });
   const [profileUpdatingId, setProfileUpdatingId] = useState<string | null>(null);
   const [roleUpdatingId, setRoleUpdatingId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
-  const [userDeleteStatus, setUserDeleteStatus] = useState<Status>({ type: "idle" });
+  const [userDeleteStatus, setUserDeleteStatus] = useState<AsyncStatus>({ type: "idle" });
   const [offerSaving, setOfferSaving] = useState(false);
-  const [offerStatus, setOfferStatus] = useState<Status>({ type: "idle" });
-  const [offerActionStatus, setOfferActionStatus] = useState<Status>({ type: "idle" });
+  const [offerStatus, setOfferStatus] = useState<AsyncStatus>({ type: "idle" });
+  const [offerActionStatus, setOfferActionStatus] = useState<AsyncStatus>({ type: "idle" });
   const [offerActionId, setOfferActionId] = useState<string | null>(null);
   const [editingOfferId, setEditingOfferId] = useState<string | null>(null);
   const [offerEditSaving, setOfferEditSaving] = useState(false);
-  const [offerEditStatus, setOfferEditStatus] = useState<Status>({ type: "idle" });
+  const [offerEditStatus, setOfferEditStatus] = useState<AsyncStatus>({ type: "idle" });
   const [rhProfiles, setRhProfiles] = useState<AssignmentUser[]>([]);
   const [salarieProfiles, setSalarieProfiles] = useState<AssignmentUser[]>([]);
   const [assignmentsByRh, setAssignmentsByRh] = useState<RhAssignmentsByRh>({});
@@ -62,7 +62,7 @@ export default function DashboardPage() {
   const [selectedRestrictions, setSelectedRestrictions] = useState<RhTypeRestrictions>({});
   const [assignmentLoading, setAssignmentLoading] = useState(false);
   const [assignmentSaving, setAssignmentSaving] = useState(false);
-  const [assignmentStatus, setAssignmentStatus] = useState<Status>({ type: "idle" });
+  const [assignmentStatus, setAssignmentStatus] = useState<AsyncStatus>({ type: "idle" });
   const [offerEditForm, setOfferEditForm] = useState({
     title: "",
     location: "",
@@ -805,7 +805,8 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <AdminProfileCard adminProfile={adminProfile} />
-          <AdminSessionCard
+          <DashboardSessionCard
+            className="shadow-lg backdrop-blur"
             user={user}
             sessionExpiry={sessionExpiry}
             onSignOut={handleSignOut}

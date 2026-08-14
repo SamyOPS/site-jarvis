@@ -1,18 +1,43 @@
-﻿import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+﻿import { Fragment, useEffect, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { RhCraInvoiceEditor } from "@/components/dashboard/rh/cra-invoice-editor";
 import { RhLeaveRequestEditor, type RhLeaveRequestPayload } from "@/components/dashboard/rh/leave-request-editor";
 import { RhDocumentsListView } from "@/components/dashboard/rh/documents-list-view";
-import { RhDocumentsReviewList } from "@/components/dashboard/rh/documents-review-list";
 import { RhPendingValidationList } from "@/components/dashboard/rh/pending-validation-list";
 import { RhRequestsTable } from "@/components/dashboard/rh/requests-table";
 import { RhReviewDialog } from "@/components/dashboard/rh/review-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { CraCalendarCell, CraEntryDraft } from "@/features/dashboard/salarie/types";
-import type { RhDocumentFolderRow, RhDocumentRow, RhDocumentsListItem, RhRequestRow as RequestRow } from "@/features/dashboard/rh/types";
+import { useDismissable } from "@/hooks/use-dismissable";
+import {
+  documentToListItem,
+  folderToListItem,
+  sortFoldersByName,
+} from "@/features/dashboard/documents/list-items";
+import { folderDropHandlers } from "@/features/dashboard/documents/folder-drop";
+import { useDraggedDocument } from "@/features/dashboard/documents/use-dragged-document";
+import type { DocumentFolderRow } from "@/domain/documents";
+import type { CraCalendarCell, CraEntryDraft } from "@/domain/cra";
+import type { RhDocumentRow, RhDocumentsListItem, RhRequestRow as RequestRow } from "@/features/dashboard/rh/types";
+
+/**
+ * Titre et capacites de chaque sous-section documentaire RH.
+ *
+ * Remplace une cascade de ternaires et quatre booleens derives qui, depuis le retrait des
+ * sous-sections mortes, testaient tous la meme condition. Les regrouper ici rend visible
+ * ce qui distingue reellement une sous-section : seule « Tous les documents » propose la
+ * navigation dans les dossiers, et avec elle le menu deroulant, l'import et la creation
+ * de dossier.
+ */
+const RH_SUBSECTIONS: Record<string, { title: string; hasFolderBrowser: boolean }> = {
+  docs_all: { title: "Tous les documents", hasFolderBrowser: true },
+  docs_cra_facture: { title: "CRA & Facture", hasFolderBrowser: false },
+  docs_conge: { title: "Demande de congé", hasFolderBrowser: false },
+  docs_corbeille: { title: "Corbeille", hasFolderBrowser: false },
+};
+
+const RH_SUBSECTION_FALLBACK = { title: "Documents", hasFolderBrowser: false };
 
 type FilterOption = {
   value: string;
@@ -74,14 +99,13 @@ type RhDocumentsSectionProps = {
   cancellingRequestId: string | null;
   onCancelRequest: (request: RequestRow) => void | Promise<void>;
   filteredAllDocuments: RhDocumentRow[];
-  filteredSalarieDocuments: RhDocumentRow[];
   filteredPendingDocuments: RhDocumentRow[];
   filteredRhDocuments: RhDocumentRow[];
   trashedRhDocuments: RhDocumentRow[];
-  rhFolders: RhDocumentFolderRow[];
-  trashedRhFolders: RhDocumentFolderRow[];
+  rhFolders: DocumentFolderRow[];
+  trashedRhFolders: DocumentFolderRow[];
   currentRhFolderId: string | null;
-  rhFolderPath: RhDocumentFolderRow[];
+  rhFolderPath: DocumentFolderRow[];
   showRhFolderTrash: boolean;
   onRhNavigateFolder: (folderId: string | null) => void;
   onRhCreateFolder: () => void | Promise<void>;
@@ -103,9 +127,6 @@ type RhDocumentsSectionProps = {
   deletingRhDocumentId: string | null;
   reviewDrafts: Record<string, string>;
   onReviewDraftsChange: (updater: (prev: Record<string, string>) => Record<string, string>) => void;
-  formatMonth: (value: string | null) => string;
-  formatDate: (value: string | null) => string;
-  formatDocumentStatus: (value: RhDocumentRow["status"]) => string;
 };
 
 export function RhDocumentsSection({
@@ -156,7 +177,6 @@ export function RhDocumentsSection({
   cancellingRequestId,
   onCancelRequest,
   filteredAllDocuments,
-  filteredSalarieDocuments,
   filteredPendingDocuments,
   filteredRhDocuments,
   trashedRhDocuments,
@@ -185,35 +205,21 @@ export function RhDocumentsSection({
   deletingRhDocumentId,
   reviewDrafts,
   onReviewDraftsChange,
-  formatMonth,
-  formatDate,
-  formatDocumentStatus,
 }: RhDocumentsSectionProps) {
   const [documentsMenuOpen, setDocumentsMenuOpen] = useState(false);
-  const documentsMenuRef = useRef<HTMLDivElement | null>(null);
-  const [draggedRhDocumentId, setDraggedRhDocumentId] = useState<string | null>(null);
+  const documentsMenuRef = useDismissable<HTMLDivElement>(documentsMenuOpen, () =>
+    setDocumentsMenuOpen(false),
+  );
   const [reviewDialogDocument, setReviewDialogDocument] = useState<RhDocumentRow | null>(null);
   const [reviewDialogStatus, setReviewDialogStatus] = useState<"pending" | "validated" | "rejected" | null>(null);
   const [reviewDialogComment, setReviewDialogComment] = useState("");
   const rhTrashListItems = useMemo<RhDocumentsListItem[]>(
     () =>
-      [...trashedRhFolders]
-        .filter((folder) =>
-          documentTypeFilter === "all" || documentTypeFilter === "Dossier",
-        )
-        .sort((left, right) => left.name.localeCompare(right.name, "fr"))
-        .map((folder) => ({
-          rowType: "folder",
-          folderId: folder.id,
-          id: `trash-folder:${folder.id}`,
-          fileName: folder.name,
-          typeLabel: "Dossier",
-          ownerName: "-",
-          createdAt: folder.deletedAt ?? folder.updatedAt ?? folder.createdAt,
-          sizeBytes: null,
-          subtitle: "Dans la corbeille",
-          hideDetailsPanel: true,
-        })),
+      sortFoldersByName(
+        trashedRhFolders.filter(
+          () => documentTypeFilter === "all" || documentTypeFilter === "Dossier",
+        ),
+      ).map((folder) => folderToListItem(folder, { trash: true })),
     [documentTypeFilter, trashedRhFolders],
   );
   const rhTrashedDocumentItems = useMemo<RhDocumentsListItem[]>(
@@ -225,40 +231,24 @@ export function RhDocumentsSection({
             (document.periodMonth ?? "__none__") === documentPeriodFilter) &&
           (documentCreatorFilter === "all" || document.employeeName === documentCreatorFilter),
         )
-        .map((document) => ({
-          rowType: "document",
-          document,
-          id: `trash-document:${document.id}`,
-          fileName: document.fileName,
-          typeLabel: document.typeLabel,
-          ownerName: document.employeeName,
-          createdAt: document.deletedAt ?? document.updatedAt ?? document.createdAt,
-          statusLabel: formatDocumentStatus(document.status),
-          periodLabel: formatMonth(document.periodMonth),
-          sizeBytes: document.sizeBytes,
-          details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
-        })),
-    [documentCreatorFilter, documentPeriodFilter, documentTypeFilter, formatDocumentStatus, formatMonth, trashedRhDocuments],
+        .map((document) =>
+          documentToListItem(document, { ownerName: document.employeeName, trash: true }),
+        ),
+    [documentCreatorFilter, documentPeriodFilter, documentTypeFilter, trashedRhDocuments],
   );
   const rhDocumentsById = useMemo(
     () => new Map((currentSubSection === "docs_all" ? filteredAllDocuments : filteredRhDocuments).map((document) => [document.id, document])),
     [currentSubSection, filteredAllDocuments, filteredRhDocuments],
   );
-  const getDraggedRhDocument = (event: React.DragEvent<HTMLElement>) => {
-    const draggedId =
-      draggedRhDocumentId ??
-      event.dataTransfer.getData("text/x-dashboard-item-id") ??
-      event.dataTransfer.getData("text/plain");
-    if (!draggedId) return null;
-    return rhDocumentsById.get(draggedId) ?? null;
-  };
+  const { setDraggedId: setDraggedRhDocumentId, getDraggedDocument: getDraggedRhDocument } =
+    useDraggedDocument(rhDocumentsById);
   const folderEnabledDocuments = useMemo(
     () => (currentSubSection === "docs_all" ? filteredAllDocuments : filteredRhDocuments),
     [currentSubSection, filteredAllDocuments, filteredRhDocuments],
   );
   const rhListItems = useMemo<RhDocumentsListItem[]>(() => {
     const folderScopedDocuments =
-      ["docs_tous", "docs_all"].includes(currentSubSection)
+      currentSubSection === "docs_all"
         ? folderEnabledDocuments.filter((document) =>
             currentRhFolderId
               ? (document.folderId ?? null) === currentRhFolderId
@@ -266,78 +256,25 @@ export function RhDocumentsSection({
           )
         : folderEnabledDocuments;
 
-    const documentItems: RhDocumentsListItem[] = folderScopedDocuments.map((document) => ({
-      rowType: "document",
-      document,
-      id: document.id,
-      fileName: document.fileName,
-      typeLabel: document.typeLabel,
-      ownerName: document.uploadedByName,
-      createdAt: document.createdAt,
-      statusLabel: formatDocumentStatus(document.status),
-      periodLabel: formatMonth(document.periodMonth),
-      sizeBytes: document.sizeBytes,
-      details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
-    }));
+    const documentItems: RhDocumentsListItem[] = folderScopedDocuments.map((document) =>
+      documentToListItem(document, { ownerName: document.uploadedByName }),
+    );
 
-    if (!["docs_tous", "docs_all"].includes(currentSubSection)) {
+    if (currentSubSection !== "docs_all") {
       return documentItems;
     }
 
     const shouldShowFoldersByType =
       documentTypeFilter === "all" || documentTypeFilter === "Dossier";
 
-    const folderItems: RhDocumentsListItem[] = currentRhFolderId || !shouldShowFoldersByType
-      ? []
-      : [...rhFolders]
-        .sort((left, right) => left.name.localeCompare(right.name, "fr"))
-        .map((folder) => ({
-          rowType: "folder",
-          folderId: folder.id,
-          id: `folder:${folder.id}`,
-          fileName: folder.name,
-          typeLabel: "Dossier",
-          ownerName: "-",
-          createdAt: folder.createdAt,
-          sizeBytes: null,
-          hideDetailsPanel: true,
-        }));
+    const folderItems: RhDocumentsListItem[] =
+      currentRhFolderId || !shouldShowFoldersByType
+        ? []
+        : sortFoldersByName(rhFolders).map((folder) => folderToListItem(folder));
 
     return [...folderItems, ...documentItems];
-  }, [currentRhFolderId, currentSubSection, documentTypeFilter, folderEnabledDocuments, formatDocumentStatus, formatMonth, rhFolders]);
+  }, [currentRhFolderId, currentSubSection, documentTypeFilter, folderEnabledDocuments, rhFolders]);
 
-	  useEffect(() => {
-	    if (!documentsMenuOpen) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!documentsMenuRef.current?.contains(event.target as Node)) {
-        setDocumentsMenuOpen(false);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setDocumentsMenuOpen(false);
-      }
-    };
-
-    window.addEventListener("mousedown", handlePointerDown);
-    window.addEventListener("keydown", handleEscape);
-    return () => {
-      window.removeEventListener("mousedown", handlePointerDown);
-      window.removeEventListener("keydown", handleEscape);
-    };
-	  }, [documentsMenuOpen]);
-  useEffect(() => {
-    if (!draggedRhDocumentId) return;
-    const clearDraggedItem = () => setDraggedRhDocumentId(null);
-    window.addEventListener("dragend", clearDraggedItem);
-    window.addEventListener("drop", clearDraggedItem);
-    return () => {
-      window.removeEventListener("dragend", clearDraggedItem);
-      window.removeEventListener("drop", clearDraggedItem);
-    };
-  }, [draggedRhDocumentId]);
 
   const openReviewDialog = (
     document: RhDocumentRow,
@@ -354,42 +291,15 @@ export function RhDocumentsSection({
     setReviewDialogComment("");
   };
 
-  const isRhDocumentsDropdownSection =
-    currentSubSection === "docs_tous" ||
-    currentSubSection === "docs_salaries" ||
-    currentSubSection === "docs_all";
-  const isRhFoldersSection =
-    currentSubSection === "docs_tous" ||
-    currentSubSection === "docs_all";
-  const showImportActionsInMenu =
-    currentSubSection === "docs_tous" ||
-    currentSubSection === "docs_all";
-  const showCreateFolderActionInMenu =
-    currentSubSection === "docs_tous" ||
-    currentSubSection === "docs_salaries" ||
-    currentSubSection === "docs_all";
-
-  const rhDocumentsTitle =
-    currentSubSection === "docs_all"
-      ? "Tous les documents"
-      : currentSubSection === "docs_cra_facture"
-      ? "CRA & Facture"
-      : currentSubSection === "docs_conge"
-      ? "Demande de congé"
-      : currentSubSection === "docs_tous"
-      ? "Documents entreprise"
-      : currentSubSection === "docs_salaries"
-        ? "Documents salaries"
-        : currentSubSection === "docs_corbeille"
-          ? "Corbeille"
-        : "Documents";
+  const { title: rhDocumentsTitle, hasFolderBrowser } =
+    RH_SUBSECTIONS[currentSubSection] ?? RH_SUBSECTION_FALLBACK;
 
   return (
     <section className="space-y-2">
       <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {isRhDocumentsDropdownSection ? (
+        {hasFolderBrowser ? (
           <div ref={documentsMenuRef} className="relative min-w-0 max-w-full">
-            {isRhFoldersSection && showRhFolderTrash ? (
+            {hasFolderBrowser && showRhFolderTrash ? (
               <button
                 type="button"
                 onClick={() => setDocumentsMenuOpen((open) => !open)}
@@ -400,26 +310,17 @@ export function RhDocumentsSection({
                 <span>Corbeille</span>
                 <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
               </button>
-            ) : isRhFoldersSection && rhFolderPath.length > 0 ? (
+            ) : hasFolderBrowser && rhFolderPath.length > 0 ? (
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold text-[#0A1A2F] sm:text-lg">
                 <button
                   type="button"
                   onClick={() => onRhNavigateFolder(null)}
                   className="max-w-full truncate rounded-lg px-2 py-1 transition hover:bg-slate-100"
-                  onDragOver={(event) => {
-                    const draggedDocument = getDraggedRhDocument(event);
-                    if (!draggedDocument) return;
-                    if ((draggedDocument.folderId ?? null) === null) return;
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                  }}
-                  onDrop={(event) => {
-                    const draggedDocument = getDraggedRhDocument(event);
-                    if (!draggedDocument) return;
-                    if ((draggedDocument.folderId ?? null) === null) return;
-                    event.preventDefault();
-                    void onRhMoveDocumentToRoot(draggedDocument);
-                  }}
+                  {...folderDropHandlers({
+                    targetFolderId: null,
+                    getDraggedDocument: getDraggedRhDocument,
+                    onDrop: onRhMoveDocumentToRoot,
+                  })}
                 >
                   {rhDocumentsTitle}
                 </button>
@@ -435,20 +336,11 @@ export function RhDocumentsSection({
                           className="flex items-center gap-2 rounded-lg px-2 py-1 transition hover:bg-slate-100"
                           aria-haspopup="menu"
                           aria-expanded={documentsMenuOpen}
-                          onDragOver={(event) => {
-                            const draggedDocument = getDraggedRhDocument(event);
-                            if (!draggedDocument) return;
-                            if ((draggedDocument.folderId ?? null) === folder.id) return;
-                            event.preventDefault();
-                            event.dataTransfer.dropEffect = "move";
-                          }}
-                          onDrop={(event) => {
-                            const draggedDocument = getDraggedRhDocument(event);
-                            if (!draggedDocument) return;
-                            if ((draggedDocument.folderId ?? null) === folder.id) return;
-                            event.preventDefault();
-                            void onRhMoveDocumentToFolder(draggedDocument, folder.id);
-                          }}
+                          {...folderDropHandlers({
+                            targetFolderId: folder.id,
+                            getDraggedDocument: getDraggedRhDocument,
+                            onDrop: (document) => onRhMoveDocumentToFolder(document, folder.id),
+                          })}
                         >
                           <span>{folder.name}</span>
                           <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
@@ -458,20 +350,11 @@ export function RhDocumentsSection({
                           type="button"
                           onClick={() => onRhNavigateFolder(folder.id)}
                           className="rounded-lg px-2 py-1 transition hover:bg-slate-100"
-                          onDragOver={(event) => {
-                            const draggedDocument = getDraggedRhDocument(event);
-                            if (!draggedDocument) return;
-                            if ((draggedDocument.folderId ?? null) === folder.id) return;
-                            event.preventDefault();
-                            event.dataTransfer.dropEffect = "move";
-                          }}
-                          onDrop={(event) => {
-                            const draggedDocument = getDraggedRhDocument(event);
-                            if (!draggedDocument) return;
-                            if ((draggedDocument.folderId ?? null) === folder.id) return;
-                            event.preventDefault();
-                            void onRhMoveDocumentToFolder(draggedDocument, folder.id);
-                          }}
+                          {...folderDropHandlers({
+                            targetFolderId: folder.id,
+                            getDraggedDocument: getDraggedRhDocument,
+                            onDrop: (document) => onRhMoveDocumentToFolder(document, folder.id),
+                          })}
                         >
                           {folder.name}
                         </button>
@@ -496,7 +379,7 @@ export function RhDocumentsSection({
               <div className="absolute left-0 top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2">
                 {!showRhFolderTrash ? (
                   <>
-                    {showCreateFolderActionInMenu ? (
+                    {hasFolderBrowser ? (
                       <button
                         type="button"
                         className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#0A1A2F]/80 transition hover:bg-slate-50"
@@ -508,7 +391,7 @@ export function RhDocumentsSection({
                         Nouveau dossier
                       </button>
                     ) : null}
-                    {showImportActionsInMenu ? (
+                    {hasFolderBrowser ? (
                       <>
                         {/*
                           Une seule entree : le dialogue accepte un fichier comme un lot, et
@@ -542,11 +425,6 @@ export function RhDocumentsSection({
           <h2 className="text-lg font-semibold text-[#0A1A2F]">{rhDocumentsTitle}</h2>
         )}
         <div className="flex items-center gap-2">
-          {currentSubSection === "docs_tous" && !isRhDocumentsDropdownSection ? (
-            <Button type="button" variant="outline" size="sm" onClick={onOpenRhUploadDialog}>
-              Deposer des documents
-            </Button>
-          ) : null}
           {currentSubSection === "docs_mes_demandes" ? (
             <Button type="button" variant="outline" size="sm" onClick={onOpenRequestDialog}>
               Demander un document
@@ -554,7 +432,7 @@ export function RhDocumentsSection({
           ) : null}
         </div>
       </div>
-      {["docs_tous", "docs_all", "docs_salaries", "docs_a_valider", "docs_corbeille"].includes(currentSubSection) ? (
+      {["docs_all", "docs_a_valider", "docs_corbeille"].includes(currentSubSection) ? (
         <DocumentFiltersBar
           fields={
             currentSubSection === "docs_a_valider" || currentSubSection === "docs_corbeille"
@@ -618,24 +496,6 @@ export function RhDocumentsSection({
             requests={requests}
             cancellingRequestId={cancellingRequestId}
             onCancelRequest={onCancelRequest}
-            formatMonth={formatMonth}
-            formatDate={formatDate}
-          />
-        ) : currentSubSection === "docs_salaries" ? (
-          <RhDocumentsReviewList
-            documents={filteredSalarieDocuments}
-            storageScope={storageScope}
-            preferencesAuthToken={preferencesAuthToken}
-            reviewDrafts={reviewDrafts}
-            onReviewDraftsChange={onReviewDraftsChange}
-            onViewDocument={onViewDocument}
-            onDownloadDocument={onDownloadDocument}
-            onReviewDocument={onReviewDocument}
-            viewingDocumentId={viewingDocumentId}
-            downloadingDocumentId={downloadingDocumentId}
-            reviewingDocumentId={reviewingDocumentId}
-            formatMonth={formatMonth}
-            formatDocumentStatus={formatDocumentStatus}
           />
         ) : currentSubSection === "docs_a_valider" ? (
           <RhPendingValidationList
@@ -645,8 +505,6 @@ export function RhDocumentsSection({
             reviewingDocumentId={reviewingDocumentId}
             onViewDocument={onViewDocument}
             onOpenReviewDialog={openReviewDialog}
-            formatMonth={formatMonth}
-            formatDocumentStatus={formatDocumentStatus}
           />
         ) : (
           <RhDocumentsListView

@@ -1,4 +1,4 @@
-import { createClient, type User } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -84,5 +84,3 @@ export function toIsoMonthStart(value: string) {
 export function toDocumentDate() {
   return new Date().toISOString().slice(0, 10);
 }
-
-export type ServerUser = User;

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Footer } from "@/components/sections/footer";
 import { ExpertisePageNav } from "@/components/sections/expertise-page-nav";
 
-import { SupportHoverSlider } from "./SupportHoverSlider";
+import { ExpertiseHoverSlider } from "@/components/sections/expertise-hover-slider";
 
 
 
@@ -12,6 +12,8 @@ const supportSlides = [
   {
 
     title: "Service Desk",
+
+    anchorId: "service-desk",
 
     image:
 
@@ -37,6 +39,8 @@ const supportSlides = [
 
     title: "Supervision & MCO",
 
+    anchorId: "supervision-mco",
+
     image:
 
       "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
@@ -60,6 +64,8 @@ const supportSlides = [
   {
 
     title: "Infogérance",
+
+    anchorId: "infogerance",
 
     image:
 
@@ -85,6 +91,8 @@ const supportSlides = [
 
     title: "Sécurité",
 
+    anchorId: "securite",
+
     image:
 
       "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80",
@@ -108,6 +116,8 @@ const supportSlides = [
   {
 
     title: "PRA/PCA",
+
+    anchorId: "prapca",
 
     image:
 
@@ -166,7 +176,7 @@ export default function SupportPage() {
           </div>
           <ExpertisePageNav />
 
-          <SupportHoverSlider slides={supportSlides} />
+          <ExpertiseHoverSlider slides={supportSlides} summaryMinHeightClassName="min-h-[64px]" />
 
           <section id="expertise-detail" className="mt-14 grid scroll-mt-24 gap-10 lg:grid-cols-[1.1fr_0.9fr]">
 

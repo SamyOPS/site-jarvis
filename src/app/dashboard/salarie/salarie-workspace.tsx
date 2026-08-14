@@ -1,17 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
-import { Search, SlidersHorizontal } from "lucide-react";
 
 import type { BillingProfileFormState } from "@/components/dashboard/billing-profile-card";
 import type { SalarieInvoiceSettings } from "@/components/dashboard/salarie/cra-invoice-editor";
 import type { LeaveRequestPayload } from "@/components/dashboard/salarie/leave-request-editor";
 import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
-import { DashboardMobileHeader } from "@/components/dashboard/mobile-header";
-import { DashboardProfileMenu } from "@/components/dashboard/profile-menu";
-import { SalarieSidebarNav } from "@/components/dashboard/salarie/sidebar-nav";
+import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
+import { SALARIE_SIDEBAR } from "@/features/dashboard/shell/sidebar-config";
 import { SalarieDocumentsSection } from "@/components/dashboard/salarie-documents-section";
 import { SalarieOffersSection } from "@/components/dashboard/salarie-offers-section";
 import { SalarieOverviewSection } from "@/components/dashboard/salarie-overview-section";
@@ -21,6 +19,10 @@ import type { CalendarMission } from "@/components/dashboard/salarie/cra/work-da
 import type { InvoiceLineInput } from "@/features/dashboard/salarie/invoice-totals";
 import { StatusNotice } from "@/components/dashboard/status-notice";
 import { Button } from "@/components/ui/button";
+import { useDocumentFolders } from "@/features/dashboard/documents/use-document-folders";
+import { useDocumentPreview } from "@/features/dashboard/documents/use-document-preview";
+import { usePasswordUpdate } from "@/features/dashboard/use-password-update";
+import { createAuthorizedFetch } from "@/lib/dashboard-api";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   buildCalendarCells,
@@ -32,28 +34,26 @@ import {
   shiftMonthInputValue,
   sortCraEntries,
   WEEKDAY_LABELS,
-} from "@/features/dashboard/salarie/cra";
-import {
-  isPayslipDocumentLabel,
-  matchesSalarieDocumentFilters,
-  normalizeDocumentLabel,
-} from "@/features/dashboard/salarie/document-filters";
+} from "@/domain/cra";
+import { matchesSalarieDocumentFilters } from "@/features/dashboard/salarie/document-filters";
 import type { SalarieWorkspaceRouteProps } from "@/features/dashboard/salarie/navigation";
-import type { CraTimeUnit } from "@/features/dashboard/salarie/types";
+import type { CraEntryDraft } from "@/domain/cra";
 import type {
-  CraEntryDraft,
   CraSummaryRow,
-  DocumentFolderRow,
   SalarieDocumentRow as DocumentRow,
-  SalarieDocumentTypeRow as DocumentTypeRow,
-  SalarieProfileRow as ProfileRow,
   SalarieRequestRow as RequestRow,
-  SalarieRequestStatus as RequestStatus,
 } from "@/features/dashboard/salarie/types";
-import { formatDate, formatDocumentStatus, formatMonth, normalizeJoinOne, type DocumentStatus } from "@/lib/dashboard-formatters";
+import type { TimeUnit } from "@/domain/common";
+import { isPayslipDocumentLabel, normalizeDocumentLabel } from "@/domain/documents";
+import type {
+  DocumentRequestStatus,
+  DocumentStatus,
+  DocumentTypeRow,
+} from "@/domain/documents";
+import type { ProfileRow } from "@/domain/profiles";
+import { formatDate, formatMonth, normalizeJoinOne } from "@/lib/dashboard-formatters";
 import { browserSupabase as supabase } from "@/lib/supabase-browser";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
-
 
 const emptyInvoiceSettings = (): SalarieInvoiceSettings => ({
   discountGranted: false,
@@ -117,9 +117,6 @@ export default function SalarieWorkspace({
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeRow[]>([]);
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
-  const [folders, setFolders] = useState<DocumentFolderRow[]>([]);
-  const [trashedFolders, setTrashedFolders] = useState<DocumentFolderRow[]>([]);
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [documentTypeFilter, setDocumentTypeFilter] = useState("all");
   const [documentPeriodFilter, setDocumentPeriodFilter] = useState("all");
   const [documentStatusFilter, setDocumentStatusFilter] = useState("all");
@@ -129,28 +126,55 @@ export default function SalarieWorkspace({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadingRequestId, setUploadingRequestId] = useState<string | null>(null);
-  const [downloadingDocumentId, setDownloadingDocumentId] = useState<string | null>(null);
-  const [viewingDocumentId, setViewingDocumentId] = useState<string | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDialogMode, setUploadDialogMode] = useState<"default" | "cra_facture">("default");
   const [selectedRequestId, setSelectedRequestId] = useState("");
   const [uploadDocumentTypeId, setUploadDocumentTypeId] = useState("");
   const [uploadPeriodMonth, setUploadPeriodMonth] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingDocumentId, setEditingDocumentId] = useState("");
-  const [editDocumentTypeId, setEditDocumentTypeId] = useState("");
-  const [editPeriodMonth, setEditPeriodMonth] = useState("");
-  const [editFileName, setEditFileName] = useState("");
-  const [editFile, setEditFile] = useState<File | null>(null);
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
   const [selectedCommentDocument, setSelectedCommentDocument] = useState<{ fileName: string; comment: string } | null>(null);
   const [savingDocumentId, setSavingDocumentId] = useState<string | null>(null);
   const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
-  const [passwordSaving, setPasswordSaving] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({ newPassword: "", confirmPassword: "" });
+  const callSalarieApi = useMemo(() => createAuthorizedFetch("salarie"), []);
+  const {
+    folders,
+    trashedFolders,
+    currentFolderId,
+    setCurrentFolderId,
+    folderPath,
+
+    createFolder,
+    renameFolder,
+    deleteFolder,
+    restoreFolder,
+    purgeFolder,
+    moveDocumentToFolder,
+    moveDocumentToRoot,
+  } = useDocumentFolders<DocumentRow>({
+    ownerUserId: profile?.id,
+    callApi: callSalarieApi,
+    onMessage: setActionMessage,
+    onDocumentMoved: (document, folderId) =>
+      setDocuments((current) =>
+        current.map((row) => (row.id === document.id ? { ...row, folderId } : row)),
+      ),
+    showTrash: currentSubSection === "docs_corbeille",
+  });
+  const {
+    viewingDocumentId,
+    downloadingDocumentId,
+    handleViewDocument,
+    handleDownloadDocument,
+  } = useDocumentPreview<DocumentRow>(setActionMessage);
+  const {
+    passwordForm,
+    setPasswordForm,
+    passwordMessage,
+    passwordSaving,
+    handlePasswordUpdate,
+  } = usePasswordUpdate();
   const [billingProfileForm, setBillingProfileForm] = useState<BillingProfileFormState>(emptyBillingProfileForm);
   const [billingProfileReady, setBillingProfileReady] = useState(false);
   const [billingProfileLoading, setBillingProfileLoading] = useState(false);
@@ -172,8 +196,6 @@ export default function SalarieWorkspace({
   const [craGenerating, setCraGenerating] = useState(false);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
   const [leaveGenerating, setLeaveGenerating] = useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const applyDashboardCache = useCallback((cache: SalarieDashboardCache) => {
     setDocumentTypes(cache.documentTypes);
@@ -252,7 +274,7 @@ export default function SalarieWorkspace({
 
     const mappedRequests = (requestsRes.data ?? []).map((row: {
       id: string;
-      status: RequestStatus;
+      status: DocumentRequestStatus;
       due_at: string | null;
       period_month: string | null;
       note: string | null;
@@ -374,222 +396,6 @@ export default function SalarieWorkspace({
     };
     void load();
   }, [applyDashboardCache, loadDashboardData, router]);
-
-  const callSalarieApi = useCallback(async (path: string, init?: RequestInit) => {
-    if (!supabase) {
-      throw new Error("Configuration Supabase manquante.");
-    }
-
-    const { session, error } = await safeGetClientSession(supabase);
-    const accessToken = session?.access_token;
-    if (error || !accessToken) {
-      throw new Error(error?.message ?? "Session salarie manquante.");
-    }
-
-    const response = await fetch(path, {
-      ...init,
-      headers: {
-        ...(init?.headers ?? {}),
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-    const contentType = response.headers.get("content-type") ?? "";
-    const payload = contentType.includes("application/json")
-      ? ((await response.json().catch(() => null)) as { error?: string } | null)
-      : null;
-    const rawMessage = !payload
-      ? (await response.text().catch(() => "")).trim()
-      : "";
-    if (!response.ok) {
-      const fallbackMessage = `Requete salarie impossible (${response.status}).`;
-      throw new Error(
-        payload?.error ??
-          (rawMessage ? `${fallbackMessage} ${rawMessage}` : fallbackMessage),
-      );
-    }
-    return payload;
-  }, []);
-
-  const loadFolders = useCallback(async (ownerUserId: string, trash = false) => {
-    const payload = (await callSalarieApi(
-      `/api/documents/folders?ownerUserId=${encodeURIComponent(ownerUserId)}&all=1${trash ? "&trash=1" : ""}`,
-    )) as {
-      items?: {
-        id: string;
-        owner_user_id: string;
-        name: string;
-        parent_id: string | null;
-        deleted_at: string | null;
-        created_at: string | null;
-        updated_at: string | null;
-      }[];
-    };
-    const mapped = (payload.items ?? []).map((row) => ({
-      id: row.id,
-      ownerUserId: row.owner_user_id,
-      name: row.name,
-      parentId: row.parent_id,
-      deletedAt: row.deleted_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
-    if (trash) {
-      setTrashedFolders(mapped);
-      return;
-    }
-    setFolders(mapped);
-  }, [callSalarieApi]);
-
-  const createFolder = useCallback(async () => {
-    if (!profile?.id) return;
-    const folderName = window.prompt("Nom du dossier");
-    if (!folderName?.trim()) return;
-    await callSalarieApi("/api/documents/folders", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        ownerUserId: profile.id,
-        name: folderName.trim(),
-        parentId: null,
-      }),
-    });
-    await Promise.all([loadFolders(profile.id), loadFolders(profile.id, true)]);
-    setActionMessage("Dossier cree.");
-  }, [callSalarieApi, loadFolders, profile?.id]);
-
-  const moveDocumentToFolder = useCallback(
-    async (document: DocumentRow, folderId: string) => {
-      if (!profile?.id) return;
-
-      await callSalarieApi(`/api/documents/items/${encodeURIComponent(document.id)}/move`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ownerUserId: profile.id,
-          folderId,
-        }),
-      });
-
-      setDocuments((current) =>
-        current.map((row) =>
-          row.id === document.id
-            ? {
-              ...row,
-              folderId,
-            }
-            : row,
-        ),
-      );
-      setActionMessage("Document deplace dans le dossier.");
-    },
-    [callSalarieApi, profile?.id],
-  );
-  const moveDocumentToRoot = useCallback(
-    async (document: DocumentRow) => {
-      if (!profile?.id) return;
-      await callSalarieApi(`/api/documents/items/${encodeURIComponent(document.id)}/move`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ownerUserId: profile.id,
-          folderId: null,
-        }),
-      });
-
-      setDocuments((current) =>
-        current.map((row) =>
-          row.id === document.id
-            ? {
-              ...row,
-              folderId: null,
-            }
-            : row,
-        ),
-      );
-      setActionMessage("Document deplace a la racine.");
-    },
-    [callSalarieApi, profile?.id],
-  );
-
-  const renameFolder = useCallback(
-    async (folderId: string, currentName: string) => {
-      if (!profile?.id) return;
-      const nextName = window.prompt("Nouveau nom du dossier", currentName);
-      if (!nextName?.trim() || nextName.trim() === currentName.trim()) return;
-
-      await callSalarieApi(`/api/documents/folders/${encodeURIComponent(folderId)}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: nextName.trim(),
-        }),
-      });
-
-      await Promise.all([loadFolders(profile.id), loadFolders(profile.id, true)]);
-      setActionMessage("Dossier renomme.");
-    },
-    [callSalarieApi, loadFolders, profile?.id],
-  );
-
-  const deleteFolder = useCallback(
-    async (folderId: string) => {
-      if (!profile?.id) return;
-      const confirmed = window.confirm("Supprimer ce dossier ?");
-      if (!confirmed) return;
-
-      await callSalarieApi(`/api/documents/folders/${encodeURIComponent(folderId)}`, {
-        method: "DELETE",
-      });
-
-      await Promise.all([loadFolders(profile.id), loadFolders(profile.id, true)]);
-      if (currentFolderId === folderId) {
-        setCurrentFolderId(null);
-      }
-      setActionMessage("Dossier supprime.");
-    },
-    [callSalarieApi, currentFolderId, loadFolders, profile?.id],
-  );
-
-  const restoreFolder = useCallback(
-    async (folderId: string) => {
-      if (!profile?.id) return;
-      await callSalarieApi(`/api/documents/folders/${encodeURIComponent(folderId)}/restore`, {
-        method: "POST",
-      });
-      await Promise.all([loadFolders(profile.id), loadFolders(profile.id, true)]);
-      setActionMessage("Dossier restaure.");
-    },
-    [callSalarieApi, loadFolders, profile?.id],
-  );
-
-  const purgeFolder = useCallback(
-    async (folderId: string) => {
-      if (!profile?.id) return;
-      const confirmed = window.confirm("Supprimer definitivement ce dossier et tout son contenu ?");
-      if (!confirmed) return;
-      await callSalarieApi(`/api/documents/folders/${encodeURIComponent(folderId)}/purge`, {
-        method: "DELETE",
-      });
-      await Promise.all([loadFolders(profile.id), loadFolders(profile.id, true)]);
-      setActionMessage("Dossier supprime definitivement.");
-    },
-    [callSalarieApi, loadFolders, profile?.id],
-  );
-
-  useEffect(() => {
-    if (!profile?.id) return;
-    void Promise.all([loadFolders(profile.id), loadFolders(profile.id, true)]).catch((loadError) => {
-      setActionMessage(loadError instanceof Error ? loadError.message : "Chargement des dossiers impossible.");
-    });
-  }, [loadFolders, profile?.id]);
 
   const loadBillingProfile = useCallback(async () => {
     setBillingProfileLoading(true);
@@ -741,14 +547,6 @@ export default function SalarieWorkspace({
     setUploadFile(null);
   }, []);
 
-  const resetEditDialog = useCallback(() => {
-    setEditingDocumentId("");
-    setEditDocumentTypeId("");
-    setEditPeriodMonth("");
-    setEditFileName("");
-    setEditFile(null);
-  }, []);
-
   const openUploadDialog = useCallback((requestId?: string) => {
     const request = requestId ? requests.find((item) => item.id === requestId) ?? null : null;
     setUploadDialogMode("default");
@@ -759,20 +557,6 @@ export default function SalarieWorkspace({
     setActionMessage(null);
     setUploadDialogOpen(true);
   }, [requests]);
-
-  const openEditDialog = useCallback((document: DocumentRow) => {
-    if (document.status === "validated") {
-      setActionMessage("Ce document est valide par le RH et ne peut plus etre modifie.");
-      return;
-    }
-    setEditingDocumentId(document.id);
-    setEditDocumentTypeId(document.documentTypeId);
-    setEditPeriodMonth(document.periodMonth ? document.periodMonth.slice(0, 7) : "");
-    setEditFileName(document.fileName);
-    setEditFile(null);
-    setActionMessage(null);
-    setEditDialogOpen(true);
-  }, []);
 
   const renameDocument = useCallback(async (document: DocumentRow) => {
     if (!supabase) return;
@@ -861,52 +645,6 @@ export default function SalarieWorkspace({
     resetUploadDialog();
   }, [documentTypes, requests, resetUploadDialog, selectedRequestId, uploadDocument, uploadDocumentTypeId, uploadFile, uploadPeriodMonth]);
 
-  const handleUpdateDocument = useCallback(async () => {
-    if (!profile || !editingDocumentId) return;
-
-    const document = documents.find((item) => item.id === editingDocumentId) ?? null;
-    if (!document) return;
-    if (document.status === "validated") {
-      setActionMessage("Ce document est valide par le RH et ne peut plus etre modifie.");
-      return;
-    }
-    if (!editDocumentTypeId || !editFileName.trim()) {
-      setActionMessage("Le type et le nom du document sont obligatoires.");
-      return;
-    }
-
-    const selectedType = documentTypes.find((type) => type.id === editDocumentTypeId) ?? null;
-    if (selectedType?.requiresPeriod && !editPeriodMonth) {
-      setActionMessage("Ce type de document demande une periode.");
-      return;
-    }
-
-    setSavingDocumentId(document.id);
-    setActionMessage(null);
-
-    const formData = new FormData();
-    formData.append("documentTypeId", editDocumentTypeId);
-    formData.append("fileName", editFileName.trim());
-    if (editPeriodMonth) formData.append("periodMonth", editPeriodMonth);
-    if (document.folderId) formData.append("folderId", document.folderId);
-    if (editFile) formData.append("file", editFile);
-
-    try {
-      await callSalarieApi(`/api/salarie/documents/${encodeURIComponent(document.id)}`, {
-        method: "PATCH",
-        body: formData,
-      });
-      setActionMessage("Document mis a jour.");
-    } catch (error) {
-      setActionMessage(error instanceof Error ? error.message : "Modification impossible.");
-    }
-
-    setSavingDocumentId(null);
-    setEditDialogOpen(false);
-    resetEditDialog();
-    await loadDashboardData(profile.id);
-  }, [callSalarieApi, documents, documentTypes, editDocumentTypeId, editFile, editFileName, editPeriodMonth, editingDocumentId, loadDashboardData, profile, resetEditDialog]);
-
   const handleDeleteDocument = useCallback(async (document: DocumentRow) => {
     if (!profile) return;
     if (document.status === "validated") {
@@ -984,68 +722,6 @@ export default function SalarieWorkspace({
     await loadDashboardData(profile.id);
   }, [callSalarieApi, loadDashboardData, profile]);
 
-  const getSignedDocumentUrl = useCallback(async (
-    document: DocumentRow,
-    options?: { download?: string },
-  ) => {
-    if (!supabase || !document.storagePath) return;
-    const { data, error: downloadError } = await supabase.storage
-      .from(document.storageBucket)
-      .createSignedUrl(
-        document.storagePath,
-        60,
-        options?.download ? { download: options.download } : undefined,
-      );
-    if (downloadError || !data?.signedUrl) {
-      throw new Error(downloadError?.message ?? "Impossible de generer le lien de telechargement.");
-    }
-
-    return data.signedUrl;
-  }, []);
-
-  const handleViewDocument = useCallback(async (document: DocumentRow) => {
-    if (!document.storagePath) return;
-
-    try {
-      setViewingDocumentId(document.id);
-      setActionMessage(null);
-      const signedUrl = await getSignedDocumentUrl(document);
-      if (!signedUrl) {
-        return;
-      }
-
-      window.open(signedUrl, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      setActionMessage(error instanceof Error ? error.message : "Impossible d'ouvrir le document.");
-    } finally {
-      setViewingDocumentId(null);
-    }
-  }, [getSignedDocumentUrl]);
-
-  const handleDownloadDocument = useCallback(async (document: DocumentRow) => {
-    if (!document.storagePath) return;
-
-    try {
-      setDownloadingDocumentId(document.id);
-      setActionMessage(null);
-      const signedUrl = await getSignedDocumentUrl(document, { download: document.fileName });
-      if (!signedUrl) {
-        return;
-      }
-
-      const link = window.document.createElement("a");
-      link.href = signedUrl;
-      link.rel = "noopener noreferrer";
-      window.document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (error) {
-      setActionMessage(error instanceof Error ? error.message : "Impossible de telecharger le document.");
-    } finally {
-      setDownloadingDocumentId(null);
-    }
-  }, [getSignedDocumentUrl]);
-
   // Un CRA couvre un seul mois : la periode est celle des jours coches, et a defaut
   // de selection celle du mois affiche. Declaree avant les callbacks de generation,
   // qui la referencent dans leurs dependances.
@@ -1056,7 +732,7 @@ export default function SalarieWorkspace({
 
   // Unite de repli, issue du profil de facturation : elle ne sert plus qu'aux CRA
   // anterieurs au multi-entreprises, dont les lignes n'ont pas de mission.
-  const fallbackTimeUnit: CraTimeUnit =
+  const fallbackTimeUnit: TimeUnit =
     billingProfileForm.timeUnit === "hour" ? "hour" : "day";
 
   /** Mission sur laquelle porte le prochain clic dans le calendrier. */
@@ -1095,7 +771,7 @@ export default function SalarieWorkspace({
 
   /** Unite d'une mission donnee, avec repli sur le profil. */
   const missionUnitOf = useCallback(
-    (missionId: string): CraTimeUnit => {
+    (missionId: string): TimeUnit => {
       const mission = missions.find((item) => item.id === missionId);
       if (!mission) return fallbackTimeUnit;
       return mission.rate_unit === "hour" ? "hour" : "day";
@@ -1686,45 +1362,10 @@ export default function SalarieWorkspace({
     [callSalarieApi, loadDashboardData, profile],
   );
 
-  const handlePasswordUpdate = useCallback(async () => {
-    if (!supabase) return;
-
-    if (passwordForm.newPassword.length < 8) {
-      setPasswordMessage("Le nouveau mot de passe doit contenir au moins 8 caracteres.");
-      return;
-    }
-
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordMessage("La confirmation du mot de passe ne correspond pas.");
-      return;
-    }
-
-    setPasswordSaving(true);
-    setPasswordMessage(null);
-
-    const { error: passwordError } = await supabase.auth.updateUser({
-      password: passwordForm.newPassword,
-    });
-
-    if (passwordError) {
-      setPasswordMessage(passwordError.message);
-      setPasswordSaving(false);
-      return;
-    }
-
-    setPasswordForm({ newPassword: "", confirmPassword: "" });
-    setPasswordMessage("Mot de passe mis a jour.");
-    setPasswordSaving(false);
-  }, [passwordForm]);
-
   const pendingRequests = useMemo(() => requests.filter((request) => ["pending", "rejected", "expired"].includes(request.status)), [requests]);
   const selectedUploadType = useMemo(
     () => documentTypes.find((documentType) => documentType.id === uploadDocumentTypeId) ?? null,
     [documentTypes, uploadDocumentTypeId],
-  );
-  const selectedEditType = useMemo(
-    () => documentTypes.find((documentType) => documentType.id === editDocumentTypeId) ?? null,
-    [documentTypes, editDocumentTypeId],
   );
   const selectedUploadRequest = useMemo(
     () => requests.find((request) => request.id === selectedRequestId) ?? null,
@@ -1743,18 +1384,6 @@ export default function SalarieWorkspace({
     () => [...folders].sort((left, right) => left.name.localeCompare(right.name, "fr")),
     [folders],
   );
-  const folderPath = useMemo(() => {
-    const byId = new Map(folders.map((folder) => [folder.id, folder]));
-    const path: DocumentFolderRow[] = [];
-    let cursor = currentFolderId;
-    while (cursor) {
-      const folder = byId.get(cursor);
-      if (!folder) break;
-      path.unshift(folder);
-      cursor = folder.parentId ?? null;
-    }
-    return path;
-  }, [currentFolderId, folders]);
   const activeDocuments = useMemo(
     () => documents.filter((document) => !document.deletedAt && !document.folderDeletedAt),
     [documents],
@@ -1858,7 +1487,7 @@ export default function SalarieWorkspace({
    * ligne de facture est ensuite valorisee avec son propre tarif.
    */
   const craTotalsByMission = useMemo(() => {
-    const totals = new Map<string, { quantity: number; unit: CraTimeUnit }>();
+    const totals = new Map<string, { quantity: number; unit: TimeUnit }>();
     for (const entry of craEntries) {
       // Les absences ne sont pas facturees : elles n'entrent dans aucune ligne.
       if (entry.absenceType) continue;
@@ -1943,47 +1572,8 @@ export default function SalarieWorkspace({
     return meta.full_name ?? meta.name ?? meta.display_name ?? profile?.full_name ?? profile?.email ?? "utilisateur";
   }, [profile?.email, profile?.full_name, user?.user_metadata]);
 
-  useEffect(() => {
-    setProfileMenuOpen(false);
-  }, [currentSection, currentSubSection]);
-
-  useEffect(() => {
-    if (!profileMenuOpen) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!profileMenuRef.current?.contains(event.target as Node)) {
-        setProfileMenuOpen(false);
-      }
-    };
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setProfileMenuOpen(false);
-      }
-    };
-
-    window.addEventListener("mousedown", handlePointerDown);
-    window.addEventListener("keydown", handleEscape);
-    return () => {
-      window.removeEventListener("mousedown", handlePointerDown);
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [profileMenuOpen]);
-
-  useEffect(() => {
-    if (currentFolderId && !folders.some((folder) => folder.id === currentFolderId)) {
-      setCurrentFolderId(null);
-    }
-  }, [currentFolderId, folders]);
-
-  useEffect(() => {
-    if (showFolderTrash && currentFolderId) {
-      setCurrentFolderId(null);
-    }
-  }, [currentFolderId, showFolderTrash]);
-
   const handleSignOut = useCallback(async () => {
     if (!supabase) return;
-    setProfileMenuOpen(false);
     setSession(null);
     setUser(null);
     setProfile(null);
@@ -2011,61 +1601,18 @@ export default function SalarieWorkspace({
   }, [currentSection, currentSubSection, loadBillingProfile, loadCraItems, loadMissions, profile]);
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-[#f3f6fc] text-[#0A1A2F]">
-      <div className="relative h-full">
-        <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[232px]">
-          <SalarieSidebarNav
-            currentSection={currentSection}
-            currentSubSection={currentSubSection}
-            onSignOut={handleSignOut}
-          />
-        </aside>
-
-        <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:block lg:w-[48px]">
-          <div className="flex h-full items-stretch justify-center px-2 py-5" />
-        </aside>
-
-        <main className="flex h-full flex-col overflow-hidden px-3 py-2 lg:ml-[232px] lg:mr-[48px] lg:px-3 lg:py-3">
-          <DashboardMobileHeader
-            brand="Jarvis Connect"
-            email={profile?.email ?? user?.email ?? "-"}
-            displayName={displayName}
-            roleLabel="Espace salarie"
-            settingsHref="/dashboard/salarie/parametres"
-            settingsActive={currentSection === "parametres"}
-            onSignOut={handleSignOut}
-            renderNav={() => (
-              <SalarieSidebarNav
-                currentSection={currentSection}
-                currentSubSection={currentSubSection}
-                onSignOut={handleSignOut}
-              />
-            )}
-          />
-          <div className="hidden lg:flex items-center rounded-[22px] px-2 py-1.5">
-            <div className="flex min-w-0 flex-1 items-center">
-              <div className="flex w-full max-w-lg items-center gap-3 rounded-full border border-white/70 bg-white/70 px-5 py-3 backdrop-blur">
-                  <Search className="h-4 w-4 text-[#0A1A2F]/55" />
-                  <span className="text-sm text-[#0A1A2F]/55">Rechercher dans l&apos;espace salarie</span>
-                  <SlidersHorizontal className="ml-auto h-4 w-4 text-[#0A1A2F]/45" />
-              </div>
-            </div>
-          </div>
-          <DashboardProfileMenu
-            menuRef={profileMenuRef}
-            isOpen={profileMenuOpen}
-            onToggle={() => setProfileMenuOpen((open) => !open)}
-            onClose={() => setProfileMenuOpen(false)}
-            onSignOut={handleSignOut}
-            email={profile?.email ?? user?.email ?? "-"}
-            displayName={displayName}
-            roleLabel="Espace salarie"
-            settingsHref="/dashboard/salarie/parametres"
-            settingsActive={currentSection === "parametres"}
-          />
-
-          <div className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-[22px] border border-white/70 bg-white px-4 py-6 overscroll-contain lg:px-8 lg:py-8">
-          <div className="space-y-4">
+    <WorkspaceShell
+      nav={SALARIE_SIDEBAR}
+      currentSection={currentSection}
+      currentSubSection={currentSubSection}
+      roleLabel="Espace salarie"
+      settingsHref="/dashboard/salarie/parametres"
+      searchPlaceholder="Rechercher dans l'espace salarie"
+      email={profile?.email ?? user?.email ?? "-"}
+      displayName={displayName}
+      onSignOut={handleSignOut}
+    >
+      <div className="space-y-4">
           {(!supabase || error) && (
             <StatusNotice
               tone="error"
@@ -2082,8 +1629,6 @@ export default function SalarieWorkspace({
               documentsCount={activeDocuments.length}
               validatedDocumentsCount={activeDocuments.filter((document) => document.status === "validated").length}
               pendingRequests={pendingRequests}
-              formatDate={formatDate}
-              formatMonth={formatMonth}
               action={
                 <Button type="button" variant="outline" size="sm" onClick={() => openUploadDialog()}>
                   Deposer un document
@@ -2175,9 +1720,6 @@ export default function SalarieWorkspace({
               onPurgeFolder={purgeFolder}
               onRestoreDocument={handleRestoreDocument}
               onPurgeDocument={handlePurgeDocument}
-              formatDate={formatDate}
-              formatMonth={formatMonth}
-              formatDocumentStatus={formatDocumentStatus}
             />
           )}
 
@@ -2212,9 +1754,6 @@ export default function SalarieWorkspace({
               missionsMessage={missionsMessage}
             />
           )}
-          </div>
-          </div>
-        </main>
       </div>
 
       {loading && <DashboardLoadingOverlay message="Chargement..." />}
@@ -2318,85 +1857,6 @@ export default function SalarieWorkspace({
       </Dialog>
 
       <Dialog
-        open={editDialogOpen}
-        onOpenChange={(open) => {
-          setEditDialogOpen(open);
-          if (!open) resetEditDialog();
-        }}
-      >
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Modifier le document</DialogTitle>
-            <DialogDescription>
-              Tant que le document n&apos;est pas valide par le RH, tu peux mettre a jour ses informations ou remplacer le fichier.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Type de document</label>
-                <select
-                  value={editDocumentTypeId}
-                  onChange={(event) => setEditDocumentTypeId(event.target.value)}
-                  className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
-                >
-                  <option value="">Choisir un type</option>
-                  {documentTypes.map((documentType) => (
-                    <option key={documentType.id} value={documentType.id}>{documentType.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-medium">
-                  Periode {selectedEditType?.requiresPeriod ? "(obligatoire)" : "(optionnelle)"}
-                </label>
-                <input
-                  type="month"
-                  value={editPeriodMonth}
-                  onChange={(event) => setEditPeriodMonth(event.target.value)}
-                  className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Nom du document</label>
-              <input
-                type="text"
-                value={editFileName}
-                onChange={(event) => setEditFileName(event.target.value)}
-                className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Remplacer le fichier</label>
-              <input
-                type="file"
-                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                onChange={(event) => setEditFile(event.target.files?.[0] ?? null)}
-                className="block w-full text-xs text-[#0A1A2F]/70 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-medium"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => { setEditDialogOpen(false); resetEditDialog(); }}>
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              onClick={() => void handleUpdateDocument()}
-              disabled={!editDocumentTypeId || !editFileName.trim() || savingDocumentId !== null}
-            >
-              {savingDocumentId ? "Enregistrement..." : "Enregistrer"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog
         open={commentDialogOpen}
         onOpenChange={(open) => {
           setCommentDialogOpen(open);
@@ -2427,11 +1887,7 @@ export default function SalarieWorkspace({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </WorkspaceShell>
   );
 }
-
-
-
-
 

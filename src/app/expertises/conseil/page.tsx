@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Footer } from "@/components/sections/footer";
 import { ExpertisePageNav } from "@/components/sections/expertise-page-nav";
-import { ConseilHoverSlider } from "./ConseilHoverSlider";
+import { ExpertiseHoverSlider } from "@/components/sections/expertise-hover-slider";
 
 const conseilSlides = [
   {
@@ -95,7 +95,7 @@ export default function ConseilPage() {
             </h1>
           </div>
           <ExpertisePageNav />
-          <ConseilHoverSlider slides={conseilSlides} />
+          <ExpertiseHoverSlider slides={conseilSlides} />
 
           <section id="expertise-detail" className="mt-14 grid scroll-mt-24 gap-10 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="space-y-5 text-base text-slate-700">

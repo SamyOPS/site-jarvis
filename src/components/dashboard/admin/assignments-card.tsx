@@ -10,11 +10,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import type { AsyncStatus } from "@/domain/common";
 import type {
   AdminAssignmentUser,
   AdminDocumentType,
   AdminRhTypeRestrictions,
-  AdminStatus,
 } from "@/features/dashboard/admin/types";
 
 type AdminAssignmentsCardProps = {
@@ -25,7 +25,7 @@ type AdminAssignmentsCardProps = {
   selectedRh: AdminAssignmentUser | null;
   selectedEmployeeIds: string[];
   selectedRestrictions: AdminRhTypeRestrictions;
-  assignmentStatus: AdminStatus;
+  assignmentStatus: AsyncStatus;
   assignmentLoading: boolean;
   assignmentSaving: boolean;
   hasAccessToken: boolean;

@@ -3,6 +3,7 @@ import { Check, X } from "lucide-react";
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import { Button } from "@/components/ui/button";
 import type { RhDocumentRow } from "@/features/dashboard/rh/types";
+import { formatDocumentStatus, formatMonth } from "@/lib/dashboard-formatters";
 
 type RhPendingValidationListProps = {
   documents: RhDocumentRow[];
@@ -11,8 +12,6 @@ type RhPendingValidationListProps = {
   reviewingDocumentId: string | null;
   onViewDocument: (document: RhDocumentRow) => void | Promise<void>;
   onOpenReviewDialog: (document: RhDocumentRow, status: "pending" | "validated" | "rejected") => void;
-  formatMonth: (value: string | null) => string;
-  formatDocumentStatus: (value: RhDocumentRow["status"]) => string;
 };
 
 export function RhPendingValidationList({
@@ -22,8 +21,6 @@ export function RhPendingValidationList({
   reviewingDocumentId,
   onViewDocument,
   onOpenReviewDialog,
-  formatMonth,
-  formatDocumentStatus,
 }: RhPendingValidationListProps) {
   if (!documents.length) {
     return <p className="text-sm text-[#0A1A2F]/70">Aucun document en attente de validation.</p>;

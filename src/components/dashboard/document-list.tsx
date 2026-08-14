@@ -3,12 +3,12 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { MoreVertical } from "lucide-react";
 
+import type { DocumentListItem } from "@/domain/documents";
 import { Button } from "@/components/ui/button";
 import { ColumnVisibilityMenu } from "@/components/dashboard/document-list/column-visibility-menu";
 import {
   columnDefinitions,
   type ColumnKey,
-  type DashboardDocumentListItem,
 } from "@/features/dashboard/document-list/columns";
 import { getFileIcon } from "@/features/dashboard/document-list/file-icon";
 import {
@@ -20,7 +20,7 @@ import {
 } from "@/features/dashboard/document-list/formatters";
 import { useColumnPreferences } from "@/features/dashboard/document-list/use-column-preferences";
 
-type DashboardDocumentListProps<T extends DashboardDocumentListItem> = {
+type DashboardDocumentListProps<T extends DocumentListItem> = {
   items: T[];
   renderActions?: (item: T, closeMenu: () => void) => ReactNode;
   renderActionCell?: (item: T) => ReactNode;
@@ -38,7 +38,7 @@ type DashboardDocumentListProps<T extends DashboardDocumentListItem> = {
   onItemDrop?: (targetItem: T, draggedId: string) => void | Promise<void>;
 };
 
-export function DashboardDocumentList<T extends DashboardDocumentListItem>({
+export function DashboardDocumentList<T extends DocumentListItem>({
   items,
   renderActions,
   renderActionCell,

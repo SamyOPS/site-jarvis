@@ -14,17 +14,3 @@ export const columnDefinitions: Array<{
 ];
 
 export const defaultVisibleColumns: ColumnKey[] = ["owner", "createdAt", "size"];
-
-export type DashboardDocumentListItem = {
-  id: string;
-  fileName: string;
-  typeLabel: string;
-  statusLabel?: string | null;
-  periodLabel?: string | null;
-  ownerName: string;
-  createdAt: string | null;
-  sizeBytes: number | null;
-  subtitle?: string | null;
-  details?: string | null;
-  hideDetailsPanel?: boolean;
-};

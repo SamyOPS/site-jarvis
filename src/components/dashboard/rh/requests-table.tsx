@@ -1,21 +1,18 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { RhRequestRow as RequestRow } from "@/features/dashboard/rh/types";
+import { formatDate, formatMonth } from "@/lib/dashboard-formatters";
 
 type RhRequestsTableProps = {
   requests: RequestRow[];
   cancellingRequestId: string | null;
   onCancelRequest: (request: RequestRow) => void | Promise<void>;
-  formatMonth: (value: string | null) => string;
-  formatDate: (value: string | null) => string;
 };
 
 export function RhRequestsTable({
   requests,
   cancellingRequestId,
   onCancelRequest,
-  formatMonth,
-  formatDate,
 }: RhRequestsTableProps) {
   if (!requests.length) {
     return <p className="text-sm text-[#0A1A2F]/70">Aucune demande documentaire pour le moment.</p>;

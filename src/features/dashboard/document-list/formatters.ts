@@ -1,4 +1,6 @@
-import type { ColumnKey, DashboardDocumentListItem } from "./columns";
+import type { DocumentListItem } from "@/domain/documents";
+
+import type { ColumnKey } from "./columns";
 
 export function formatCreatedDate(value: string | null) {
   if (!value) return "-";
@@ -66,7 +68,7 @@ export function getStatusBadgeClass(statusLabel: string | null | undefined) {
   return "bg-slate-100 text-[#0A1A2F]/75";
 }
 
-export function getHiddenColumnValues<T extends DashboardDocumentListItem>(
+export function getHiddenColumnValues<T extends DocumentListItem>(
   item: T,
   visibleColumns: ColumnKey[],
 ) {

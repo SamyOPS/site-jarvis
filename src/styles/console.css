@@ -1,0 +1,305 @@
+/* ============================================================================
+ * CONSOLE — Design tokens
+ * ----------------------------------------------------------------------------
+ * Systeme visuel de la plateforme interne (CRA, factures, justificatifs).
+ *
+ * PORTEE
+ *   Tous les tokens de couleur sont scopes sous [data-app="console"].
+ *   Le site vitrine partage src/components/ui/* et les tokens shadcn de
+ *   globals.css : il ne doit pas etre repeint. Aucun token shadcn n'est
+ *   redefini ici, aucun namespace Tailwind par defaut n'est ecrase
+ *   (--text-*, --radius-*, --color-* standards restent intacts).
+ *
+ * THEMES
+ *   Sombre par defaut. Clair via [data-theme="light"] sur <html>.
+ *     <html data-theme="light">  →  console en clair
+ *     <html> ou data-theme="dark" →  console en sombre
+ *   Pas de detection prefers-color-scheme : le choix est explicite et
+ *   persiste cote client (mise en place a l'etape 2).
+ *
+ * CONVENTIONS
+ *   - Espacements : multiples de 4px uniquement. Utiliser les pas entiers
+ *     de Tailwind (p-1=4, p-2=8, p-3=12, p-4=16, p-5=20, p-6=24, p-8=32...).
+ *     Les demi-pas (p-1.5=6px, gap-2.5=10px, mt-0.5=2px) sont interdits
+ *     dans la console.
+ *   - Rayons : rounded-app-control (6px) pour inputs/boutons/badges,
+ *     rounded-app-card (10px) pour cartes/panneaux. Rien d'autre.
+ *   - Typo : une seule famille (font-app), echelle text-app-xs → text-app-2xl,
+ *     poids font-normal / font-medium / font-semibold uniquement.
+ *   - Elevation : bordure 1px (border-app-line) par defaut. shadow-app-raised
+ *     est reserve aux calques flottants (popover, dropdown, modale).
+ * ========================================================================== */
+
+/* ----------------------------------------------------------------------------
+ * 1. Echelles statiques (identiques dans les deux themes)
+ * -------------------------------------------------------------------------- */
+
+@theme {
+  /* -- Typographie ---------------------------------------------------------
+   * Une seule famille. Inter est deja chargee par next/font dans layout.tsx
+   * sous --font-inter. Echelle stricte 12 / 14 / 16 / 20 / 24 / 32,
+   * interlignes tous multiples de 4px.                                     */
+  --font-app: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --text-app-xs: 0.75rem; /* 12 */
+  --text-app-xs--line-height: 1rem; /* 16 */
+
+  --text-app-sm: 0.875rem; /* 14 */
+  --text-app-sm--line-height: 1.25rem; /* 20 */
+
+  --text-app-md: 1rem; /* 16 */
+  --text-app-md--line-height: 1.5rem; /* 24 */
+
+  --text-app-lg: 1.25rem; /* 20 */
+  --text-app-lg--line-height: 1.75rem; /* 28 */
+  --text-app-lg--letter-spacing: -0.01em;
+
+  --text-app-xl: 1.5rem; /* 24 */
+  --text-app-xl--line-height: 2rem; /* 32 */
+  --text-app-xl--letter-spacing: -0.015em;
+
+  --text-app-2xl: 2rem; /* 32 */
+  --text-app-2xl--line-height: 2.5rem; /* 40 */
+  --text-app-2xl--letter-spacing: -0.02em;
+
+  /* -- Rayons -------------------------------------------------------------- */
+  --radius-app-control: 6px; /* input, bouton, badge, checkbox */
+  --radius-app-card: 10px; /* carte, panneau, tableau, popover */
+
+  /* -- Constantes de layout -----------------------------------------------
+   * Exposees via le namespace --spacing-* pour etre utilisables en
+   * w-* / h-* / ml-* / top-* (ex. w-app-sidebar, h-app-topbar).            */
+  --spacing-app-sidebar: 240px;
+  --spacing-app-sidebar-collapsed: 64px;
+  --spacing-app-topbar: 56px;
+  --container-app-content: 1440px;
+}
+
+/* ----------------------------------------------------------------------------
+ * 2. Mapping des tokens thematises vers les utilitaires Tailwind
+ * ----------------------------------------------------------------------------
+ * `inline` inline la valeur declaree dans l'utilitaire au lieu de passer par
+ * var(--color-x). C'est ce qui permet a bg-app-surface de suivre le theme :
+ * l'utilitaire compile en `background-color: var(--app-surface)`, et
+ * --app-surface est redefini par scope au point 3.
+ * -------------------------------------------------------------------------- */
+
+@theme inline {
+  /* Surfaces */
+  --color-app-canvas: var(--app-canvas);
+  --color-app-surface: var(--app-surface);
+  --color-app-surface-hover: var(--app-surface-hover);
+  --color-app-raised: var(--app-raised);
+  --color-app-overlay: var(--app-overlay);
+  --color-app-field: var(--app-field);
+
+  /* Bordures */
+  --color-app-line: var(--app-line);
+  --color-app-line-strong: var(--app-line-strong);
+
+  /* Texte */
+  --color-app-text: var(--app-text);
+  --color-app-text-secondary: var(--app-text-secondary);
+  --color-app-text-muted: var(--app-text-muted);
+  --color-app-on-accent: var(--app-on-accent);
+
+  /* Accent — bleu neon, en accent uniquement */
+  --color-app-accent: var(--app-accent);
+  --color-app-accent-hover: var(--app-accent-hover);
+  --color-app-accent-fg: var(--app-accent-fg);
+  --color-app-accent-soft: var(--app-accent-soft);
+  --color-app-focus: var(--app-focus);
+
+  /* Statuts — valide */
+  --color-validated: var(--app-validated);
+  --color-validated-soft: var(--app-validated-soft);
+  --color-validated-line: var(--app-validated-line);
+
+  /* Statuts — en attente (document depose, pas encore controle) */
+  --color-pending: var(--app-pending);
+  --color-pending-soft: var(--app-pending-soft);
+  --color-pending-line: var(--app-pending-line);
+
+  /* Statuts — manquant (demande ouverte, aucun document depose) */
+  --color-missing: var(--app-missing);
+  --color-missing-soft: var(--app-missing-soft);
+  --color-missing-line: var(--app-missing-line);
+
+  /* Statuts — rejete */
+  --color-rejected: var(--app-rejected);
+  --color-rejected-soft: var(--app-rejected-soft);
+  --color-rejected-line: var(--app-rejected-line);
+
+  /* Elevation */
+  --shadow-app-raised: var(--app-shadow-raised);
+}
+
+/* ----------------------------------------------------------------------------
+ * 3. Palettes
+ * ----------------------------------------------------------------------------
+ * La palette claire est posee sur :root pour que les utilitaires app-* soient
+ * toujours resolus, meme utilises hors du scope console.
+ * La palette sombre s'applique des qu'on entre dans [data-app="console"]
+ * (specificite egale a :root, mais declaree apres → elle gagne).
+ * Le retour au clair se fait via [data-theme="light"] (specificite 0,2,0).
+ * -------------------------------------------------------------------------- */
+
+/* -- Palette claire ------------------------------------------------------- */
+:root,
+[data-theme="light"] [data-app="console"],
+[data-app="console"][data-theme="light"] {
+  --app-canvas: #f7f8f8;
+  --app-surface: #ffffff;
+  --app-surface-hover: #f2f3f4;
+  --app-raised: #ffffff;
+  --app-overlay: rgb(9 11 12 / 0.4);
+  --app-field: #ffffff;
+
+  --app-line: #e5e7e9;
+  --app-line-strong: #c8cdd1;
+
+  --app-text: #101315;
+  --app-text-secondary: #565e65;
+  --app-text-muted: #6e767d;
+  --app-on-accent: #04171b;
+
+  /* #00E0FF sur blanc plafonne a ~1.4:1 : inutilisable en texte.
+   * --app-accent reste la couleur de remplissage (texte noir dessus),
+   * --app-accent-fg est la variante lisible pour texte, icone et lien.   */
+  --app-accent: #00e0ff;
+  --app-accent-hover: #00c8e4;
+  --app-accent-fg: #00707f;
+  --app-accent-soft: rgb(0 224 255 / 0.14);
+  --app-focus: #00707f;
+
+  --app-validated: #0b6e4f;
+  --app-validated-soft: #e8f6f0;
+  --app-validated-line: #b4e1cd;
+
+  --app-pending: #855400;
+  --app-pending-soft: #fcf3e1;
+  --app-pending-line: #eedbae;
+
+  --app-missing: #93430a;
+  --app-missing-soft: #fdede2;
+  --app-missing-line: #f4cdb0;
+
+  --app-rejected: #9e1b27;
+  --app-rejected-soft: #fdeaec;
+  --app-rejected-line: #f4c3c8;
+
+  --app-shadow-raised:
+    0 1px 2px rgb(16 19 21 / 0.06), 0 8px 24px -8px rgb(16 19 21 / 0.16);
+}
+
+/* -- Palette sombre (defaut de la console) -------------------------------- */
+[data-app="console"],
+[data-theme="dark"] [data-app="console"] {
+  --app-canvas: #08090a;
+  --app-surface: #0f1113;
+  --app-surface-hover: #16181b;
+  --app-raised: #1a1d20;
+  --app-overlay: rgb(0 0 0 / 0.72);
+  --app-field: #0b0c0e;
+
+  --app-line: #232629;
+  --app-line-strong: #33383d;
+
+  --app-text: #f2f4f5;
+  --app-text-secondary: #a5adb4;
+  --app-text-muted: #7c858c;
+  --app-on-accent: #04171b;
+
+  --app-accent: #00e0ff;
+  --app-accent-hover: #38e9ff;
+  --app-accent-fg: #00e0ff;
+  --app-accent-soft: rgb(0 224 255 / 0.12);
+  --app-focus: #00e0ff;
+
+  --app-validated: #3fd98a;
+  --app-validated-soft: rgb(63 217 138 / 0.12);
+  --app-validated-line: rgb(63 217 138 / 0.3);
+
+  --app-pending: #f0b429;
+  --app-pending-soft: rgb(240 180 41 / 0.12);
+  --app-pending-line: rgb(240 180 41 / 0.3);
+
+  --app-missing: #ff8a3d;
+  --app-missing-soft: rgb(255 138 61 / 0.14);
+  --app-missing-line: rgb(255 138 61 / 0.34);
+
+  --app-rejected: #ff6070;
+  --app-rejected-soft: rgb(255 96 112 / 0.13);
+  --app-rejected-line: rgb(255 96 112 / 0.32);
+
+  --app-shadow-raised:
+    0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -8px rgb(0 0 0 / 0.55);
+}
+
+/* ----------------------------------------------------------------------------
+ * 4. Base du scope console
+ * -------------------------------------------------------------------------- */
+
+[data-app="console"] {
+  background-color: var(--app-canvas);
+  color: var(--app-text);
+  font-family: var(--font-app);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Aligne les controles natifs (19 <select> bruts dans le dashboard),
+   * les scrollbars et les curseurs sur le theme actif.                     */
+  color-scheme: dark;
+}
+
+[data-theme="light"] [data-app="console"],
+[data-app="console"][data-theme="light"] {
+  color-scheme: light;
+}
+
+/* globals.css arrondit toutes les images du site (heritage vitrine).
+ * Dans la console, l'arrondi est porte par le composant, pas par la balise. */
+[data-app="console"] img {
+  border-radius: 0;
+}
+
+/* Scrollbars discretes, alignees sur les tokens. */
+[data-app="console"] * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-line-strong) transparent;
+}
+
+[data-app="console"] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+[data-app="console"] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-app="console"] ::-webkit-scrollbar-thumb {
+  background-color: var(--app-line-strong);
+  border-radius: 8px;
+}
+
+/* ----------------------------------------------------------------------------
+ * 5. Utilitaires de tokens
+ * -------------------------------------------------------------------------- */
+
+/* Anneau de focus unique pour toute la console.
+ * A utiliser avec la variante focus-visible : `focus-visible:outline-app`.
+ * Compromis assume : --app-line-strong reste volontairement discret
+ * (~2:1) pour la densite visuelle ; l'indicateur de focus, lui, est a
+ * fort contraste (>=5.8:1 en clair, >=12:1 en sombre) afin que la
+ * navigation clavier reste parfaitement lisible. */
+@utility outline-app {
+  outline: 2px solid var(--app-focus);
+  outline-offset: 2px;
+}
+
+/* Bordure interne 1px sans decalage de layout (utile sur les cellules
+ * de tableau et les elements colles). */
+@utility ring-app-line {
+  box-shadow: inset 0 0 0 1px var(--app-line);
+}

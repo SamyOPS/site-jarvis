@@ -1,5 +1,6 @@
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { RequestListCard } from "@/components/dashboard/request-list-card";
+import { formatDate, formatMonth } from "@/lib/dashboard-formatters";
 
 type RhOverviewRequest = {
   id: string;
@@ -16,8 +17,6 @@ type RhOverviewSectionProps = {
   employeesCount: number;
   currentMonthDocumentsCount: number;
   openRequests: RhOverviewRequest[];
-  formatDate: (value: string | null) => string;
-  formatMonth: (value: string | null) => string;
 };
 
 export function RhOverviewSection({
@@ -26,8 +25,6 @@ export function RhOverviewSection({
   employeesCount,
   currentMonthDocumentsCount,
   openRequests,
-  formatDate,
-  formatMonth,
 }: RhOverviewSectionProps) {
   return (
     <>

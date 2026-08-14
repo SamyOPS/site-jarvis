@@ -1,30 +1,16 @@
-import type { DocumentStatus } from "@/lib/dashboard-formatters";
+import type {
+  DocumentListItem,
+  DocumentRequestStatus,
+  DocumentStatus,
+} from "@/domain/documents";
+import type { ProfileRow } from "@/domain/profiles";
 
-export type RhProfileRow = {
-  id: string;
-  email: string;
-  full_name: string | null;
+/** Le RH est le sur-ensemble du profil : il voit les colonnes RH en plus du socle commun. */
+export type RhProfileRow = ProfileRow & {
   phone: string | null;
-  role: string | null;
-  professional_status: string | null;
   employment_status: "active" | "inactive" | "exited" | null;
   company_name: string | null;
   esn_partenaire: string | null;
-};
-
-export type RhRequestStatus =
-  | "pending"
-  | "uploaded"
-  | "validated"
-  | "rejected"
-  | "expired"
-  | "cancelled";
-
-export type RhDocumentTypeRow = {
-  id: string;
-  label: string;
-  requiresPeriod: boolean;
-  allowedUploaderRoles: string[];
 };
 
 export type RhDocumentRow = {
@@ -51,35 +37,16 @@ export type RhDocumentRow = {
   sourceKind: string;
 };
 
-export type RhDocumentFolderRow = {
-  id: string;
-  ownerUserId: string;
-  name: string;
-  parentId: string | null;
-  deletedAt?: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
 export type RhRequestRow = {
   id: string;
   employeeId: string;
   documentTypeId: string;
   employeeName: string;
-  status: RhRequestStatus;
+  status: DocumentRequestStatus;
   dueAt: string | null;
   periodMonth: string | null;
   note: string | null;
   typeLabel: string;
-};
-
-export type RhEventRow = {
-  id: string;
-  employeeId: string;
-  createdAt: string;
-  eventType: string;
-  actorName: string;
-  documentLabel: string;
 };
 
 export type RhJobOfferRow = {
@@ -97,25 +64,6 @@ export type RhApplicationRow = {
   candidateName: string;
 };
 
-export type RhProfileCvRow = {
-  user_id: string;
-  file_name: string | null;
-};
-
-type RhDocumentsListItemBase = {
-  id: string;
-  fileName: string;
-  typeLabel: string;
-  statusLabel?: string | null;
-  periodLabel?: string | null;
-  ownerName: string;
-  createdAt: string | null;
-  sizeBytes: number | null;
-  subtitle?: string | null;
-  details?: string | null;
-  hideDetailsPanel?: boolean;
-};
-
 export type RhDocumentsListItem =
-  | (RhDocumentsListItemBase & { rowType: "folder"; folderId: string })
-  | (RhDocumentsListItemBase & { rowType: "document"; document: RhDocumentRow });
+  | (DocumentListItem & { rowType: "folder"; folderId: string })
+  | (DocumentListItem & { rowType: "document"; document: RhDocumentRow });

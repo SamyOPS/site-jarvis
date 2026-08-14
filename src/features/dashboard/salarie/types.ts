@@ -1,32 +1,13 @@
-import type { DocumentStatus } from "@/lib/dashboard-formatters";
-
-export type SalarieProfileRow = {
-  id: string;
-  email: string;
-  full_name: string | null;
-  role: string | null;
-  professional_status: string | null;
-};
-
-export type SalarieRequestStatus =
-  | "pending"
-  | "uploaded"
-  | "validated"
-  | "rejected"
-  | "expired"
-  | "cancelled";
-
-export type SalarieDocumentTypeRow = {
-  id: string;
-  label: string;
-  requiresPeriod: boolean;
-  allowedUploaderRoles: string[];
-};
+import type {
+  DocumentListItem,
+  DocumentRequestStatus,
+  DocumentStatus,
+} from "@/domain/documents";
 
 export type SalarieRequestRow = {
   id: string;
   documentTypeId: string;
-  status: SalarieRequestStatus;
+  status: DocumentRequestStatus;
   dueAt: string | null;
   periodMonth: string | null;
   note: string | null;
@@ -53,16 +34,6 @@ export type SalarieDocumentRow = {
   storagePath: string;
 };
 
-export type DocumentFolderRow = {
-  id: string;
-  ownerUserId: string;
-  name: string;
-  parentId: string | null;
-  deletedAt?: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
 export type CraSummaryRow = {
   id: string;
   period_month: string;
@@ -74,79 +45,6 @@ export type CraSummaryRow = {
   updated_at: string;
 };
 
-export type CraEntryDraft = {
-  workDate: string;
-  /**
-   * Mission (entreprise cliente) a laquelle la ligne est imputee. Forme avec `workDate`
-   * la cle d'une entree : une meme journee peut porter plusieurs entreprises.
-   * Vide pour les CRA anterieurs au multi-entreprises.
-   */
-  missionId: string;
-  /**
-   * Type d'absence (paid, sick, exceptional, unpaid). Vide pour une journee travaillee.
-   * Exclusif avec `missionId` : une journee est travaillee chez un client, ou absente.
-   */
-  absenceType: string;
-  /** Quantite en journees. Vide pour une mission facturee a l'heure. */
-  dayQuantity: string;
-  /** Quantite en heures. Vide pour une mission facturee au jour. */
-  hours: string;
-  label: string;
-};
-
-/** Identifie une entree de CRA : une journee pour une entreprise donnee, ou une absence. */
-export const craEntryKey = (entry: { workDate: string; missionId: string }) =>
-  `${entry.workDate}|${entry.missionId}`;
-
-/** Libelles des types d'absence, dans l'ordre d'affichage. */
-export const ABSENCE_LABELS = [
-  { value: "paid", label: "Conge paye" },
-  { value: "sick", label: "Arret maladie" },
-  { value: "exceptional", label: "Conge exceptionnel" },
-  { value: "unpaid", label: "Conge sans solde" },
-] as const;
-
-export function absenceLabel(value: string) {
-  return ABSENCE_LABELS.find((item) => item.value === value)?.label ?? "Absence";
-}
-
-/** Unite de saisie du CRA, portee par la mission (a defaut par le profil de facturation). */
-export type CraTimeUnit = "day" | "hour";
-
-
-export type CraLeaveDaysDraft = {
-  paid: string;
-  sick: string;
-  exceptional: string;
-  unpaid: string;
-};
-
-export const emptyCraLeaveDays = (): CraLeaveDaysDraft => ({
-  paid: "",
-  sick: "",
-  exceptional: "",
-  unpaid: "",
-});
-
-export type CraCalendarCell = {
-  isoDate: string | null;
-  dayNumber: number | null;
-};
-
-type DocumentsListItemBase = {
-  id: string;
-  fileName: string;
-  typeLabel: string;
-  statusLabel?: string | null;
-  periodLabel?: string | null;
-  ownerName: string;
-  createdAt: string | null;
-  sizeBytes: number | null;
-  subtitle?: string | null;
-  details?: string | null;
-  hideDetailsPanel?: boolean;
-};
-
 export type SalarieDocumentsListItem =
-  | (DocumentsListItemBase & { rowType: "folder"; folderId: string })
-  | (DocumentsListItemBase & { rowType: "document"; document: SalarieDocumentRow });
+  | (DocumentListItem & { rowType: "folder"; folderId: string })
+  | (DocumentListItem & { rowType: "document"; document: SalarieDocumentRow });

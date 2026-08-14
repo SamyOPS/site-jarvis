@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ChangeEvent } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 
@@ -41,9 +41,6 @@ export default function DashboardActusPage() {
   const [uploadVideoMessage, setUploadVideoMessage] = useState<string | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [uploadPdfMessage, setUploadPdfMessage] = useState<string | null>(null);
-  const [inlineUploading, setInlineUploading] = useState(false);
-  const [inlineUploadMessage, setInlineUploadMessage] = useState<string | null>(null);
-  const contentRef = useRef<HTMLTextAreaElement | null>(null);
   const [contentMode, setContentMode] = useState<NewsContentMode>("article");
   const [form, setForm] = useState<NewsFormState>({
     title: "",
@@ -216,62 +213,6 @@ export default function DashboardActusPage() {
     setUploadingPdf(false);
   };
 
-  const insertContentAtCursor = (snippet: string) => {
-    const textarea = contentRef.current;
-    if (!textarea) {
-      setForm((prev) => ({ ...prev, content: prev.content + snippet }));
-      return;
-    }
-
-    const start = textarea.selectionStart ?? textarea.value.length;
-    const end = textarea.selectionEnd ?? textarea.value.length;
-    const nextValue =
-      textarea.value.slice(0, start) + snippet + textarea.value.slice(end);
-
-    setForm((prev) => ({ ...prev, content: nextValue }));
-
-    requestAnimationFrame(() => {
-      textarea.focus();
-      const cursor = start + snippet.length;
-      textarea.setSelectionRange(cursor, cursor);
-    });
-  };
-
-  const handleInlineImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !supabase || !adminProfile) return;
-
-    setInlineUploadMessage(null);
-    setInlineUploading(true);
-
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-    const safeName = file.name.replace(/\.[^/.]+$/, "");
-    const baseName = slugify(safeName) || "image";
-    const filePath = `${adminProfile.id}/${Date.now()}-${baseName}.${ext}`;
-
-    const { error: uploadError } = await supabase
-      .storage
-      .from("news-images")
-      .upload(filePath, file, { upsert: true });
-
-    if (uploadError) {
-      setInlineUploadMessage(uploadError.message);
-      setInlineUploading(false);
-      return;
-    }
-
-    const { data } = supabase.storage.from("news-images").getPublicUrl(filePath);
-    if (data?.publicUrl) {
-      const snippet = `
-![image](${data.publicUrl})
-`;
-      insertContentAtCursor(snippet);
-    }
-
-    setInlineUploading(false);
-    event.currentTarget.value = "";
-  };
-
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!supabase || !adminProfile) return;
@@ -395,7 +336,6 @@ export default function DashboardActusPage() {
           setForm={setForm}
           contentMode={contentMode}
           setContentMode={setContentMode}
-          contentRef={contentRef}
           editingId={editingId}
           loading={loading}
           uploading={uploading}

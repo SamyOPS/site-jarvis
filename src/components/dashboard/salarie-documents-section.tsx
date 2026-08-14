@@ -1,8 +1,15 @@
-﻿import { ChevronDown, Download, Eye, FolderOpen, MessageSquareText, Pencil, RotateCcw, Trash2 } from "lucide-react";
+﻿import { ChevronDown } from "lucide-react";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { DashboardDocumentList } from "@/components/dashboard/document-list";
-import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
+import { Fragment, useMemo, useState } from "react";
+
+import { useDismissable } from "@/hooks/use-dismissable";
+import {
+  documentToListItem,
+  folderToListItem,
+  sortFoldersByName,
+} from "@/features/dashboard/documents/list-items";
+import { folderDropHandlers } from "@/features/dashboard/documents/folder-drop";
+import { useDraggedDocument } from "@/features/dashboard/documents/use-dragged-document";
 import {
   SalarieCraInvoiceEditor,
   type CraInvoiceTab,
@@ -13,17 +20,15 @@ import type { InvoiceLineInput } from "@/features/dashboard/salarie/invoice-tota
 import { SalarieLeaveRequestEditor, type LeaveRequestPayload } from "@/components/dashboard/salarie/leave-request-editor";
 import { SalarieDocumentsListView } from "@/components/dashboard/salarie/documents-list-view";
 import { SalariePendingRequests } from "@/components/dashboard/salarie/pending-requests";
-import { Button } from "@/components/ui/button";
-import type { CraTimeUnit } from "@/features/dashboard/salarie/types";
+import type { TimeUnit } from "@/domain/common";
+import type { CraCalendarCell, CraEntryDraft } from "@/domain/cra";
 import type {
-  CraCalendarCell,
-  CraEntryDraft,
   CraSummaryRow,
-  DocumentFolderRow,
   SalarieDocumentRow as DocumentRow,
   SalarieDocumentsListItem,
   SalarieRequestRow as RequestRow,
 } from "@/features/dashboard/salarie/types";
+import type { DocumentFolderRow } from "@/domain/documents";
 
 type FilterOption = {
   value: string;
@@ -64,7 +69,7 @@ type SalarieDocumentsSectionProps = {
   onCycleCraWorkDate: (workDate: string, missionId?: string) => void;
   onFillCraWorkingDays: () => void;
   onClearCraEntries: () => void;
-  craTimeUnit: CraTimeUnit;
+  craTimeUnit: TimeUnit;
   craDraftTotalHours: number;
   onSetCraEntryHours: (workDate: string, hours: number, missionId?: string) => void;
   onSetCraEntryDayQuantity: (workDate: string, dayQuantity: number, missionId?: string) => void;
@@ -114,9 +119,6 @@ type SalarieDocumentsSectionProps = {
   onPurgeFolder: (folderId: string) => void | Promise<void>;
   onRestoreDocument: (document: DocumentRow) => void | Promise<void>;
   onPurgeDocument: (document: DocumentRow) => void | Promise<void>;
-  formatDate: (value: string | null) => string;
-  formatMonth: (value: string | null) => string;
-  formatDocumentStatus: (value: DocumentRow["status"]) => string;
 };
 
 export function SalarieDocumentsSection({
@@ -203,33 +205,19 @@ export function SalarieDocumentsSection({
   onPurgeFolder,
   onRestoreDocument,
   onPurgeDocument,
-  formatDate,
-  formatMonth,
-  formatDocumentStatus,
 }: SalarieDocumentsSectionProps) {
   const [documentsMenuOpen, setDocumentsMenuOpen] = useState(false);
-  const documentsMenuRef = useRef<HTMLDivElement | null>(null);
-  const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null);
+  const documentsMenuRef = useDismissable<HTMLDivElement>(documentsMenuOpen, () =>
+    setDocumentsMenuOpen(false),
+  );
   const isPayslipsSubSection = currentSubSection === "docs_fiches_paie";
   const trashFolderItems = useMemo<SalarieDocumentsListItem[]>(
     () =>
-      [...trashedFolders]
-        .filter((folder) =>
-          documentTypeFilter === "all" || documentTypeFilter === "Dossier",
-        )
-        .sort((left, right) => left.name.localeCompare(right.name, "fr"))
-        .map((folder) => ({
-          rowType: "folder",
-          folderId: folder.id,
-          id: `trash-folder:${folder.id}`,
-          fileName: folder.name,
-          typeLabel: "Dossier",
-          ownerName: "-",
-          createdAt: folder.deletedAt ?? folder.updatedAt ?? folder.createdAt,
-          sizeBytes: null,
-          subtitle: "Dans la corbeille",
-          hideDetailsPanel: true,
-        })),
+      sortFoldersByName(
+        trashedFolders.filter(
+          () => documentTypeFilter === "all" || documentTypeFilter === "Dossier",
+        ),
+      ).map((folder) => folderToListItem(folder, { trash: true })),
     [documentTypeFilter, trashedFolders],
   );
   const trashDocumentItems = useMemo<SalarieDocumentsListItem[]>(
@@ -240,47 +228,21 @@ export function SalarieDocumentsSection({
           (documentPeriodFilter === "all" ||
             (document.periodMonth ?? "__none__") === documentPeriodFilter),
         )
-        .map((document) => ({
-          rowType: "document",
-          document,
-          id: `trash-document:${document.id}`,
-          fileName: document.fileName,
-          typeLabel: document.typeLabel,
-          ownerName: document.uploadedByName,
-          createdAt: document.deletedAt ?? document.updatedAt ?? document.createdAt,
-          statusLabel: formatDocumentStatus(document.status),
-          periodLabel: formatMonth(document.periodMonth),
-          sizeBytes: document.sizeBytes,
-          details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
-        })),
-    [documentPeriodFilter, documentTypeFilter, formatDocumentStatus, formatMonth, trashedDocuments],
+        .map((document) =>
+          documentToListItem(document, { ownerName: document.uploadedByName, trash: true }),
+        ),
+    [documentPeriodFilter, documentTypeFilter, trashedDocuments],
   );
   const documentsById = useMemo(
     () => new Map(visibleDocuments.map((document) => [document.id, document])),
     [visibleDocuments],
   );
-  const getDraggedDocument = (event: React.DragEvent<HTMLElement>) => {
-    const draggedId =
-      draggedDocumentId ??
-      event.dataTransfer.getData("text/x-dashboard-item-id") ??
-      event.dataTransfer.getData("text/plain");
-    if (!draggedId) return null;
-    return documentsById.get(draggedId) ?? null;
-  };
+  const { setDraggedId: setDraggedDocumentId, getDraggedDocument } =
+    useDraggedDocument(documentsById);
   const listItems = useMemo<SalarieDocumentsListItem[]>(() => {
-    const documentItems: SalarieDocumentsListItem[] = visibleDocuments.map((document) => ({
-      rowType: "document",
-      document,
-      id: document.id,
-      fileName: document.fileName,
-      typeLabel: document.typeLabel,
-      ownerName: document.uploadedByName,
-      createdAt: document.createdAt,
-      statusLabel: formatDocumentStatus(document.status),
-      periodLabel: formatMonth(document.periodMonth),
-      sizeBytes: document.sizeBytes,
-      details: document.reviewComment ? `Commentaire RH : ${document.reviewComment}` : null,
-    }));
+    const documentItems: SalarieDocumentsListItem[] = visibleDocuments.map((document) =>
+      documentToListItem(document, { ownerName: document.uploadedByName }),
+    );
 
     if (currentSubSection !== "docs_tous") {
       return documentItems;
@@ -289,57 +251,14 @@ export function SalarieDocumentsSection({
     const shouldShowFoldersByType =
       documentTypeFilter === "all" || documentTypeFilter === "Dossier";
 
-    const folderItems: SalarieDocumentsListItem[] = currentFolderId || !shouldShowFoldersByType
-      ? []
-      : [...folders]
-        .sort((left, right) => left.name.localeCompare(right.name, "fr"))
-        .map((folder) => ({
-          rowType: "folder",
-          folderId: folder.id,
-          id: `folder:${folder.id}`,
-          fileName: folder.name,
-          typeLabel: "Dossier",
-          ownerName: "-",
-          createdAt: folder.createdAt,
-          sizeBytes: null,
-          hideDetailsPanel: true,
-        }));
+    const folderItems: SalarieDocumentsListItem[] =
+      currentFolderId || !shouldShowFoldersByType
+        ? []
+        : sortFoldersByName(folders).map((folder) => folderToListItem(folder));
 
     return [...folderItems, ...documentItems];
-  }, [currentFolderId, currentSubSection, documentTypeFilter, folders, formatDocumentStatus, formatMonth, visibleDocuments]);
+  }, [currentFolderId, currentSubSection, documentTypeFilter, folders, visibleDocuments]);
 
-  useEffect(() => {
-    if (!documentsMenuOpen) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!documentsMenuRef.current?.contains(event.target as Node)) {
-        setDocumentsMenuOpen(false);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setDocumentsMenuOpen(false);
-      }
-    };
-
-    window.addEventListener("mousedown", handlePointerDown);
-    window.addEventListener("keydown", handleEscape);
-    return () => {
-      window.removeEventListener("mousedown", handlePointerDown);
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [documentsMenuOpen]);
-  useEffect(() => {
-    if (!draggedDocumentId) return;
-    const clearDraggedItem = () => setDraggedDocumentId(null);
-    window.addEventListener("dragend", clearDraggedItem);
-    window.addEventListener("drop", clearDraggedItem);
-    return () => {
-      window.removeEventListener("dragend", clearDraggedItem);
-      window.removeEventListener("drop", clearDraggedItem);
-    };
-  }, [draggedDocumentId]);
 
   return (
     <section className="space-y-4">
@@ -374,20 +293,11 @@ export function SalarieDocumentsSection({
                   type="button"
                   onClick={() => onNavigateFolder(null)}
                   className="max-w-full truncate rounded-lg px-2 py-1 transition hover:bg-slate-100"
-                  onDragOver={(event) => {
-                    const draggedDocument = getDraggedDocument(event);
-                    if (!draggedDocument) return;
-                    if ((draggedDocument.folderId ?? null) === null) return;
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                  }}
-                  onDrop={(event) => {
-                    const draggedDocument = getDraggedDocument(event);
-                    if (!draggedDocument) return;
-                    if ((draggedDocument.folderId ?? null) === null) return;
-                    event.preventDefault();
-                    void onMoveDocumentToRoot(draggedDocument);
-                  }}
+                  {...folderDropHandlers({
+                    targetFolderId: null,
+                    getDraggedDocument: getDraggedDocument,
+                    onDrop: onMoveDocumentToRoot,
+                  })}
                 >
                   {documentsCardTitle}
                 </button>
@@ -403,20 +313,11 @@ export function SalarieDocumentsSection({
 	                          className="flex items-center gap-2 rounded-lg px-2 py-1 transition hover:bg-slate-100"
 	                          aria-haspopup="menu"
 	                          aria-expanded={documentsMenuOpen}
-	                          onDragOver={(event) => {
-	                            const draggedDocument = getDraggedDocument(event);
-	                            if (!draggedDocument) return;
-	                            if ((draggedDocument.folderId ?? null) === folder.id) return;
-	                            event.preventDefault();
-	                            event.dataTransfer.dropEffect = "move";
-	                          }}
-	                          onDrop={(event) => {
-	                            const draggedDocument = getDraggedDocument(event);
-	                            if (!draggedDocument) return;
-	                            if ((draggedDocument.folderId ?? null) === folder.id) return;
-	                            event.preventDefault();
-	                            void onMoveDocumentToFolder(draggedDocument, folder.id);
-	                          }}
+                          {...folderDropHandlers({
+                            targetFolderId: folder.id,
+                            getDraggedDocument: getDraggedDocument,
+                            onDrop: (document) => onMoveDocumentToFolder(document, folder.id),
+                          })}
 	                        >
 	                          <span>{folder.name}</span>
 	                          <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
@@ -426,20 +327,11 @@ export function SalarieDocumentsSection({
                           type="button"
                           onClick={() => onNavigateFolder(folder.id)}
                           className="rounded-lg px-2 py-1 transition hover:bg-slate-100"
-                          onDragOver={(event) => {
-                            const draggedDocument = getDraggedDocument(event);
-                            if (!draggedDocument) return;
-                            if ((draggedDocument.folderId ?? null) === folder.id) return;
-                            event.preventDefault();
-                            event.dataTransfer.dropEffect = "move";
-                          }}
-                          onDrop={(event) => {
-                            const draggedDocument = getDraggedDocument(event);
-                            if (!draggedDocument) return;
-                            if ((draggedDocument.folderId ?? null) === folder.id) return;
-                            event.preventDefault();
-                            void onMoveDocumentToFolder(draggedDocument, folder.id);
-                          }}
+                          {...folderDropHandlers({
+                            targetFolderId: folder.id,
+                            getDraggedDocument: getDraggedDocument,
+                            onDrop: (document) => onMoveDocumentToFolder(document, folder.id),
+                          })}
                         >
                           {folder.name}
                         </button>
@@ -551,8 +443,6 @@ export function SalarieDocumentsSection({
           <SalariePendingRequests
             pendingRequests={pendingRequests}
             openUploadDialog={openUploadDialog}
-            formatMonth={formatMonth}
-            formatDate={formatDate}
           />
         ) : (
           <SalarieDocumentsListView

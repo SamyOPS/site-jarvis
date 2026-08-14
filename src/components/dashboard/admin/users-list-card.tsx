@@ -15,9 +15,9 @@ import {
   isRecentlyActive,
   renderStatusBadge,
 } from "@/features/dashboard/admin/helpers";
+import type { AsyncStatus } from "@/domain/common";
 import type {
   AdminProfileRow,
-  AdminStatus,
   AdminUserActivityRow,
 } from "@/features/dashboard/admin/types";
 
@@ -35,8 +35,8 @@ const ASSIGNABLE_ROLES = [
 type AdminUsersListCardProps = {
   allProfiles: AdminProfileRow[];
   activityByUserId: Record<string, AdminUserActivityRow>;
-  profileStatus: AdminStatus;
-  userDeleteStatus: AdminStatus;
+  profileStatus: AsyncStatus;
+  userDeleteStatus: AsyncStatus;
   profileUpdatingId: string | null;
   roleUpdatingId: string | null;
   deletingUserId: string | null;
