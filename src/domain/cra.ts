@@ -7,6 +7,7 @@
  * justifie sa presence ici plutot que dans features/dashboard/salarie/.
  */
 
+import type { TimeUnit } from "./common";
 import { getFrenchHolidayName } from "./holidays";
 
 /** Une ligne de saisie du CRA : une date, imputee a une mission ou a une absence. */
@@ -53,6 +54,133 @@ export function currentMonthInputValue() {
 
 export function sortCraEntries(entries: CraEntryDraft[]) {
   return [...entries].sort((left, right) => left.workDate.localeCompare(right.workDate));
+}
+
+/**
+ * Predicat d'identite d'une ligne : une date ET une mission.
+ *
+ * La cle n'est pas la seule date — depuis le multi-entreprises, une meme journee peut porter
+ * plusieurs missions, chacune avec sa quantite. Ce predicat etait reecrit a la main a chaque
+ * site d'appel (`entry.workDate === workDate && entry.missionId === missionId`), ce qui rend
+ * une divergence facile et invisible.
+ */
+export function isSameCraSlot(entry: CraEntryDraft, workDate: string, missionId: string) {
+  return entry.workDate === workDate && entry.missionId === missionId;
+}
+
+/**
+ * Predicat de l'absence d'une journee. Contrairement aux missions, il n'y a **qu'une** absence
+ * possible par jour : la date suffit a l'identifier.
+ */
+export function isCraAbsenceOn(entry: CraEntryDraft, workDate: string) {
+  return entry.workDate === workDate && Boolean(entry.absenceType);
+}
+
+/** Les lignes du mois donne, les autres etant ecartees. */
+export function keepCraEntriesOfMonth(entries: CraEntryDraft[], monthValue: string) {
+  return sortCraEntries(entries.filter((entry) => entry.workDate.startsWith(`${monthValue}-`)));
+}
+
+/**
+ * Applique un patch aux lignes retenues, et retrie.
+ *
+ * Le tri fait partie du contrat : les appelants enchainaient systematiquement `sortCraEntries`
+ * apres le `map`, y compris quand le patch ne touche pas la date. L'oublier a un seul endroit
+ * produirait une liste dans un ordre different des autres, sans erreur visible.
+ */
+export function patchCraEntries(
+  entries: CraEntryDraft[],
+  matches: (entry: CraEntryDraft) => boolean,
+  patch: Partial<CraEntryDraft>,
+) {
+  return sortCraEntries(
+    entries.map((entry) => (matches(entry) ? { ...entry, ...patch } : entry)),
+  );
+}
+
+/** Retire les lignes retenues. Pas de tri : un filtrage preserve l'ordre existant. */
+export function removeCraEntries(
+  entries: CraEntryDraft[],
+  matches: (entry: CraEntryDraft) => boolean,
+) {
+  return entries.filter((entry) => !matches(entry));
+}
+
+/** Ajoute une ligne et retrie. */
+export function addCraEntry(entries: CraEntryDraft[], entry: CraEntryDraft) {
+  return sortCraEntries([...entries, entry]);
+}
+
+/** Unite de saisie d'une mission donnee. Fournie par l'appelant, qui detient les missions. */
+export type CraMissionUnitResolver = (missionId: string) => TimeUnit;
+
+/**
+ * Lignes du mois regroupees par date.
+ *
+ * La valeur est un TABLEAU, pas une entree unique : depuis le multi-entreprises une meme
+ * journee peut porter plusieurs missions. Le cote RH n'en avait qu'une par jour et utilisait
+ * une Map simple — c'est cette version-ci qui fait foi.
+ */
+export function groupCraEntriesByDate(entries: CraEntryDraft[]) {
+  const byDate = new Map<string, CraEntryDraft[]>();
+  for (const entry of entries) {
+    byDate.set(entry.workDate, [...(byDate.get(entry.workDate) ?? []), entry]);
+  }
+  return byDate;
+}
+
+/**
+ * Totaux par entreprise, chacun dans l'unite de sa mission.
+ *
+ * C'est ce decoupage qui permet de melanger une mission au jour et une mission a l'heure sur
+ * un meme mois : chaque ligne de facture est ensuite valorisee avec son propre tarif. Les
+ * absences ne sont pas facturees et n'entrent dans aucun total.
+ */
+export function craTotalsByMission(
+  entries: CraEntryDraft[],
+  unitOf: CraMissionUnitResolver,
+) {
+  const totals = new Map<string, { quantity: number; unit: TimeUnit }>();
+  for (const entry of entries) {
+    if (entry.absenceType) continue;
+    const unit = unitOf(entry.missionId);
+    const current = totals.get(entry.missionId) ?? { quantity: 0, unit };
+    totals.set(entry.missionId, {
+      unit,
+      quantity:
+        current.quantity + (unit === "hour" ? craEntryHours(entry) : Number(entry.dayQuantity) || 0),
+    });
+  }
+  return totals;
+}
+
+/** Total des heures declarees, missions horaires seulement. */
+export function craTotalHours(entries: CraEntryDraft[]) {
+  return entries.reduce((total, entry) => total + craEntryHours(entry), 0);
+}
+
+/** Total des journees travaillees, missions au jour seulement. Absences exclues. */
+export function craTotalDays(entries: CraEntryDraft[], unitOf: CraMissionUnitResolver) {
+  return entries.reduce(
+    (total, entry) =>
+      entry.absenceType || unitOf(entry.missionId) === "hour"
+        ? total
+        : total + (Number(entry.dayQuantity) || 0),
+    0,
+  );
+}
+
+/** Totaux d'absence par type, deduits du calendrier et non d'un formulaire separe. */
+export function craAbsenceTotalsByType(entries: CraEntryDraft[]) {
+  const totals = new Map<string, number>();
+  for (const entry of entries) {
+    if (!entry.absenceType) continue;
+    totals.set(
+      entry.absenceType,
+      (totals.get(entry.absenceType) ?? 0) + (Number(entry.dayQuantity) || 0),
+    );
+  }
+  return totals;
 }
 
 export function shiftMonthInputValue(value: string, offset: number) {

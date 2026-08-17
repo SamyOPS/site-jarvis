@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { TimeUnit } from "@/domain/common";
+import type {
+  InvoiceLineInput,
+  InvoiceLineUnit,
+} from "@/features/dashboard/salarie/invoice-totals";
 
 import type { CraEntryUnit, ParsedCraEntry } from "@/lib/cra-entries";
 
@@ -141,6 +145,44 @@ export async function loadEmployeeMissions(adminClient: SupabaseClient, employee
   }
 
   return { missions, units };
+}
+
+/**
+ * Une ligne de facture par entreprise saisie, chacune dans son unite et avec son tarif.
+ *
+ * C'est ce qui permet de facturer une entreprise a l'heure et une autre au jour sur la meme
+ * facture. Les lignes sans mission (CRA anterieurs au multi-entreprises), les missions
+ * inconnues, et celles dont la quantite ou le tarif est nul sont ecartees : une ligne a zero
+ * n'a rien a faire sur une facture.
+ *
+ * Partage entre la facture du salarie et celle generee par le RH : les deux doivent produire
+ * exactement les memes lignes pour les memes entrees, sans quoi le meme mois facturé des deux
+ * cotes donnerait deux montants.
+ */
+export function buildInvoiceLinesFromEntries(
+  entries: { mission_id: string | null; day_quantity?: number | null; hours?: number | null }[],
+  missions: MissionRow[],
+): InvoiceLineInput[] {
+  const entriesByMission = new Map<string, typeof entries>();
+  for (const entry of entries) {
+    if (!entry.mission_id) continue;
+    entriesByMission.set(entry.mission_id, [
+      ...(entriesByMission.get(entry.mission_id) ?? []),
+      entry,
+    ]);
+  }
+
+  const lines: InvoiceLineInput[] = [];
+  for (const [missionId, missionEntries] of entriesByMission.entries()) {
+    const mission = missions.find((item) => item.id === missionId);
+    if (!mission) continue;
+    const unit: InvoiceLineUnit = mission.rate_unit === "hour" ? "hour" : "day";
+    const quantity = missionLineQuantity(unit, missionEntries);
+    const rate = Number(mission.rate ?? 0);
+    if (quantity <= 0 || !Number.isFinite(rate) || rate <= 0) continue;
+    lines.push({ missionId, label: mission.company_name, quantity, rate, unit });
+  }
+  return lines;
 }
 
 /** Quantite facturee d'une ligne, exprimee dans l'unite de la mission. */

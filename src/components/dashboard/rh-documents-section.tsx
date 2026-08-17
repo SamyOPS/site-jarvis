@@ -3,6 +3,7 @@ import { ChevronDown } from "lucide-react";
 
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { RhCraInvoiceEditor } from "@/components/dashboard/rh/cra-invoice-editor";
+import type { useCraEditor } from "@/features/dashboard/cra/use-cra-editor";
 import { RhLeaveRequestEditor, type RhLeaveRequestPayload } from "@/components/dashboard/rh/leave-request-editor";
 import { RhDocumentsListView } from "@/components/dashboard/rh/documents-list-view";
 import { RhPendingValidationList } from "@/components/dashboard/rh/pending-validation-list";
@@ -18,7 +19,7 @@ import {
 import { folderDropHandlers } from "@/features/dashboard/documents/folder-drop";
 import { useDraggedDocument } from "@/features/dashboard/documents/use-dragged-document";
 import type { DocumentFolderRow } from "@/domain/documents";
-import type { CraCalendarCell, CraEntryDraft } from "@/domain/cra";
+import type { CraCalendarCell } from "@/domain/cra";
 import type { RhDocumentRow, RhDocumentsListItem, RhRequestRow as RequestRow } from "@/features/dashboard/rh/types";
 
 /**
@@ -61,7 +62,6 @@ type RhDocumentsSectionProps = {
   onOpenRhUploadDialog: () => void;
   onOpenRequestDialog: () => void;
   generateEmployeeId: string;
-  generateBillingProfileEmployeeId: string;
   billingProfiles: {
     employeeId: string;
     profileLabel: string;
@@ -74,27 +74,13 @@ type RhDocumentsSectionProps = {
   invoiceGenerating: boolean;
   leaveGenerating: boolean;
   onGenerateLeavePdf: (payload: RhLeaveRequestPayload) => void | Promise<void>;
-  craPeriodMonth: string;
-  craDraftTotalDays: number;
-  craNotes: string;
-  invoiceDiscountGranted: boolean;
-  onInvoiceDiscountGrantedChange: (value: boolean) => void;
-  invoiceVatEnabled: boolean;
-  onInvoiceVatEnabledChange: (value: boolean) => void;
-  invoiceAmountAlreadyPaid: string;
-  onInvoiceAmountAlreadyPaidChange: (value: string) => void;
+  craEditor: ReturnType<typeof useCraEditor>;
   craCalendarCells: CraCalendarCell[];
-  craEntriesByDate: Map<string, CraEntryDraft>;
-  craEntries: CraEntryDraft[];
+  craMissionsLoading: boolean;
   onGenerateEmployeeIdChange: (value: string) => void;
-  onGenerateBillingProfileEmployeeIdChange: (value: string) => void;
-  onCraPeriodMonthChange: (value: string) => void;
-  onCraNotesChange: (value: string) => void;
   onGenerateCraPdf: () => void | Promise<void>;
   onGenerateInvoicePdf: () => void | Promise<void>;
   resetCraEditor: () => void;
-  toggleCraWorkDate: (workDate: string) => void;
-  updateCraEntry: (workDate: string, patch: Partial<CraEntryDraft>) => void;
   requests: RequestRow[];
   cancellingRequestId: string | null;
   onCancelRequest: (request: RequestRow) => void | Promise<void>;
@@ -145,34 +131,19 @@ export function RhDocumentsSection({
   onOpenRhUploadDialog,
   onOpenRequestDialog,
   generateEmployeeId,
-  generateBillingProfileEmployeeId,
   billingProfiles,
   employees,
   craGenerating,
   invoiceGenerating,
   leaveGenerating,
   onGenerateLeavePdf,
-  craPeriodMonth,
-  craDraftTotalDays,
-  craNotes,
-  invoiceDiscountGranted,
-  onInvoiceDiscountGrantedChange,
-  invoiceVatEnabled,
-  onInvoiceVatEnabledChange,
-  invoiceAmountAlreadyPaid,
-  onInvoiceAmountAlreadyPaidChange,
+  craEditor,
   craCalendarCells,
-  craEntriesByDate,
-  craEntries,
+  craMissionsLoading,
   onGenerateEmployeeIdChange,
-  onGenerateBillingProfileEmployeeIdChange,
-  onCraPeriodMonthChange,
-  onCraNotesChange,
   onGenerateCraPdf,
   onGenerateInvoicePdf,
   resetCraEditor,
-  toggleCraWorkDate,
-  updateCraEntry,
   requests,
   cancellingRequestId,
   onCancelRequest,
@@ -458,32 +429,17 @@ export function RhDocumentsSection({
         {currentSubSection === "docs_cra_facture" ? (
           <RhCraInvoiceEditor
             generateEmployeeId={generateEmployeeId}
-            generateBillingProfileEmployeeId={generateBillingProfileEmployeeId}
             billingProfiles={billingProfiles}
             employees={employees}
             craGenerating={craGenerating}
             invoiceGenerating={invoiceGenerating}
-            craPeriodMonth={craPeriodMonth}
-            craDraftTotalDays={craDraftTotalDays}
-            craNotes={craNotes}
-            invoiceDiscountGranted={invoiceDiscountGranted}
-            onInvoiceDiscountGrantedChange={onInvoiceDiscountGrantedChange}
-            invoiceVatEnabled={invoiceVatEnabled}
-            onInvoiceVatEnabledChange={onInvoiceVatEnabledChange}
-            invoiceAmountAlreadyPaid={invoiceAmountAlreadyPaid}
-            onInvoiceAmountAlreadyPaidChange={onInvoiceAmountAlreadyPaidChange}
+            craEditor={craEditor}
             craCalendarCells={craCalendarCells}
-            craEntriesByDate={craEntriesByDate}
-            craEntries={craEntries}
+            craMissionsLoading={craMissionsLoading}
             onGenerateEmployeeIdChange={onGenerateEmployeeIdChange}
-            onGenerateBillingProfileEmployeeIdChange={onGenerateBillingProfileEmployeeIdChange}
-            onCraPeriodMonthChange={onCraPeriodMonthChange}
-            onCraNotesChange={onCraNotesChange}
             onGenerateCraPdf={onGenerateCraPdf}
             onGenerateInvoicePdf={onGenerateInvoicePdf}
             resetCraEditor={resetCraEditor}
-            toggleCraWorkDate={toggleCraWorkDate}
-            updateCraEntry={updateCraEntry}
           />
         ) : currentSubSection === "docs_conge" ? (
           <RhLeaveRequestEditor

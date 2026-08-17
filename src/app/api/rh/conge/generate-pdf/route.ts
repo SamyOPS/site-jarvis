@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 
-import { canManageOwner, getAuthorizedDocumentsContext } from "@/app/api/documents/_shared";
+import { ApiError, withActor } from "@/lib/api-handler";
+import { assertUploaderRole } from "@/lib/document-types";
+import { readPdfLogoBase64 } from "@/lib/pdf-logo";
+import { assertRhAccess } from "@/lib/rh-access";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { notifyEmployeeOfDocument } from "@/lib/email";
 import { ensureLeaveDocumentType } from "@/lib/leave-document-type";
@@ -23,46 +24,66 @@ const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 function parseIsoDate(value: unknown, label: string) {
   const normalized = String(value ?? "").trim();
   if (!dateRegex.test(normalized) || Number.isNaN(new Date(normalized).getTime())) {
-    throw new Error(`La date de ${label} est invalide.`);
+    throw new ApiError(`La date de ${label} est invalide.`, 400);
   }
   return normalized;
 }
 
-export async function POST(request: Request) {
-  try {
-    const auth = await getAuthorizedDocumentsContext(request);
-    if (auth instanceof NextResponse) return auth;
-    if (!["rh", "admin"].includes(auth.actorRole ?? "")) {
-      return NextResponse.json({ error: "Acces refuse." }, { status: 403 });
-    }
+export const POST = withActor(
+  ["rh", "admin"],
+  async ({ adminClient, user, profile, request }) => {
+    // Reconstruit la forme attendue par le corps de la route, inchange.
+    const auth = { adminClient, actorId: user.id, actorRole: profile.role };
 
     const body = (await request.json().catch(() => null)) as LeaveGeneratePayload | null;
     if (!body) {
-      return NextResponse.json({ error: "Payload invalide." }, { status: 400 });
+      throw new ApiError("Payload invalide.", 400);
     }
 
     const employeeId = String(body.employeeId ?? "").trim();
     if (!employeeId) {
-      return NextResponse.json({ error: "Collaborateur requis." }, { status: 400 });
+      throw new ApiError("Collaborateur requis.", 400);
     }
 
-    let startDate: string;
-    let endDate: string;
-    try {
-      startDate = parseIsoDate(body.startDate, "debut");
-      endDate = parseIsoDate(body.endDate, "fin");
-    } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Champs invalides." }, { status: 400 });
-    }
+    const startDate = parseIsoDate(body.startDate, "debut");
+    const endDate = parseIsoDate(body.endDate, "fin");
 
     if (endDate < startDate) {
-      return NextResponse.json({ error: "La date de fin doit etre posterieure ou egale a la date de debut." }, { status: 400 });
+      throw new ApiError(
+        "La date de fin doit etre posterieure ou egale a la date de debut.",
+        400,
+      );
     }
 
-    const canManage = await canManageOwner(auth, employeeId);
-    if (!canManage) {
-      return NextResponse.json({ error: "Acces refuse pour ce collaborateur." }, { status: 403 });
+    // Le type de document est charge AVANT le controle d'habilitation : sans son
+    // identifiant, on ne peut verifier que l'affectation du collaborateur, pas la
+    // restriction par type. C'est ce qui manquait ici — la route jumelle cote salarie
+    // faisait deja ce controle.
+    let documentType;
+    try {
+      documentType = await ensureLeaveDocumentType(adminClient);
+    } catch (error) {
+      throw new ApiError(
+        error instanceof Error ? error.message : "Type de document conge indisponible.",
+        400,
+      );
     }
+
+    await assertRhAccess(
+      adminClient,
+      { id: profile.id, role: profile.role },
+      employeeId,
+      documentType.id,
+      "Acces refuse pour ce collaborateur.",
+    );
+
+    // Le type de document peut interdire le depot par un RH. Ce controle existait cote
+    // salarie et manquait ici.
+    assertUploaderRole(
+      documentType,
+      "rh",
+      "Le RH ne peut pas generer ce type de document.",
+    );
 
     const leaveType: LeaveType = body.leaveType === "unpaid" ? "unpaid" : "paid";
     const daysCount =
@@ -88,17 +109,7 @@ export async function POST(request: Request) {
         : employeeProfile?.full_name ?? employeeProfile?.email ?? ""
     ).trim();
 
-    let documentType;
-    try {
-      documentType = await ensureLeaveDocumentType(auth.adminClient);
-    } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Type de document conge indisponible." }, { status: 400 });
-    }
-
-    const logoRgbBase64 = await readFile(
-      path.join(process.cwd(), "public", "logonoir-rgb120.b64"),
-      "utf8",
-    );
+    const logoRgbBase64 = await readPdfLogoBase64();
 
     const requestDate = toDocumentDate();
     const fileName = `demande-conge-${startDate}-${Date.now()}.pdf`;
@@ -128,7 +139,7 @@ export async function POST(request: Request) {
     });
 
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 400 });
+      throw new ApiError(uploadError.message, 400);
     }
 
     const { data: insertedDocument, error: insertDocumentError } = await auth.adminClient
@@ -153,7 +164,7 @@ export async function POST(request: Request) {
 
     if (insertDocumentError || !insertedDocument) {
       await auth.adminClient.storage.from(storageBucket).remove([storagePath]);
-      return NextResponse.json({ error: insertDocumentError?.message ?? "Insertion de la demande de congé impossible." }, { status: 400 });
+      throw new ApiError(insertDocumentError?.message ?? "Insertion de la demande de congé impossible.", 400);
     }
 
     const documentId = insertedDocument.id;
@@ -172,7 +183,7 @@ export async function POST(request: Request) {
     });
 
     if (eventError) {
-      return NextResponse.json({ error: "La demande de congé a ete generee, mais le suivi n'est pas complet." }, { status: 400 });
+      throw new ApiError("La demande de congé a ete generee, mais le suivi n'est pas complet.", 400);
     }
 
     try {
@@ -196,7 +207,6 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, documentId });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  { missingSession: "Session RH manquante." },
+);

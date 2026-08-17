@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 
 import { CRA_ENTRY_UNIT_COLUMNS, parseCraEntries, sumAbsenceDays, toCraEntryUnit, type CraEntryInput } from "@/lib/cra-entries";
 import { loadEmployeeMissions, syncCraMissionLines } from "@/lib/missions";
-import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toIsoMonthStart } from "@/lib/server-supabase";
+import { ApiError, withActor } from "@/lib/api-handler";
+import { toIsoMonthStart } from "@/lib/server-supabase";
+
+type RouteContext = { params: Promise<{ id: string }> };
+
+const SALARIE_SESSION = { missingSession: "Session salarie manquante." };
 
 type CraUpdatePayload = {
   periodMonth?: unknown;
@@ -16,19 +21,9 @@ function getNotes(value: unknown, fallback: string | null) {
   return normalized || null;
 }
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient, profile } = authorized;
+export const GET = withActor<RouteContext>(
+  ["salarie"],
+  async ({ adminClient, profile }, { params }) => {
     const { id } = await params;
     const { data: craRecord, error: craError } = await adminClient
       .from("cra_records")
@@ -38,7 +33,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .single();
 
     if (craError || !craRecord) {
-      return NextResponse.json({ error: craError?.message ?? "CRA introuvable." }, { status: 404 });
+      throw new ApiError(craError?.message ?? "CRA introuvable.", 404);
     }
 
     const { data: entries, error: entriesError } = await adminClient
@@ -50,32 +45,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .order("work_date", { ascending: true });
 
     if (entriesError) {
-      return NextResponse.json({ error: entriesError.message }, { status: 400 });
+      throw new ApiError(entriesError.message, 400);
     }
 
     return NextResponse.json({ cra: craRecord, entries: entries ?? [] });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  SALARIE_SESSION,
+);
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient, profile } = authorized;
+export const PATCH = withActor<RouteContext>(
+  ["salarie"],
+  async ({ adminClient, profile, request }, { params }) => {
     const { id } = await params;
     const body = (await request.json().catch(() => null)) as CraUpdatePayload | null;
     if (!body) {
-      return NextResponse.json({ error: "Payload invalide." }, { status: 400 });
+      throw new ApiError("Payload invalide.", 400);
     }
 
     const { data: existingRecord, error: existingError } = await adminClient
@@ -86,11 +70,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .single();
 
     if (existingError || !existingRecord) {
-      return NextResponse.json({ error: existingError?.message ?? "CRA introuvable." }, { status: 404 });
+      throw new ApiError(existingError?.message ?? "CRA introuvable.", 404);
     }
 
     if (existingRecord.status === "validated") {
-      return NextResponse.json({ error: "Un CRA valide ne peut plus etre modifie." }, { status: 400 });
+      throw new ApiError("Un CRA valide ne peut plus etre modifie.", 400);
     }
 
     const { data: entryUnitRow } = await adminClient
@@ -105,14 +89,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     try {
       ({ missions, units: missionUnits } = await loadEmployeeMissions(adminClient, profile.id));
     } catch (missionError) {
-      return NextResponse.json(
-        {
-          error:
-            missionError instanceof Error
-              ? missionError.message
-              : "Chargement des entreprises impossible.",
-        },
-        { status: 400 },
+      throw new ApiError(
+        missionError instanceof Error
+          ? missionError.message
+          : "Chargement des entreprises impossible.",
+        400,
       );
     }
 
@@ -151,13 +132,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .single();
 
     if (updateError || !updatedRecord) {
-      return NextResponse.json({ error: updateError?.message ?? "Mise a jour du CRA impossible." }, { status: updateError?.code === "23505" ? 409 : 400 });
+      throw new ApiError(updateError?.message ?? "Mise a jour du CRA impossible.", updateError?.code === "23505" ? 409 : 400);
     }
 
     if (entries) {
       const { error: deleteError } = await adminClient.from("cra_entries").delete().eq("cra_id", existingRecord.id);
       if (deleteError) {
-        return NextResponse.json({ error: deleteError.message }, { status: 400 });
+        throw new ApiError(deleteError.message, 400);
       }
 
       if (entries.length) {
@@ -168,44 +149,30 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           })),
         );
         if (insertEntriesError) {
-          return NextResponse.json({ error: insertEntriesError.message }, { status: 400 });
+          throw new ApiError(insertEntriesError.message, 400);
         }
       }
 
       try {
         await syncCraMissionLines(adminClient, existingRecord.id, entries, missions);
       } catch (linesError) {
-        return NextResponse.json(
-          {
-            error:
-              linesError instanceof Error
-                ? linesError.message
-                : "Mise a jour du recapitulatif par entreprise impossible.",
-          },
-          { status: 400 },
+        throw new ApiError(
+          linesError instanceof Error
+            ? linesError.message
+            : "Mise a jour du recapitulatif par entreprise impossible.",
+          400,
         );
       }
     }
 
     return NextResponse.json({ success: true, cra: updatedRecord });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  SALARIE_SESSION,
+);
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient, profile } = authorized;
+export const DELETE = withActor<RouteContext>(
+  ["salarie"],
+  async ({ adminClient, profile }, { params }) => {
     const { id } = await params;
     const { data: craRecord, error: craError } = await adminClient
       .from("cra_records")
@@ -215,11 +182,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .single();
 
     if (craError || !craRecord) {
-      return NextResponse.json({ error: craError?.message ?? "CRA introuvable." }, { status: 404 });
+      throw new ApiError(craError?.message ?? "CRA introuvable.", 404);
     }
 
     if (craRecord.status === "validated") {
-      return NextResponse.json({ error: "Un CRA valide ne peut pas etre supprime." }, { status: 400 });
+      throw new ApiError("Un CRA valide ne peut pas etre supprime.", 400);
     }
 
     let documentRow:
@@ -242,11 +209,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         .single();
 
       if (documentError || !existingDocument) {
-        return NextResponse.json({ error: documentError?.message ?? "Document CRA introuvable." }, { status: 400 });
+        throw new ApiError(documentError?.message ?? "Document CRA introuvable.", 400);
       }
 
       if (existingDocument.status === "validated") {
-        return NextResponse.json({ error: "Le document PDF valide lie a ce CRA ne peut pas etre supprime." }, { status: 400 });
+        throw new ApiError("Le document PDF valide lie a ce CRA ne peut pas etre supprime.", 400);
       }
 
       documentRow = existingDocument;
@@ -270,12 +237,12 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
       const { error: eventsDeleteError } = await adminClient.from("document_events").delete().eq("document_id", documentRow.id);
       if (eventsDeleteError) {
-        return NextResponse.json({ error: eventsDeleteError.message }, { status: 400 });
+        throw new ApiError(eventsDeleteError.message, 400);
       }
 
       const { error: documentDeleteError } = await adminClient.from("employee_documents").delete().eq("id", documentRow.id);
       if (documentDeleteError) {
-        return NextResponse.json({ error: documentDeleteError.message }, { status: 400 });
+        throw new ApiError(documentDeleteError.message, 400);
       }
 
       if (matchingRequest) {
@@ -285,7 +252,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
           .eq("id", matchingRequest.id);
 
         if (requestError) {
-          return NextResponse.json({ error: requestError.message }, { status: 400 });
+          throw new ApiError(requestError.message, 400);
         }
       }
 
@@ -296,16 +263,15 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     const { error: entriesDeleteError } = await adminClient.from("cra_entries").delete().eq("cra_id", craRecord.id);
     if (entriesDeleteError) {
-      return NextResponse.json({ error: entriesDeleteError.message }, { status: 400 });
+      throw new ApiError(entriesDeleteError.message, 400);
     }
 
     const { error: craDeleteError } = await adminClient.from("cra_records").delete().eq("id", craRecord.id);
     if (craDeleteError) {
-      return NextResponse.json({ error: craDeleteError.message }, { status: 400 });
+      throw new ApiError(craDeleteError.message, 400);
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  SALARIE_SESSION,
+);

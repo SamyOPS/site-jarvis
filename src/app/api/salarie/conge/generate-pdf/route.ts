@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { ApiError, withActor } from "@/lib/api-handler";
+import { assertUploaderRole } from "@/lib/document-types";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { getRhRecipientsForEmployee, notifyRhOfDocument } from "@/lib/email";
 import { ensureLeaveDocumentType } from "@/lib/leave-document-type";
@@ -75,13 +76,11 @@ export const POST = withActor(
       );
     }
 
-    if (
-      Array.isArray(documentType.allowed_uploader_roles) &&
-      documentType.allowed_uploader_roles.length > 0 &&
-      !documentType.allowed_uploader_roles.includes("salarie")
-    ) {
-      throw new ApiError("Le salarie ne peut pas generer ce type de document.", 403);
-    }
+    assertUploaderRole(
+      documentType,
+      "salarie",
+      "Le salarie ne peut pas generer ce type de document.",
+    );
 
     const requestDate = toDocumentDate();
     const fileName = `demande-conge-${startDate}-${Date.now()}.pdf`;

@@ -9,13 +9,11 @@ import {
   type CraEntryUnit,
 } from "@/lib/cra-entries";
 import { buildInvoicePdfBuffer } from "@/lib/invoice-pdf";
-import { loadEmployeeMissions, missionLineQuantity } from "@/lib/missions";
-import {
-  computeInvoiceTotals,
-  type InvoiceLineInput,
-  type InvoiceLineUnit,
-} from "@/features/dashboard/salarie/invoice-totals";
-import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toDocumentDate, toIsoMonthStart } from "@/lib/server-supabase";
+import { buildInvoiceLinesFromEntries, loadEmployeeMissions } from "@/lib/missions";
+import { computeInvoiceTotals } from "@/features/dashboard/salarie/invoice-totals";
+import { ApiError, withActor } from "@/lib/api-handler";
+import { assertUploaderRole, loadActiveDocumentType } from "@/lib/document-types";
+import { toDocumentDate, toIsoMonthStart } from "@/lib/server-supabase";
 
 type InvoiceGeneratePayload = {
   periodMonth?: unknown;
@@ -58,22 +56,12 @@ function parseExpenseAmount(value: unknown, label: string) {
   return roundToCents(parsed);
 }
 
-export async function POST(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient, profile, user } = authorized;
+export const POST = withActor(
+  ["salarie"],
+  async ({ adminClient, profile, user, request }) => {
     const body = (await request.json().catch(() => null)) as InvoiceGeneratePayload | null;
     if (!body?.periodMonth) {
-      return NextResponse.json({ error: "La periode est obligatoire." }, { status: 400 });
+      throw new ApiError("La periode est obligatoire.", 400);
     }
 
     // Le profil porte l'identite de l'emetteur, et l'unite de repli des lignes sans mission.
@@ -84,7 +72,7 @@ export async function POST(request: Request) {
       .single();
 
     if (billingError || !billingProfile) {
-      return NextResponse.json({ error: billingError?.message ?? "Profil de facturation introuvable." }, { status: 400 });
+      throw new ApiError(billingError?.message ?? "Profil de facturation introuvable.", 400);
     }
 
     const periodMonth = toIsoMonthStart(String(body.periodMonth));
@@ -96,14 +84,11 @@ export async function POST(request: Request) {
     try {
       ({ missions, units: missionUnits } = await loadEmployeeMissions(adminClient, profile.id));
     } catch (missionError) {
-      return NextResponse.json(
-        {
-          error:
-            missionError instanceof Error
-              ? missionError.message
-              : "Chargement des entreprises impossible.",
-        },
-        { status: 400 },
+      throw new ApiError(
+        missionError instanceof Error
+          ? missionError.message
+          : "Chargement des entreprises impossible.",
+        400,
       );
     }
 
@@ -124,7 +109,7 @@ export async function POST(request: Request) {
       fraisRepas = parseExpenseAmount(body.fraisRepas, "frais de repas");
       fraisNuitee = parseExpenseAmount(body.fraisNuitee, "frais de nuitee");
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Montant invalide." }, { status: 400 });
+      throw new ApiError(error instanceof Error ? error.message : "Montant invalide.", 400);
     }
 
     // Une mission facturee a l'heure ne produit aucune journee : controler `workedDaysCount`
@@ -132,42 +117,16 @@ export async function POST(request: Request) {
     // soit son unite, qui compte.
     const totalHours = entries.reduce((total, entry) => total + (entry.hours ?? 0), 0);
     if (!entries.length || (workedDaysCount <= 0 && totalHours <= 0)) {
-      return NextResponse.json({ error: "Ajoute au moins un jour ou une heure travaille pour generer la facture." }, { status: 400 });
+      throw new ApiError("Ajoute au moins un jour ou une heure travaille pour generer la facture.", 400);
     }
 
-    // Une ligne par entreprise saisie, chacune avec sa quantite dans son unite et son
-    // propre tarif : c'est ce qui permet de facturer une entreprise a l'heure et une autre
-    // au jour sur la meme facture.
-    const entriesByMission = new Map<string, typeof entries>();
-    for (const entry of entries) {
-      if (!entry.mission_id) continue;
-      entriesByMission.set(entry.mission_id, [
-        ...(entriesByMission.get(entry.mission_id) ?? []),
-        entry,
-      ]);
-    }
-
-    const invoiceLines: InvoiceLineInput[] = [];
-    for (const [missionId, missionEntries] of entriesByMission.entries()) {
-      const mission = missions.find((item) => item.id === missionId);
-      if (!mission) continue;
-      const unit: InvoiceLineUnit = mission.rate_unit === "hour" ? "hour" : "day";
-      const quantity = missionLineQuantity(unit, missionEntries);
-      const rate = Number(mission.rate ?? 0);
-      if (quantity <= 0 || !Number.isFinite(rate) || rate <= 0) continue;
-      invoiceLines.push({
-        missionId,
-        label: mission.company_name,
-        quantity,
-        rate,
-        unit,
-      });
-    }
+    // Implementation unique, partagee avec la facture generee par le RH.
+    const invoiceLines = buildInvoiceLinesFromEntries(entries, missions);
 
     if (!invoiceLines.length) {
-      return NextResponse.json(
-        { error: "Aucune entreprise avec un tarif renseigne : la facture ne peut pas etre generee." },
-        { status: 400 },
+      throw new ApiError(
+        "Aucune entreprise avec un tarif renseigne : la facture ne peut pas etre generee.",
+        400,
       );
     }
 
@@ -183,23 +142,16 @@ export async function POST(request: Request) {
       fraisNuitee,
     });
 
-    const { data: documentType, error: typeError } = await adminClient
-      .from("document_types")
-      .select("id,label,allowed_uploader_roles,active")
-      .eq("code", "facture")
-      .single();
-
-    if (typeError || !documentType || documentType.active !== true) {
-      return NextResponse.json({ error: "Type facture introuvable." }, { status: 400 });
-    }
-
-    if (
-      Array.isArray(documentType.allowed_uploader_roles) &&
-      documentType.allowed_uploader_roles.length > 0 &&
-      !documentType.allowed_uploader_roles.includes("salarie")
-    ) {
-      return NextResponse.json({ error: "Le salarie ne peut pas generer ce type de document." }, { status: 403 });
-    }
+    const documentType = await loadActiveDocumentType(
+      adminClient,
+      { code: "facture" },
+      "Type facture introuvable.",
+    );
+    assertUploaderRole(
+      documentType,
+      "salarie",
+      "Le salarie ne peut pas generer ce type de document.",
+    );
 
     // Numero de facture sequentiel par salarie et par mois (ex: 202606-01, 202606-02).
     // On compte toutes les factures deja emises pour ce mois (y compris supprimees)
@@ -212,7 +164,7 @@ export async function POST(request: Request) {
       .eq("period_month", periodMonth);
 
     if (countError) {
-      return NextResponse.json({ error: countError.message }, { status: 400 });
+      throw new ApiError(countError.message, 400);
     }
 
     const invoiceSequence = (existingInvoiceCount ?? 0) + 1;
@@ -266,7 +218,7 @@ export async function POST(request: Request) {
     });
 
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 400 });
+      throw new ApiError(uploadError.message, 400);
     }
 
     const now = new Date().toISOString();
@@ -310,7 +262,7 @@ export async function POST(request: Request) {
 
     if (insertDocumentError || !insertedDocument) {
       await adminClient.storage.from(storageBucket).remove([storagePath]);
-      return NextResponse.json({ error: insertDocumentError?.message ?? "Insertion de la facture impossible." }, { status: 400 });
+      throw new ApiError(insertDocumentError?.message ?? "Insertion de la facture impossible.", 400);
     }
 
     const documentId = insertedDocument.id;
@@ -352,7 +304,7 @@ export async function POST(request: Request) {
     const [{ error: requestError }, { error: eventError }] = await Promise.all([requestPromise, eventPromise]);
 
     if (requestError || eventError) {
-      return NextResponse.json({ error: requestError?.message ?? eventError?.message ?? "La facture a ete generee, mais le suivi n'est pas complet." }, { status: 400 });
+      throw new ApiError(requestError?.message ?? eventError?.message ?? "La facture a ete generee, mais le suivi n'est pas complet.", 400);
     }
 
     try {
@@ -371,7 +323,6 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, documentId });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  { missingSession: "Session salarie manquante." },
+);

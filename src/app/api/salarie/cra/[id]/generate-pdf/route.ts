@@ -1,33 +1,24 @@
 import { NextResponse } from "next/server";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 
 import { sumCraEntryHours } from "@/lib/cra-entries";
 import { buildCraPdfBuffer } from "@/lib/cra-pdf";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { getRhRecipientsForEmployee, notifyRhOfDocument } from "@/lib/email";
-import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toDocumentDate } from "@/lib/server-supabase";
+import { ApiError, withActor } from "@/lib/api-handler";
+import { assertUploaderRole, loadActiveDocumentType } from "@/lib/document-types";
+import { readPdfLogoBase64 } from "@/lib/pdf-logo";
+import { toDocumentDate } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const logoRgbBase64 = await readFile(
-      path.join(process.cwd(), "public", "logonoir-rgb120.b64"),
-      "utf8",
-    );
+type RouteContext = { params: Promise<{ id: string }> };
 
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient, profile, user } = authorized;
+export const POST = withActor<RouteContext>(
+  ["salarie"],
+  async ({ adminClient, profile, user }, { params }) => {
+    // Lu apres l'autorisation : la version precedente lisait le logo sur disque avant meme
+    // de verifier le jeton.
+    const logoRgbBase64 = await readPdfLogoBase64();
     const { id } = await params;
 
     const { data: craRecord, error: craError } = await adminClient
@@ -38,11 +29,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .single();
 
     if (craError || !craRecord) {
-      return NextResponse.json({ error: craError?.message ?? "CRA introuvable." }, { status: 404 });
+      throw new ApiError(craError?.message ?? "CRA introuvable.", 404);
     }
 
     if (craRecord.status === "validated") {
-      return NextResponse.json({ error: "Un CRA valide ne peut plus etre regenere." }, { status: 400 });
+      throw new ApiError("Un CRA valide ne peut plus etre regenere.", 400);
     }
 
     const { data: entries, error: entriesError } = await adminClient
@@ -52,7 +43,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .order("work_date", { ascending: true });
 
     if (entriesError) {
-      return NextResponse.json({ error: entriesError.message }, { status: 400 });
+      throw new ApiError(entriesError.message, 400);
     }
 
     // Recapitulatif par entreprise, fige au moment du CRA. Vide pour un CRA anterieur au
@@ -64,7 +55,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .order("company_name", { ascending: true });
 
     if (missionLinesError) {
-      return NextResponse.json({ error: missionLinesError.message }, { status: 400 });
+      throw new ApiError(missionLinesError.message, 400);
     }
 
     const companyByMissionId = new Map(
@@ -74,23 +65,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       ]),
     );
 
-    const { data: documentType, error: typeError } = await adminClient
-      .from("document_types")
-      .select("id,label,allowed_uploader_roles,active")
-      .eq("code", "cra")
-      .single();
-
-    if (typeError || !documentType || documentType.active !== true) {
-      return NextResponse.json({ error: "Type CRA introuvable." }, { status: 400 });
-    }
-
-    if (
-      Array.isArray(documentType.allowed_uploader_roles) &&
-      documentType.allowed_uploader_roles.length > 0 &&
-      !documentType.allowed_uploader_roles.includes("salarie")
-    ) {
-      return NextResponse.json({ error: "Le salarie ne peut pas generer ce type de document." }, { status: 403 });
-    }
+    const documentType = await loadActiveDocumentType(
+      adminClient,
+      { code: "cra" },
+      "Type CRA introuvable.",
+    );
+    assertUploaderRole(
+      documentType,
+      "salarie",
+      "Le salarie ne peut pas generer ce type de document.",
+    );
 
     const nextPdfVersion = craRecord.employee_document_id ? craRecord.pdf_version + 1 : craRecord.pdf_version;
     const fileName = `cra-${craRecord.period_month.slice(0, 7)}-v${nextPdfVersion}.pdf`;
@@ -158,7 +142,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
 
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 400 });
+      throw new ApiError(uploadError.message, 400);
     }
 
     const now = new Date().toISOString();
@@ -192,12 +176,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
       if (existingDocumentError || !existingDocument) {
         await adminClient.storage.from(storageBucket).remove([storagePath]);
-        return NextResponse.json({ error: existingDocumentError?.message ?? "Document CRA introuvable." }, { status: 400 });
+        throw new ApiError(existingDocumentError?.message ?? "Document CRA introuvable.", 400);
       }
 
       if (existingDocument.status === "validated") {
         await adminClient.storage.from(storageBucket).remove([storagePath]);
-        return NextResponse.json({ error: "Le PDF CRA deja valide ne peut plus etre remplace." }, { status: 400 });
+        throw new ApiError("Le PDF CRA deja valide ne peut plus etre remplace.", 400);
       }
 
       previousStoragePath = existingDocument.storage_path ?? null;
@@ -224,7 +208,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
       if (updateDocumentError) {
         await adminClient.storage.from(storageBucket).remove([storagePath]);
-        return NextResponse.json({ error: updateDocumentError.message }, { status: 400 });
+        throw new ApiError(updateDocumentError.message, 400);
       }
 
       eventType = "updated";
@@ -253,7 +237,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
       if (insertDocumentError || !insertedDocument) {
         await adminClient.storage.from(storageBucket).remove([storagePath]);
-        return NextResponse.json({ error: insertDocumentError?.message ?? "Insertion du document CRA impossible." }, { status: 400 });
+        throw new ApiError(insertDocumentError?.message ?? "Insertion du document CRA impossible.", 400);
       }
 
       documentId = insertedDocument.id;
@@ -293,7 +277,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     ]);
 
     if (requestError || craUpdateError || eventError) {
-      return NextResponse.json({ error: requestError?.message ?? craUpdateError?.message ?? eventError?.message ?? "Le PDF CRA a ete genere, mais le suivi n'est pas complet." }, { status: 400 });
+      throw new ApiError(requestError?.message ?? craUpdateError?.message ?? eventError?.message ?? "Le PDF CRA a ete genere, mais le suivi n'est pas complet.", 400);
     }
 
     if (previousStoragePath && previousStoragePath !== storagePath) {
@@ -316,7 +300,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     return NextResponse.json({ success: true, documentId, craId: craRecord.id, pdfVersion: nextPdfVersion });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  { missingSession: "Session salarie manquante." },
+);

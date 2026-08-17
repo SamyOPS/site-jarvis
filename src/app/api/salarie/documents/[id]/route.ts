@@ -7,11 +7,7 @@ import {
   validateDocumentFile,
 } from "@/lib/document-storage";
 import { getRhRecipientsForEmployee, notifyRhOfDocument } from "@/lib/email";
-import {
-  getAccessTokenFromRequest,
-  getAuthorizedActor,
-  isAuthorizedActorError,
-} from "@/lib/server-supabase";
+import { ApiError, withActor } from "@/lib/api-handler";
 
 export const runtime = "nodejs";
 
@@ -35,18 +31,13 @@ async function findMatchingRequest(
   return rows.find((row) => (row.period_month ?? "") === (periodMonth ?? "")) ?? null;
 }
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
+type RouteContext = { params: Promise<{ id: string }> };
 
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-    const { adminClient, user, profile } = authorized;
+const SALARIE_SESSION = { missingSession: "Session salarie manquante." };
+
+export const PATCH = withActor<RouteContext>(
+  ["salarie"],
+  async ({ adminClient, user, profile, request }, { params }) => {
     const { id: documentId } = await params;
 
     const formData = await request.formData();
@@ -58,7 +49,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const file = fileFormValue instanceof File && fileFormValue.size > 0 ? fileFormValue : null;
 
     if (!documentTypeId || !fileName) {
-      return NextResponse.json({ error: "Type et nom sont obligatoires." }, { status: 400 });
+      throw new ApiError("Type et nom sont obligatoires.", 400);
     }
 
     const periodMonth = periodMonthValue ? `${periodMonthValue.slice(0, 7)}-01` : null;
@@ -76,13 +67,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .single();
 
     if (documentError || !document) {
-      return NextResponse.json({ error: "Document introuvable." }, { status: 404 });
+      throw new ApiError("Document introuvable.", 404);
     }
     if (document.employee_id !== profile.id) {
-      return NextResponse.json({ error: "Document non autorise." }, { status: 403 });
+      throw new ApiError("Document non autorise.", 403);
     }
     if (document.status === "validated") {
-      return NextResponse.json({ error: "Ce document est valide et ne peut plus etre modifie." }, { status: 400 });
+      throw new ApiError("Ce document est valide et ne peut plus etre modifie.", 400);
     }
 
     const { data: documentType, error: typeError } = await adminClient
@@ -92,17 +83,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .single();
 
     if (typeError || !documentType || documentType.active !== true) {
-      return NextResponse.json({ error: "Type de document introuvable." }, { status: 400 });
+      throw new ApiError("Type de document introuvable.", 400);
     }
     if (documentType.requires_period && !periodMonth) {
-      return NextResponse.json({ error: "Ce type de document demande une periode." }, { status: 400 });
+      throw new ApiError("Ce type de document demande une periode.", 400);
     }
     if (
       Array.isArray(documentType.allowed_uploader_roles) &&
       documentType.allowed_uploader_roles.length > 0 &&
       !documentType.allowed_uploader_roles.includes("salarie")
     ) {
-      return NextResponse.json({ error: "Le salarie ne peut pas modifier ce type de document." }, { status: 403 });
+      throw new ApiError("Le salarie ne peut pas modifier ce type de document.", 403);
     }
 
     if (folderId) {
@@ -112,7 +103,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         .eq("id", folderId)
         .single();
       if (folderError || !folder || folder.owner_user_id !== profile.id || folder.deleted_at) {
-        return NextResponse.json({ error: "Dossier invalide." }, { status: 400 });
+        throw new ApiError("Dossier invalide.", 400);
       }
     }
 
@@ -123,7 +114,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (file) {
       const fileValidationError = validateDocumentFile(file);
       if (fileValidationError) {
-        return NextResponse.json({ error: fileValidationError }, { status: 400 });
+        throw new ApiError(fileValidationError, 400);
       }
 
       nextStoragePath = buildEmployeeDocumentPath({
@@ -138,7 +129,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         upsert: false,
       });
       if (uploadError) {
-        return NextResponse.json({ error: uploadError.message }, { status: 400 });
+        throw new ApiError(uploadError.message, 400);
       }
       replacedFile = true;
     }
@@ -171,7 +162,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (replacedFile && nextStoragePath && nextStoragePath !== document.storage_path) {
         await adminClient.storage.from(storageBucket).remove([nextStoragePath]);
       }
-      return NextResponse.json({ error: updateError.message }, { status: 400 });
+      throw new ApiError(updateError.message, 400);
     }
 
     const previousMatchingRequest = await findMatchingRequest(
@@ -247,13 +238,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
+  },
+  SALARIE_SESSION,
+);
 
 /**
  * Suppression definitive d'un document par le salarie.
@@ -263,23 +250,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
  * Le tableau de bord supprimait auparavant la ligne et le fichier directement depuis le
  * navigateur, ce qui contournait ces deux regles.
  */
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-    const { adminClient, profile } = authorized;
+export const DELETE = withActor<RouteContext>(
+  ["salarie"],
+  async ({ adminClient, profile }, { params }) => {
 
     const { id } = await params;
     const documentId = String(id ?? "").trim();
     if (!documentId) {
-      return NextResponse.json({ error: "Document introuvable." }, { status: 400 });
+      throw new ApiError("Document introuvable.", 400);
     }
 
     const { data: document, error: documentError } = await adminClient
@@ -291,25 +269,19 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .maybeSingle();
 
     if (documentError) {
-      return NextResponse.json({ error: documentError.message }, { status: 400 });
+      throw new ApiError(documentError.message, 400);
     }
     if (!document) {
-      return NextResponse.json({ error: "Document introuvable." }, { status: 404 });
+      throw new ApiError("Document introuvable.", 404);
     }
     if (document.employee_id !== profile.id) {
-      return NextResponse.json({ error: "Document non autorise." }, { status: 403 });
+      throw new ApiError("Document non autorise.", 403);
     }
     if (document.status === "validated") {
-      return NextResponse.json(
-        { error: "Ce document est valide par le RH et ne peut plus etre supprime." },
-        { status: 400 },
-      );
+      throw new ApiError("Ce document est valide par le RH et ne peut plus etre supprime.", 400);
     }
     if (!document.deleted_at) {
-      return NextResponse.json(
-        { error: "Le document doit etre dans la corbeille avant suppression definitive." },
-        { status: 400 },
-      );
+      throw new ApiError("Le document doit etre dans la corbeille avant suppression definitive.", 400);
     }
 
     const now = new Date().toISOString();
@@ -321,10 +293,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         .from(document.storage_bucket || "employee-documents")
         .remove([document.storage_path]);
       if (storageRemoveError) {
-        return NextResponse.json(
-          { error: `Suppression du fichier impossible : ${storageRemoveError.message}` },
-          { status: 400 },
-        );
+        throw new ApiError(`Suppression du fichier impossible : ${storageRemoveError.message}`, 400);
       }
     }
 
@@ -333,7 +302,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .update({ status: "draft", employee_document_id: null, updated_at: now })
       .eq("employee_document_id", documentId);
     if (craUnlinkError) {
-      return NextResponse.json({ error: craUnlinkError.message }, { status: 400 });
+      throw new ApiError(craUnlinkError.message, 400);
     }
 
     const { error: eventsDeleteError } = await adminClient
@@ -341,7 +310,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .delete()
       .eq("document_id", documentId);
     if (eventsDeleteError) {
-      return NextResponse.json({ error: eventsDeleteError.message }, { status: 400 });
+      throw new ApiError(eventsDeleteError.message, 400);
     }
 
     const { error: deleteError } = await adminClient
@@ -349,7 +318,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .delete()
       .eq("id", documentId);
     if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 400 });
+      throw new ApiError(deleteError.message, 400);
     }
 
     const matchingRequest = await findMatchingRequest(
@@ -367,10 +336,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     }
 
     return NextResponse.json({ success: true, permanent: true });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
+  },
+  SALARIE_SESSION,
+);

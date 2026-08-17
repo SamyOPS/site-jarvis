@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import {
-  getAccessTokenFromRequest,
-  getAuthorizedActor,
-  isAuthorizedActorError,
-} from "@/lib/server-supabase";
+import { ApiError, withActor } from "@/lib/api-handler";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -33,22 +29,17 @@ function isAssignableProfessionalStatus(
   return ASSIGNABLE_PROFESSIONAL_STATUSES.includes(value as AssignableProfessionalStatus);
 }
 
-export async function PATCH(request: Request, context: RouteContext) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session admin manquante." }, { status: 401 });
-    }
+const ADMIN_SESSION = { missingSession: "Session admin manquante." };
 
-    const authorized = await getAuthorizedActor(accessToken, ["admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
+export const PATCH = withActor<RouteContext>(
+  ["admin"],
+  async (authorized, context) => {
+    const { request } = authorized;
 
     const { id } = await context.params;
     const targetUserId = String(id ?? "").trim();
     if (!targetUserId) {
-      return NextResponse.json({ error: "Utilisateur cible invalide." }, { status: 400 });
+      throw new ApiError("Utilisateur cible invalide.", 400);
     }
 
     const body = (await request.json().catch(() => null)) as {
@@ -60,13 +51,13 @@ export async function PATCH(request: Request, context: RouteContext) {
     const hasProfessionalStatus = body?.professionalStatus !== undefined;
 
     if (!hasRole && !hasProfessionalStatus) {
-      return NextResponse.json({ error: "Aucune modification demandee." }, { status: 400 });
+      throw new ApiError("Aucune modification demandee.", 400);
     }
     if (hasRole && !isAssignableRole(body?.role)) {
-      return NextResponse.json({ error: "Type de compte invalide." }, { status: 400 });
+      throw new ApiError("Type de compte invalide.", 400);
     }
     if (hasProfessionalStatus && !isAssignableProfessionalStatus(body?.professionalStatus)) {
-      return NextResponse.json({ error: "Statut de compte invalide." }, { status: 400 });
+      throw new ApiError("Statut de compte invalide.", 400);
     }
     const nextRole = hasRole ? (body?.role as AssignableRole) : null;
     const nextProfessionalStatus = hasProfessionalStatus
@@ -77,10 +68,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     // sans moyen de revenir en arriere depuis l'interface. Le statut de verification est
     // soumis a la meme regle : se passer en "rejected" fermerait aussi la porte.
     if (targetUserId === authorized.user.id) {
-      return NextResponse.json(
-        { error: "Tu ne peux pas modifier ton propre compte." },
-        { status: 400 },
-      );
+      throw new ApiError("Tu ne peux pas modifier ton propre compte.", 400);
     }
 
     const { data: targetProfile, error: targetError } = await authorized.adminClient
@@ -90,10 +78,10 @@ export async function PATCH(request: Request, context: RouteContext) {
       .maybeSingle();
 
     if (targetError) {
-      return NextResponse.json({ error: targetError.message }, { status: 400 });
+      throw new ApiError(targetError.message, 400);
     }
     if (!targetProfile) {
-      return NextResponse.json({ error: "Profil introuvable." }, { status: 404 });
+      throw new ApiError("Profil introuvable.", 404);
     }
 
     const roleChanges = nextRole !== null && targetProfile.role !== nextRole;
@@ -113,13 +101,10 @@ export async function PATCH(request: Request, context: RouteContext) {
         .eq("role", "admin");
 
       if (countError) {
-        return NextResponse.json({ error: countError.message }, { status: 400 });
+        throw new ApiError(countError.message, 400);
       }
       if ((count ?? 0) <= 1) {
-        return NextResponse.json(
-          { error: "Impossible de retirer le dernier compte administrateur." },
-          { status: 400 },
-        );
+        throw new ApiError("Impossible de retirer le dernier compte administrateur.", 400);
       }
     }
 
@@ -136,20 +121,13 @@ export async function PATCH(request: Request, context: RouteContext) {
       .single();
 
     if (updateError || !updatedProfile) {
-      return NextResponse.json(
-        { error: updateError?.message ?? "Mise a jour du type de compte impossible." },
-        { status: 400 },
-      );
+      throw new ApiError(updateError?.message ?? "Mise a jour du type de compte impossible.", 400);
     }
 
     return NextResponse.json({ success: true, profile: updatedProfile });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
+  },
+  ADMIN_SESSION,
+);
 
 /** Erreur PostgREST « relation inexistante » : la table est optionnelle selon l'environnement. */
 function isMissingRelationError(error: { code?: string; message?: string } | null) {
@@ -279,28 +257,17 @@ async function purgeUserData(adminClient: SupabaseClient, userId: string) {
   return { deletedDocuments: documentIds.length };
 }
 
-export async function DELETE(request: Request, context: RouteContext) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session admin manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
+export const DELETE = withActor<RouteContext>(
+  ["admin"],
+  async (authorized, context) => {
 
     const { id } = await context.params;
     const targetUserId = String(id ?? "").trim();
     if (!targetUserId) {
-      return NextResponse.json({ error: "Utilisateur cible invalide." }, { status: 400 });
+      throw new ApiError("Utilisateur cible invalide.", 400);
     }
     if (targetUserId === authorized.user.id) {
-      return NextResponse.json(
-        { error: "Tu ne peux pas supprimer ton propre compte admin." },
-        { status: 400 },
-      );
+      throw new ApiError("Tu ne peux pas supprimer ton propre compte admin.", 400);
     }
 
     // Le compte auth est supprime en dernier. Dans l'ordre inverse, un echec en cours de
@@ -311,14 +278,11 @@ export async function DELETE(request: Request, context: RouteContext) {
     try {
       purgeSummary = await purgeUserData(authorized.adminClient, targetUserId);
     } catch (purgeError) {
-      return NextResponse.json(
-        {
-          error:
-            purgeError instanceof Error
-              ? purgeError.message
-              : "Suppression des donnees du compte impossible.",
-        },
-        { status: 400 },
+      throw new ApiError(
+        purgeError instanceof Error
+          ? purgeError.message
+          : "Suppression des donnees du compte impossible.",
+        400,
       );
     }
 
@@ -327,24 +291,17 @@ export async function DELETE(request: Request, context: RouteContext) {
       .delete()
       .eq("id", targetUserId);
     if (deleteProfileError) {
-      return NextResponse.json({ error: deleteProfileError.message }, { status: 400 });
+      throw new ApiError(deleteProfileError.message, 400);
     }
 
     const { error: deleteAuthError } = await authorized.adminClient.auth.admin.deleteUser(
       targetUserId,
     );
     if (deleteAuthError) {
-      return NextResponse.json(
-        { error: `Donnees supprimees, mais compte auth non supprime : ${deleteAuthError.message}` },
-        { status: 400 },
-      );
+      throw new ApiError(`Donnees supprimees, mais compte auth non supprime : ${deleteAuthError.message}`, 400);
     }
 
     return NextResponse.json({ success: true, ...purgeSummary });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
+  },
+  ADMIN_SESSION,
+);

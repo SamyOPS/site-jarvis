@@ -2,6 +2,26 @@ import {
   computeInvoiceTotals,
   type InvoiceLineInput,
 } from "@/features/dashboard/salarie/invoice-totals";
+import {
+  binaryStringToBytes,
+  createPdfString,
+  createTextCommand as createPdfTextCommand,
+} from "@/lib/pdf-primitives";
+
+/**
+ * La facture est le seul document qui imprime des montants : elle active le rendu du
+ * symbole euro (glyphe WinAnsi `\200`). Le CRA et la demande de conge remplacent ce
+ * symbole par une espace — voir `normalizePdfText` dans `pdf-primitives.ts`.
+ */
+function createTextCommand(
+  text: string,
+  x: number,
+  y: number,
+  font: "F1" | "F2",
+  size: number,
+) {
+  return createPdfTextCommand(text, x, y, font, size, { euroSign: true });
+}
 
 export type InvoicePdfInput = {
   invoiceNumber: string;
@@ -33,31 +53,6 @@ export type InvoicePdfInput = {
   fraisRepas?: number;
   fraisNuitee?: number;
 };
-
-function byteLength(value: string) {
-  return typeof Buffer !== "undefined"
-    ? Buffer.byteLength(value, "binary")
-    : value.length;
-}
-
-function binaryStringToBytes(value: string) {
-  return Uint8Array.from(value, (char) => char.charCodeAt(0));
-}
-
-function normalizePdfText(value: string) {
-  const euroToken = "__EURO__";
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\u20AC/g, euroToken)
-    .replace(/[^\x20-\x7E]/g, " ")
-    .replace(/[()\\]/g, "\\$&")
-    .replace(new RegExp(euroToken, "g"), "\\200");
-}
-
-function createTextCommand(text: string, x: number, y: number, font: "F1" | "F2", size: number) {
-  return `BT /${font} ${size} Tf ${x} ${y} Td (${normalizePdfText(text)}) Tj ET`;
-}
 
 function formatDate(value: string) {
   const parsed = new Date(value);
@@ -367,37 +362,12 @@ function buildInvoicePdfContent(input: InvoicePdfInput) {
   return commands.join("\n");
 }
 
-function createPdfString(content: string) {
-  const objects = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>",
-    `<< /Length ${byteLength(content)} >>\nstream\n${content}\nendstream`,
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>",
-  ];
-
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-
-  objects.forEach((object, index) => {
-    offsets.push(byteLength(pdf));
-    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
-  });
-
-  const xrefOffset = byteLength(pdf);
-  pdf += `xref\n0 ${objects.length + 1}\n`;
-  pdf += "0000000000 65535 f \n";
-  for (let index = 1; index <= objects.length; index += 1) {
-    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
-  }
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-
-  return pdf;
-}
-
 export function buildInvoicePdfBytes(input: InvoicePdfInput) {
-  return binaryStringToBytes(createPdfString(buildInvoicePdfContent(input)));
+  // `winAnsi` va de pair avec `euroSign` du createTextCommand local : sans lui, le glyphe
+  // `\200` ne serait pas rendu comme un symbole euro.
+  return binaryStringToBytes(
+    createPdfString(buildInvoicePdfContent(input), { winAnsi: true }),
+  );
 }
 
 export function buildInvoicePdfBuffer(input: InvoicePdfInput) {

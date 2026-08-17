@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+
+import { displayNameFromMetadata } from "@/domain/profiles";
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronDown, LogIn, Menu, X } from "lucide-react";
@@ -68,14 +70,8 @@ export function HomeHeader() {
         return;
       }
 
-      const meta = user.user_metadata as {
-        full_name?: string;
-        name?: string;
-        display_name?: string;
-      };
-
       let resolvedLabel =
-        meta.full_name ?? meta.name ?? meta.display_name ?? user.email ?? "Mon espace";
+        displayNameFromMetadata(user.user_metadata) ?? user.email ?? "Mon espace";
       let resolvedRole = (user.user_metadata as { role?: string } | undefined)?.role ?? null;
 
       const { data: profile } = await supabase

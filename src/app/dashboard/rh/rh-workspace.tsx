@@ -25,21 +25,19 @@ import { usePasswordUpdate } from "@/features/dashboard/use-password-update";
 import { createAuthorizedFetch, getFreshAccessToken } from "@/lib/dashboard-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  buildCalendarCells,
-  currentMonthInputValue,
-  sortCraEntries,
-} from "@/domain/cra";
+import { displayNameFromMetadata } from "@/domain/profiles";
+import { useCraEditor, type CraEditorMission } from "@/features/dashboard/cra/use-cra-editor";
+import { useBatchUploadForm } from "@/features/dashboard/rh/use-batch-upload-form";
+import { useDocumentRequestForm } from "@/features/dashboard/rh/use-document-request-form";
+import { buildCalendarCells } from "@/domain/cra";
 import { RhBatchUploadDialog } from "@/components/dashboard/rh/batch-upload-dialog";
 import {
   BATCH_NO_EMPLOYEE,
-  buildBatchUploadRows,
   getBatchRowIssue,
   type BatchUploadRow,
 } from "@/features/dashboard/rh/document-batch";
-import { matchesRhDocumentFilters } from "@/features/dashboard/rh/document-filters";
+import { useDocumentFilters } from "@/features/dashboard/documents/document-filters";
 import type { RhWorkspaceRouteProps } from "@/features/dashboard/rh/navigation";
-import type { CraEntryDraft } from "@/domain/cra";
 import type { DocumentRequestStatus, DocumentStatus, DocumentTypeRow } from "@/domain/documents";
 import type {
   RhApplicationRow as ApplicationRow,
@@ -102,10 +100,8 @@ export default function RhWorkspace({
   >({});
   const [documents, setDocuments] = useState<RHDocumentRow[]>([]);
   const [requests, setRequests] = useState<RequestRow[]>([]);
-  const [documentTypeFilter, setDocumentTypeFilter] = useState("all");
-  const [documentPeriodFilter, setDocumentPeriodFilter] = useState("all");
-  const [documentStatusFilter, setDocumentStatusFilter] = useState("all");
-  const [documentCreatorFilter, setDocumentCreatorFilter] = useState("all");
+  // Vue globale : le filtre « createur » designe le COLLABORATEUR concerne.
+  const documentFilters = useDocumentFilters("employeeName");
   const [jobOffers, setJobOffers] = useState<JobOfferRow[]>([]);
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
   const [activityByEmployeeId, setActivityByEmployeeId] = useState<
@@ -169,34 +165,21 @@ export default function RhWorkspace({
   const [employeeDrafts, setEmployeeDrafts] = useState<Record<string, { full_name: string; phone: string; company_name: string; esn_partenaire: string; employment_status: string }>>({});
   const [reviewingDocumentId, setReviewingDocumentId] = useState<string | null>(null);
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({});
-  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
-  const [requestEmployeeId, setRequestEmployeeId] = useState("");
-  const [requestDocumentTypeId, setRequestDocumentTypeId] = useState("");
-  const [requestDueAt, setRequestDueAt] = useState("");
-  const [requestPeriodMonth, setRequestPeriodMonth] = useState("");
-  const [requestNote, setRequestNote] = useState("");
-  const [creatingRequest, setCreatingRequest] = useState(false);
+  // Le formulaire de demande vit dans son propre hook : voir `useDocumentRequestForm`.
+  // Il est instancie plus bas, une fois `salarieUploadableTypes` et
+  // `allowedTypeIdsForEmployee` disponibles.
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null);
   const [collabDetailSection, setCollabDetailSection] = useState<"demandes" | "documents" | "candidatures">("documents");
   const [collabDocumentsMenuOpen, setCollabDocumentsMenuOpen] = useState(false);
-  const [collabDocTypeFilter, setCollabDocTypeFilter] = useState("all");
-  const [collabDocPeriodFilter, setCollabDocPeriodFilter] = useState("all");
-  const [collabDocStatusFilter, setCollabDocStatusFilter] = useState("all");
-  const [collabDocOwnerFilter, setCollabDocOwnerFilter] = useState("all");
-  const [rhBatchDialogOpen, setRhBatchDialogOpen] = useState(false);
-  const [rhBatchDefaultTypeId, setRhBatchDefaultTypeId] = useState("");
-  const [rhBatchRows, setRhBatchRows] = useState<BatchUploadRow[]>([]);
-  const [uploadingRhBatch, setUploadingRhBatch] = useState(false);
-  /** Collaborateur impose quand le depot est ouvert depuis la fiche d'un collaborateur. */
-  const [rhBatchPresetEmployeeId, setRhBatchPresetEmployeeId] = useState("");
+  // Fiche collaborateur : on est deja sur un seul collaborateur, le filtre designe donc le
+  // DEPOSANT du document (`uploadedByName`, la valeur par defaut du hook).
+  const collabDocumentFilters = useDocumentFilters();
+  // Le depot en lot vit dans son propre hook : voir `useBatchUploadForm`. Il est instancie
+  // plus bas, une fois `employees` et `allowedTypeIdsForEmployee` disponibles.
   const [generateEmployeeId, setGenerateEmployeeId] = useState("");
-  const [generateBillingProfileEmployeeId, setGenerateBillingProfileEmployeeId] = useState("");
-  const [craPeriodMonth, setCraPeriodMonth] = useState(currentMonthInputValue());
-  const [craNotes, setCraNotes] = useState("");
-  const [craEntries, setCraEntries] = useState<CraEntryDraft[]>([]);
-  const [invoiceDiscountGranted, setInvoiceDiscountGranted] = useState(false);
-  const [invoiceVatEnabled, setInvoiceVatEnabled] = useState(false);
-  const [invoiceAmountAlreadyPaid, setInvoiceAmountAlreadyPaid] = useState("");
+  /** Missions du collaborateur pour lequel on genere. Chargees a chaque changement. */
+  const [craMissionRows, setCraMissionRows] = useState<CraEditorMission[]>([]);
+  const [craMissionsLoading, setCraMissionsLoading] = useState(false);
   const [craGenerating, setCraGenerating] = useState(false);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
   const [leaveGenerating, setLeaveGenerating] = useState(false);
@@ -323,26 +306,34 @@ export default function RhWorkspace({
       return;
     }
 
-    const rhUploaderIds = Array.from(
+    // On envoie les identifiants des DOCUMENTS, pas ceux des deposants : c'est la route
+    // qui derive les profils, apres avoir restreint les documents au perimetre du RH.
+    // Lui passer des identifiants de profils revenait a lui faire resoudre n'importe quel
+    // compte.
+    const rhUploaderDocumentIds = Array.from(
       new Set(
         (docsRes.data ?? [])
           .map((row) => {
-            const item = row as { uploader_role?: string | null; uploaded_by?: string | null };
-            if (item.uploader_role !== "rh") return null;
-            return item.uploaded_by ?? null;
+            const item = row as {
+              id?: string | null;
+              uploader_role?: string | null;
+              uploaded_by?: string | null;
+            };
+            if (item.uploader_role !== "rh" || !item.uploaded_by) return null;
+            return item.id ?? null;
           })
           .filter((value): value is string => Boolean(value)),
       ),
     );
     const rhUploadersById = new Map<string, { fullName: string | null; email: string }>();
-    if (rhUploaderIds.length) {
+    if (rhUploaderDocumentIds.length) {
       const uploadersResponse = await fetch("/api/rh/documents/uploaders", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ ids: rhUploaderIds }),
+        body: JSON.stringify({ documentIds: rhUploaderDocumentIds }),
       });
       if (uploadersResponse.ok) {
         const uploadersPayload = (await uploadersResponse.json().catch(() => null)) as
@@ -536,35 +527,26 @@ export default function RhWorkspace({
     void load();
   }, [applyDashboardCache, loadDashboardData, router]);
 
-  const displayName = useMemo(() => {
-    const meta = (user?.user_metadata ?? {}) as { full_name?: string; name?: string; display_name?: string };
-    return meta.full_name ?? meta.name ?? meta.display_name ?? profile?.full_name ?? profile?.email ?? "utilisateur";
-  }, [profile?.email, profile?.full_name, user?.user_metadata]);
+  const displayName = useMemo(
+    () =>
+      displayNameFromMetadata(user?.user_metadata) ??
+      profile?.full_name ??
+      profile?.email ??
+      "utilisateur",
+    [profile?.email, profile?.full_name, user?.user_metadata],
+  );
 
   useEffect(() => {
     setCollabDetailSection("documents");
     setCollabDocumentsMenuOpen(false);
   }, [selectedEmployeeId]);
+  // On depend de `reset` seul, PAS de `collabDocumentFilters` : l'objet du hook change des
+  // qu'une valeur de filtre change, et l'effet remettrait alors tout a « all » aussitot apres
+  // chaque selection de l'utilisateur. `reset` est un useCallback sans dependance, stable.
+  const resetCollabDocumentFilters = collabDocumentFilters.reset;
   useEffect(() => {
-    setCollabDocTypeFilter("all");
-    setCollabDocPeriodFilter("all");
-    setCollabDocStatusFilter("all");
-    setCollabDocOwnerFilter("all");
-  }, [selectedEmployeeId]);
-  useEffect(() => {
-    if (!generateEmployeeId) return;
-    const hasCurrent = billingProfiles.some(
-      (profileItem) => profileItem.employeeId === generateBillingProfileEmployeeId,
-    );
-    if (hasCurrent) return;
-    const employeeDefault = billingProfiles.find(
-      (profileItem) => profileItem.employeeId === generateEmployeeId,
-    );
-    if (employeeDefault) {
-      setGenerateBillingProfileEmployeeId(employeeDefault.employeeId);
-    }
-  }, [billingProfiles, generateBillingProfileEmployeeId, generateEmployeeId]);
-
+    resetCollabDocumentFilters();
+  }, [resetCollabDocumentFilters, selectedEmployeeId]);
 
   const selectedEmployee = useMemo(() => employees.find((employee) => employee.id === selectedEmployeeId) ?? null, [employees, selectedEmployeeId]);
   const selectedEmployeeBillingProfile = useMemo(
@@ -721,16 +703,8 @@ export default function RhWorkspace({
     [selectedEmployeeDocuments],
   );
   const filteredSelectedEmployeeDocuments = useMemo(
-    () =>
-      selectedEmployeeDocuments.filter((document) =>
-        matchesRhDocumentFilters(document, {
-          type: collabDocTypeFilter,
-          period: collabDocPeriodFilter,
-          status: collabDocStatusFilter,
-          creator: collabDocOwnerFilter,
-        }),
-      ),
-    [collabDocOwnerFilter, collabDocPeriodFilter, collabDocStatusFilter, collabDocTypeFilter, selectedEmployeeDocuments],
+    () => collabDocumentFilters.apply(selectedEmployeeDocuments),
+    [collabDocumentFilters, selectedEmployeeDocuments],
   );
   const selectedEmployeeDocumentListItems = useMemo(
     () =>
@@ -807,62 +781,39 @@ export default function RhWorkspace({
     [rhDocumentCreatorOptions, rhDocumentPeriodOptions, rhDocumentTypeOptions],
   );
   const filteredPendingDocuments = useMemo(
-    () =>
-      pendingDocuments.filter((document) =>
-        matchesRhDocumentFilters(
-          document,
-          {
-            type: documentTypeFilter,
-            period: documentPeriodFilter,
-            status: documentStatusFilter,
-            creator: documentCreatorFilter,
-          },
-          { creatorField: "employeeName" },
-        ),
-      ),
-    [documentCreatorFilter, documentPeriodFilter, documentStatusFilter, documentTypeFilter, pendingDocuments],
+    () => documentFilters.apply(pendingDocuments),
+    [documentFilters, pendingDocuments],
   );
   const filteredRhDocuments = useMemo(
-    () =>
-      rhDocuments.filter((document) =>
-        matchesRhDocumentFilters(
-          document,
-          {
-            type: documentTypeFilter,
-            period: documentPeriodFilter,
-            status: documentStatusFilter,
-            creator: documentCreatorFilter,
-          },
-          { creatorField: "employeeName" },
-        ),
-      ),
-    [documentCreatorFilter, documentPeriodFilter, documentStatusFilter, documentTypeFilter, rhDocuments],
+    () => documentFilters.apply(rhDocuments),
+    [documentFilters, rhDocuments],
   );
   const filteredAllDocuments = useMemo(
-    () =>
-      activeDocuments.filter((document) =>
-        matchesRhDocumentFilters(
-          document,
-          {
-            type: documentTypeFilter,
-            period: documentPeriodFilter,
-            status: documentStatusFilter,
-            creator: documentCreatorFilter,
-          },
-          { creatorField: "employeeName" },
-        ),
-      ),
-    [activeDocuments, documentCreatorFilter, documentPeriodFilter, documentStatusFilter, documentTypeFilter],
+    () => documentFilters.apply(activeDocuments),
+    [documentFilters, activeDocuments],
   );
   const showRhFolderTrash = currentSubSection === "docs_corbeille";
-  const craEntriesByDate = useMemo(
-    () => new Map(craEntries.map((entry) => [entry.workDate, entry])),
-    [craEntries],
-  );
-  const craDraftTotalDays = useMemo(
-    () => craEntries.reduce((total, entry) => total + (Number(entry.dayQuantity) || 0), 0),
-    [craEntries],
-  );
+
+  /**
+   * Meme moteur de saisie que l'espace salarie : missions multi-entreprises, absences et
+   * saisie horaire. Le CRA RH etait auparavant une copie appauvrie de ce calendrier — il
+   * ne pointait ni entreprise, ni absence, ni heures.
+   *
+   * `fallbackTimeUnit` reste « day » : une ligne RH sans mission releve du chemin historique.
+   */
+  const craEditor = useCraEditor({ missions: craMissionRows, fallbackTimeUnit: "day" });
+  // Seules les valeurs que le WORKSPACE utilise lui-meme sont extraites : la generation du
+  // payload et la remise a zero. Tout le reste part a l'editeur dans l'objet `craEditor`.
+  const {
+    craPeriodMonth,
+    craNotes,
+    craEntries,
+    craDraftTotalDays,
+    craDraftTotalHours,
+    invoiceSettings,
+    resetCraEditor,
+  } = craEditor;
+
   const craCalendarCells = useMemo(() => buildCalendarCells(craPeriodMonth), [craPeriodMonth]);
   const openRequests = useMemo(() => requests.filter((request) => ["pending", "uploaded", "rejected", "expired"].includes(request.status)), [requests]);
   const currentMonthDocuments = useMemo(() => {
@@ -900,18 +851,7 @@ export default function RhWorkspace({
     },
     [typeRestrictionsByEmployee],
   );
-  const requestableTypesForEmployee = useMemo(() => {
-    const allowed = allowedTypeIdsForEmployee(requestEmployeeId);
-    if (!allowed) return salarieUploadableTypes;
-    return salarieUploadableTypes.filter((documentType) => allowed.has(documentType.id));
-  }, [allowedTypeIdsForEmployee, requestEmployeeId, salarieUploadableTypes]);
-  const selectedRequestType = useMemo(() => salarieUploadableTypes.find((documentType) => documentType.id === requestDocumentTypeId) ?? null, [requestDocumentTypeId, salarieUploadableTypes]);
-  // If the chosen employee no longer allows the currently selected type, clear it.
-  useEffect(() => {
-    if (requestDocumentTypeId && !requestableTypesForEmployee.some((type) => type.id === requestDocumentTypeId)) {
-      setRequestDocumentTypeId("");
-    }
-  }, [requestDocumentTypeId, requestableTypesForEmployee]);
+  const requestForm = useDocumentRequestForm(salarieUploadableTypes, allowedTypeIdsForEmployee);
 
   const handleSignOut = useCallback(async () => {
     if (!supabase) return;
@@ -919,29 +859,16 @@ export default function RhWorkspace({
     router.push("/auth?logged_out=1");
   }, [router]);
 
-  const resetRequestDialog = useCallback(() => {
-    setRequestEmployeeId("");
-    setRequestDocumentTypeId("");
-    setRequestDueAt("");
-    setRequestPeriodMonth("");
-    setRequestNote("");
-  }, []);
+  const openRequestDialog = useCallback(
+    (employeeId?: string) => {
+      // Le message de page appartient au workspace, pas au formulaire : le hook ne le touche pas.
+      setSaveMessage(null);
+      requestForm.openDialog(employeeId);
+    },
+    [requestForm],
+  );
 
-  const openRequestDialog = useCallback((employeeId?: string) => {
-    setRequestEmployeeId(employeeId ?? "");
-    setRequestDocumentTypeId("");
-    setRequestDueAt("");
-    setRequestPeriodMonth("");
-    setRequestNote("");
-    setSaveMessage(null);
-    setRequestDialogOpen(true);
-  }, []);
-
-  const resetRhBatchDialog = useCallback(() => {
-    setRhBatchRows([]);
-    setUploadingRhBatch(false);
-    setRhBatchPresetEmployeeId("");
-  }, []);
+  const batchForm = useBatchUploadForm(employees, allowedTypeIdsForEmployee);
 
   /**
    * Ouvre le depot. `employeeId` impose le collaborateur quand on part de sa fiche ; sinon
@@ -949,74 +876,11 @@ export default function RhWorkspace({
    */
   const openRhBatchDialog = useCallback(
     (employeeId?: string) => {
+      // Le message de page appartient au workspace, pas au formulaire.
       setSaveMessage(null);
-      resetRhBatchDialog();
-      setRhBatchPresetEmployeeId(employeeId ?? "");
-      setRhBatchDialogOpen(true);
+      batchForm.openDialog(employeeId);
     },
-    [resetRhBatchDialog],
-  );
-
-  /**
-   * Recalcule les lignes a partir des fichiers choisis. La correspondance se fait cote
-   * client : la liste des salaries avec leur nom complet est deja chargee.
-   */
-  const handleRhBatchFilesSelected = useCallback(
-    (files: File[]) => {
-      setSaveMessage(null);
-      setRhBatchRows(
-        buildBatchUploadRows(files, employees, rhBatchDefaultTypeId, rhBatchPresetEmployeeId),
-      );
-    },
-    [employees, rhBatchDefaultTypeId, rhBatchPresetEmployeeId],
-  );
-
-  const handleRhBatchRowChange = useCallback(
-    (key: string, patch: Partial<BatchUploadRow>) => {
-      setRhBatchRows((previousRows) =>
-        previousRows.map((row) => {
-          if (row.key !== key) return row;
-
-          // Toute modification manuelle efface l'erreur precedente : la ligne redevient
-          // deposable sans avoir a rouvrir le dialogue.
-          const nextRow = {
-            ...row,
-            ...patch,
-            status: row.status === "error" ? ("pending" as const) : row.status,
-            error: null,
-          };
-
-          // Le type retenu doit rester autorise pour le collaborateur de la ligne. Sans ce
-          // reset, changer de collaborateur laissait un type absent de la liste : le select
-          // affichait « Choisir » alors que l'ancien type partait quand meme au serveur.
-          const allowed = allowedTypeIdsForEmployee(nextRow.employeeId);
-          if (nextRow.documentTypeId && allowed && !allowed.has(nextRow.documentTypeId)) {
-            return { ...nextRow, documentTypeId: "" };
-          }
-          return nextRow;
-        }),
-      );
-    },
-    [allowedTypeIdsForEmployee],
-  );
-
-  const handleRhBatchRemoveRow = useCallback((key: string) => {
-    setRhBatchRows((previousRows) => previousRows.filter((row) => row.key !== key));
-  }, []);
-
-  /** Un changement de type par defaut se propage aux lignes encore intouchees. */
-  const handleRhBatchDefaultTypeChange = useCallback(
-    (documentTypeId: string) => {
-      setRhBatchDefaultTypeId(documentTypeId);
-      setRhBatchRows((previousRows) =>
-        previousRows.map((row) =>
-          row.status === "pending" && row.documentTypeId === rhBatchDefaultTypeId
-            ? { ...row, documentTypeId }
-            : row,
-        ),
-      );
-    },
-    [rhBatchDefaultTypeId],
+    [batchForm],
   );
 
   /** Un document de meme collaborateur, type et periode existe-t-il deja ? */
@@ -1037,55 +901,48 @@ export default function RhWorkspace({
     },
     [documents],
   );
-  const resetCraEditor = useCallback(() => {
+  /**
+   * Remise a zero complete : le brouillon appartient au hook, la cible de generation au
+   * workspace.
+   */
+  const resetRhCraEditor = useCallback(() => {
     setGenerateEmployeeId(selectedEmployeeId ?? "");
-    setGenerateBillingProfileEmployeeId("");
-    setCraPeriodMonth(currentMonthInputValue());
-    setCraNotes("");
-    setCraEntries([]);
-    setInvoiceDiscountGranted(false);
-    setInvoiceVatEnabled(false);
-    setInvoiceAmountAlreadyPaid("");
-  }, [selectedEmployeeId]);
+    resetCraEditor();
+  }, [resetCraEditor, selectedEmployeeId]);
 
-  const handleCraPeriodMonthChange = useCallback((nextPeriodMonth: string) => {
-    setCraPeriodMonth(nextPeriodMonth);
-    setCraEntries((previousEntries) =>
-      sortCraEntries(previousEntries.filter((entry) => entry.workDate.startsWith(`${nextPeriodMonth}-`))),
-    );
-  }, []);
-
-  const toggleCraWorkDate = useCallback((workDate: string) => {
-    setCraEntries((previousEntries) => {
-      const existingEntry = previousEntries.find((entry) => entry.workDate === workDate);
-      if (existingEntry) {
-        return previousEntries.filter((entry) => entry.workDate !== workDate);
+  /**
+   * Missions du collaborateur cible. Rechargees a chaque changement de collaborateur : ce
+   * sont ses entreprises clientes qui portent le tarif et l'unite de chaque ligne.
+   */
+  useEffect(() => {
+    if (!generateEmployeeId) {
+      setCraMissionRows([]);
+      return;
+    }
+    let cancelled = false;
+    setCraMissionsLoading(true);
+    void (async () => {
+      try {
+        const payload = (await callRhDocumentsApi(
+          `/api/rh/missions?employeeId=${encodeURIComponent(generateEmployeeId)}`,
+        )) as { items?: CraEditorMission[] } | null;
+        if (cancelled) return;
+        setCraMissionRows(payload?.items ?? []);
+      } catch (error) {
+        if (cancelled) return;
+        // Sans mission, l'editeur reste utilisable sur le chemin historique (en journees).
+        setCraMissionRows([]);
+        setSaveMessage(
+          error instanceof Error ? error.message : "Chargement des missions impossible.",
+        );
+      } finally {
+        if (!cancelled) setCraMissionsLoading(false);
       }
-      return sortCraEntries([
-        ...previousEntries,
-        {
-          workDate,
-          // Le CRA cote RH ne selectionne pas encore de mission : la ligne retombe sur
-          // l'unite du profil de facturation, comme un CRA anterieur au multi-entreprises.
-          missionId: "",
-          // Le CRA cote RH ne pointe pas d'absence : elles se saisissent cote salarie.
-          absenceType: "",
-          dayQuantity: "1",
-          // Le CRA cote RH se saisit en journees : aucune heure declaree.
-          hours: "",
-          label: "",
-        },
-      ]);
-    });
-  }, []);
-
-  const updateCraEntry = useCallback((workDate: string, patch: Partial<CraEntryDraft>) => {
-    setCraEntries((previousEntries) =>
-      sortCraEntries(
-        previousEntries.map((entry) => (entry.workDate === workDate ? { ...entry, ...patch } : entry)),
-      ),
-    );
-  }, []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [callRhDocumentsApi, generateEmployeeId]);
 
   const handleSaveBillingProfile = useCallback(async () => {
     if (!supabase || !selectedEmployee || !activeBillingProfileDraft || !activeDraft) return;
@@ -1130,16 +987,16 @@ export default function RhWorkspace({
   }, [activeBillingProfileDraft, activeDraft, callRhDocumentsApi, loadBillingProfiles, refreshDashboardData, selectedEmployee]);
 
   const handleCreateRequest = useCallback(async () => {
-    if (!requestEmployeeId || !requestDocumentTypeId) {
+    if (!requestForm.employeeId || !requestForm.documentTypeId) {
       setSaveMessage("Choisis un collaborateur et un type de document.");
       return;
     }
-    if (selectedRequestType?.requiresPeriod && !requestPeriodMonth) {
+    if (requestForm.selectedType?.requiresPeriod && !requestForm.periodMonth) {
       setSaveMessage("Ce type de document demande une periode.");
       return;
     }
 
-    setCreatingRequest(true);
+    requestForm.setCreating(true);
     setSaveMessage(null);
 
     try {
@@ -1147,23 +1004,23 @@ export default function RhWorkspace({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          employeeId: requestEmployeeId,
-          documentTypeId: requestDocumentTypeId,
-          periodMonth: requestPeriodMonth || null,
-          dueAt: requestDueAt || null,
-          note: requestNote.trim() || null,
+          employeeId: requestForm.employeeId,
+          documentTypeId: requestForm.documentTypeId,
+          periodMonth: requestForm.periodMonth || null,
+          dueAt: requestForm.dueAt || null,
+          note: requestForm.note.trim() || null,
         }),
       });
       setSaveMessage("Demande documentaire creee.");
-      setRequestDialogOpen(false);
-      resetRequestDialog();
+      requestForm.setOpen(false);
+      requestForm.reset();
       await refreshDashboardData();
     } catch (error) {
       setSaveMessage(error instanceof Error ? error.message : "Creation de la demande impossible.");
     } finally {
-      setCreatingRequest(false);
+      requestForm.setCreating(false);
     }
-  }, [callRhDocumentsApi, refreshDashboardData, requestDocumentTypeId, requestDueAt, requestEmployeeId, requestNote, requestPeriodMonth, resetRequestDialog, selectedRequestType?.requiresPeriod]);
+  }, [callRhDocumentsApi, refreshDashboardData, requestForm]);
 
   const handleCancelRequest = useCallback(async (request: RequestRow) => {
     if (!supabase) return;
@@ -1205,14 +1062,14 @@ export default function RhWorkspace({
       return;
     }
 
-    const pendingRows = rhBatchRows.filter(
+    const pendingRows = batchForm.rows.filter(
       (row) => row.status !== "done" && !getBatchRowIssue(row, documentTypes),
     );
     if (!pendingRows.length) return;
 
-    setUploadingRhBatch(true);
+    batchForm.setUploading(true);
     setSaveMessage(null);
-    setRhBatchRows((previousRows) =>
+    batchForm.setRows((previousRows) =>
       previousRows.map((row) =>
         pendingRows.some((pending) => pending.key === row.key)
           ? { ...row, status: "uploading", error: null }
@@ -1264,7 +1121,7 @@ export default function RhWorkspace({
         const result = await uploadRow(row);
         if (result.error) failureCount += 1;
         else successCount += 1;
-        setRhBatchRows((previousRows) =>
+        batchForm.setRows((previousRows) =>
           previousRows.map((current) =>
             current.key === result.key
               ? {
@@ -1280,46 +1137,56 @@ export default function RhWorkspace({
 
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker));
 
-    setUploadingRhBatch(false);
+    batchForm.setUploading(false);
     setSaveMessage(
       failureCount
         ? `${successCount} document(s) depose(s), ${failureCount} en echec.`
         : `${successCount} document(s) depose(s).`,
     );
     await refreshDashboardData();
-  }, [documentTypes, refreshDashboardData, rhBatchRows]);
+  }, [batchForm, documentTypes, refreshDashboardData]);
 
   const buildRhGeneratePayload = useCallback((kind: "cra" | "facture") => {
-    if (!generateEmployeeId || !generateBillingProfileEmployeeId || !craPeriodMonth) {
-      setSaveMessage("Choisis un collaborateur, un profil de facturation et une periode.");
+    if (!generateEmployeeId || !craPeriodMonth) {
+      setSaveMessage("Choisis un collaborateur et une periode.");
       return null;
     }
+    // Les lignes partent telles quelles : mission, absence et heures comprises. Le serveur
+    // les valide par `parseCraEntries`, la meme fonction que le chemin salarie — inutile de
+    // filtrer ici, un rejet explicite vaut mieux qu'une ligne silencieusement omise.
     const entriesPayload = craEntries
       .filter((entry) => entry.workDate.trim())
       .map((entry) => ({
         workDate: entry.workDate,
-        dayQuantity: Number(entry.dayQuantity || 0),
+        dayQuantity: entry.dayQuantity === "" ? undefined : Number(entry.dayQuantity),
+        hours: entry.hours === "" ? undefined : Number(entry.hours),
+        missionId: entry.missionId || undefined,
+        absenceType: entry.absenceType || undefined,
         label: entry.label,
-      }))
-      .filter((entry) => Number.isFinite(entry.dayQuantity) && entry.dayQuantity > 0);
+      }));
     if (!entriesPayload.length) {
       setSaveMessage("Selectionne au moins un jour travaille.");
       return null;
     }
-    const workedDaysCount = entriesPayload.reduce((total, entry) => total + entry.dayQuantity, 0);
+    if (craDraftTotalDays <= 0 && craDraftTotalHours <= 0) {
+      setSaveMessage("Selectionne au moins un jour ou une heure travaille.");
+      return null;
+    }
     return {
       kind,
       employeeId: generateEmployeeId,
-      billingProfileEmployeeId: generateBillingProfileEmployeeId,
       periodMonth: craPeriodMonth,
-      workedDaysCount,
+      workedDaysCount: craDraftTotalDays,
       notes: craNotes,
       entries: entriesPayload,
-      discountGranted: invoiceDiscountGranted,
-      vatEnabled: invoiceVatEnabled,
-      amountAlreadyPaid: invoiceAmountAlreadyPaid.trim() === "" ? 0 : Number(invoiceAmountAlreadyPaid),
+      discountGranted: invoiceSettings.discountGranted,
+      vatEnabled: invoiceSettings.vatEnabled,
+      amountAlreadyPaid:
+        invoiceSettings.amountAlreadyPaid.trim() === ""
+          ? 0
+          : Number(invoiceSettings.amountAlreadyPaid),
     };
-  }, [craEntries, craNotes, craPeriodMonth, generateBillingProfileEmployeeId, generateEmployeeId, invoiceAmountAlreadyPaid, invoiceDiscountGranted, invoiceVatEnabled]);
+  }, [craDraftTotalDays, craDraftTotalHours, craEntries, craNotes, craPeriodMonth, generateEmployeeId, invoiceSettings]);
 
   const handleGenerateRhCraPdf = useCallback(async () => {
     const payload = buildRhGeneratePayload("cra");
@@ -1823,17 +1690,17 @@ export default function RhWorkspace({
                               <DocumentFiltersBar
                               fields={["type", "period", "status", "owner"]}
                               values={{
-                                type: collabDocTypeFilter,
-                                period: collabDocPeriodFilter,
-                                status: collabDocStatusFilter,
-                                owner: collabDocOwnerFilter,
+                                type: collabDocumentFilters.type,
+                                period: collabDocumentFilters.period,
+                                status: collabDocumentFilters.status,
+                                owner: collabDocumentFilters.creator,
                               }}
                               options={selectedEmployeeDocumentFilterOptions}
                               onChange={(field, value) => {
-                                if (field === "type") setCollabDocTypeFilter(value);
-                                if (field === "period") setCollabDocPeriodFilter(value);
-                                if (field === "status") setCollabDocStatusFilter(value);
-                                if (field === "owner") setCollabDocOwnerFilter(value);
+                                if (field === "type") collabDocumentFilters.setType(value);
+                                if (field === "period") collabDocumentFilters.setPeriod(value);
+                                if (field === "status") collabDocumentFilters.setStatus(value);
+                                if (field === "owner") collabDocumentFilters.setCreator(value);
                               }}
                             />
                             {filteredSelectedEmployeeDocuments.length ? (
@@ -1982,49 +1849,36 @@ export default function RhWorkspace({
               storageScope={user?.id ?? profile?.id ?? null}
               preferencesAuthToken={session?.access_token ?? null}
               currentSubSection={currentSubSection}
-              documentTypeFilter={documentTypeFilter}
-              documentPeriodFilter={documentPeriodFilter}
-              documentStatusFilter={documentStatusFilter}
-              documentCreatorFilter={documentCreatorFilter}
+              documentTypeFilter={documentFilters.type}
+              documentPeriodFilter={documentFilters.period}
+              documentStatusFilter={documentFilters.status}
+              documentCreatorFilter={documentFilters.creator}
               rhFilterOptions={rhFilterOptions}
-              onDocumentTypeFilterChange={setDocumentTypeFilter}
-              onDocumentPeriodFilterChange={setDocumentPeriodFilter}
-              onDocumentStatusFilterChange={setDocumentStatusFilter}
-              onDocumentCreatorFilterChange={setDocumentCreatorFilter}
+              onDocumentTypeFilterChange={documentFilters.setType}
+              onDocumentPeriodFilterChange={documentFilters.setPeriod}
+              onDocumentStatusFilterChange={documentFilters.setStatus}
+              onDocumentCreatorFilterChange={documentFilters.setCreator}
               onOpenRhUploadDialog={() => openRhBatchDialog()}
               onOpenRequestDialog={() => {
                 setSaveMessage(null);
                 openRequestDialog();
               }}
               generateEmployeeId={generateEmployeeId}
-              generateBillingProfileEmployeeId={generateBillingProfileEmployeeId}
               billingProfiles={billingProfiles}
               employees={employees}
               craGenerating={craGenerating}
               invoiceGenerating={invoiceGenerating}
               leaveGenerating={leaveGenerating}
               onGenerateLeavePdf={handleGenerateRhLeavePdf}
-                craPeriodMonth={craPeriodMonth}
-                craDraftTotalDays={craDraftTotalDays}
-                craNotes={craNotes}
-                invoiceDiscountGranted={invoiceDiscountGranted}
-                onInvoiceDiscountGrantedChange={setInvoiceDiscountGranted}
-                invoiceVatEnabled={invoiceVatEnabled}
-                onInvoiceVatEnabledChange={setInvoiceVatEnabled}
-                invoiceAmountAlreadyPaid={invoiceAmountAlreadyPaid}
-                onInvoiceAmountAlreadyPaidChange={setInvoiceAmountAlreadyPaid}
-                craCalendarCells={craCalendarCells}
-              craEntriesByDate={craEntriesByDate}
-              craEntries={craEntries}
+              // Le brouillon entier passe en un objet : l'editeur riche lit une quarantaine
+              // de valeurs, les enumerer une par une n'apporterait rien.
+              craEditor={craEditor}
+              craCalendarCells={craCalendarCells}
+              craMissionsLoading={craMissionsLoading}
               onGenerateEmployeeIdChange={setGenerateEmployeeId}
-              onGenerateBillingProfileEmployeeIdChange={setGenerateBillingProfileEmployeeId}
-              onCraPeriodMonthChange={handleCraPeriodMonthChange}
-              onCraNotesChange={setCraNotes}
               onGenerateCraPdf={handleGenerateRhCraPdf}
               onGenerateInvoicePdf={handleGenerateRhInvoicePdf}
-              resetCraEditor={resetCraEditor}
-              toggleCraWorkDate={toggleCraWorkDate}
-              updateCraEntry={updateCraEntry}
+              resetCraEditor={resetRhCraEditor}
               requests={requests}
               cancellingRequestId={cancellingRequestId}
               onCancelRequest={handleCancelRequest}
@@ -2085,10 +1939,10 @@ export default function RhWorkspace({
       </div>
 
       <Dialog
-        open={requestDialogOpen}
+        open={requestForm.open}
         onOpenChange={(open) => {
-          setRequestDialogOpen(open);
-          if (!open) resetRequestDialog();
+          requestForm.setOpen(open);
+          if (!open) requestForm.reset();
         }}
       >
         <DialogContent className="sm:max-w-xl">
@@ -2103,7 +1957,7 @@ export default function RhWorkspace({
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
                 <label className="text-sm font-medium">Collaborateur</label>
-                <select value={requestEmployeeId} onChange={(event) => setRequestEmployeeId(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm">
+                <select value={requestForm.employeeId} onChange={(event) => requestForm.setEmployeeId(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm">
                   <option value="">Choisir un collaborateur</option>
                   {employees.map((employee) => (
                     <option key={employee.id} value={employee.id}>{employee.full_name ?? employee.email}</option>
@@ -2112,9 +1966,9 @@ export default function RhWorkspace({
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Type de document</label>
-                <select value={requestDocumentTypeId} onChange={(event) => setRequestDocumentTypeId(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm">
+                <select value={requestForm.documentTypeId} onChange={(event) => requestForm.setDocumentTypeId(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm">
                   <option value="">Choisir un type</option>
-                  {requestableTypesForEmployee.map((documentType) => (
+                  {requestForm.requestableTypes.map((documentType) => (
                     <option key={documentType.id} value={documentType.id}>{documentType.label}</option>
                   ))}
                 </select>
@@ -2124,51 +1978,51 @@ export default function RhWorkspace({
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
                 <label className="text-sm font-medium">Echeance</label>
-                <input type="date" value={requestDueAt} onChange={(event) => setRequestDueAt(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
+                <input type="date" value={requestForm.dueAt} onChange={(event) => requestForm.setDueAt(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">
-                  Periode {selectedRequestType?.requiresPeriod ? "(obligatoire)" : "(optionnelle)"}
+                  Periode {requestForm.selectedType?.requiresPeriod ? "(obligatoire)" : "(optionnelle)"}
                 </label>
-                <input type="month" value={requestPeriodMonth} onChange={(event) => setRequestPeriodMonth(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
+                <input type="month" value={requestForm.periodMonth} onChange={(event) => requestForm.setPeriodMonth(event.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
               </div>
             </div>
 
             <div className="space-y-1">
               <label className="text-sm font-medium">Note</label>
-              <textarea value={requestNote} onChange={(event) => setRequestNote(event.target.value)} rows={4} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Message ou precision pour le collaborateur" />
+              <textarea value={requestForm.note} onChange={(event) => requestForm.setNote(event.target.value)} rows={4} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Message ou precision pour le collaborateur" />
             </div>
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => { setRequestDialogOpen(false); resetRequestDialog(); }}>
+            <Button type="button" variant="outline" onClick={() => { requestForm.setOpen(false); requestForm.reset(); }}>
               Annuler
             </Button>
-            <Button type="button" onClick={() => void handleCreateRequest()} disabled={creatingRequest}>
-              {creatingRequest ? "Creation..." : "Creer la demande"}
+            <Button type="button" onClick={() => void handleCreateRequest()} disabled={requestForm.creating}>
+              {requestForm.creating ? "Creation..." : "Creer la demande"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <RhBatchUploadDialog
-        open={rhBatchDialogOpen}
+        open={batchForm.open}
         onOpenChange={(open) => {
-          setRhBatchDialogOpen(open);
-          if (!open) resetRhBatchDialog();
+          batchForm.setOpen(open);
+          if (!open) batchForm.reset();
         }}
-        rows={rhBatchRows}
+        rows={batchForm.rows}
         employees={employees}
         documentTypes={rhUploadableTypes}
-        defaultDocumentTypeId={rhBatchDefaultTypeId}
-        onDefaultDocumentTypeChange={handleRhBatchDefaultTypeChange}
-        onFilesSelected={handleRhBatchFilesSelected}
-        onRowChange={handleRhBatchRowChange}
-        onRemoveRow={handleRhBatchRemoveRow}
+        defaultDocumentTypeId={batchForm.defaultTypeId}
+        onDefaultDocumentTypeChange={batchForm.handleDefaultTypeChange}
+        onFilesSelected={batchForm.handleFilesSelected}
+        onRowChange={batchForm.handleRowChange}
+        onRemoveRow={batchForm.handleRemoveRow}
         allowedTypeIdsForEmployee={allowedTypeIdsForEmployee}
         isDuplicate={isRhBatchRowDuplicate}
         onSubmit={handleRhBatchUpload}
-        uploading={uploadingRhBatch}
+        uploading={batchForm.uploading}
       />
 
       {loading && <DashboardLoadingOverlay message="Chargement des donnees..." />}

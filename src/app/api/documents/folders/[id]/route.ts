@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 
 import {
+  collectSubtreeFolderIds,
   canManageOwner,
   getAuthorizedDocumentsContext,
   MAX_FOLDER_NAME_LENGTH,
+  type FolderNode,
 } from "@/app/api/documents/_shared";
 
 type RouteContext = {
@@ -14,34 +16,6 @@ type UpdateFolderPayload = {
   name?: unknown;
 };
 
-type FolderNode = {
-  id: string;
-  parent_id: string | null;
-};
-
-function collectSubtreeFolderIds(folderId: string, folders: FolderNode[]) {
-  const childrenByParent = new Map<string, string[]>();
-  for (const folder of folders) {
-    const parentId = folder.parent_id ?? "__root__";
-    const children = childrenByParent.get(parentId) ?? [];
-    children.push(folder.id);
-    childrenByParent.set(parentId, children);
-  }
-
-  const visited = new Set<string>();
-  const queue = [folderId];
-  while (queue.length) {
-    const current = queue.shift();
-    if (!current || visited.has(current)) continue;
-    visited.add(current);
-    const children = childrenByParent.get(current) ?? [];
-    for (const childId of children) {
-      queue.push(childId);
-    }
-  }
-
-  return Array.from(visited);
-}
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {

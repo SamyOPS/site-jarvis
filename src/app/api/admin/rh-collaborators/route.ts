@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 
-import {
-  getAccessTokenFromRequest,
-  getAuthorizedActor,
-  isAuthorizedActorError,
-} from "@/lib/server-supabase";
+import { ApiError, withActor } from "@/lib/api-handler";
+
+const ADMIN_SESSION = { missingSession: "Session admin manquante." };
 
 type AssignmentPayload = {
   rhId?: unknown;
@@ -31,19 +29,9 @@ function normalizeRestrictions(value: unknown): Record<string, string[]> {
   return result;
 }
 
-export async function GET(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session admin manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient } = authorized;
+export const GET = withActor(
+  ["admin"],
+  async ({ adminClient }) => {
 
     const [
       { data: rhProfiles, error: rhError },
@@ -116,34 +104,20 @@ export async function GET(request: Request) {
       assignments: assignmentsByRh,
       restrictions: restrictionsByRh,
     });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
+  },
+  ADMIN_SESSION,
+);
 
-export async function PUT(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session admin manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient } = authorized;
+export const PUT = withActor(
+  ["admin"],
+  async ({ adminClient, request }) => {
     const payload = (await request.json().catch(() => null)) as AssignmentPayload | null;
     const rhId = String(payload?.rhId ?? "").trim();
     const employeeIds = normalizeStringArray(payload?.employeeIds);
     const restrictions = normalizeRestrictions(payload?.restrictions);
 
     if (!rhId) {
-      return NextResponse.json({ error: "RH invalide." }, { status: 400 });
+      throw new ApiError("RH invalide.", 400);
     }
 
     const [{ data: rhProfile, error: rhError }, { data: employeeProfiles, error: employeesError }] =
@@ -169,14 +143,14 @@ export async function PUT(request: Request) {
     }
 
     if (employeesError) {
-      return NextResponse.json({ error: employeesError.message }, { status: 400 });
+      throw new ApiError(employeesError.message, 400);
     }
 
     const invalidEmployees =
       (employeeProfiles ?? []).some((profile) => profile.role !== "salarie") ||
       (employeeProfiles ?? []).length !== employeeIds.length;
     if (invalidEmployees) {
-      return NextResponse.json({ error: "Liste de collaborateurs invalide." }, { status: 400 });
+      throw new ApiError("Liste de collaborateurs invalide.", 400);
     }
 
     // Validate any document type ids referenced in the restrictions: they must exist and be active.
@@ -190,12 +164,12 @@ export async function PUT(request: Request) {
         .in("id", requestedTypeIds)
         .eq("active", true);
       if (typeError) {
-        return NextResponse.json({ error: typeError.message }, { status: 400 });
+        throw new ApiError(typeError.message, 400);
       }
       const validTypeIds = new Set((typeRows ?? []).map((row) => row.id));
       const hasInvalidType = requestedTypeIds.some((id) => !validTypeIds.has(id));
       if (hasInvalidType) {
-        return NextResponse.json({ error: "Type de document invalide." }, { status: 400 });
+        throw new ApiError("Type de document invalide.", 400);
       }
     }
 
@@ -211,7 +185,7 @@ export async function PUT(request: Request) {
       .select("employee_id,allowed_document_type_ids")
       .eq("rh_id", rhId);
     if (existingError) {
-      return NextResponse.json({ error: existingError.message }, { status: 400 });
+      throw new ApiError(existingError.message, 400);
     }
 
     const existingByEmployee = new Map(
@@ -235,7 +209,7 @@ export async function PUT(request: Request) {
         .eq("rh_id", rhId)
         .in("employee_id", removedEmployeeIds);
       if (removeError) {
-        return NextResponse.json({ error: removeError.message }, { status: 400 });
+        throw new ApiError(removeError.message, 400);
       }
     }
 
@@ -277,7 +251,7 @@ export async function PUT(request: Request) {
         .eq("rh_id", rhId)
         .eq("employee_id", employeeId);
       if (updateError) {
-        return NextResponse.json({ error: updateError.message }, { status: 400 });
+        throw new ApiError(updateError.message, 400);
       }
     }
 
@@ -286,15 +260,11 @@ export async function PUT(request: Request) {
         .from("rh_employee_assignments")
         .insert(rowsToInsert);
       if (insertError) {
-        return NextResponse.json({ error: insertError.message }, { status: 400 });
+        throw new ApiError(insertError.message, 400);
       }
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
+  },
+  ADMIN_SESSION,
+);

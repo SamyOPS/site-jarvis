@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { canManageOwner, getAuthorizedDocumentsContext } from "@/app/api/documents/_shared";
+import {
+  canManageOwner,
+  collectSubtreeFolderIds,
+  getAuthorizedDocumentsContext,
+  type FolderNode,
+} from "@/app/api/documents/_shared";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
-};
-
-type FolderNode = {
-  id: string;
-  parent_id: string | null;
 };
 
 function chunkArray<T>(items: T[], size: number) {
@@ -19,32 +19,6 @@ function chunkArray<T>(items: T[], size: number) {
   return chunks;
 }
 
-function collectSubtree(folderId: string, folders: FolderNode[]) {
-  const childrenByParent = new Map<string, string[]>();
-  for (const folder of folders) {
-    const parentId = folder.parent_id ?? "__root__";
-    const list = childrenByParent.get(parentId) ?? [];
-    list.push(folder.id);
-    childrenByParent.set(parentId, list);
-  }
-
-  const depths = new Map<string, number>();
-  const stack: Array<{ id: string; depth: number }> = [{ id: folderId, depth: 0 }];
-  while (stack.length) {
-    const current = stack.pop();
-    if (!current) continue;
-    if (depths.has(current.id)) continue;
-    depths.set(current.id, current.depth);
-    const children = childrenByParent.get(current.id) ?? [];
-    for (const childId of children) {
-      stack.push({ id: childId, depth: current.depth + 1 });
-    }
-  }
-
-  return Array.from(depths.entries())
-    .sort((left, right) => right[1] - left[1])
-    .map(([id]) => id);
-}
 
 export async function DELETE(request: Request, context: RouteContext) {
   try {
@@ -88,7 +62,7 @@ export async function DELETE(request: Request, context: RouteContext) {
       return NextResponse.json({ error: allFoldersError.message }, { status: 400 });
     }
 
-    const subtreeFolderIds = collectSubtree(folderId, (allFolders ?? []) as FolderNode[]);
+    const subtreeFolderIds = collectSubtreeFolderIds(folderId, (allFolders ?? []) as FolderNode[], { deepestFirst: true });
     if (!subtreeFolderIds.length) {
       return NextResponse.json({ error: "Sous-arbre dossier introuvable." }, { status: 400 });
     }

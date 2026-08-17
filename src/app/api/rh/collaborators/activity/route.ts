@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { ApiError, withActor } from "@/lib/api-handler";
+import { RH_ASSIGNMENTS_UNAVAILABLE } from "@/lib/rh-access";
 
 type ActivityRow = {
   userId: string;
@@ -13,6 +14,13 @@ type ActivityRow = {
 export const GET = withActor(
   ["rh", "admin"],
   async ({ adminClient, profile }) => {
+    // Un admin n'a aucune affectation : filtrer sur `rh_id = <admin>` ne remontait rien et
+    // la route lui repondait `items: []`. Partout ailleurs (assertRhAccess, canManageOwner,
+    // listAssignedEmployeeIds, billing-profiles) un admin est traite comme non restreint ;
+    // cette route et `collaborators/visibility` etaient les deux seules exceptions.
+    // Sans effet visible aujourd'hui : l'UI RH refuse les admins (rh-workspace.tsx).
+    const isUnrestricted = profile.role === "admin";
+
     const assignmentsRes = await adminClient
       .from("rh_employee_assignments")
       .select("employee_id")
@@ -21,10 +29,10 @@ export const GET = withActor(
     const assignmentsTableMissing =
       !!assignmentsRes.error &&
       /rh_employee_assignments/i.test(assignmentsRes.error.message ?? "");
-    if (assignmentsTableMissing) {
-      throw new ApiError("Controle des affectations RH indisponible.", 503);
+    if (assignmentsTableMissing && !isUnrestricted) {
+      throw new ApiError(RH_ASSIGNMENTS_UNAVAILABLE, 503);
     }
-    if (assignmentsRes.error) {
+    if (assignmentsRes.error && !isUnrestricted) {
       throw new ApiError(assignmentsRes.error.message, 400);
     }
 
@@ -32,7 +40,7 @@ export const GET = withActor(
       new Set((assignmentsRes.data ?? []).map((row) => row.employee_id).filter(Boolean)),
     );
 
-    if (!allowedEmployeeIds.length) {
+    if (!isUnrestricted && !allowedEmployeeIds.length) {
       return NextResponse.json({ items: [] });
     }
 
@@ -46,7 +54,7 @@ export const GET = withActor(
 
     const allowedSet = new Set(allowedEmployeeIds);
     const rows: ActivityRow[] = (data.users ?? [])
-      .filter((user) => allowedSet.has(user.id))
+      .filter((user) => isUnrestricted || allowedSet.has(user.id))
       .map((user) => ({
         userId: user.id,
         lastSignInAt: user.last_sign_in_at ?? null,

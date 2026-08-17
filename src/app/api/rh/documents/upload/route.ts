@@ -6,25 +6,19 @@ import {
   validateDocumentFile,
 } from "@/lib/document-storage";
 import { notifyEmployeeOfDocument } from "@/lib/email";
-import { canRhAccessEmployee } from "@/lib/rh-access";
+import { assertRhAccess } from "@/lib/rh-access";
+import { ApiError, withActor } from "@/lib/api-handler";
 import {
-  getAccessTokenFromRequest,
-  getAuthorizedActor,
-  isAuthorizedActorError,
-} from "@/lib/server-supabase";
+  assertPeriodProvided,
+  assertUploaderRole,
+  loadActiveDocumentType,
+} from "@/lib/document-types";
 
-export async function POST(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session RH manquante." }, { status: 401 });
-    }
+const RH_SESSION = { missingSession: "Session RH manquante." };
 
-    const authorized = await getAuthorizedActor(accessToken, ["rh", "admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-    const { adminClient, user, profile: actorProfile } = authorized;
+export const POST = withActor(
+  ["rh", "admin"],
+  async ({ adminClient, user, profile: actorProfile, request }) => {
 
     const formData = await request.formData();
     const requestedEmployeeId = String(formData.get("employeeId") ?? "");
@@ -33,12 +27,12 @@ export async function POST(request: Request) {
     const file = formData.get("file");
 
     if (!documentTypeId || !(file instanceof File)) {
-      return NextResponse.json({ error: "Parametres incomplets pour le depot RH." }, { status: 400 });
+      throw new ApiError("Parametres incomplets pour le depot RH.", 400);
     }
 
     const fileValidationError = validateDocumentFile(file);
     if (fileValidationError) {
-      return NextResponse.json({ error: fileValidationError }, { status: 400 });
+      throw new ApiError(fileValidationError, 400);
     }
 
     const periodMonth = periodMonthValue ? `${periodMonthValue}-01` : null;
@@ -53,37 +47,26 @@ export async function POST(request: Request) {
         .single();
 
       if (employeeError || !employeeProfile || employeeProfile.role !== "salarie") {
-        return NextResponse.json({ error: "Collaborateur invalide." }, { status: 400 });
+        throw new ApiError("Collaborateur invalide.", 400);
       }
-      if (actorProfile.role !== "admin") {
-        const access = await canRhAccessEmployee(adminClient, actorProfile.id, employeeProfile.id, documentTypeId);
-        if (!access.allowed) {
-          if (access.error) {
-            return NextResponse.json({ error: access.error }, { status: 400 });
-          }
-          return NextResponse.json({ error: "Collaborateur ou type de document non autorise pour ce RH." }, { status: 403 });
-        }
-      }
+      await assertRhAccess(
+        adminClient,
+        { id: actorProfile.id, role: actorProfile.role },
+        employeeProfile.id,
+        documentTypeId,
+      );
 
       employeeId = employeeProfile.id;
       hasSelectedEmployee = true;
     }
 
-    const { data: documentType, error: typeError } = await adminClient
-      .from("document_types")
-      .select("id,label,requires_period,allowed_uploader_roles,active")
-      .eq("id", documentTypeId)
-      .single();
-
-    if (typeError || !documentType || documentType.active !== true) {
-      return NextResponse.json({ error: "Type de document introuvable." }, { status: 400 });
-    }
-    if (documentType.requires_period && !periodMonth) {
-      return NextResponse.json({ error: "Ce type de document demande une periode." }, { status: 400 });
-    }
-    if (Array.isArray(documentType.allowed_uploader_roles) && documentType.allowed_uploader_roles.length > 0 && !documentType.allowed_uploader_roles.includes("rh")) {
-      return NextResponse.json({ error: "Le RH ne peut pas deposer ce type de document." }, { status: 403 });
-    }
+    const documentType = await loadActiveDocumentType(
+      adminClient,
+      { id: documentTypeId },
+      "Type de document introuvable.",
+    );
+    assertPeriodProvided(documentType, periodMonth);
+    assertUploaderRole(documentType, "rh", "Le RH ne peut pas deposer ce type de document.");
 
     const storageBucket = "employee-documents";
     const storagePath = buildEmployeeDocumentPath({
@@ -100,7 +83,7 @@ export async function POST(request: Request) {
     });
 
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 400 });
+      throw new ApiError(uploadError.message, 400);
     }
 
     const reviewedAt = new Date().toISOString();
@@ -128,7 +111,7 @@ export async function POST(request: Request) {
 
     if (insertError || !insertedDocument) {
       await adminClient.storage.from(storageBucket).remove([storagePath]);
-      return NextResponse.json({ error: insertError?.message ?? "Insertion du document RH impossible." }, { status: 400 });
+      throw new ApiError(insertError?.message ?? "Insertion du document RH impossible.", 400);
     }
 
     let requestWithSamePeriod: { id: string } | null = null;
@@ -197,29 +180,19 @@ export async function POST(request: Request) {
         ? { warning: "Le document RH a ete depose, mais le suivi n'est pas complet." }
         : {}),
     });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  RH_SESSION,
+);
 
-export async function DELETE(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session RH manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["rh", "admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-    const { adminClient, user, profile: actorProfile } = authorized;
+export const DELETE = withActor(
+  ["rh", "admin"],
+  async ({ adminClient, user, profile: actorProfile, request }) => {
 
     const body = (await request.json().catch(() => null)) as { documentId?: string; permanent?: boolean } | null;
     const documentId = body?.documentId ?? "";
     const permanent = body?.permanent === true;
     if (!documentId) {
-      return NextResponse.json({ error: "Document RH introuvable." }, { status: 400 });
+      throw new ApiError("Document RH introuvable.", 400);
     }
 
     const { data: documentRow, error: documentError } = await adminClient
@@ -229,23 +202,21 @@ export async function DELETE(request: Request) {
       .single();
 
     if (documentError || !documentRow) {
-      return NextResponse.json({ error: documentError?.message ?? "Document introuvable." }, { status: 404 });
+      throw new ApiError(documentError?.message ?? "Document introuvable.", 404);
     }
     if (documentRow.uploader_role !== "rh") {
-      return NextResponse.json({ error: "Seuls les documents RH peuvent etre supprimes ici." }, { status: 403 });
+      throw new ApiError("Seuls les documents RH peuvent etre supprimes ici.", 403);
     }
     if (actorProfile.role !== "admin" && documentRow.uploaded_by !== user.id) {
-      return NextResponse.json({ error: "Tu ne peux supprimer que tes propres documents RH." }, { status: 403 });
+      throw new ApiError("Tu ne peux supprimer que tes propres documents RH.", 403);
     }
-    if (actorProfile.role !== "admin") {
-      const access = await canRhAccessEmployee(adminClient, actorProfile.id, documentRow.employee_id ?? "", documentRow.document_type_id ?? undefined);
-      if (!access.allowed) {
-        if (access.error) {
-          return NextResponse.json({ error: access.error }, { status: 400 });
-        }
-        return NextResponse.json({ error: "Ce document n'appartient pas a un collaborateur autorise." }, { status: 403 });
-      }
-    }
+    await assertRhAccess(
+      adminClient,
+      { id: actorProfile.id, role: actorProfile.role },
+      documentRow.employee_id ?? "",
+      documentRow.document_type_id ?? undefined,
+      "Ce document n'appartient pas a un collaborateur autorise.",
+    );
 
     const now = new Date().toISOString();
     const { data: matchingRequests } = await adminClient
@@ -267,7 +238,7 @@ export async function DELETE(request: Request) {
         .update({ deleted_at: now, updated_at: now })
         .eq("id", documentId);
       if (documentSoftDeleteError) {
-        return NextResponse.json({ error: documentSoftDeleteError.message }, { status: 400 });
+        throw new ApiError(documentSoftDeleteError.message, 400);
       }
       // Si le document est un CRA, casser le lien et remettre en draft pour permettre une recréation.
       const { error: craResetError } = await adminClient
@@ -275,7 +246,7 @@ export async function DELETE(request: Request) {
         .update({ status: "draft", employee_document_id: null, updated_at: now })
         .eq("employee_document_id", documentId);
       if (craResetError) {
-        return NextResponse.json({ error: craResetError.message }, { status: 400 });
+        throw new ApiError(craResetError.message, 400);
       }
       if (matchingRequest) {
         const { error: requestUpdateError } = await adminClient
@@ -284,21 +255,18 @@ export async function DELETE(request: Request) {
           .eq("id", matchingRequest.id);
 
         if (requestUpdateError) {
-          return NextResponse.json({ error: requestUpdateError.message }, { status: 400 });
+          throw new ApiError(requestUpdateError.message, 400);
         }
       }
       return NextResponse.json({ success: true, deleted: true, permanent: false });
     }
     if (!documentRow.deleted_at) {
-      return NextResponse.json(
-        { error: "Le document doit etre dans la corbeille avant suppression definitive." },
-        { status: 400 },
-      );
+      throw new ApiError("Le document doit etre dans la corbeille avant suppression definitive.", 400);
     }
 
     const { error: eventsDeleteError } = await adminClient.from("document_events").delete().eq("document_id", documentId);
     if (eventsDeleteError) {
-      return NextResponse.json({ error: eventsDeleteError.message }, { status: 400 });
+      throw new ApiError(eventsDeleteError.message, 400);
     }
 
     // Casser le lien dans cra_records avant de hard-delete, sinon FK orpheline ou reset bloqué.
@@ -307,12 +275,12 @@ export async function DELETE(request: Request) {
       .update({ status: "draft", employee_document_id: null, updated_at: now })
       .eq("employee_document_id", documentId);
     if (craUnlinkError) {
-      return NextResponse.json({ error: craUnlinkError.message }, { status: 400 });
+      throw new ApiError(craUnlinkError.message, 400);
     }
 
     const { error: documentDeleteError } = await adminClient.from("employee_documents").delete().eq("id", documentId);
     if (documentDeleteError) {
-      return NextResponse.json({ error: documentDeleteError.message }, { status: 400 });
+      throw new ApiError(documentDeleteError.message, 400);
     }
 
     if (matchingRequest) {
@@ -322,7 +290,7 @@ export async function DELETE(request: Request) {
         .eq("id", matchingRequest.id);
 
       if (requestUpdateError) {
-        return NextResponse.json({ error: requestUpdateError.message }, { status: 400 });
+        throw new ApiError(requestUpdateError.message, 400);
       }
     }
 
@@ -331,28 +299,18 @@ export async function DELETE(request: Request) {
     }
 
     return NextResponse.json({ success: true, deleted: true, permanent: true });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  RH_SESSION,
+);
 
-export async function PATCH(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session RH manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["rh", "admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-    const { adminClient, user, profile: actorProfile } = authorized;
+export const PATCH = withActor(
+  ["rh", "admin"],
+  async ({ adminClient, user, profile: actorProfile, request }) => {
 
     const body = (await request.json().catch(() => null)) as { documentId?: string } | null;
     const documentId = body?.documentId ?? "";
     if (!documentId) {
-      return NextResponse.json({ error: "Document RH introuvable." }, { status: 400 });
+      throw new ApiError("Document RH introuvable.", 400);
     }
 
     const { data: documentRow, error: documentError } = await adminClient
@@ -361,34 +319,31 @@ export async function PATCH(request: Request) {
       .eq("id", documentId)
       .single();
     if (documentError || !documentRow) {
-      return NextResponse.json({ error: documentError?.message ?? "Document introuvable." }, { status: 404 });
+      throw new ApiError(documentError?.message ?? "Document introuvable.", 404);
     }
     if (documentRow.uploader_role !== "rh") {
-      return NextResponse.json({ error: "Seuls les documents RH peuvent etre restaures ici." }, { status: 403 });
+      throw new ApiError("Seuls les documents RH peuvent etre restaures ici.", 403);
     }
     if (actorProfile.role !== "admin" && documentRow.uploaded_by !== user.id) {
-      return NextResponse.json({ error: "Tu ne peux restaurer que tes propres documents RH." }, { status: 403 });
+      throw new ApiError("Tu ne peux restaurer que tes propres documents RH.", 403);
     }
-    if (actorProfile.role !== "admin") {
-      const access = await canRhAccessEmployee(adminClient, actorProfile.id, documentRow.employee_id ?? "", documentRow.document_type_id ?? undefined);
-      if (!access.allowed) {
-        if (access.error) {
-          return NextResponse.json({ error: access.error }, { status: 400 });
-        }
-        return NextResponse.json({ error: "Ce document n'appartient pas a un collaborateur autorise." }, { status: 403 });
-      }
-    }
+    await assertRhAccess(
+      adminClient,
+      { id: actorProfile.id, role: actorProfile.role },
+      documentRow.employee_id ?? "",
+      documentRow.document_type_id ?? undefined,
+      "Ce document n'appartient pas a un collaborateur autorise.",
+    );
 
     const { error: restoreError } = await adminClient
       .from("employee_documents")
       .update({ deleted_at: null, updated_at: new Date().toISOString() })
       .eq("id", documentId);
     if (restoreError) {
-      return NextResponse.json({ error: restoreError.message }, { status: 400 });
+      throw new ApiError(restoreError.message, 400);
     }
 
     return NextResponse.json({ success: true, restored: true });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  RH_SESSION,
+);

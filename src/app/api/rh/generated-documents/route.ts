@@ -1,13 +1,27 @@
 import { NextResponse } from "next/server";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { canManageOwner, getAuthorizedDocumentsContext } from "@/app/api/documents/_shared";
+import { canManageOwner } from "@/app/api/documents/_shared";
+import type { InvoiceLineInput } from "@/features/dashboard/salarie/invoice-totals";
+import {
+  DAY_UNIT,
+  parseCraEntries,
+  sumAbsenceDays,
+  type CraEntryInput,
+  type ParsedCraEntry,
+} from "@/lib/cra-entries";
 import { buildCraPdfBuffer } from "@/lib/cra-pdf";
+import {
+  buildInvoiceLinesFromEntries,
+  loadEmployeeMissions,
+  syncCraMissionLines,
+} from "@/lib/missions";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { notifyEmployeeOfDocument } from "@/lib/email";
 import { buildInvoicePdfBuffer } from "@/lib/invoice-pdf";
-import { canRhAccessEmployee } from "@/lib/rh-access";
+import { assertRhAccess } from "@/lib/rh-access";
+import { ApiError, withActor } from "@/lib/api-handler";
+import { readPdfLogoBase64 } from "@/lib/pdf-logo";
 import { toDocumentDate, toIsoMonthStart } from "@/lib/server-supabase";
 
 async function notifyEmployeeForGeneratedDocument(
@@ -53,6 +67,12 @@ type GenerateEntryPayload = {
   workDate?: unknown;
   dayQuantity?: unknown;
   label?: unknown;
+  /** Entreprise cliente de la ligne. Absent = CRA mono-entreprise, comme avant. */
+  missionId?: unknown;
+  /** Type d'absence, exclusif avec `missionId`. */
+  absenceType?: unknown;
+  /** Quantite en heures, pour une mission facturee a l'heure. */
+  hours?: unknown;
 };
 
 function parsePositiveInteger(value: unknown, field: string) {
@@ -63,8 +83,15 @@ function parsePositiveInteger(value: unknown, field: string) {
   return parsed;
 }
 
-function buildWorkEntries(periodMonth: string, workedDaysCount: number) {
-  const entries: Array<{ workDate: string; dayQuantity: number; label: string | null }> = [];
+/**
+ * Repartit un simple nombre de jours sur les jours ouvres du mois.
+ *
+ * Chemin historique : le RH donne « 18 jours » sans pointer de calendrier. Les lignes
+ * produites n'ont ni mission ni absence — elles retombent donc sur le rendu mono-entreprise
+ * du PDF, exactement comme avant l'alignement sur le chemin salarie.
+ */
+function buildWorkEntries(periodMonth: string, workedDaysCount: number): ParsedCraEntry[] {
+  const entries: ParsedCraEntry[] = [];
   const monthStart = new Date(`${periodMonth}T00:00:00.000Z`);
   const cursor = new Date(monthStart);
 
@@ -75,8 +102,11 @@ function buildWorkEntries(periodMonth: string, workedDaysCount: number) {
     const dayOfWeek = cursor.getUTCDay();
     if (dayOfWeek !== 0 && dayOfWeek !== 6) {
       entries.push({
-        workDate: cursor.toISOString().slice(0, 10),
-        dayQuantity: 1,
+        work_date: cursor.toISOString().slice(0, 10),
+        mission_id: null,
+        absence_type: null,
+        day_quantity: 1,
+        hours: null,
         label: null,
       });
     }
@@ -97,18 +127,113 @@ function parseAmountAlreadyPaid(value: unknown) {
   return parsed;
 }
 
-export async function POST(request: Request) {
-  try {
-    const auth = await getAuthorizedDocumentsContext(request);
-    if (auth instanceof NextResponse) return auth;
-    if (!["rh", "admin"].includes(auth.actorRole ?? "")) {
-      return NextResponse.json({ error: "Acces refuse." }, { status: 403 });
+type GeneratedDocumentUpsert = {
+  employeeId: string;
+  actorId: string;
+  documentTypeId: string;
+  periodStart: string;
+  documentDate: string;
+  storageBucket: string;
+  storagePath: string;
+  fileName: string;
+  sizeBytes: number;
+  now: string;
+  /** « Genere par RH » au masculin pour le CRA, au feminin pour la facture. */
+  reviewComment: string;
+  alreadyValidatedMessage: string;
+  insertErrorMessage: string;
+};
+
+/**
+ * Cree ou remplace le document genere de la periode, et rend son identifiant.
+ *
+ * Ce bloc etait ecrit deux fois — une fois pour le CRA, une fois pour la facture — a trois
+ * messages pres. Ce qui suit differe reellement entre les deux (mise a jour de
+ * `cra_records`, contenu de l'evenement journalise) reste chez l'appelant.
+ *
+ * `previousStoragePath` n'est renseigne que si un document existait : l'appelant s'en sert
+ * pour retirer l'ancien fichier, et le retirer alors qu'on vient d'inserer detruirait le
+ * fichier tout juste depose.
+ */
+async function upsertGeneratedDocument(
+  adminClient: SupabaseClient,
+  options: GeneratedDocumentUpsert,
+): Promise<{ documentId: string; previousStoragePath: string | null }> {
+  const { data: existingDocument } = await adminClient
+    .from("employee_documents")
+    .select("id,status,storage_path,deleted_at")
+    .eq("employee_id", options.employeeId)
+    .eq("document_type_id", options.documentTypeId)
+    .eq("period_month", options.periodStart)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const existing = existingDocument?.[0] ?? null;
+  if (existing?.status === "validated" && !existing?.deleted_at) {
+    throw new ApiError(options.alreadyValidatedMessage, 400);
+  }
+
+  const shared = {
+    uploaded_by: options.actorId,
+    uploader_role: "rh",
+    status: "validated",
+    reviewed_by: options.actorId,
+    reviewed_at: options.now,
+    review_comment: options.reviewComment,
+    document_date: options.documentDate,
+    storage_bucket: options.storageBucket,
+    storage_path: options.storagePath,
+    file_name: options.fileName,
+    mime_type: "application/pdf",
+    size_bytes: options.sizeBytes,
+    source_kind: "generated",
+  };
+
+  if (existing?.id) {
+    const { error: updateDocumentError } = await adminClient
+      .from("employee_documents")
+      .update({ ...shared, deleted_at: null, updated_at: options.now })
+      .eq("id", existing.id);
+    if (updateDocumentError) {
+      throw new ApiError(updateDocumentError.message, 400);
     }
+    return { documentId: existing.id, previousStoragePath: existing.storage_path ?? null };
+  }
+
+  const { data: insertedDocument, error: insertDocumentError } = await adminClient
+    .from("employee_documents")
+    .insert({
+      ...shared,
+      employee_id: options.employeeId,
+      document_type_id: options.documentTypeId,
+      period_month: options.periodStart,
+    })
+    .select("id")
+    .single();
+  if (insertDocumentError || !insertedDocument) {
+    throw new ApiError(insertDocumentError?.message ?? options.insertErrorMessage, 400);
+  }
+  return { documentId: insertedDocument.id, previousStoragePath: null };
+}
+
+export const POST = withActor(
+  ["rh", "admin"],
+  async ({ adminClient, user, profile, request }) => {
+    // Reconstruit la forme attendue par le corps de la route, inchange : `canManageOwner`
+    // et les requetes ci-dessous parlent en `actorId` / `actorRole`.
+    const auth = { adminClient, actorId: user.id, actorRole: profile.role };
 
     const body = (await request.json().catch(() => null)) as GeneratePayload | null;
     const kind = String(body?.kind ?? "").trim() as GenerateKind;
     const employeeId = String(body?.employeeId ?? "").trim();
-    const billingProfileEmployeeId = String(body?.billingProfileEmployeeId ?? "").trim();
+    /**
+     * Le profil de facturation est par defaut CELUI DU COLLABORATEUR : c'est le seul cas
+     * qui a un sens metier. Le champ reste accepte pour ne pas casser un appelant existant,
+     * mais l'interface RH ne le renseigne plus — elle exposait un selecteur separe dont un
+     * effet reimposait de toute facon le profil du collaborateur choisi.
+     */
+    const billingProfileEmployeeId =
+      String(body?.billingProfileEmployeeId ?? "").trim() || employeeId;
     const periodMonthRaw = String(body?.periodMonth ?? "").trim();
     const notes = String(body?.notes ?? "").trim() || null;
     const discountGranted = body?.discountGranted === true;
@@ -117,64 +242,47 @@ export async function POST(request: Request) {
     try {
       amountAlreadyPaid = parseAmountAlreadyPaid(body?.amountAlreadyPaid);
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Montant deja paye invalide." }, { status: 400 });
+      throw new ApiError(error instanceof Error ? error.message : "Montant deja paye invalide.", 400);
     }
 
     if (!["cra", "facture"].includes(kind)) {
-      return NextResponse.json({ error: "Type de document invalide." }, { status: 400 });
+      throw new ApiError("Type de document invalide.", 400);
     }
     if (!employeeId) {
-      return NextResponse.json({ error: "Collaborateur requis." }, { status: 400 });
+      throw new ApiError("Collaborateur requis.", 400);
     }
-    if (!billingProfileEmployeeId) {
-      return NextResponse.json({ error: "Profil de facturation requis." }, { status: 400 });
-    }
+    // Plus de garde sur `billingProfileEmployeeId` : il retombe sur `employeeId`, deja verifie.
     if (!periodMonthRaw) {
-      return NextResponse.json({ error: "Periode requise." }, { status: 400 });
+      throw new ApiError("Periode requise.", 400);
     }
 
     let periodMonth: string;
     try {
       periodMonth = toIsoMonthStart(periodMonthRaw).slice(0, 7);
     } catch {
-      return NextResponse.json({ error: "Periode invalide." }, { status: 400 });
+      throw new ApiError("Periode invalide.", 400);
     }
 
     const rawEntries = Array.isArray(body?.entries) ? (body?.entries as GenerateEntryPayload[]) : [];
-    const entriesFromPayload = rawEntries
-      .map((entry) => ({
-        workDate: String(entry?.workDate ?? "").trim(),
-        dayQuantity: Number(entry?.dayQuantity ?? 0),
-        label: String(entry?.label ?? "").trim() || null,
-      }))
-      .filter(
-        (entry) =>
-          /^\d{4}-\d{2}-\d{2}$/.test(entry.workDate) &&
-          entry.workDate.startsWith(`${periodMonth}-`) &&
-          Number.isFinite(entry.dayQuantity) &&
-          entry.dayQuantity > 0,
-      );
 
-    let workedDaysCount =
-      entriesFromPayload.reduce((total, entry) => total + entry.dayQuantity, 0);
-    if (workedDaysCount <= 0) {
-      try {
-        workedDaysCount = parsePositiveInteger(body?.workedDaysCount, "jours travailles");
-      } catch (parseError) {
-        return NextResponse.json(
-          { error: parseError instanceof Error ? parseError.message : "Nombre de jours invalide." },
-          { status: 400 },
-        );
-      }
-    }
+    // Seule garde conservee de la version mono-entreprise : une ligne hors periode ne doit
+    // pas atterrir dans le CRA d'un autre mois. Tout le reste (quantites, unites, doublons,
+    // missions inconnues) est delegue plus bas a `parseCraEntries`, la meme validation que
+    // le chemin salarie. Ce filtrage silencieux etait auparavant applique aux quantites
+    // aussi : une ligne a zero disparaissait sans rien dire, elle donne desormais une erreur.
+    const entriesInPeriod = rawEntries.filter((entry) =>
+      String(entry?.workDate ?? "")
+        .trim()
+        .startsWith(`${periodMonth}-`),
+    );
 
     const canManageEmployee = await canManageOwner(auth, employeeId);
     if (!canManageEmployee) {
-      return NextResponse.json({ error: "Acces refuse." }, { status: 403 });
+      throw new ApiError("Acces refuse.", 403);
     }
     const canUseBillingProfile = await canManageOwner(auth, billingProfileEmployeeId);
     if (!canUseBillingProfile) {
-      return NextResponse.json({ error: "Acces refuse pour ce profil de facturation." }, { status: 403 });
+      throw new ApiError("Acces refuse pour ce profil de facturation.", 403);
     }
 
     // `canManageOwner` ne verifie que l'affectation, pas les types de documents autorises.
@@ -188,21 +296,13 @@ export async function POST(request: Request) {
         .maybeSingle();
 
       if (generatedType?.id) {
-        const access = await canRhAccessEmployee(
+        await assertRhAccess(
           auth.adminClient,
-          auth.actorId,
+          { id: auth.actorId, role: auth.actorRole },
           employeeId,
           generatedType.id,
+          "Type de document non autorise pour ce RH sur ce collaborateur.",
         );
-        if (!access.allowed) {
-          if (access.error) {
-            return NextResponse.json({ error: access.error }, { status: 400 });
-          }
-          return NextResponse.json(
-            { error: "Type de document non autorise pour ce RH sur ce collaborateur." },
-            { status: 403 },
-          );
-        }
       }
     }
 
@@ -213,27 +313,62 @@ export async function POST(request: Request) {
       .single();
 
     if (billingError || !billingProfile) {
-      return NextResponse.json({ error: billingError?.message ?? "Profil de facturation introuvable." }, { status: 400 });
+      throw new ApiError(billingError?.message ?? "Profil de facturation introuvable.", 400);
     }
 
     const dailyRate = Number(billingProfile.daily_rate ?? 0);
     if (!Number.isFinite(dailyRate) || dailyRate <= 0) {
-      return NextResponse.json({ error: "Le tarif journalier du profil est invalide." }, { status: 400 });
+      throw new ApiError("Le tarif journalier du profil est invalide.", 400);
     }
 
-    const entries =
-      entriesFromPayload.length > 0
-        ? entriesFromPayload
-        : buildWorkEntries(periodMonth, Math.max(1, Math.round(workedDaysCount)));
+    // Missions du COLLABORATEUR, pas du RH : ce sont ses entreprises clientes qui portent
+    // le tarif et l'unite de chaque ligne. Chargees apres le controle d'habilitation.
+    const { missions, units: missionUnits } = await loadEmployeeMissions(
+      auth.adminClient,
+      employeeId,
+    );
+
+    // `DAY_UNIT` en repli, et non l'unite du profil de facturation comme cote salarie : une
+    // ligne RH sans mission est une ligne du chemin historique, qui se saisit en journees.
+    let parsedEntries: ParsedCraEntry[];
+    try {
+      parsedEntries = parseCraEntries(entriesInPeriod as CraEntryInput[], missionUnits, DAY_UNIT);
+    } catch (parseError) {
+      throw new ApiError(
+        parseError instanceof Error ? parseError.message : "Lignes de CRA invalides.",
+        400,
+      );
+    }
+
+    // Les absences ne comptent pas comme des jours travailles, les missions horaires non plus.
+    let workedDaysCount = parsedEntries.reduce(
+      (total, entry) => total + (entry.absence_type ? 0 : Number(entry.day_quantity ?? 0)),
+      0,
+    );
+    const totalHours = parsedEntries.reduce((total, entry) => total + Number(entry.hours ?? 0), 0);
+
+    // Repli historique : sans aucune ligne exploitable, le RH peut encore donner un simple
+    // nombre de jours, que l'on repartit sur les jours ouvres. La condition porte sur les
+    // DEUX unites — un CRA entierement saisi a l'heure a bien zero jour, sans etre vide.
+    if (workedDaysCount <= 0 && totalHours <= 0) {
+      try {
+        workedDaysCount = parsePositiveInteger(body?.workedDaysCount, "jours travailles");
+      } catch (parseError) {
+        throw new ApiError(
+          parseError instanceof Error ? parseError.message : "Nombre de jours invalide.",
+          400,
+        );
+      }
+      parsedEntries = buildWorkEntries(periodMonth, Math.max(1, Math.round(workedDaysCount)));
+    }
+
+    const entries = parsedEntries;
     const now = new Date().toISOString();
     const documentDate = toDocumentDate();
     const storageBucket = "employee-documents";
 
     if (kind === "cra") {
-      const logoRgbBase64 = await readFile(
-        path.join(process.cwd(), "public", "logonoir-rgb120.b64"),
-        "utf8",
-      );
+      const logoRgbBase64 = await readPdfLogoBase64();
       const { data: documentType, error: typeError } = await auth.adminClient
         .from("document_types")
         .select("id,label,active")
@@ -241,7 +376,7 @@ export async function POST(request: Request) {
         .single();
 
       if (typeError || !documentType || !documentType.active) {
-        return NextResponse.json({ error: "Type CRA introuvable." }, { status: 400 });
+        throw new ApiError("Type CRA introuvable.", 400);
       }
 
       const periodStart = `${periodMonth}-01`;
@@ -253,7 +388,7 @@ export async function POST(request: Request) {
         .maybeSingle();
 
       if (existingCraError) {
-        return NextResponse.json({ error: existingCraError.message }, { status: 400 });
+        throw new ApiError(existingCraError.message, 400);
       }
 
       // Vérifie que le document lié au CRA "validé" est encore vivant. Sinon le CRA est orphelin et réutilisable.
@@ -268,7 +403,7 @@ export async function POST(request: Request) {
       }
 
       if (existingCra?.status === "validated" && existingCraDocumentAlive) {
-        return NextResponse.json({ error: "Un CRA valide existe deja pour cette periode." }, { status: 400 });
+        throw new ApiError("Un CRA valide existe deja pour cette periode.", 400);
       }
 
       let craId = existingCra?.id ?? null;
@@ -287,7 +422,7 @@ export async function POST(request: Request) {
           .select("id,pdf_version")
           .single();
         if (insertCraError || !insertedCra) {
-          return NextResponse.json({ error: insertCraError?.message ?? "Creation du CRA impossible." }, { status: 400 });
+          throw new ApiError(insertCraError?.message ?? "Creation du CRA impossible.", 400);
         }
         craId = insertedCra.id;
         pdfVersion = insertedCra.pdf_version;
@@ -303,7 +438,7 @@ export async function POST(request: Request) {
           })
           .eq("id", existingCra.id);
         if (updateCraError) {
-          return NextResponse.json({ error: updateCraError.message }, { status: 400 });
+          throw new ApiError(updateCraError.message, 400);
         }
       }
 
@@ -312,22 +447,32 @@ export async function POST(request: Request) {
         .delete()
         .eq("cra_id", craId);
       if (deleteEntriesError) {
-        return NextResponse.json({ error: deleteEntriesError.message }, { status: 400 });
+        throw new ApiError(deleteEntriesError.message, 400);
       }
 
       const { error: insertEntriesError } = await auth.adminClient
         .from("cra_entries")
-        .insert(
-          entries.map((entry) => ({
-            cra_id: craId,
-            work_date: entry.workDate,
-            day_quantity: entry.dayQuantity,
-            label: entry.label,
-          })),
-        );
+        .insert(entries.map((entry) => ({ cra_id: craId, ...entry })));
       if (insertEntriesError) {
-        return NextResponse.json({ error: insertEntriesError.message }, { status: 400 });
+        throw new ApiError(insertEntriesError.message, 400);
       }
+
+      // Recapitulatif par entreprise, fige au moment du CRA. Vide quand aucune ligne ne
+      // porte de mission : le PDF retombe alors sur son rendu mono-entreprise.
+      let missionLines: Awaited<ReturnType<typeof syncCraMissionLines>>;
+      try {
+        missionLines = await syncCraMissionLines(auth.adminClient, craId, entries, missions);
+      } catch (syncError) {
+        throw new ApiError(
+          syncError instanceof Error ? syncError.message : "Recapitulatif par entreprise impossible.",
+          400,
+        );
+      }
+
+      const companyByMissionId = new Map(
+        missions.map((mission) => [mission.id, mission.company_name]),
+      );
+      const absenceDays = sumAbsenceDays(entries);
 
       const nextPdfVersion = existingCra?.employee_document_id ? pdfVersion + 1 : pdfVersion;
       const fileName = `cra-${periodMonth}-v${nextPdfVersion}.pdf`;
@@ -355,12 +500,28 @@ export async function POST(request: Request) {
           bic: billingProfile.bic,
           dailyRate,
           workedDaysCount,
+          // Nul pour un CRA saisi en journees : la ligne d'heures du PDF reste alors absente.
+          workedHoursCount: totalHours,
+          paidLeaveDays: absenceDays.paid ?? 0,
+          sickLeaveDays: absenceDays.sick ?? 0,
+          exceptionalLeaveDays: absenceDays.exceptional ?? 0,
+          unpaidLeaveDays: absenceDays.unpaid ?? 0,
           periodMonth: periodStart,
           notes,
           entries: entries.map((entry) => ({
-            workDate: entry.workDate,
-            dayQuantity: entry.dayQuantity,
+            workDate: entry.work_date,
+            dayQuantity: Number(entry.day_quantity ?? 0),
             label: entry.label,
+            companyName: entry.mission_id
+              ? (companyByMissionId.get(entry.mission_id) ?? null)
+              : null,
+          })),
+          // Vide => rendu strictement identique a l'historique mono-entreprise.
+          companies: missionLines.map((line) => ({
+            companyName: line.company_name,
+            esnPartenaire: line.esn_partenaire,
+            quantity: Number(line.quantity ?? 0),
+            unit: line.rate_unit === "hour" ? ("hour" as const) : ("day" as const),
           })),
         },
         logoRgbBase64.trim(),
@@ -373,78 +534,26 @@ export async function POST(request: Request) {
           upsert: false,
         });
       if (uploadError) {
-        return NextResponse.json({ error: uploadError.message }, { status: 400 });
+        throw new ApiError(uploadError.message, 400);
       }
-
-      const { data: existingDocument } = await auth.adminClient
-        .from("employee_documents")
-        .select("id,status,storage_path,deleted_at")
-        .eq("employee_id", employeeId)
-        .eq("document_type_id", documentType.id)
-        .eq("period_month", periodStart)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      let documentId = existingDocument?.[0]?.id ?? null;
-      let previousStoragePath = existingDocument?.[0]?.storage_path ?? null;
-
-      if (existingDocument?.[0]?.status === "validated" && !existingDocument?.[0]?.deleted_at) {
-        return NextResponse.json({ error: "Le CRA de cette periode est deja valide." }, { status: 400 });
-      }
-
-      if (documentId) {
-        const { error: updateDocumentError } = await auth.adminClient
-          .from("employee_documents")
-          .update({
-            uploaded_by: auth.actorId,
-            uploader_role: "rh",
-            status: "validated",
-            reviewed_by: auth.actorId,
-            reviewed_at: now,
-            review_comment: "Genere par RH",
-            document_date: documentDate,
-            storage_bucket: storageBucket,
-            storage_path: storagePath,
-            file_name: fileName,
-            mime_type: "application/pdf",
-            size_bytes: pdfBuffer.byteLength,
-            source_kind: "generated",
-            deleted_at: null,
-            updated_at: now,
-          })
-          .eq("id", documentId);
-        if (updateDocumentError) {
-          return NextResponse.json({ error: updateDocumentError.message }, { status: 400 });
-        }
-      } else {
-        const { data: insertedDocument, error: insertDocumentError } = await auth.adminClient
-          .from("employee_documents")
-          .insert({
-            employee_id: employeeId,
-            uploaded_by: auth.actorId,
-            uploader_role: "rh",
-            document_type_id: documentType.id,
-            period_month: periodStart,
-            document_date: documentDate,
-            status: "validated",
-            reviewed_by: auth.actorId,
-            reviewed_at: now,
-            review_comment: "Genere par RH",
-            storage_bucket: storageBucket,
-            storage_path: storagePath,
-            file_name: fileName,
-            mime_type: "application/pdf",
-            size_bytes: pdfBuffer.byteLength,
-            source_kind: "generated",
-          })
-          .select("id")
-          .single();
-        if (insertDocumentError || !insertedDocument) {
-          return NextResponse.json({ error: insertDocumentError?.message ?? "Insertion du CRA impossible." }, { status: 400 });
-        }
-        documentId = insertedDocument.id;
-        previousStoragePath = null;
-      }
+      const { documentId, previousStoragePath } = await upsertGeneratedDocument(
+        auth.adminClient,
+        {
+          employeeId,
+          actorId: auth.actorId,
+          documentTypeId: documentType.id,
+          periodStart,
+          documentDate,
+          storageBucket,
+          storagePath,
+          fileName,
+          sizeBytes: pdfBuffer.byteLength,
+          now,
+          reviewComment: "Genere par RH",
+          alreadyValidatedMessage: "Le CRA de cette periode est deja valide.",
+          insertErrorMessage: "Insertion du CRA impossible.",
+        },
+      );
 
       await auth.adminClient
         .from("cra_records")
@@ -489,13 +598,32 @@ export async function POST(request: Request) {
       .eq("code", "facture")
       .single();
     if (typeError || !documentType || !documentType.active) {
-      return NextResponse.json({ error: "Type facture introuvable." }, { status: 400 });
+      throw new ApiError("Type facture introuvable.", 400);
     }
 
     const periodStart = `${periodMonth}-01`;
     const issueDate = new Date();
     const dueDate = new Date(issueDate);
     dueDate.setDate(dueDate.getDate() + 30);
+
+    // Une ligne par entreprise cliente, chacune dans son unite et avec son propre tarif —
+    // meme fonction que la facture du salarie, pour que le meme mois donne le meme montant
+    // quel que soit le cote qui l'emet.
+    //
+    // REPLI : quand aucune ligne ne porte de mission (CRA « n jours » du chemin historique,
+    // ou collaborateur sans mission enregistree), on retombe sur l'unique ligne construite
+    // depuis le profil de facturation, exactement comme avant.
+    const missionInvoiceLines = buildInvoiceLinesFromEntries(entries, missions);
+    const invoiceLines: InvoiceLineInput[] = missionInvoiceLines.length
+      ? missionInvoiceLines
+      : [
+          {
+            label: billingProfile.company_name ?? "Client",
+            quantity: workedDaysCount,
+            rate: dailyRate,
+            unit: "day" as const,
+          },
+        ];
 
     const fileName = `facture-${periodMonth}-${Date.now()}.pdf`;
     const storagePath = buildEmployeeDocumentPath({
@@ -520,17 +648,7 @@ export async function POST(request: Request) {
       iban: billingProfile.iban,
       bic: billingProfile.bic,
       periodMonth: periodStart,
-      // Le chemin RH reste mono-entreprise : il lit encore le profil de facturation plutot
-      // que les missions du collaborateur. Une seule ligne, donc, jusqu'a son alignement
-      // sur le chemin salarie.
-      lines: [
-        {
-          label: billingProfile.company_name ?? "Client",
-          quantity: workedDaysCount,
-          rate: dailyRate,
-          unit: "day" as const,
-        },
-      ],
+      lines: invoiceLines,
       discountGranted,
       vatEnabled,
       amountAlreadyPaid,
@@ -543,77 +661,26 @@ export async function POST(request: Request) {
         upsert: false,
       });
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 400 });
+      throw new ApiError(uploadError.message, 400);
     }
-
-    const { data: existingDocument } = await auth.adminClient
-      .from("employee_documents")
-      .select("id,status,storage_path,deleted_at")
-      .eq("employee_id", employeeId)
-      .eq("document_type_id", documentType.id)
-      .eq("period_month", periodStart)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (existingDocument?.[0]?.status === "validated" && !existingDocument?.[0]?.deleted_at) {
-      return NextResponse.json({ error: "La facture de cette periode est deja validee." }, { status: 400 });
-    }
-
-    let documentId = existingDocument?.[0]?.id ?? null;
-    const previousStoragePath = existingDocument?.[0]?.storage_path ?? null;
-
-    if (documentId) {
-      const { error: updateDocumentError } = await auth.adminClient
-        .from("employee_documents")
-        .update({
-          uploaded_by: auth.actorId,
-          uploader_role: "rh",
-          status: "validated",
-          reviewed_by: auth.actorId,
-          reviewed_at: now,
-          review_comment: "Generee par RH",
-          document_date: documentDate,
-          storage_bucket: storageBucket,
-          storage_path: storagePath,
-          file_name: fileName,
-          mime_type: "application/pdf",
-          size_bytes: pdfBuffer.byteLength,
-          source_kind: "generated",
-          deleted_at: null,
-          updated_at: now,
-        })
-        .eq("id", documentId);
-      if (updateDocumentError) {
-        return NextResponse.json({ error: updateDocumentError.message }, { status: 400 });
-      }
-    } else {
-      const { data: insertedDocument, error: insertDocumentError } = await auth.adminClient
-        .from("employee_documents")
-        .insert({
-          employee_id: employeeId,
-          uploaded_by: auth.actorId,
-          uploader_role: "rh",
-          document_type_id: documentType.id,
-          period_month: periodStart,
-          document_date: documentDate,
-          status: "validated",
-          reviewed_by: auth.actorId,
-          reviewed_at: now,
-          review_comment: "Generee par RH",
-          storage_bucket: storageBucket,
-          storage_path: storagePath,
-          file_name: fileName,
-          mime_type: "application/pdf",
-          size_bytes: pdfBuffer.byteLength,
-          source_kind: "generated",
-        })
-        .select("id")
-        .single();
-      if (insertDocumentError || !insertedDocument) {
-        return NextResponse.json({ error: insertDocumentError?.message ?? "Insertion de la facture impossible." }, { status: 400 });
-      }
-      documentId = insertedDocument.id;
-    }
+    const { documentId, previousStoragePath } = await upsertGeneratedDocument(
+      auth.adminClient,
+      {
+        employeeId,
+        actorId: auth.actorId,
+        documentTypeId: documentType.id,
+        periodStart,
+        documentDate,
+        storageBucket,
+        storagePath,
+        fileName,
+        sizeBytes: pdfBuffer.byteLength,
+        now,
+        reviewComment: "Generee par RH",
+        alreadyValidatedMessage: "La facture de cette periode est deja validee.",
+        insertErrorMessage: "Insertion de la facture impossible.",
+      },
+    );
 
     if (previousStoragePath && previousStoragePath !== storagePath) {
       await auth.adminClient.storage.from(storageBucket).remove([previousStoragePath]);
@@ -645,10 +712,6 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true, kind: "facture", documentId });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
+  },
+  { missingSession: "Session RH manquante." },
+)

@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 
 import { ApiError, withActor } from "@/lib/api-handler";
 import {
+  assertPeriodProvided,
+  assertUploaderRole,
+  loadActiveDocumentType,
+} from "@/lib/document-types";
+import {
   buildEmployeeDocumentPath,
   safeDocumentContentType,
   validateDocumentFile,
@@ -32,25 +37,17 @@ export const POST = withActor(
     const periodMonth = periodMonthValue ? `${periodMonthValue.slice(0, 7)}-01` : null;
     const folderId = folderIdValue || null;
 
-    const { data: documentType, error: typeError } = await adminClient
-      .from("document_types")
-      .select("id,label,requires_period,allowed_uploader_roles,active")
-      .eq("id", documentTypeId)
-      .single();
-
-    if (typeError || !documentType || documentType.active !== true) {
-      throw new ApiError("Type de document introuvable.", 400);
-    }
-    if (documentType.requires_period && !periodMonth) {
-      throw new ApiError("Ce type de document demande une periode.", 400);
-    }
-    if (
-      Array.isArray(documentType.allowed_uploader_roles) &&
-      documentType.allowed_uploader_roles.length > 0 &&
-      !documentType.allowed_uploader_roles.includes("salarie")
-    ) {
-      throw new ApiError("Le salarie ne peut pas deposer ce type de document.", 403);
-    }
+    const documentType = await loadActiveDocumentType(
+      adminClient,
+      { id: documentTypeId },
+      "Type de document introuvable.",
+    );
+    assertPeriodProvided(documentType, periodMonth);
+    assertUploaderRole(
+      documentType,
+      "salarie",
+      "Le salarie ne peut pas deposer ce type de document.",
+    );
 
     if (folderId) {
       const { data: folder, error: folderError } = await adminClient
