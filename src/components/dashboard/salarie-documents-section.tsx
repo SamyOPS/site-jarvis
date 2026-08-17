@@ -1,4 +1,4 @@
-﻿import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 import { Fragment, useMemo, useState } from "react";
 
@@ -306,23 +306,23 @@ export function SalarieDocumentsSection({
                   return (
                     <Fragment key={folder.id}>
                       <span className="text-[#0A1A2F]/45">&gt;</span>
-	                      {isLast ? (
-	                        <button
-	                          type="button"
-	                          onClick={() => setDocumentsMenuOpen((open) => !open)}
-	                          className="flex items-center gap-2 rounded-lg px-2 py-1 transition hover:bg-slate-100"
-	                          aria-haspopup="menu"
-	                          aria-expanded={documentsMenuOpen}
+                        {isLast ? (
+                          <button
+                            type="button"
+                            onClick={() => setDocumentsMenuOpen((open) => !open)}
+                            className="flex items-center gap-2 rounded-lg px-2 py-1 transition hover:bg-slate-100"
+                            aria-haspopup="menu"
+                            aria-expanded={documentsMenuOpen}
                           {...folderDropHandlers({
                             targetFolderId: folder.id,
                             getDraggedDocument: getDraggedDocument,
                             onDrop: (document) => onMoveDocumentToFolder(document, folder.id),
                           })}
-	                        >
-	                          <span>{folder.name}</span>
-	                          <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
-	                        </button>
-	                      ) : (
+                          >
+                            <span>{folder.name}</span>
+                            <ChevronDown className={`h-4 w-4 transition ${documentsMenuOpen ? "rotate-180" : ""}`} />
+                          </button>
+                        ) : (
                         <button
                           type="button"
                           onClick={() => onNavigateFolder(folder.id)}
@@ -491,4 +491,3 @@ export function SalarieDocumentsSection({
     </section>
   );
 }
-

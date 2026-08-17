@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { ApiError } from "@/lib/api-handler";
+
 /**
  * Habilitation d'un RH sur un collaborateur donne.
  *
@@ -49,4 +51,33 @@ export async function canRhAccessEmployee(
     return { allowed: false as const };
   }
   return { allowed: true as const };
+}
+
+/**
+ * Meme controle, mais leve au lieu de rendre un resultat.
+ *
+ * Le mapping « acces refuse -> reponse HTTP » etait recopie dans chaque route RH, avec des
+ * libelles de 403 qui divergeaient sans raison. Il est parametrable ici pour que chaque
+ * appelant garde son message exact : les uniformiser est une decision produit.
+ *
+ * Un admin n'est jamais restreint : le controle ne s'applique qu'au role `rh`.
+ */
+export async function assertRhAccess(
+  adminClient: SupabaseClient,
+  actor: { id: string; role: string | null },
+  employeeId: string,
+  documentTypeId?: string,
+  forbiddenMessage = "Collaborateur ou type de document non autorise pour ce RH.",
+) {
+  if (actor.role === "admin") return;
+
+  const access = await canRhAccessEmployee(adminClient, actor.id, employeeId, documentTypeId);
+  if (access.allowed) return;
+
+  // Une indisponibilite du controle (table absente) n'est pas un refus : elle ressort en
+  // 400 avec son propre message, comme le faisaient les routes.
+  if (access.error) {
+    throw new ApiError(access.error, 400);
+  }
+  throw new ApiError(forbiddenMessage, 403);
 }

@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 
-import { CRA_ENTRY_UNIT_COLUMNS, parseCraEntries, toCraEntryUnit, type CraEntryInput } from "@/lib/cra-entries";
-import { sumAbsenceDays } from "@/lib/cra-entries";
+import { ApiError, unwrap, withActor } from "@/lib/api-handler";
+import {
+  CRA_ENTRY_UNIT_COLUMNS,
+  parseCraEntries,
+  sumAbsenceDays,
+  toCraEntryUnit,
+  type CraEntryInput,
+} from "@/lib/cra-entries";
 import { loadEmployeeMissions, syncCraMissionLines } from "@/lib/missions";
-import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toIsoMonthStart } from "@/lib/server-supabase";
+import { toIsoMonthStart } from "@/lib/server-supabase";
 
 type CraCreatePayload = {
   periodMonth?: unknown;
@@ -11,58 +17,40 @@ type CraCreatePayload = {
   entries?: CraEntryInput[];
 };
 
-const craSelectFields = "id,period_month,status,worked_days_count,pdf_version,employee_document_id,created_at,updated_at";
+const craSelectFields =
+  "id,period_month,status,worked_days_count,pdf_version,employee_document_id,created_at,updated_at";
+
+const SALARIE_SESSION = { missingSession: "Session salarie manquante." };
 
 function getNotes(value: unknown) {
   const normalized = String(value ?? "").trim();
   return normalized || null;
 }
 
-export async function GET(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient, profile } = authorized;
-    const { data, error } = await adminClient
-      .from("cra_records")
-      .select("id,period_month,status,worked_days_count,pdf_version,employee_document_id,created_at,updated_at,submitted_at,validated_at,rejected_at")
-      .eq("employee_id", profile.id)
-      .order("period_month", { ascending: false });
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
+export const GET = withActor(
+  ["salarie"],
+  async ({ adminClient, profile }) => {
+    const data = unwrap(
+      await adminClient
+        .from("cra_records")
+        .select(
+          "id,period_month,status,worked_days_count,pdf_version,employee_document_id,created_at,updated_at,submitted_at,validated_at,rejected_at",
+        )
+        .eq("employee_id", profile.id)
+        .order("period_month", { ascending: false }),
+    );
 
     return NextResponse.json({ items: data ?? [] });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  SALARIE_SESSION,
+);
 
-export async function POST(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient, profile } = authorized;
+export const POST = withActor(
+  ["salarie"],
+  async ({ adminClient, profile, request }) => {
     const body = (await request.json().catch(() => null)) as CraCreatePayload | null;
     if (!body?.periodMonth) {
-      return NextResponse.json({ error: "La periode est obligatoire." }, { status: 400 });
+      throw new ApiError("La periode est obligatoire.", 400);
     }
 
     const periodMonth = toIsoMonthStart(String(body.periodMonth));
@@ -79,14 +67,11 @@ export async function POST(request: Request) {
     try {
       ({ missions, units: missionUnits } = await loadEmployeeMissions(adminClient, profile.id));
     } catch (missionError) {
-      return NextResponse.json(
-        {
-          error:
-            missionError instanceof Error
-              ? missionError.message
-              : "Chargement des entreprises impossible.",
-        },
-        { status: 400 },
+      throw new ApiError(
+        missionError instanceof Error
+          ? missionError.message
+          : "Chargement des entreprises impossible.",
+        400,
       );
     }
 
@@ -101,16 +86,14 @@ export async function POST(request: Request) {
     // saisis a la main : ils ne peuvent donc plus diverger du detail.
     const leaveDays = sumAbsenceDays(entries);
 
-    const { data: existingRecord, error: existingError } = await adminClient
-      .from("cra_records")
-      .select("id,status,employee_document_id")
-      .eq("employee_id", profile.id)
-      .eq("period_month", periodMonth)
-      .maybeSingle();
-
-    if (existingError) {
-      return NextResponse.json({ error: existingError.message }, { status: 400 });
-    }
+    const existingRecord = unwrap(
+      await adminClient
+        .from("cra_records")
+        .select("id,status,employee_document_id")
+        .eq("employee_id", profile.id)
+        .eq("period_month", periodMonth)
+        .maybeSingle(),
+    );
 
     // Vérifie que le document lié au CRA "validé" existe encore et n'est pas en corbeille.
     // Sinon on traite comme un CRA orphelin réutilisable.
@@ -125,7 +108,7 @@ export async function POST(request: Request) {
     }
 
     if (existingRecord?.status === "validated" && linkedDocumentAlive) {
-      return NextResponse.json({ error: "Un CRA valide existe deja pour cette periode." }, { status: 400 });
+      throw new ApiError("Un CRA valide existe deja pour cette periode.", 400);
     }
 
     if (existingRecord) {
@@ -143,38 +126,27 @@ export async function POST(request: Request) {
         .single();
 
       if (updateError || !updatedRecord) {
-        return NextResponse.json({ error: updateError?.message ?? "Mise a jour du CRA impossible." }, { status: 400 });
+        throw new ApiError(updateError?.message ?? "Mise a jour du CRA impossible.", 400);
       }
 
-      const { error: deleteEntriesError } = await adminClient.from("cra_entries").delete().eq("cra_id", existingRecord.id);
-      if (deleteEntriesError) {
-        return NextResponse.json({ error: deleteEntriesError.message }, { status: 400 });
-      }
+      unwrap(await adminClient.from("cra_entries").delete().eq("cra_id", existingRecord.id));
 
       if (entries.length) {
-        const { error: entriesError } = await adminClient.from("cra_entries").insert(
-          entries.map((entry) => ({
-            cra_id: existingRecord.id,
-            ...entry,
-          })),
+        unwrap(
+          await adminClient
+            .from("cra_entries")
+            .insert(entries.map((entry) => ({ cra_id: existingRecord.id, ...entry }))),
         );
-
-        if (entriesError) {
-          return NextResponse.json({ error: entriesError.message }, { status: 400 });
-        }
       }
 
       try {
         await syncCraMissionLines(adminClient, existingRecord.id, entries, missions);
       } catch (linesError) {
-        return NextResponse.json(
-          {
-            error:
-              linesError instanceof Error
-                ? linesError.message
-                : "Mise a jour du recapitulatif par entreprise impossible.",
-          },
-          { status: 400 },
+        throw new ApiError(
+          linesError instanceof Error
+            ? linesError.message
+            : "Mise a jour du recapitulatif par entreprise impossible.",
+          400,
         );
       }
 
@@ -183,12 +155,14 @@ export async function POST(request: Request) {
 
     const { data: billingProfile, error: billingError } = await adminClient
       .from("employee_billing_profiles")
-      .select("first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate")
+      .select(
+        "first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate",
+      )
       .eq("employee_id", profile.id)
       .single();
 
     if (billingError || !billingProfile) {
-      return NextResponse.json({ error: billingError?.message ?? "Profil de facturation introuvable." }, { status: 400 });
+      throw new ApiError(billingError?.message ?? "Profil de facturation introuvable.", 400);
     }
 
     const { data: craRecord, error: insertError } = await adminClient
@@ -206,20 +180,23 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError || !craRecord) {
-      return NextResponse.json({ error: insertError?.message ?? "Creation du CRA impossible." }, { status: insertError?.code === "23505" ? 409 : 400 });
+      // 23505 = violation d'unicite : un CRA existe deja pour cette periode, ce qui est un
+      // conflit et non une requete malformee. Le front distingue les deux.
+      throw new ApiError(
+        insertError?.message ?? "Creation du CRA impossible.",
+        insertError?.code === "23505" ? 409 : 400,
+      );
     }
 
     if (entries.length) {
-      const { error: entriesError } = await adminClient.from("cra_entries").insert(
-        entries.map((entry) => ({
-          cra_id: craRecord.id,
-          ...entry,
-        })),
-      );
+      const { error: entriesError } = await adminClient
+        .from("cra_entries")
+        .insert(entries.map((entry) => ({ cra_id: craRecord.id, ...entry })));
 
       if (entriesError) {
+        // Le CRA vient d'etre cree : sans ce retrait il resterait sans ses lignes.
         await adminClient.from("cra_records").delete().eq("id", craRecord.id);
-        return NextResponse.json({ error: entriesError.message }, { status: 400 });
+        throw new ApiError(entriesError.message, 400);
       }
     }
 
@@ -227,19 +204,15 @@ export async function POST(request: Request) {
       await syncCraMissionLines(adminClient, craRecord.id, entries, missions);
     } catch (linesError) {
       await adminClient.from("cra_records").delete().eq("id", craRecord.id);
-      return NextResponse.json(
-        {
-          error:
-            linesError instanceof Error
-              ? linesError.message
-              : "Creation du recapitulatif par entreprise impossible.",
-        },
-        { status: 400 },
+      throw new ApiError(
+        linesError instanceof Error
+          ? linesError.message
+          : "Creation du recapitulatif par entreprise impossible.",
+        400,
       );
     }
 
     return NextResponse.json({ success: true, cra: craRecord });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  SALARIE_SESSION,
+);

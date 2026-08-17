@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { browserSupabase } from "@/lib/supabase-browser";
 
 const supabase = browserSupabase;

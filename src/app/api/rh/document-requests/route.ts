@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { ApiError, withActor } from "@/lib/api-handler";
 import { notifyEmployeeOfDocumentRequest } from "@/lib/email";
-import { canRhAccessEmployee } from "@/lib/rh-access";
-import {
-  getAccessTokenFromRequest,
-  getAuthorizedActor,
-  isAuthorizedActorError,
-} from "@/lib/server-supabase";
+import { assertRhAccess } from "@/lib/rh-access";
 
 export const runtime = "nodejs";
 
@@ -18,19 +14,9 @@ type CreateRequestPayload = {
   note?: unknown;
 };
 
-export async function POST(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session RH manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["rh", "admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-    const { adminClient, user, profile: actorProfile } = authorized;
-
+export const POST = withActor(
+  ["rh", "admin"],
+  async ({ adminClient, user, profile: actorProfile, request }) => {
     const body = (await request.json().catch(() => null)) as CreateRequestPayload | null;
     const employeeId = String(body?.employeeId ?? "").trim();
     const documentTypeId = String(body?.documentTypeId ?? "").trim();
@@ -39,13 +25,13 @@ export async function POST(request: Request) {
     const note = String(body?.note ?? "").trim() || null;
 
     if (!employeeId || !documentTypeId) {
-      return NextResponse.json({ error: "Collaborateur et type de document requis." }, { status: 400 });
+      throw new ApiError("Collaborateur et type de document requis.", 400);
     }
 
     const periodMonth = periodMonthValue ? `${periodMonthValue.slice(0, 7)}-01` : null;
     const dueAt = dueAtValue ? new Date(dueAtValue) : null;
     if (dueAt && Number.isNaN(dueAt.getTime())) {
-      return NextResponse.json({ error: "Date d'echeance invalide." }, { status: 400 });
+      throw new ApiError("Date d'echeance invalide.", 400);
     }
 
     const { data: employeeProfile, error: employeeError } = await adminClient
@@ -55,18 +41,15 @@ export async function POST(request: Request) {
       .single();
 
     if (employeeError || !employeeProfile || employeeProfile.role !== "salarie") {
-      return NextResponse.json({ error: "Collaborateur invalide." }, { status: 400 });
+      throw new ApiError("Collaborateur invalide.", 400);
     }
 
-    if (actorProfile.role !== "admin") {
-      const access = await canRhAccessEmployee(adminClient, actorProfile.id, employeeProfile.id, documentTypeId);
-      if (!access.allowed) {
-        if (access.error) {
-          return NextResponse.json({ error: access.error }, { status: 400 });
-        }
-        return NextResponse.json({ error: "Collaborateur ou type de document non autorise pour ce RH." }, { status: 403 });
-      }
-    }
+    await assertRhAccess(
+      adminClient,
+      { id: actorProfile.id, role: actorProfile.role },
+      employeeProfile.id,
+      documentTypeId,
+    );
 
     const { data: documentType, error: typeError } = await adminClient
       .from("document_types")
@@ -75,10 +58,10 @@ export async function POST(request: Request) {
       .single();
 
     if (typeError || !documentType || documentType.active !== true) {
-      return NextResponse.json({ error: "Type de document introuvable." }, { status: 400 });
+      throw new ApiError("Type de document introuvable.", 400);
     }
     if (documentType.requires_period && !periodMonth) {
-      return NextResponse.json({ error: "Ce type de document demande une periode." }, { status: 400 });
+      throw new ApiError("Ce type de document demande une periode.", 400);
     }
 
     const now = new Date().toISOString();
@@ -98,9 +81,13 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError || !insertedRequest) {
-      return NextResponse.json({ error: insertError?.message ?? "Creation de la demande impossible." }, { status: 400 });
+      throw new ApiError(
+        insertError?.message ?? "Creation de la demande impossible.",
+        400,
+      );
     }
 
+    // L'envoi du mail ne doit pas faire echouer la demande, qui est deja enregistree.
     if (employeeProfile.email) {
       try {
         await notifyEmployeeOfDocumentRequest({
@@ -118,10 +105,6 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, requestId: insertedRequest.id });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
+  },
+  { missingSession: "Session RH manquante." },
+);

@@ -28,7 +28,7 @@ const reseauxSlides = [
     summary: "Mise en place de solutions de supervision pour détecter les incidents avant qu'ils n'impactent les utilisateurs.",
     bullets: ["Monitoring réseau (Zabbix, PRTG)", "Alerting et escalades", "Tableaux de bord temps réel"],
   },
- 
+
 ];
 
 export const metadata: Metadata = {

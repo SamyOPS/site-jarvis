@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 
-import {
-  getAccessTokenFromRequest,
-  getAuthorizedActor,
-  isAuthorizedActorError,
-} from "@/lib/server-supabase";
+import { ApiError, withActor } from "@/lib/api-handler";
 
 type ActivityRow = {
   userId: string;
@@ -14,24 +10,17 @@ type ActivityRow = {
   emailConfirmedAt: string | null;
 };
 
-export async function GET(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session admin manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { data, error } = await authorized.adminClient.auth.admin.listUsers({
+export const GET = withActor(
+  ["admin"],
+  async ({ adminClient }) => {
+    // `listUsers` rend une union discriminee dont la branche d'erreur porte un `data`
+    // plus etroit : `unwrap`, taille pour PostgREST, ne s'y applique pas.
+    const { data, error } = await adminClient.auth.admin.listUsers({
       page: 1,
       perPage: 1000,
     });
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      throw new ApiError(error.message, 400);
     }
 
     const rows: ActivityRow[] = (data.users ?? []).map((user) => ({
@@ -43,11 +32,6 @@ export async function GET(request: Request) {
     }));
 
     return NextResponse.json({ items: rows });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
-
+  },
+  { missingSession: "Session admin manquante." },
+);

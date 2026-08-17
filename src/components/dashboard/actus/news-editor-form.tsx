@@ -7,18 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { slugifyArticle } from "@/domain/slug";
 import type {
   NewsContentMode,
   NewsFormState,
 } from "@/features/dashboard/actus/types";
-
-const slugify = (value: string) =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
 
 type NewsEditorFormProps = {
   form: NewsFormState;
@@ -104,7 +97,7 @@ export function NewsEditorForm({
                 setForm((prev) => ({
                   ...prev,
                   title: event.target.value,
-                  slug: prev.slug || slugify(event.target.value),
+                  slug: prev.slug || slugifyArticle(event.target.value),
                 }))
               }
               required

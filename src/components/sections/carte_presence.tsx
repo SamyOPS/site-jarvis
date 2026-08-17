@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { motion, Transition, useInView } from "framer-motion";
+import { motion, Transition, useInView } from "motion/react";
 import { useRef, useEffect, useState } from "react";
 
 const stats = [

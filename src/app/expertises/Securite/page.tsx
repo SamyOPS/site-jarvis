@@ -22,7 +22,7 @@ image: "https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format
     summary: "Surveillance continue de votre SI avec détection, qualification et réponse aux incidents de sécurité 24h/24.",
     bullets: ["Détection et corrélation d'alertes", "Réponse à incident (IR)", "Reporting et indicateurs MSSP"],
   },
- 
+
   {
     title: "Sensibilisation",
     image: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80",

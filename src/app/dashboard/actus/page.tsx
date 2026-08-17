@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent, type ChangeEvent } from "react";
-import type { Session, User } from "@supabase/supabase-js";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 
 import { NewsEditorForm } from "@/components/dashboard/actus/news-editor-form";
@@ -10,6 +9,7 @@ import { safeGetClientSession } from "@/lib/client-auth";
 import { browserSupabase } from "@/lib/supabase-browser";
 
 const supabase = browserSupabase;
+import { slugifyArticle } from "@/domain/slug";
 import type {
   ActusProfileRow as ProfileRow,
   NewsContentMode,
@@ -18,17 +18,7 @@ import type {
   NewsStatus as Status,
 } from "@/features/dashboard/actus/types";
 
-const slugify = (value: string) =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-
 export default function DashboardActusPage() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
   const [adminProfile, setAdminProfile] = useState<ProfileRow | null>(null);
   const [newsItems, setNewsItems] = useState<NewsRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -62,8 +52,6 @@ export default function DashboardActusPage() {
         return;
       }
       const { session: currentSession } = await safeGetClientSession(supabase);
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
 
       if (!currentSession?.user) {
         setError("Connecte-toi pour accéder au dashboard.");
@@ -134,7 +122,7 @@ export default function DashboardActusPage() {
     setUploading(true);
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
     const safeName = file.name.replace(/\.[^/.]+$/, "");
-    const baseName = slugify(safeName) || "image";
+    const baseName = slugifyArticle(safeName) || "image";
     const filePath = `${adminProfile.id}/${Date.now()}-${baseName}.${ext}`;
 
     const { error: uploadError } = await supabase
@@ -163,7 +151,7 @@ export default function DashboardActusPage() {
     setUploadingVideo(true);
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "mp4";
     const safeName = file.name.replace(/\.[^/.]+$/, "");
-    const baseName = slugify(safeName) || "video";
+    const baseName = slugifyArticle(safeName) || "video";
     const filePath = `${adminProfile.id}/${Date.now()}-${baseName}.${ext}`;
 
     const { error: uploadError } = await supabase
@@ -192,7 +180,7 @@ export default function DashboardActusPage() {
     setUploadingPdf(true);
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "pdf";
     const safeName = file.name.replace(/\.[^/.]+$/, "");
-    const baseName = slugify(safeName) || "document";
+    const baseName = slugifyArticle(safeName) || "document";
     const filePath = `${adminProfile.id}/${Date.now()}-${baseName}.${ext}`;
 
     const { error: uploadError } = await supabase
@@ -217,7 +205,7 @@ export default function DashboardActusPage() {
     event.preventDefault();
     if (!supabase || !adminProfile) return;
 
-    const slug = form.slug ? slugify(form.slug) : slugify(form.title);
+    const slug = form.slug ? slugifyArticle(form.slug) : slugifyArticle(form.title);
     if (!slug) {
       setStatus({ type: "error", message: "Le slug est obligatoire." });
       return;

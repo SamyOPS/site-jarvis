@@ -1,32 +1,18 @@
 import { NextResponse } from "next/server";
 
+import { ApiError, withActor } from "@/lib/api-handler";
 import {
   buildEmployeeDocumentPath,
   safeDocumentContentType,
   validateDocumentFile,
 } from "@/lib/document-storage";
 import { getRhRecipientsForEmployee, notifyRhOfDocument } from "@/lib/email";
-import {
-  getAccessTokenFromRequest,
-  getAuthorizedActor,
-  isAuthorizedActorError,
-} from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-    const { adminClient, user, profile } = authorized;
-
+export const POST = withActor(
+  ["salarie"],
+  async ({ adminClient, user, profile, request }) => {
     const formData = await request.formData();
     const documentTypeId = String(formData.get("documentTypeId") ?? "");
     const periodMonthValue = String(formData.get("periodMonth") ?? "");
@@ -35,12 +21,12 @@ export async function POST(request: Request) {
     const file = formData.get("file");
 
     if (!documentTypeId || !(file instanceof File)) {
-      return NextResponse.json({ error: "Parametres incomplets pour le depot." }, { status: 400 });
+      throw new ApiError("Parametres incomplets pour le depot.", 400);
     }
 
     const fileValidationError = validateDocumentFile(file);
     if (fileValidationError) {
-      return NextResponse.json({ error: fileValidationError }, { status: 400 });
+      throw new ApiError(fileValidationError, 400);
     }
 
     const periodMonth = periodMonthValue ? `${periodMonthValue.slice(0, 7)}-01` : null;
@@ -53,17 +39,17 @@ export async function POST(request: Request) {
       .single();
 
     if (typeError || !documentType || documentType.active !== true) {
-      return NextResponse.json({ error: "Type de document introuvable." }, { status: 400 });
+      throw new ApiError("Type de document introuvable.", 400);
     }
     if (documentType.requires_period && !periodMonth) {
-      return NextResponse.json({ error: "Ce type de document demande une periode." }, { status: 400 });
+      throw new ApiError("Ce type de document demande une periode.", 400);
     }
     if (
       Array.isArray(documentType.allowed_uploader_roles) &&
       documentType.allowed_uploader_roles.length > 0 &&
       !documentType.allowed_uploader_roles.includes("salarie")
     ) {
-      return NextResponse.json({ error: "Le salarie ne peut pas deposer ce type de document." }, { status: 403 });
+      throw new ApiError("Le salarie ne peut pas deposer ce type de document.", 403);
     }
 
     if (folderId) {
@@ -73,7 +59,7 @@ export async function POST(request: Request) {
         .eq("id", folderId)
         .single();
       if (folderError || !folder || folder.owner_user_id !== profile.id || folder.deleted_at) {
-        return NextResponse.json({ error: "Dossier invalide." }, { status: 400 });
+        throw new ApiError("Dossier invalide.", 400);
       }
     }
 
@@ -84,7 +70,7 @@ export async function POST(request: Request) {
         .eq("id", linkedRequestId)
         .single();
       if (requestError || !requestRow || requestRow.employee_id !== profile.id) {
-        return NextResponse.json({ error: "Demande invalide." }, { status: 400 });
+        throw new ApiError("Demande invalide.", 400);
       }
     }
 
@@ -97,12 +83,14 @@ export async function POST(request: Request) {
     });
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const { error: uploadError } = await adminClient.storage.from(storageBucket).upload(storagePath, fileBuffer, {
-      contentType: safeDocumentContentType(file),
-      upsert: false,
-    });
+    const { error: uploadError } = await adminClient.storage
+      .from(storageBucket)
+      .upload(storagePath, fileBuffer, {
+        contentType: safeDocumentContentType(file),
+        upsert: false,
+      });
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 400 });
+      throw new ApiError(uploadError.message, 400);
     }
 
     const { data: insertedDocument, error: insertError } = await adminClient
@@ -127,13 +115,17 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError || !insertedDocument) {
+      // Le fichier est deja dans le bucket : sans ce nettoyage il y resterait orphelin.
       await adminClient.storage.from(storageBucket).remove([storagePath]);
-      return NextResponse.json({ error: insertError?.message ?? "Insertion du document impossible." }, { status: 400 });
+      throw new ApiError(insertError?.message ?? "Insertion du document impossible.", 400);
     }
 
     const now = new Date().toISOString();
     const requestUpdatePromise = linkedRequestId
-      ? adminClient.from("document_requests").update({ status: "uploaded", updated_at: now }).eq("id", linkedRequestId)
+      ? adminClient
+          .from("document_requests")
+          .update({ status: "uploaded", updated_at: now })
+          .eq("id", linkedRequestId)
       : Promise.resolve({ error: null });
 
     const eventInsertPromise = adminClient.from("document_events").insert({
@@ -179,10 +171,6 @@ export async function POST(request: Request) {
         ? { warning: "Depot effectue, mais le suivi n'est pas complet." }
         : {}),
     });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
+  },
+  { missingSession: "Session salarie manquante." },
+);

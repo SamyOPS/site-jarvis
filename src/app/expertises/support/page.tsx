@@ -413,6 +413,3 @@ export default function SupportPage() {
   );
 
 }
-
-
-

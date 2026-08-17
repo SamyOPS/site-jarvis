@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 
+import { ApiError, withActor } from "@/lib/api-handler";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { getRhRecipientsForEmployee, notifyRhOfDocument } from "@/lib/email";
 import { ensureLeaveDocumentType } from "@/lib/leave-document-type";
 import { buildLeavePdfBuffer, type LeaveType } from "@/lib/leave-pdf";
-import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError, toDocumentDate } from "@/lib/server-supabase";
+import { readPdfLogoBase64 } from "@/lib/pdf-logo";
+import { toDocumentDate } from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
 
@@ -21,42 +21,25 @@ const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 function parseIsoDate(value: unknown, label: string) {
   const normalized = String(value ?? "").trim();
   if (!dateRegex.test(normalized) || Number.isNaN(new Date(normalized).getTime())) {
-    throw new Error(`La date de ${label} est invalide.`);
+    throw new ApiError(`La date de ${label} est invalide.`, 400);
   }
   return normalized;
 }
 
-export async function POST(request: Request) {
-  try {
-    const logoRgbBase64 = await readFile(
-      path.join(process.cwd(), "public", "logonoir-rgb120.b64"),
-      "utf8",
-    );
+export const POST = withActor(
+  ["salarie"],
+  async ({ adminClient, profile, user, request }) => {
+    // Lu apres l'autorisation : la version precedente lisait le logo sur disque avant meme
+    // de verifier le jeton.
+    const logoRgbBase64 = await readPdfLogoBase64();
 
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient, profile, user } = authorized;
     const body = (await request.json().catch(() => null)) as LeaveGeneratePayload | null;
     if (!body) {
-      return NextResponse.json({ error: "Payload invalide." }, { status: 400 });
+      throw new ApiError("Payload invalide.", 400);
     }
 
-    let startDate: string;
-    let endDate: string;
-    try {
-      startDate = parseIsoDate(body.startDate, "debut");
-      endDate = parseIsoDate(body.endDate, "fin");
-    } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Champs invalides." }, { status: 400 });
-    }
+    const startDate = parseIsoDate(body.startDate, "debut");
+    const endDate = parseIsoDate(body.endDate, "fin");
 
     // Nom du salarie : derive de son compte (profil de facturation, sinon profil).
     const { data: billingProfile } = await adminClient
@@ -72,7 +55,10 @@ export async function POST(request: Request) {
     ).trim();
 
     if (endDate < startDate) {
-      return NextResponse.json({ error: "La date de fin doit etre posterieure ou egale a la date de debut." }, { status: 400 });
+      throw new ApiError(
+        "La date de fin doit etre posterieure ou egale a la date de debut.",
+        400,
+      );
     }
 
     const leaveType: LeaveType = body.leaveType === "unpaid" ? "unpaid" : "paid";
@@ -83,7 +69,10 @@ export async function POST(request: Request) {
     try {
       documentType = await ensureLeaveDocumentType(adminClient);
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Type de document conge indisponible." }, { status: 400 });
+      throw new ApiError(
+        error instanceof Error ? error.message : "Type de document conge indisponible.",
+        400,
+      );
     }
 
     if (
@@ -91,7 +80,7 @@ export async function POST(request: Request) {
       documentType.allowed_uploader_roles.length > 0 &&
       !documentType.allowed_uploader_roles.includes("salarie")
     ) {
-      return NextResponse.json({ error: "Le salarie ne peut pas generer ce type de document." }, { status: 403 });
+      throw new ApiError("Le salarie ne peut pas generer ce type de document.", 403);
     }
 
     const requestDate = toDocumentDate();
@@ -116,13 +105,15 @@ export async function POST(request: Request) {
       logoRgbBase64.trim(),
     );
 
-    const { error: uploadError } = await adminClient.storage.from(storageBucket).upload(storagePath, pdfBuffer, {
-      contentType: "application/pdf",
-      upsert: false,
-    });
+    const { error: uploadError } = await adminClient.storage
+      .from(storageBucket)
+      .upload(storagePath, pdfBuffer, {
+        contentType: "application/pdf",
+        upsert: false,
+      });
 
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 400 });
+      throw new ApiError(uploadError.message, 400);
     }
 
     const now = new Date().toISOString();
@@ -147,8 +138,12 @@ export async function POST(request: Request) {
       .single();
 
     if (insertDocumentError || !insertedDocument) {
+      // Le PDF est deja dans le bucket : sans ce nettoyage il y resterait orphelin.
       await adminClient.storage.from(storageBucket).remove([storagePath]);
-      return NextResponse.json({ error: insertDocumentError?.message ?? "Insertion de la demande de congé impossible." }, { status: 400 });
+      throw new ApiError(
+        insertDocumentError?.message ?? "Insertion de la demande de congé impossible.",
+        400,
+      );
     }
 
     const documentId = insertedDocument.id;
@@ -167,7 +162,10 @@ export async function POST(request: Request) {
     });
 
     if (eventError) {
-      return NextResponse.json({ error: "La demande de congé a ete generee, mais le suivi n'est pas complet." }, { status: 400 });
+      throw new ApiError(
+        "La demande de congé a ete generee, mais le suivi n'est pas complet.",
+        400,
+      );
     }
 
     try {
@@ -186,7 +184,6 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, documentId, updatedAt: now });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  { missingSession: "Session salarie manquante." },
+);

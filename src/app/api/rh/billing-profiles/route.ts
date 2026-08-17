@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError } from "@/lib/server-supabase";
+import { ApiError, withActor } from "@/lib/api-handler";
+import { getOptionalString, getRequiredString } from "@/lib/validation";
+
+const RH_SESSION = { missingSession: "Session RH manquante." };
 
 type RhBillingProfilePayload = {
   employeeId?: unknown;
@@ -25,19 +28,6 @@ type RhBillingProfilePayload = {
 /** Statuts d'emploi acceptes pour un collaborateur. Liste fermee, validee cote serveur. */
 const EMPLOYMENT_STATUSES = ["active", "inactive", "exited"] as const;
 type EmploymentStatus = (typeof EMPLOYMENT_STATUSES)[number];
-
-function getRequiredString(value: unknown, label: string) {
-  const normalized = String(value ?? "").trim();
-  if (!normalized) {
-    throw new Error(`Le champ "${label}" est obligatoire.`);
-  }
-  return normalized;
-}
-
-function getOptionalString(value: unknown) {
-  const normalized = String(value ?? "").trim();
-  return normalized || null;
-}
 
 function getOptionalDailyRate(value: unknown) {
   const raw = String(value ?? "").trim();
@@ -101,24 +91,14 @@ async function loadAllowedEmployeeIds(
   return [];
 }
 
-export async function GET(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session RH manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["rh", "admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient, profile } = authorized;
+export const GET = withActor(
+  ["rh", "admin"],
+  async ({ adminClient, profile }) => {
     let allowedEmployeeIds: string[] | null;
     try {
       allowedEmployeeIds = await loadAllowedEmployeeIds(adminClient, profile.role, profile.id);
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Chargement des affectations RH impossible." }, { status: 400 });
+      throw new ApiError(error instanceof Error ? error.message : "Chargement des affectations RH impossible.", 400);
     }
 
     let query = adminClient
@@ -134,7 +114,7 @@ export async function GET(request: Request) {
 
     const { data: profiles, error: profilesError } = await query;
     if (profilesError) {
-      return NextResponse.json({ error: profilesError.message }, { status: 400 });
+      throw new ApiError(profilesError.message, 400);
     }
 
     const employeeIds = (profiles ?? []).map((row: { employee_id: string }) => row.employee_id);
@@ -144,7 +124,7 @@ export async function GET(request: Request) {
       .in("id", employeeIds);
 
     if (employeesError) {
-      return NextResponse.json({ error: employeesError.message }, { status: 400 });
+      throw new ApiError(employeesError.message, 400);
     }
 
     const employeesById = new Map(
@@ -201,53 +181,42 @@ export async function GET(request: Request) {
     );
 
     return NextResponse.json({ items });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
+  },
+  RH_SESSION,
+);
 
-export async function PUT(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session RH manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["rh", "admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient, profile } = authorized;
+export const PUT = withActor(
+  ["rh", "admin"],
+  async ({ adminClient, profile, request }) => {
     const body = (await request.json().catch(() => null)) as RhBillingProfilePayload | null;
     if (!body) {
-      return NextResponse.json({ error: "Payload invalide." }, { status: 400 });
+      throw new ApiError("Payload invalide.", 400);
     }
 
     const employeeId = String(body.employeeId ?? "").trim();
     if (!employeeId) {
-      return NextResponse.json({ error: "Collaborateur requis." }, { status: 400 });
+      throw new ApiError("Collaborateur requis.", 400);
     }
 
     let allowedEmployeeIds: string[] | null;
     try {
       allowedEmployeeIds = await loadAllowedEmployeeIds(adminClient, profile.role, profile.id);
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Chargement des affectations RH impossible." }, { status: 400 });
+      throw new ApiError(
+        error instanceof Error ? error.message : "Chargement des affectations RH impossible.",
+        400,
+      );
     }
 
     if (allowedEmployeeIds && !allowedEmployeeIds.includes(employeeId)) {
-      return NextResponse.json({ error: "Acces refuse pour ce collaborateur." }, { status: 403 });
+      throw new ApiError("Acces refuse pour ce collaborateur.", 403);
     }
 
     let payload;
     try {
       payload = parseBillingProfilePayload(body);
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Profil de facturation invalide." }, { status: 400 });
+      throw new ApiError(error instanceof Error ? error.message : "Profil de facturation invalide.", 400);
     }
 
     // Le statut d'emploi du collaborateur est enregistre ici plutot que depuis le tableau de
@@ -256,7 +225,7 @@ export async function PUT(request: Request) {
     const employmentStatusValue = body.employmentStatus;
     if (employmentStatusValue !== undefined) {
       if (!EMPLOYMENT_STATUSES.includes(employmentStatusValue as EmploymentStatus)) {
-        return NextResponse.json({ error: "Statut d'emploi invalide." }, { status: 400 });
+        throw new ApiError("Statut d'emploi invalide.", 400);
       }
       const { error: employmentError } = await adminClient
         .from("profiles")
@@ -264,7 +233,7 @@ export async function PUT(request: Request) {
         .eq("id", employeeId)
         .eq("role", "salarie");
       if (employmentError) {
-        return NextResponse.json({ error: employmentError.message }, { status: 400 });
+        throw new ApiError(employmentError.message, 400);
       }
     }
 
@@ -278,11 +247,10 @@ export async function PUT(request: Request) {
       .single();
 
     if (error || !data) {
-      return NextResponse.json({ error: error?.message ?? "Enregistrement impossible." }, { status: 400 });
+      throw new ApiError(error?.message ?? "Enregistrement impossible.", 400);
     }
 
     return NextResponse.json({ success: true, profile: data });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  RH_SESSION,
+);

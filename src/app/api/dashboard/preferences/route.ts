@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 
-import {
-  getAccessTokenFromRequest,
-  getAuthorizedActor,
-  isAuthorizedActorError,
-} from "@/lib/server-supabase";
+import { ApiError, withActor } from "@/lib/api-handler";
 
 const TABLE_NAME = "user_dashboard_preferences";
 
@@ -33,92 +29,60 @@ function sanitizeVisibleColumns(value: unknown) {
   return { visibleColumns };
 }
 
-export async function GET(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session manquante." }, { status: 401 });
-    }
+const DASHBOARD_ROLES = ["salarie", "rh", "admin"];
 
-    const authorized = await getAuthorizedActor(accessToken, ["salarie", "rh", "admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const url = new URL(request.url);
-    const key = normalizePreferenceKey(url.searchParams.get("key"));
-    if (!key) {
-      return NextResponse.json({ error: "Cle de preference invalide." }, { status: 400 });
-    }
-
-    const { adminClient, profile } = authorized;
-    const { data, error } = await adminClient
-      .from(TABLE_NAME)
-      .select("value")
-      .eq("user_id", profile.id)
-      .eq("preference_key", key)
-      .maybeSingle();
-
-    if (error && isPreferencesTableMissing(error.message)) {
-      return NextResponse.json({ value: null, backend: "missing_table" });
-    }
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ value: sanitizeVisibleColumns(data?.value) });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
+export const GET = withActor(DASHBOARD_ROLES, async ({ adminClient, profile, request }) => {
+  const url = new URL(request.url);
+  const key = normalizePreferenceKey(url.searchParams.get("key"));
+  if (!key) {
+    throw new ApiError("Cle de preference invalide.", 400);
   }
-}
 
-export async function PUT(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session manquante." }, { status: 401 });
-    }
+  const { data, error } = await adminClient
+    .from(TABLE_NAME)
+    .select("value")
+    .eq("user_id", profile.id)
+    .eq("preference_key", key)
+    .maybeSingle();
 
-    const authorized = await getAuthorizedActor(accessToken, ["salarie", "rh", "admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const payload = (await request.json().catch(() => null)) as
-      | { key?: unknown; value?: unknown }
-      | null;
-    const key = normalizePreferenceKey(payload?.key);
-    const value = sanitizeVisibleColumns(payload?.value);
-    if (!key || !value) {
-      return NextResponse.json({ error: "Payload de preference invalide." }, { status: 400 });
-    }
-
-    const { adminClient, profile } = authorized;
-    const { error } = await adminClient.from(TABLE_NAME).upsert(
-      {
-        user_id: profile.id,
-        preference_key: key,
-        value,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,preference_key" },
-    );
-
-    if (error && isPreferencesTableMissing(error.message)) {
-      return NextResponse.json({ saved: false, backend: "missing_table" });
-    }
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ saved: true });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
+  // La table de preferences est optionnelle : son absence n'est pas une erreur, l'appelant
+  // retombe simplement sur les colonnes par defaut.
+  if (error && isPreferencesTableMissing(error.message)) {
+    return NextResponse.json({ value: null, backend: "missing_table" });
   }
-}
+  if (error) {
+    throw new ApiError(error.message, 400);
+  }
+
+  return NextResponse.json({ value: sanitizeVisibleColumns(data?.value) });
+});
+
+export const PUT = withActor(DASHBOARD_ROLES, async ({ adminClient, profile, request }) => {
+  const payload = (await request.json().catch(() => null)) as
+    | { key?: unknown; value?: unknown }
+    | null;
+  const key = normalizePreferenceKey(payload?.key);
+  const value = sanitizeVisibleColumns(payload?.value);
+  if (!key || !value) {
+    throw new ApiError("Payload de preference invalide.", 400);
+  }
+
+  const { error } = await adminClient.from(TABLE_NAME).upsert(
+    {
+      user_id: profile.id,
+      preference_key: key,
+      value,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,preference_key" },
+  );
+
+  if (error && isPreferencesTableMissing(error.message)) {
+    return NextResponse.json({ saved: false, backend: "missing_table" });
+  }
+  if (error) {
+    throw new ApiError(error.message, 400);
+  }
+
+  return NextResponse.json({ saved: true });
+});

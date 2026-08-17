@@ -1890,4 +1890,3 @@ export default function SalarieWorkspace({
     </WorkspaceShell>
   );
 }
-

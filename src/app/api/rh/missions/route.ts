@@ -11,6 +11,14 @@ import {
 
 export const runtime = "nodejs";
 
+/**
+ * ROUTE NON CONSOMMEE — aucun appelant dans `src/` au 14/08/2026 (verifie par grep).
+ *
+ * L'interface RH de gestion des missions d'un collaborateur reste a construire. Deux
+ * issues, et pas d'etat intermediaire : soit cette UI arrive et la route sert, soit la
+ * route est supprimee. En attendant, elle n'a volontairement pas ete migree vers
+ * `withActor` — inutile de refactoriser du code dont l'existence n'est pas tranchee.
+ */
 type RhMissionPayload = MissionPayload & {
   employeeId?: unknown;
   missionId?: unknown;

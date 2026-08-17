@@ -1,4 +1,4 @@
-﻿import {
+import {
   computeInvoiceTotals,
   type InvoiceLineInput,
 } from "@/features/dashboard/salarie/invoice-totals";
@@ -403,7 +403,3 @@ export function buildInvoicePdfBytes(input: InvoicePdfInput) {
 export function buildInvoicePdfBuffer(input: InvoicePdfInput) {
   return Buffer.from(buildInvoicePdfBytes(input));
 }
-
-
-
-

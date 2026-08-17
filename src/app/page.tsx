@@ -55,7 +55,7 @@ export default function Home() {
     href: "/expertises/Securite",
   },
 ];
-  
+
 
   const clients = [
     { name: "ALD Automotive", logo: "/client/ald.png", logoScale: 0.95 },

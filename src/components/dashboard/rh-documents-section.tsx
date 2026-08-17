@@ -1,4 +1,4 @@
-﻿import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
@@ -558,8 +558,3 @@ export function RhDocumentsSection({
     </section>
   );
 }
-
-
-
-
-

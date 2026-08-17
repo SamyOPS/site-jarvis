@@ -4,4 +4,3 @@ import RhWorkspace from "@/app/dashboard/rh/rh-workspace";
 export default function RhDocumentsCorbeillePage() {
   return <RhWorkspace {...RH_WORKSPACE_ROUTES.documentsCorbeille} />;
 }
-

@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { ArrowLeft, ArrowRight, BriefcaseBusiness, CalendarClock, MapPin } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";

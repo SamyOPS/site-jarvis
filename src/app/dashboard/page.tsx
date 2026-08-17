@@ -14,6 +14,8 @@ import { DashboardSessionCard } from "@/components/dashboard/session-card";
 import { AdminUsersListCard } from "@/components/dashboard/admin/users-list-card";
 import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
+import { buildUniqueOfferSlug } from "@/domain/slug";
+import { runAdminAction } from "@/features/dashboard/admin/run-admin-action";
 import { browserSupabase } from "@/lib/supabase-browser";
 import type { AsyncStatus } from "@/domain/common";
 import type { JobOffer } from "@/domain/offers";
@@ -278,14 +280,6 @@ export default function DashboardPage() {
     window.location.href = "/auth?logged_out=1";
   };
 
-  const slugify = (value: string) =>
-    value
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 120);
-
   const handleProfessionalStatusChange = async (
     profileId: string,
     nextStatus: ProfessionalStatus
@@ -297,34 +291,22 @@ export default function DashboardPage() {
     // "verified" ouvre l'acces aux routes metier. Il etait modifie directement avec la cle
     // anon ; il passe desormais par la route admin, qui valide la valeur et interdit de
     // modifier son propre compte.
-    const accessToken = await getFreshAccessToken();
-    if (!accessToken) {
-      setProfileStatus({
-        type: "error",
-        message: "Session admin expiree. Reconnecte-toi pour changer un statut de compte.",
-      });
-      setProfileUpdatingId(null);
-      return;
-    }
-
-    const response = await fetch(
+    const result = await runAdminAction(
+      getFreshAccessToken,
       `/api/admin/users/${encodeURIComponent(profileId)}`,
       {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ professionalStatus: nextStatus }),
       },
+      {
+        expiredSession: "Session admin expiree. Reconnecte-toi pour changer un statut de compte.",
+        failure: "Changement de statut impossible",
+      },
     );
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
 
-    if (!response.ok) {
-      setProfileStatus({
-        type: "error",
-        message: payload?.error ?? `Changement de statut impossible (HTTP ${response.status}).`,
-      });
+    if (!result.ok) {
+      setProfileStatus({ type: "error", message: result.message });
       setProfileUpdatingId(null);
       return;
     }
@@ -359,42 +341,27 @@ export default function DashboardPage() {
     setRoleUpdatingId(targetProfile.id);
     setProfileStatus({ type: "idle" });
 
-    const accessToken = await getFreshAccessToken();
-    if (!accessToken) {
-      setProfileStatus({
-        type: "error",
-        message: "Session admin expiree. Reconnecte-toi pour changer un type de compte.",
-      });
-      setRoleUpdatingId(null);
-      return;
-    }
-
-    const response = await fetch(
+    const result = await runAdminAction<{ error?: string; profile?: ProfileRow }>(
+      getFreshAccessToken,
       `/api/admin/users/${encodeURIComponent(targetProfile.id)}`,
       {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role: nextRole }),
       },
+      {
+        expiredSession: "Session admin expiree. Reconnecte-toi pour changer un type de compte.",
+        failure: "Changement de type de compte impossible",
+      },
     );
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: string; profile?: ProfileRow }
-      | null;
 
-    if (!response.ok) {
-      setProfileStatus({
-        type: "error",
-        // Le code HTTP est conserve : sans lui, un echec sans corps JSON exploitable
-        // ne laisse aucune prise pour diagnostiquer.
-        message:
-          payload?.error ?? `Changement de type de compte impossible (HTTP ${response.status}).`,
-      });
+    if (!result.ok) {
+      setProfileStatus({ type: "error", message: result.message });
       setRoleUpdatingId(null);
       return;
     }
+
+    const { accessToken } = result;
 
     setAllProfiles((previous) =>
       previous.map((profile) =>
@@ -428,31 +395,18 @@ export default function DashboardPage() {
     setDeletingUserId(targetProfile.id);
     setUserDeleteStatus({ type: "idle" });
 
-    const accessToken = await getFreshAccessToken();
-    if (!accessToken) {
-      setUserDeleteStatus({
-        type: "error",
-        message: "Session admin expiree. Reconnecte-toi pour supprimer un compte.",
-      });
-      setDeletingUserId(null);
-      return;
-    }
-
-    const response = await fetch(
+    const result = await runAdminAction(
+      getFreshAccessToken,
       `/api/admin/users/${encodeURIComponent(targetProfile.id)}`,
+      { method: "DELETE" },
       {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
+        expiredSession: "Session admin expiree. Reconnecte-toi pour supprimer un compte.",
+        failure: "Suppression du compte impossible",
+      },
     );
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    if (!response.ok) {
-      setUserDeleteStatus({
-        type: "error",
-        message: payload?.error ?? `Suppression du compte impossible (HTTP ${response.status}).`,
-      });
+
+    if (!result.ok) {
+      setUserDeleteStatus({ type: "error", message: result.message });
       setDeletingUserId(null);
       return;
     }
@@ -482,12 +436,6 @@ export default function DashboardPage() {
       message: `Compte ${targetProfile.email} supprime.`,
     });
     setDeletingUserId(null);
-  };
-
-  const buildUniqueSlug = (title: string) => {
-    const base = slugify(title) || "offre";
-    const suffix = crypto.randomUUID().slice(0, 8);
-    return `${base}-${suffix}`;
   };
 
   const toggleAssignedEmployee = (employeeId: string) => {
@@ -522,35 +470,26 @@ export default function DashboardPage() {
     setAssignmentSaving(true);
     setAssignmentStatus({ type: "idle" });
 
-    const accessToken = await getFreshAccessToken();
-    if (!accessToken) {
-      setAssignmentStatus({
-        type: "error",
-        message: "Session admin expiree. Reconnecte-toi pour enregistrer les affectations.",
-      });
-      setAssignmentSaving(false);
-      return;
-    }
-
-    const response = await fetch("/api/admin/rh-collaborators", {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
+    const result = await runAdminAction(
+      getFreshAccessToken,
+      "/api/admin/rh-collaborators",
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rhId: selectedRhId,
+          employeeIds: selectedEmployeeIds,
+          restrictions: selectedRestrictions,
+        }),
       },
-      body: JSON.stringify({
-        rhId: selectedRhId,
-        employeeIds: selectedEmployeeIds,
-        restrictions: selectedRestrictions,
-      }),
-    });
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    if (!response.ok) {
-      setAssignmentStatus({
-        type: "error",
-        message:
-          payload?.error ?? `Enregistrement des affectations impossible (HTTP ${response.status}).`,
-      });
+      {
+        expiredSession: "Session admin expiree. Reconnecte-toi pour enregistrer les affectations.",
+        failure: "Enregistrement des affectations impossible",
+      },
+    );
+
+    if (!result.ok) {
+      setAssignmentStatus({ type: "error", message: result.message });
       setAssignmentSaving(false);
       return;
     }
@@ -584,7 +523,7 @@ export default function DashboardPage() {
 
     const payload = {
       title: offerForm.title,
-      slug: buildUniqueSlug(offerForm.title),
+      slug: buildUniqueOfferSlug(offerForm.title),
       description: offerForm.description,
       location: offerForm.location || null,
       contract_type: offerForm.contract_type || null,
@@ -633,28 +572,6 @@ export default function DashboardPage() {
     }
 
     setOfferSaving(false);
-  };
-
-  const handleOfferStatusUpdate = async (offerId: string, nextStatus: string) => {
-    if (!supabase) return;
-    setOfferActionId(offerId);
-    setOfferActionStatus({ type: "idle" });
-
-    const { error: updateError } = await supabase
-      .from("job_offers")
-      .update({ status: nextStatus })
-      .eq("id", offerId);
-
-    if (updateError) {
-      setOfferActionStatus({ type: "error", message: updateError.message });
-    } else {
-      setOfferActionStatus({ type: "success", message: "Offre mise à jour." });
-      setJobOffers((prev) =>
-        prev.map((offer) => (offer.id === offerId ? { ...offer, status: nextStatus } : offer))
-      );
-    }
-
-    setOfferActionId(null);
   };
 
   const handleOfferEditStart = (offer: JobOffer) => {

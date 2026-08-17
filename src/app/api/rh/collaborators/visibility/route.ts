@@ -1,24 +1,10 @@
 import { NextResponse } from "next/server";
 
-import {
-  getAccessTokenFromRequest,
-  getAuthorizedActor,
-  isAuthorizedActorError,
-} from "@/lib/server-supabase";
+import { ApiError, withActor } from "@/lib/api-handler";
 
-export async function GET(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session RH manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["rh", "admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient, profile } = authorized;
+export const GET = withActor(
+  ["rh", "admin"],
+  async ({ adminClient, profile }) => {
     const { data, error } = await adminClient
       .from("rh_employee_assignments")
       .select("employee_id,allowed_document_type_ids")
@@ -27,13 +13,10 @@ export async function GET(request: Request) {
     const assignmentsTableMissing =
       !!error && /rh_employee_assignments/i.test(error.message ?? "");
     if (assignmentsTableMissing) {
-      return NextResponse.json(
-        { error: "Controle des affectations RH indisponible." },
-        { status: 503 },
-      );
+      throw new ApiError("Controle des affectations RH indisponible.", 503);
     }
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      throw new ApiError(error.message, 400);
     }
 
     const employeeIds = Array.from(
@@ -54,11 +37,6 @@ export async function GET(request: Request) {
     }, {});
 
     return NextResponse.json({ restricted: true, employeeIds, documentTypeRestrictions });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
-
+  },
+  { missingSession: "Session RH manquante." },
+);

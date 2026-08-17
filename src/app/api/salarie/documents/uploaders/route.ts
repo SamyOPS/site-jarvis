@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 
-import {
-  getAccessTokenFromRequest,
-  getAuthorizedActor,
-  isAuthorizedActorError,
-} from "@/lib/server-supabase";
+import { unwrap, withActor } from "@/lib/api-handler";
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -12,18 +8,17 @@ function isUuid(value: string) {
   );
 }
 
-export async function POST(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
+/**
+ * Nom du deposant de chaque document demande.
+ *
+ * L'entree porte des identifiants de DOCUMENTS, et la premiere requete les restreint aux
+ * documents du collaborateur : les profils resolus ensuite sont donc necessairement des
+ * deposants qu'il a le droit de voir. C'est le modele que la route RH equivalente doit
+ * adopter (cf. TODO lot 8 dans `api/rh/documents/uploaders`).
+ */
+export const POST = withActor(
+  ["salarie"],
+  async ({ adminClient, profile, request }) => {
     const payload = (await request.json().catch(() => null)) as
       | { documentIds?: unknown }
       | null;
@@ -40,16 +35,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ items: [] });
     }
 
-    const { adminClient, profile } = authorized;
-    const { data: docsRows, error: docsError } = await adminClient
-      .from("employee_documents")
-      .select("id,uploaded_by")
-      .eq("employee_id", profile.id)
-      .in("id", documentIds);
-
-    if (docsError) {
-      return NextResponse.json({ error: docsError.message }, { status: 400 });
-    }
+    const docsRows = unwrap(
+      await adminClient
+        .from("employee_documents")
+        .select("id,uploaded_by")
+        .eq("employee_id", profile.id)
+        .in("id", documentIds),
+    );
 
     const uploaderIds = Array.from(
       new Set(
@@ -63,14 +55,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ items: [] });
     }
 
-    const { data: uploaderRows, error: uploaderError } = await adminClient
-      .from("profiles")
-      .select("id,full_name,email")
-      .in("id", uploaderIds);
-
-    if (uploaderError) {
-      return NextResponse.json({ error: uploaderError.message }, { status: 400 });
-    }
+    const uploaderRows = unwrap(
+      await adminClient.from("profiles").select("id,full_name,email").in("id", uploaderIds),
+    );
 
     const uploaderById = new Map(
       (uploaderRows ?? []).map((row) => [
@@ -96,10 +83,6 @@ export async function POST(request: Request) {
       .filter(Boolean);
 
     return NextResponse.json({ items });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
+  },
+  { missingSession: "Session salarie manquante." },
+);

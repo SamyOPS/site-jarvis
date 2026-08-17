@@ -40,7 +40,7 @@ import {
 import { matchesRhDocumentFilters } from "@/features/dashboard/rh/document-filters";
 import type { RhWorkspaceRouteProps } from "@/features/dashboard/rh/navigation";
 import type { CraEntryDraft } from "@/domain/cra";
-import type { DocumentFolderRow, DocumentRequestStatus, DocumentStatus, DocumentTypeRow } from "@/domain/documents";
+import type { DocumentRequestStatus, DocumentStatus, DocumentTypeRow } from "@/domain/documents";
 import type {
   RhApplicationRow as ApplicationRow,
   RhDocumentRow as RHDocumentRow,
@@ -1734,177 +1734,177 @@ export default function RhWorkspace({
                         </div>
                       )}
                     </div>
-		                    <div className="flex items-center gap-2">
-		                      {saveMessage && <p className="text-sm text-[#0A1A2F]/70">{saveMessage}</p>}
-		                    </div>
-	                    <div className="w-full border-b border-slate-200 bg-white">
-	                      <div className="flex items-end gap-1 px-2 text-sm">
-	                        <button
-	                          type="button"
-	                          className={`rounded-t-md px-4 py-2 font-medium transition ${
-	                            collabDetailSection === "demandes"
-	                              ? "border-b-2 border-[#0A1A2F] bg-slate-50 text-[#0A1A2F]"
-	                              : "text-[#0A1A2F]/65 hover:bg-slate-50 hover:text-[#0A1A2F]"
-	                          }`}
-	                          onClick={() => {
-	                            setCollabDetailSection("demandes");
-	                            setCollabDocumentsMenuOpen(false);
-	                          }}
-	                        >
-	                          Demandes
-	                        </button>
-	                        <button
-	                          type="button"
-	                          className={`rounded-t-md px-4 py-2 font-medium transition ${
-	                            collabDetailSection === "documents"
-	                              ? "border-b-2 border-[#0A1A2F] bg-slate-50 text-[#0A1A2F]"
-	                              : "text-[#0A1A2F]/65 hover:bg-slate-50 hover:text-[#0A1A2F]"
-	                          }`}
-	                          onClick={() => {
-	                            setCollabDetailSection("documents");
-	                            setCollabDocumentsMenuOpen(false);
-	                          }}
-	                        >
-	                          Documents
-	                        </button>
-	                        <button
-	                          type="button"
-	                          className={`rounded-t-md px-4 py-2 font-medium transition ${
-	                            collabDetailSection === "candidatures"
-	                              ? "border-b-2 border-[#0A1A2F] bg-slate-50 text-[#0A1A2F]"
-	                              : "text-[#0A1A2F]/65 hover:bg-slate-50 hover:text-[#0A1A2F]"
-	                          }`}
-	                          onClick={() => {
-	                            setCollabDetailSection("candidatures");
-	                            setCollabDocumentsMenuOpen(false);
-	                          }}
-	                        >
-	                          Candidatures
-	                        </button>
-	                      </div>
-	                    </div>
+                        <div className="flex items-center gap-2">
+                          {saveMessage && <p className="text-sm text-[#0A1A2F]/70">{saveMessage}</p>}
+                        </div>
+                      <div className="w-full border-b border-slate-200 bg-white">
+                        <div className="flex items-end gap-1 px-2 text-sm">
+                          <button
+                            type="button"
+                            className={`rounded-t-md px-4 py-2 font-medium transition ${
+                              collabDetailSection === "demandes"
+                                ? "border-b-2 border-[#0A1A2F] bg-slate-50 text-[#0A1A2F]"
+                                : "text-[#0A1A2F]/65 hover:bg-slate-50 hover:text-[#0A1A2F]"
+                            }`}
+                            onClick={() => {
+                              setCollabDetailSection("demandes");
+                              setCollabDocumentsMenuOpen(false);
+                            }}
+                          >
+                            Demandes
+                          </button>
+                          <button
+                            type="button"
+                            className={`rounded-t-md px-4 py-2 font-medium transition ${
+                              collabDetailSection === "documents"
+                                ? "border-b-2 border-[#0A1A2F] bg-slate-50 text-[#0A1A2F]"
+                                : "text-[#0A1A2F]/65 hover:bg-slate-50 hover:text-[#0A1A2F]"
+                            }`}
+                            onClick={() => {
+                              setCollabDetailSection("documents");
+                              setCollabDocumentsMenuOpen(false);
+                            }}
+                          >
+                            Documents
+                          </button>
+                          <button
+                            type="button"
+                            className={`rounded-t-md px-4 py-2 font-medium transition ${
+                              collabDetailSection === "candidatures"
+                                ? "border-b-2 border-[#0A1A2F] bg-slate-50 text-[#0A1A2F]"
+                                : "text-[#0A1A2F]/65 hover:bg-slate-50 hover:text-[#0A1A2F]"
+                            }`}
+                            onClick={() => {
+                              setCollabDetailSection("candidatures");
+                              setCollabDocumentsMenuOpen(false);
+                            }}
+                          >
+                            Candidatures
+                          </button>
+                        </div>
+                      </div>
 
-	                    {collabDetailSection === "demandes" ? (
-	                      <div className="rounded p-3">
-	                        <p className="mb-2 font-medium">Demandes ({selectedEmployeeRequests.length})</p>
-	                        {selectedEmployeeRequests.length ? selectedEmployeeRequests.map((request) => (
-	                          <p key={request.id} className="text-[#0A1A2F]/80">{request.typeLabel} - {request.status}</p>
-	                        )) : <p className="text-[#0A1A2F]/70">Aucune demande.</p>}
-	                      </div>
-	                    ) : null}
-	                    {collabDetailSection === "documents" ? (
-	                      <>
-		                        <div className="rounded p-3">
-		                          <div ref={collabDocumentsMenuRef} className="relative mb-2 flex items-center gap-2">
-		                            <p className="font-medium">Documents ({filteredSelectedEmployeeDocuments.length})</p>
-		                            <button
-		                              type="button"
-		                              className="rounded-md p-1 text-[#0A1A2F]/70 hover:bg-slate-100 hover:text-[#0A1A2F]"
-		                              aria-label="Options documents"
-		                              onClick={() => setCollabDocumentsMenuOpen((open) => !open)}
-		                            >
-		                              <ChevronDown className={`h-4 w-4 transition ${collabDocumentsMenuOpen ? "rotate-180" : ""}`} />
-		                            </button>
-		                            {collabDocumentsMenuOpen ? (
-		                              <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
-		                                <button
-		                                  type="button"
-		                                  className="w-full rounded-md px-3 py-2 text-left text-sm text-[#0A1A2F] hover:bg-slate-50"
-		                                  onClick={() => {
-		                                    openRhBatchDialog(selectedEmployee.id);
-		                                    setCollabDocumentsMenuOpen(false);
-		                                  }}
-		                                >
-		                                  Importer des documents
-		                                </button>
-		                              </div>
-		                            ) : null}
-		                          </div>
-		                          <DocumentFiltersBar
-	                            fields={["type", "period", "status", "owner"]}
-	                            values={{
-	                              type: collabDocTypeFilter,
-	                              period: collabDocPeriodFilter,
-	                              status: collabDocStatusFilter,
-	                              owner: collabDocOwnerFilter,
-	                            }}
-	                            options={selectedEmployeeDocumentFilterOptions}
-	                            onChange={(field, value) => {
-	                              if (field === "type") setCollabDocTypeFilter(value);
-	                              if (field === "period") setCollabDocPeriodFilter(value);
-	                              if (field === "status") setCollabDocStatusFilter(value);
-	                              if (field === "owner") setCollabDocOwnerFilter(value);
-	                            }}
-	                          />
-	                          {filteredSelectedEmployeeDocuments.length ? (
-		                            <DashboardDocumentList
-		                              items={selectedEmployeeDocumentListItems}
-		                              storageKey="rh-collab-detail-documents-columns"
-		                              storageScope={user?.id ?? profile?.id ?? null}
-		                              preferencesAuthToken={session?.access_token ?? null}
-		                              columnControlPlacement="inline"
-		                              onItemDoubleClick={(document) => {
-		                                if (
-		                                  document.fileName.toLowerCase().endsWith(".pdf") &&
-		                                  document.storagePath
-		                                ) {
-		                                  void handleViewDocument(document);
-		                                }
-		                              }}
-		                              isItemDoubleClickable={(document) =>
-		                                document.fileName.toLowerCase().endsWith(".pdf") && !!document.storagePath
-		                              }
-		                              renderActions={(document) => (
-		                                <>
-		                                  {document.fileName.toLowerCase().endsWith(".pdf") ? (
-		                                    <Button
-		                                      type="button"
-		                                      variant="ghost"
-		                                      size="sm"
-		                                      className="w-full justify-start"
-		                                      onClick={() => {
-		                                        void handleViewDocument(document);
-		                                      }}
-		                                      disabled={
-		                                        !document.storagePath ||
-		                                        viewingDocumentId === document.id ||
-		                                        downloadingDocumentId === document.id
-		                                      }
-		                                    >
-		                                      Visualiser
-		                                    </Button>
-		                                  ) : null}
-		                                  <Button
-		                                    type="button"
-		                                    variant="ghost"
-		                                    size="sm"
-		                                    className="w-full justify-start"
-		                                    onClick={() => {
-		                                      void handleDownloadDocument(document);
-		                                    }}
-		                                    disabled={
-		                                      !document.storagePath ||
-		                                      downloadingDocumentId === document.id ||
-		                                      viewingDocumentId === document.id
-		                                    }
-		                                  >
-		                                    Télécharger
-		                                  </Button>
-		                                </>
-		                              )}
-	                            />
-	                          ) : <p className="text-[#0A1A2F]/70">Aucun document.</p>}
-	                        </div>
-	                      </>
-	                    ) : null}
-	                    {collabDetailSection === "candidatures" ? (
-	                      <div className="rounded p-3">
-	                        <p className="mb-2 font-medium">Candidatures ({selectedEmployeeApplications.length})</p>
-	                        {selectedEmployeeApplications.length ? selectedEmployeeApplications.map((application) => (
-	                          <p key={application.id} className="text-[#0A1A2F]/80">{application.jobTitle} - {application.status}</p>
-	                        )) : <p className="text-[#0A1A2F]/70">Aucune candidature.</p>}
-	                      </div>
-	                    ) : null}
+                      {collabDetailSection === "demandes" ? (
+                        <div className="rounded p-3">
+                          <p className="mb-2 font-medium">Demandes ({selectedEmployeeRequests.length})</p>
+                          {selectedEmployeeRequests.length ? selectedEmployeeRequests.map((request) => (
+                            <p key={request.id} className="text-[#0A1A2F]/80">{request.typeLabel} - {request.status}</p>
+                          )) : <p className="text-[#0A1A2F]/70">Aucune demande.</p>}
+                        </div>
+                      ) : null}
+                      {collabDetailSection === "documents" ? (
+                        <>
+                            <div className="rounded p-3">
+                              <div ref={collabDocumentsMenuRef} className="relative mb-2 flex items-center gap-2">
+                                <p className="font-medium">Documents ({filteredSelectedEmployeeDocuments.length})</p>
+                                <button
+                                  type="button"
+                                  className="rounded-md p-1 text-[#0A1A2F]/70 hover:bg-slate-100 hover:text-[#0A1A2F]"
+                                  aria-label="Options documents"
+                                  onClick={() => setCollabDocumentsMenuOpen((open) => !open)}
+                                >
+                                  <ChevronDown className={`h-4 w-4 transition ${collabDocumentsMenuOpen ? "rotate-180" : ""}`} />
+                                </button>
+                                {collabDocumentsMenuOpen ? (
+                                  <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                                    <button
+                                      type="button"
+                                      className="w-full rounded-md px-3 py-2 text-left text-sm text-[#0A1A2F] hover:bg-slate-50"
+                                      onClick={() => {
+                                        openRhBatchDialog(selectedEmployee.id);
+                                        setCollabDocumentsMenuOpen(false);
+                                      }}
+                                    >
+                                      Importer des documents
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
+                              <DocumentFiltersBar
+                              fields={["type", "period", "status", "owner"]}
+                              values={{
+                                type: collabDocTypeFilter,
+                                period: collabDocPeriodFilter,
+                                status: collabDocStatusFilter,
+                                owner: collabDocOwnerFilter,
+                              }}
+                              options={selectedEmployeeDocumentFilterOptions}
+                              onChange={(field, value) => {
+                                if (field === "type") setCollabDocTypeFilter(value);
+                                if (field === "period") setCollabDocPeriodFilter(value);
+                                if (field === "status") setCollabDocStatusFilter(value);
+                                if (field === "owner") setCollabDocOwnerFilter(value);
+                              }}
+                            />
+                            {filteredSelectedEmployeeDocuments.length ? (
+                                <DashboardDocumentList
+                                  items={selectedEmployeeDocumentListItems}
+                                  storageKey="rh-collab-detail-documents-columns"
+                                  storageScope={user?.id ?? profile?.id ?? null}
+                                  preferencesAuthToken={session?.access_token ?? null}
+                                  columnControlPlacement="inline"
+                                  onItemDoubleClick={(document) => {
+                                    if (
+                                      document.fileName.toLowerCase().endsWith(".pdf") &&
+                                      document.storagePath
+                                    ) {
+                                      void handleViewDocument(document);
+                                    }
+                                  }}
+                                  isItemDoubleClickable={(document) =>
+                                    document.fileName.toLowerCase().endsWith(".pdf") && !!document.storagePath
+                                  }
+                                  renderActions={(document) => (
+                                    <>
+                                      {document.fileName.toLowerCase().endsWith(".pdf") ? (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="w-full justify-start"
+                                          onClick={() => {
+                                            void handleViewDocument(document);
+                                          }}
+                                          disabled={
+                                            !document.storagePath ||
+                                            viewingDocumentId === document.id ||
+                                            downloadingDocumentId === document.id
+                                          }
+                                        >
+                                          Visualiser
+                                        </Button>
+                                      ) : null}
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="w-full justify-start"
+                                        onClick={() => {
+                                          void handleDownloadDocument(document);
+                                        }}
+                                        disabled={
+                                          !document.storagePath ||
+                                          downloadingDocumentId === document.id ||
+                                          viewingDocumentId === document.id
+                                        }
+                                      >
+                                        Télécharger
+                                      </Button>
+                                    </>
+                                  )}
+                              />
+                            ) : <p className="text-[#0A1A2F]/70">Aucun document.</p>}
+                          </div>
+                        </>
+                      ) : null}
+                      {collabDetailSection === "candidatures" ? (
+                        <div className="rounded p-3">
+                          <p className="mb-2 font-medium">Candidatures ({selectedEmployeeApplications.length})</p>
+                          {selectedEmployeeApplications.length ? selectedEmployeeApplications.map((application) => (
+                            <p key={application.id} className="text-[#0A1A2F]/80">{application.jobTitle} - {application.status}</p>
+                          )) : <p className="text-[#0A1A2F]/70">Aucune candidature.</p>}
+                        </div>
+                      ) : null}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -1917,8 +1917,59 @@ export default function RhWorkspace({
                     />
                     <div className="overflow-x-auto rounded-lg">
                       <table className="min-w-full text-sm">
-                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70"><tr><th className="px-3 py-2">Nom</th><th className="px-3 py-2">Entreprise</th><th className="px-3 py-2">ESN partenaire</th><th className="px-3 py-2">Email</th><th className="px-3 py-2">Statut</th><th className="px-3 py-2">Connexion</th><th className="px-3 py-2">Derniere connexion</th><th className="px-3 py-2">Demandes ouvertes</th></tr></thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">{visibleCollaborateurs.length ? visibleCollaborateurs.map((employee) => <tr key={employee.id}><td className="px-3 py-2"><Link href={`/dashboard/rh/collaborateurs/${employee.id}`} className="hover:underline">{employee.full_name ?? "-"}</Link></td><td className="px-3 py-2">{employee.company_name ?? "-"}</td><td className="px-3 py-2">{employee.esn_partenaire ?? "-"}</td><td className="px-3 py-2">{employee.email}</td><td className="px-3 py-2">{employee.employment_status ?? "-"}</td><td className="px-3 py-2">{isRecentlyActive(employee.id) ? "Actif recemment" : "Hors ligne"}</td><td className="px-3 py-2">{formatLastSignIn(employee.id)}</td><td className="px-3 py-2">{requests.filter((request) => request.employeeId === employee.id && ["pending", "uploaded", "rejected", "expired"].includes(request.status)).length}</td></tr>) : <tr><td colSpan={8} className="px-3 py-6 text-center text-[#0A1A2F]/60">Aucun collaborateur trouve.</td></tr>}</tbody>
+                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70">
+                          <tr>
+                            <th className="px-3 py-2">Nom</th>
+                            <th className="px-3 py-2">Entreprise</th>
+                            <th className="px-3 py-2">ESN partenaire</th>
+                            <th className="px-3 py-2">Email</th>
+                            <th className="px-3 py-2">Statut</th>
+                            <th className="px-3 py-2">Connexion</th>
+                            <th className="px-3 py-2">Derniere connexion</th>
+                            <th className="px-3 py-2">Demandes ouvertes</th>
+                          </tr>
+                        </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {visibleCollaborateurs.length ? (
+                          visibleCollaborateurs.map((employee) => (
+                            <tr key={employee.id}>
+                              <td className="px-3 py-2">
+                                <Link
+                                  href={`/dashboard/rh/collaborateurs/${employee.id}`}
+                                  className="hover:underline"
+                                >
+                                  {employee.full_name ?? "-"}
+                                </Link>
+                              </td>
+                              <td className="px-3 py-2">{employee.company_name ?? "-"}</td>
+                              <td className="px-3 py-2">{employee.esn_partenaire ?? "-"}</td>
+                              <td className="px-3 py-2">{employee.email}</td>
+                              <td className="px-3 py-2">{employee.employment_status ?? "-"}</td>
+                              <td className="px-3 py-2">
+                                {isRecentlyActive(employee.id) ? "Actif recemment" : "Hors ligne"}
+                              </td>
+                              <td className="px-3 py-2">{formatLastSignIn(employee.id)}</td>
+                              <td className="px-3 py-2">
+                                {
+                                  requests.filter(
+                                    (request) =>
+                                      request.employeeId === employee.id &&
+                                      ["pending", "uploaded", "rejected", "expired"].includes(
+                                        request.status,
+                                      ),
+                                  ).length
+                                }
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={8} className="px-3 py-6 text-center text-[#0A1A2F]/60">
+                              Aucun collaborateur trouve.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
                     </table>
                     </div>
                   </div>
@@ -1953,16 +2004,16 @@ export default function RhWorkspace({
               invoiceGenerating={invoiceGenerating}
               leaveGenerating={leaveGenerating}
               onGenerateLeavePdf={handleGenerateRhLeavePdf}
-	              craPeriodMonth={craPeriodMonth}
-	              craDraftTotalDays={craDraftTotalDays}
-	              craNotes={craNotes}
-	              invoiceDiscountGranted={invoiceDiscountGranted}
-	              onInvoiceDiscountGrantedChange={setInvoiceDiscountGranted}
-	              invoiceVatEnabled={invoiceVatEnabled}
-	              onInvoiceVatEnabledChange={setInvoiceVatEnabled}
-	              invoiceAmountAlreadyPaid={invoiceAmountAlreadyPaid}
-	              onInvoiceAmountAlreadyPaidChange={setInvoiceAmountAlreadyPaid}
-	              craCalendarCells={craCalendarCells}
+                craPeriodMonth={craPeriodMonth}
+                craDraftTotalDays={craDraftTotalDays}
+                craNotes={craNotes}
+                invoiceDiscountGranted={invoiceDiscountGranted}
+                onInvoiceDiscountGrantedChange={setInvoiceDiscountGranted}
+                invoiceVatEnabled={invoiceVatEnabled}
+                onInvoiceVatEnabledChange={setInvoiceVatEnabled}
+                invoiceAmountAlreadyPaid={invoiceAmountAlreadyPaid}
+                onInvoiceAmountAlreadyPaidChange={setInvoiceAmountAlreadyPaid}
+                craCalendarCells={craCalendarCells}
               craEntriesByDate={craEntriesByDate}
               craEntries={craEntries}
               onGenerateEmployeeIdChange={setGenerateEmployeeId}
@@ -2124,12 +2175,3 @@ export default function RhWorkspace({
     </WorkspaceShell>
   );
 }
-
-
-
-
-
-
-
-
-

@@ -14,6 +14,7 @@ import { ProRejectedCard } from "@/components/dashboard/pro/rejected-card";
 import { DashboardSessionCard } from "@/components/dashboard/session-card";
 import { ProUnverifiedOfferPlaceholder } from "@/components/dashboard/pro/unverified-offer-placeholder";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
+import { buildUniqueOfferSlug } from "@/domain/slug";
 import { browserSupabase } from "@/lib/supabase-browser";
 
 const supabase = browserSupabase;
@@ -164,20 +165,6 @@ export default function ProDashboardPage() {
     window.location.href = "/auth?logged_out=1";
   };
 
-  const slugify = (value: string) =>
-    value
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 120);
-
-  const buildUniqueSlug = (title: string) => {
-    const base = slugify(title) || "offre";
-    const suffix = crypto.randomUUID().slice(0, 8);
-    return `${base}-${suffix}`;
-  };
-
   const handleOfferSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase || !profile) return;
@@ -187,7 +174,7 @@ export default function ProDashboardPage() {
 
     const payload = {
       title: offerForm.title,
-      slug: buildUniqueSlug(offerForm.title),
+      slug: buildUniqueOfferSlug(offerForm.title),
       description: offerForm.description,
       location: offerForm.location || null,
       contract_type: offerForm.contract_type || null,
@@ -426,5 +413,3 @@ export default function ProDashboardPage() {
     </div>
   );
 }
-
-

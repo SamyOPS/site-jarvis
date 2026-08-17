@@ -1,4 +1,4 @@
-"use client" 
+"use client"
 
 import * as React from "react"
 import { HTMLMotionProps, MotionConfig, motion } from "motion/react"
@@ -44,7 +44,7 @@ export function useHoverSliderContext() {
 export const HoverSlider = React.forwardRef<
   HTMLElement,
   React.HTMLAttributes<HTMLElement> & HoverSliderProps
->(({ children, className, ...props }, ref) => {
+>(({ children, className, ..._props }, _ref) => {
   const [activeSlide, setActiveSlide] = React.useState<number>(0)
   const changeSlide = React.useCallback(
     (index: number) => setActiveSlide(index),
@@ -61,7 +61,7 @@ HoverSlider.displayName = "HoverSlider"
 const WordStaggerHover = React.forwardRef<
   HTMLSpanElement,
   React.HTMLAttributes<HTMLSpanElement>
->(({ children, className, ...props }, ref) => {
+>(({ children, className, ...props }, _ref) => {
   return (
     <span
       className={cn("relative inline-block origin-bottom overflow-hidden")}

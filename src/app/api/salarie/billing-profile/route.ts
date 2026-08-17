@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { getAccessTokenFromRequest, getAuthorizedActor, isAuthorizedActorError } from "@/lib/server-supabase";
+import { ApiError, unwrap, withActor } from "@/lib/api-handler";
+import { getOptionalString, getRequiredString } from "@/lib/validation";
 
 type BillingProfilePayload = {
   firstName?: unknown;
@@ -17,20 +18,6 @@ type BillingProfilePayload = {
   bic?: unknown;
   timeUnit?: unknown;
 };
-
-function getRequiredString(value: unknown, label: string) {
-  const normalized = String(value ?? "").trim();
-  if (!normalized) {
-    throw new Error(`Le champ "${label}" est obligatoire.`);
-  }
-  return normalized;
-}
-
-function getOptionalString(value: unknown) {
-  const normalized = String(value ?? "").trim();
-  return normalized || null;
-}
-
 
 function getTimeUnit(value: unknown) {
   const raw = String(value ?? "").trim() || "day";
@@ -63,69 +50,47 @@ function parseBillingProfilePayload(payload: BillingProfilePayload) {
   };
 }
 
-export async function GET(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
+const SALARIE_SESSION = { missingSession: "Session salarie manquante." };
 
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
+const BILLING_PROFILE_COLUMNS =
+  "employee_id,first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,time_unit,created_at,updated_at";
 
-    const { adminClient, profile } = authorized;
-    const { data, error } = await adminClient
-      .from("employee_billing_profiles")
-      .select("employee_id,first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,time_unit,created_at,updated_at")
-      .eq("employee_id", profile.id)
-      .maybeSingle();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
+export const GET = withActor(
+  ["salarie"],
+  async ({ adminClient, profile }) => {
+    const data = unwrap(
+      await adminClient
+        .from("employee_billing_profiles")
+        .select(BILLING_PROFILE_COLUMNS)
+        .eq("employee_id", profile.id)
+        .maybeSingle(),
+    );
 
     return NextResponse.json({ profile: data });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  SALARIE_SESSION,
+);
 
-export async function PUT(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient, profile } = authorized;
+export const PUT = withActor(
+  ["salarie"],
+  async ({ adminClient, profile, request }) => {
     const body = (await request.json().catch(() => null)) as BillingProfilePayload | null;
     if (!body) {
-      return NextResponse.json({ error: "Payload invalide." }, { status: 400 });
+      throw new ApiError("Payload invalide.", 400);
     }
 
     const payload = parseBillingProfilePayload(body);
     const { data, error } = await adminClient
       .from("employee_billing_profiles")
-      .upsert({
-        employee_id: profile.id,
-        ...payload,
-      })
-      .select("employee_id,first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,time_unit,created_at,updated_at")
+      .upsert({ employee_id: profile.id, ...payload })
+      .select(BILLING_PROFILE_COLUMNS)
       .single();
 
     if (error || !data) {
-      return NextResponse.json({ error: error?.message ?? "Enregistrement impossible." }, { status: 400 });
+      throw new ApiError(error?.message ?? "Enregistrement impossible.", 400);
     }
 
     return NextResponse.json({ success: true, profile: data });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erreur serveur." }, { status: 500 });
-  }
-}
+  },
+  SALARIE_SESSION,
+);

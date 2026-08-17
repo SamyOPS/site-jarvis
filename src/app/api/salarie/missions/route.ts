@@ -1,31 +1,19 @@
 import { NextResponse } from "next/server";
 
+import { ApiError, unwrap, withActor } from "@/lib/api-handler";
 import { MISSION_COLUMNS, parseMissionPayload, type MissionPayload } from "@/lib/missions";
-import {
-  getAccessTokenFromRequest,
-  getAuthorizedActor,
-  isAuthorizedActorError,
-} from "@/lib/server-supabase";
 
 export const runtime = "nodejs";
+
+const SALARIE_SESSION = { missingSession: "Session salarie manquante." };
 
 /**
  * Missions du collaborateur : ses entreprises clientes, chacune avec son tarif et son
  * unite de saisie. Le collaborateur les gere librement.
  */
-export async function GET(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-    const { adminClient, profile } = authorized;
-
+export const GET = withActor(
+  ["salarie"],
+  async ({ adminClient, profile, request }) => {
     const url = new URL(request.url);
     const includeArchived = url.searchParams.get("archived") === "1";
 
@@ -40,42 +28,23 @@ export async function GET(request: Request) {
       query = query.is("archived_at", null);
     }
 
-    const { data, error } = await query;
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
+    return NextResponse.json({ items: unwrap(await query) ?? [] });
+  },
+  SALARIE_SESSION,
+);
 
-    return NextResponse.json({ items: data ?? [] });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session salarie manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["salarie"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-    const { adminClient, profile } = authorized;
-
+export const POST = withActor(
+  ["salarie"],
+  async ({ adminClient, profile, request }) => {
     const body = (await request.json().catch(() => null)) as MissionPayload | null;
 
     let payload;
     try {
       payload = parseMissionPayload(body);
     } catch (parseError) {
-      return NextResponse.json(
-        { error: parseError instanceof Error ? parseError.message : "Mission invalide." },
-        { status: 400 },
+      throw new ApiError(
+        parseError instanceof Error ? parseError.message : "Mission invalide.",
+        400,
       );
     }
 
@@ -99,17 +68,10 @@ export async function POST(request: Request) {
       .single();
 
     if (error || !data) {
-      return NextResponse.json(
-        { error: error?.message ?? "Creation de la mission impossible." },
-        { status: 400 },
-      );
+      throw new ApiError(error?.message ?? "Creation de la mission impossible.", 400);
     }
 
     return NextResponse.json({ mission: data });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
+  },
+  SALARIE_SESSION,
+);

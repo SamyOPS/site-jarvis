@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 
-import {
-  getAccessTokenFromRequest,
-  getAuthorizedActor,
-  isAuthorizedActorError,
-} from "@/lib/server-supabase";
+import { ApiError, withActor } from "@/lib/api-handler";
 
 type ActivityRow = {
   userId: string;
@@ -14,41 +10,27 @@ type ActivityRow = {
   emailConfirmedAt: string | null;
 };
 
-export async function GET(request: Request) {
-  try {
-    const accessToken = getAccessTokenFromRequest(request);
-    if (!accessToken) {
-      return NextResponse.json({ error: "Session RH manquante." }, { status: 401 });
-    }
-
-    const authorized = await getAuthorizedActor(accessToken, ["rh", "admin"]);
-    if (isAuthorizedActorError(authorized)) {
-      return NextResponse.json({ error: authorized.error }, { status: authorized.status });
-    }
-
-    const { adminClient, profile } = authorized;
-
-    let allowedEmployeeIds: string[] = [];
+export const GET = withActor(
+  ["rh", "admin"],
+  async ({ adminClient, profile }) => {
     const assignmentsRes = await adminClient
       .from("rh_employee_assignments")
       .select("employee_id")
       .eq("rh_id", profile.id);
+
     const assignmentsTableMissing =
       !!assignmentsRes.error &&
       /rh_employee_assignments/i.test(assignmentsRes.error.message ?? "");
-
     if (assignmentsTableMissing) {
-      return NextResponse.json(
-        { error: "Controle des affectations RH indisponible." },
-        { status: 503 },
-      );
-    } else if (assignmentsRes.error) {
-      return NextResponse.json({ error: assignmentsRes.error.message }, { status: 400 });
-    } else {
-      allowedEmployeeIds = Array.from(
-        new Set((assignmentsRes.data ?? []).map((row) => row.employee_id).filter(Boolean)),
-      );
+      throw new ApiError("Controle des affectations RH indisponible.", 503);
     }
+    if (assignmentsRes.error) {
+      throw new ApiError(assignmentsRes.error.message, 400);
+    }
+
+    const allowedEmployeeIds = Array.from(
+      new Set((assignmentsRes.data ?? []).map((row) => row.employee_id).filter(Boolean)),
+    );
 
     if (!allowedEmployeeIds.length) {
       return NextResponse.json({ items: [] });
@@ -59,7 +41,7 @@ export async function GET(request: Request) {
       perPage: 1000,
     });
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      throw new ApiError(error.message, 400);
     }
 
     const allowedSet = new Set(allowedEmployeeIds);
@@ -74,11 +56,6 @@ export async function GET(request: Request) {
       }));
 
     return NextResponse.json({ items: rows });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur." },
-      { status: 500 },
-    );
-  }
-}
-
+  },
+  { missingSession: "Session RH manquante." },
+);
