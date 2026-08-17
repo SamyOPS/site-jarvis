@@ -58,6 +58,9 @@ export default function Home() {
 
 
   const clients = [
+    // Logo empile (symbole au-dessus du mot) avec de larges marges dans le fichier :
+    // l'echelle compense pour qu'il pese visuellement autant que ses voisins detoures.
+    { name: "Accor", logo: "/client/Accor-logo.png", logoScale: 1.15 },
     { name: "ALD Automotive", logo: "/client/ald.png", logoScale: 0.95 },
     { name: "Apprentis d'Auteuil", logo: "/client/Logo-fondation-auteuil.jpg", logoScale: 0.82 },
     { name: "Aramis", logo: "/client/aramisa.svg", logoScale: 1.1 },
