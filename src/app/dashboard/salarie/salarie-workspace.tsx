@@ -7,8 +7,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import type { BillingProfileFormState } from "@/components/dashboard/billing-profile-card";
 import type { LeaveRequestPayload } from "@/components/dashboard/salarie/leave-request-editor";
 import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
-import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
-import { SALARIE_SIDEBAR } from "@/features/dashboard/shell/sidebar-config";
+import { ConsoleShell } from "@/components/console/shell/console-shell";
 import { SalarieDocumentsSection } from "@/components/dashboard/salarie-documents-section";
 import { SalarieOffersSection } from "@/components/dashboard/salarie-offers-section";
 import { SalarieOverviewSection } from "@/components/dashboard/salarie-overview-section";
@@ -29,6 +28,7 @@ import {
   sortCraEntries,
   WEEKDAY_LABELS,
 } from "@/domain/cra";
+import { buildMonthlyDocumentCounts } from "@/domain/documents";
 import { useCraEditor } from "@/features/dashboard/cra/use-cra-editor";
 import { useDocumentFilters } from "@/features/dashboard/documents/document-filters";
 import type { SalarieWorkspaceRouteProps } from "@/features/dashboard/salarie/navigation";
@@ -1046,6 +1046,12 @@ export default function SalarieWorkspace({
     }
     return activeDocuments;
   }, [activeDocuments, currentFolderId, currentSubSection]);
+
+  /** Volume mensuel reel des depots. Meme calcul que l'espace RH. */
+  const documentsByMonth = useMemo(
+    () => buildMonthlyDocumentCounts(activeDocuments),
+    [activeDocuments],
+  );
   const documentTypeOptions = useMemo(
     () => {
       const options = new Set(filteredDocuments.map((document) => document.typeLabel));
@@ -1137,16 +1143,12 @@ export default function SalarieWorkspace({
   }, [currentSection, currentSubSection, loadBillingProfile, loadCraItems, loadMissions, profile]);
 
   return (
-    <WorkspaceShell
-      nav={SALARIE_SIDEBAR}
-      currentSection={currentSection}
-      currentSubSection={currentSubSection}
-      roleLabel="Espace salarie"
-      settingsHref="/dashboard/salarie/parametres"
-      searchPlaceholder="Rechercher dans l'espace salarie"
+    <ConsoleShell
+      role="salarie"
       email={profile?.email ?? user?.email ?? "-"}
       displayName={displayName}
       onSignOut={handleSignOut}
+      hidePageHeader
     >
       <div className="space-y-4">
           {(!supabase || error) && (
@@ -1165,6 +1167,7 @@ export default function SalarieWorkspace({
               documentsCount={activeDocuments.length}
               validatedDocumentsCount={activeDocuments.filter((document) => document.status === "validated").length}
               pendingRequests={pendingRequests}
+              documentsByMonth={documentsByMonth}
               action={
                 <Button type="button" variant="outline" size="sm" onClick={() => openUploadDialog()}>
                   Deposer un document
@@ -1423,6 +1426,6 @@ export default function SalarieWorkspace({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </WorkspaceShell>
+    </ConsoleShell>
   );
 }

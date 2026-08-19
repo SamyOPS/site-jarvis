@@ -5,13 +5,13 @@
  *   - [data-app="console"] sur <body> active les tokens de la console.
  *     Pose sur <body> et non sur le shell pour que les portails Radix
  *     (Dialog, Select, cmdk) heritent eux aussi des tokens.
- *   - [data-theme="light"] sur <html> bascule la console en clair.
- *     Sombre par defaut : l'absence d'attribut vaut sombre.
+ *   - [data-theme="dark"] sur <html> bascule la console en sombre.
+ *     Clair par defaut : l'absence d'attribut vaut clair.
  */
 
 export type ConsoleTheme = "dark" | "light";
 
-export const CONSOLE_DEFAULT_THEME: ConsoleTheme = "dark";
+export const CONSOLE_DEFAULT_THEME: ConsoleTheme = "light";
 export const CONSOLE_THEME_STORAGE_KEY = "jarvis-console-theme";
 
 /** Routes servies par le shell console. Etendre au fil des etapes. */

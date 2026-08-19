@@ -11,9 +11,9 @@
  *   (--text-*, --radius-*, --color-* standards restent intacts).
  *
  * THEMES
- *   Sombre par defaut. Clair via [data-theme="light"] sur <html>.
- *     <html data-theme="light">  →  console en clair
- *     <html> ou data-theme="dark" →  console en sombre
+ *   Clair par defaut. Sombre via [data-theme="dark"] sur <html>.
+ *     <html> ou data-theme="light" →  console en clair
+ *     <html data-theme="dark">     →  console en sombre
  *   Pas de detection prefers-color-scheme : le choix est explicite et
  *   persiste cote client (mise en place a l'etape 2).
  *
@@ -23,8 +23,11 @@
  *     Les demi-pas (p-1.5=6px, gap-2.5=10px, mt-0.5=2px) sont interdits
  *     dans la console.
  *   - Rayons : rounded-app-control (6px) pour inputs/boutons/badges,
- *     rounded-app-card (10px) pour cartes/panneaux. Rien d'autre.
- *   - Typo : une seule famille (font-app), echelle text-app-xs → text-app-2xl,
+ *     rounded-app-card (0) pour cartes/panneaux — angles vifs. Rien d'autre.
+ *   - Fond de page et fond de carte sont tous deux blancs : c'est le filet gris
+ *     (border-app-line), et lui seul, qui delimite les blocs.
+ *   - Typo : une seule famille (font-app), echelle text-app-xs → text-app-2xl
+ *     (+ text-app-2xs, reserve aux mentions legales),
  *     poids font-normal / font-medium / font-semibold uniquement.
  *   - Elevation : bordure 1px (border-app-line) par defaut. shadow-app-raised
  *     est reserve aux calques flottants (popover, dropdown, modale).
@@ -40,6 +43,13 @@
    * sous --font-inter. Echelle stricte 12 / 14 / 16 / 20 / 24 / 32,
    * interlignes tous multiples de 4px.                                     */
   --font-app: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Palier ajoute sous l'echelle. Reserve aux MENTIONS : legales, notes de pied, surtitres
+     en petites capitales. Jamais pour un lien, un intitule de navigation ou du texte lu en
+     continu — a 10px on dechiffre un mot, on ne lit pas une phrase.
+     C'est un plancher : ne pas descendre plus bas. */
+  --text-app-2xs: 0.625rem; /* 10 */
+  --text-app-2xs--line-height: 0.875rem; /* 14 */
 
   --text-app-xs: 0.75rem; /* 12 */
   --text-app-xs--line-height: 1rem; /* 16 */
@@ -64,14 +74,14 @@
 
   /* -- Rayons -------------------------------------------------------------- */
   --radius-app-control: 6px; /* input, bouton, badge, checkbox */
-  --radius-app-card: 10px; /* carte, panneau, tableau, popover */
+  --radius-app-card: 0px; /* carte, panneau, tableau, popover — angles vifs */
 
   /* -- Constantes de layout -----------------------------------------------
    * Exposees via le namespace --spacing-* pour etre utilisables en
    * w-* / h-* / ml-* / top-* (ex. w-app-sidebar, h-app-topbar).            */
-  --spacing-app-sidebar: 240px;
+  --spacing-app-sidebar: 252px;
   --spacing-app-sidebar-collapsed: 64px;
-  --spacing-app-topbar: 56px;
+  --spacing-app-topbar: 48px;
   --container-app-content: 1440px;
 }
 
@@ -148,7 +158,7 @@
 :root,
 [data-theme="light"] [data-app="console"],
 [data-app="console"][data-theme="light"] {
-  --app-canvas: #f7f8f8;
+  --app-canvas: #ffffff;
   --app-surface: #ffffff;
   --app-surface-hover: #f2f3f4;
   --app-raised: #ffffff;
@@ -192,9 +202,13 @@
     0 1px 2px rgb(16 19 21 / 0.06), 0 8px 24px -8px rgb(16 19 21 / 0.16);
 }
 
-/* -- Palette sombre (defaut de la console) -------------------------------- */
-[data-app="console"],
-[data-theme="dark"] [data-app="console"] {
+/* -- Palette sombre (sur demande explicite) ------------------------------- *
+ * Le selecteur nu `[data-app="console"]` a ete RETIRE de cette liste : c'est lui qui
+ * faisait du sombre le defaut, en gagnant sur `:root` a specificite egale par simple
+ * ordre de declaration. Le sombre ne s'applique donc plus que sous data-theme="dark",
+ * et l'absence d'attribut rend le clair.                                     */
+[data-theme="dark"] [data-app="console"],
+[data-app="console"][data-theme="dark"] {
   --app-canvas: #08090a;
   --app-surface: #0f1113;
   --app-surface-hover: #16181b;

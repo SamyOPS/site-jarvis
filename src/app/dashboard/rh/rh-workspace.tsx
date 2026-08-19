@@ -13,8 +13,7 @@ import { RhOffersSection } from "@/components/dashboard/rh-offers-section";
 import { RhDocumentsSection } from "@/components/dashboard/rh-documents-section";
 import type { RhLeaveRequestPayload } from "@/components/dashboard/rh/leave-request-editor";
 import { RhOverviewSection } from "@/components/dashboard/rh-overview-section";
-import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
-import { RH_SIDEBAR } from "@/features/dashboard/shell/sidebar-config";
+import { ConsoleShell } from "@/components/console/shell/console-shell";
 import { RhSettingsSection } from "@/components/dashboard/rh-settings-section";
 import { StatusNotice } from "@/components/dashboard/status-notice";
 import { Button } from "@/components/ui/button";
@@ -25,6 +24,7 @@ import { usePasswordUpdate } from "@/features/dashboard/use-password-update";
 import { createAuthorizedFetch, getFreshAccessToken } from "@/lib/dashboard-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { buildMonthlyDocumentCounts } from "@/domain/documents";
 import { displayNameFromMetadata } from "@/domain/profiles";
 import { useCraEditor, type CraEditorMission } from "@/features/dashboard/cra/use-cra-editor";
 import { useBatchUploadForm } from "@/features/dashboard/rh/use-batch-upload-form";
@@ -81,6 +81,9 @@ type RhDashboardCache = {
 
 const RH_DASHBOARD_CACHE_TTL_MS = 2 * 60 * 1000;
 let rhDashboardCache: RhDashboardCache | null = null;
+
+/** Statuts proposes par le filtre de la page Collaborateurs. */
+type EmployeeStatusFilter = "all" | "active" | "inactive";
 
 export default function RhWorkspace({
   currentSection = defaultRouteProps.currentSection,
@@ -816,6 +819,9 @@ export default function RhWorkspace({
 
   const craCalendarCells = useMemo(() => buildCalendarCells(craPeriodMonth), [craPeriodMonth]);
   const openRequests = useMemo(() => requests.filter((request) => ["pending", "uploaded", "rejected", "expired"].includes(request.status)), [requests]);
+
+  /** Volume mensuel reel des depots. Meme calcul que l'espace salarie. */
+  const documentsByMonth = useMemo(() => buildMonthlyDocumentCounts(documents), [documents]);
   const currentMonthDocuments = useMemo(() => {
     const now = new Date();
     return documents.filter((document) => {
@@ -824,7 +830,35 @@ export default function RhWorkspace({
       return !Number.isNaN(createdAt.getTime()) && createdAt.getMonth() === now.getMonth() && createdAt.getFullYear() === now.getFullYear();
     });
   }, [documents]);
-  const collaborateursRows = useMemo(() => currentSubSection === "collab_actifs" ? employees.filter((employee) => employee.employment_status === "active") : currentSubSection === "collab_inactifs" ? employees.filter((employee) => ["inactive", "exited"].includes(employee.employment_status ?? "")) : employees, [currentSubSection, employees]);
+  /**
+   * Filtre de statut de la page Collaborateurs.
+   *
+   * Il remplace les trois entrees de sous-menu. La route reste la valeur PAR DEFAUT — un
+   * signet vers /actifs ouvre donc la page deja filtree — et le choix de l'utilisateur
+   * prend le dessus des qu'il touche au filtre. Meme mecanique que le depliage de la barre
+   * laterale : `override ?? valeurDeLaRoute`, sans effet de synchronisation.
+   */
+  const routeEmployeeStatus: EmployeeStatusFilter =
+    currentSubSection === "collab_actifs"
+      ? "active"
+      : currentSubSection === "collab_inactifs"
+        ? "inactive"
+        : "all";
+  const [employeeStatusOverride, setEmployeeStatusOverride] =
+    useState<EmployeeStatusFilter | null>(null);
+  const employeeStatusFilter = employeeStatusOverride ?? routeEmployeeStatus;
+
+  const collaborateursRows = useMemo(() => {
+    if (employeeStatusFilter === "active") {
+      return employees.filter((employee) => employee.employment_status === "active");
+    }
+    if (employeeStatusFilter === "inactive") {
+      return employees.filter((employee) =>
+        ["inactive", "exited"].includes(employee.employment_status ?? ""),
+      );
+    }
+    return employees;
+  }, [employeeStatusFilter, employees]);
   const visibleCollaborateurs = useMemo(() => {
     const query = collaborateurSearch.trim().toLowerCase();
     if (!query) return collaborateursRows;
@@ -1366,16 +1400,12 @@ export default function RhWorkspace({
   }, [refreshDashboardData, reviewDrafts]);
 
   return (
-    <WorkspaceShell
-      nav={RH_SIDEBAR}
-      currentSection={currentSection}
-      currentSubSection={currentSubSection}
-      roleLabel="Espace RH"
-      settingsHref="/dashboard/rh/parametres"
-      searchPlaceholder="Rechercher dans l'espace RH"
+    <ConsoleShell
+      role="rh"
       email={profile?.email ?? user?.email ?? "-"}
       displayName={displayName}
       onSignOut={handleSignOut}
+      hidePageHeader
     >
       <div className="space-y-4">
           {(!supabase || error) && (
@@ -1395,6 +1425,7 @@ export default function RhWorkspace({
               employeesCount={employees.length}
               currentMonthDocumentsCount={currentMonthDocuments.length}
               openRequests={openRequests}
+              documentsByMonth={documentsByMonth}
             />
           )}
 
@@ -1775,13 +1806,54 @@ export default function RhWorkspace({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <input
-                      type="search"
-                      value={collaborateurSearch}
-                      onChange={(event) => setCollaborateurSearch(event.target.value)}
-                      placeholder="Rechercher un collaborateur (nom, entreprise, ESN, email)..."
-                      className="h-10 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm"
-                    />
+                    <div className="flex flex-wrap items-center gap-3">
+                      <input
+                        type="search"
+                        value={collaborateurSearch}
+                        onChange={(event) => setCollaborateurSearch(event.target.value)}
+                        placeholder="Rechercher un collaborateur (nom, entreprise, ESN, email)..."
+                        className="h-10 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm"
+                      />
+
+                      {/*
+                        Filtre de statut, en remplacement des trois entrees de sous-menu.
+                        `role="group"` et `aria-pressed` plutot que trois boutons muets :
+                        l'etat selectionne doit etre annonce, pas seulement colore.
+                      */}
+                      <div
+                        role="group"
+                        aria-label="Filtrer par statut"
+                        className="flex items-center gap-1 rounded-md border border-slate-300 bg-white p-1"
+                      >
+                        {([
+                          { value: "all", label: "Tous" },
+                          { value: "active", label: "Actifs" },
+                          { value: "inactive", label: "Inactifs" },
+                        ] as const).map((option) => {
+                          const selected = employeeStatusFilter === option.value;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              aria-pressed={selected}
+                              onClick={() => setEmployeeStatusOverride(option.value)}
+                              className={`rounded px-3 py-1 text-sm transition ${
+                                selected
+                                  ? "bg-slate-100 font-medium text-[#0A1A2F]"
+                                  : "text-[#0A1A2F]/65 hover:text-[#0A1A2F]"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <span className="text-sm text-[#0A1A2F]/60">
+                        {visibleCollaborateurs.length} collaborateur
+                        {visibleCollaborateurs.length > 1 ? "s" : ""}
+                      </span>
+                    </div>
                     <div className="overflow-x-auto rounded-lg">
                       <table className="min-w-full text-sm">
                         <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70">
@@ -2026,6 +2098,6 @@ export default function RhWorkspace({
       />
 
       {loading && <DashboardLoadingOverlay message="Chargement des donnees..." />}
-    </WorkspaceShell>
+    </ConsoleShell>
   );
 }

@@ -1,10 +1,10 @@
 import {
-  Briefcase,
+  BookOpen,
+  CircleHelp,
   FileText,
   FolderClosed,
-  IdCard,
   LayoutDashboard,
-  Send,
+  Settings,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -70,6 +70,60 @@ export type ConsoleNavConfig = {
   resolveLeafLabel?: (pathname: string) => string | null;
 };
 
+/**
+ * Lien du pied de la barre laterale.
+ *
+ * `href` est OPTIONNEL a dessein : le centre d'aide, la documentation et le changelog
+ * n'ont aucune page dans l'application. Plutot que d'inventer des destinations ou de
+ * pointer vers une page sans rapport, une entree sans `href` s'affiche en grise et ne
+ * navigue pas. Renseigner l'adresse suffit a l'activer.
+ */
+export type ConsoleFooterLink = {
+  label: string;
+  href?: string;
+  icon: LucideIcon;
+};
+
+/** Encart d'annonce en pied de barre laterale. Masque tant que `title` est absent. */
+export type ConsoleFooterNote = {
+  /** Surtitre en petites capitales. */
+  eyebrow: string;
+  title: string;
+  description: string;
+  linkLabel: string;
+  href?: string;
+};
+
+export type ConsoleFooter = {
+  note?: ConsoleFooterNote;
+  links: ConsoleFooterLink[];
+  /** Mention legale, en tout bas. */
+  legal: string;
+};
+
+/**
+ * Pied commun aux deux espaces : le contenu ne depend pas du role.
+ *
+ * L'encart reprend la forme de la maquette (surtitre, titre, une phrase, un lien). Son
+ * texte decrit le chantier en cours plutot qu'une version fictive : annoncer une release
+ * qui n'existe pas serait une fausse communication produit.
+ */
+export const CONSOLE_FOOTER: ConsoleFooter = {
+  note: {
+    eyebrow: "Nouveautes",
+    title: "Nouvelle console",
+    description: "Navigation repensee et mise en page allegee.",
+    linkLabel: "En savoir plus",
+  },
+  links: [
+    { label: "Centre d'aide", href: "/contact", icon: CircleHelp },
+    { label: "Documentation", icon: BookOpen },
+  ],
+  // Repris tel quel du pied du site public. Sans annee calculee : `new Date()` au
+  // chargement du module ferait diverger le rendu serveur et le rendu client.
+  legal: "Jarvis Connect - Tous droits reserves",
+};
+
 /* ---------------------------------------------------------------------------
  * Espace RH
  * ------------------------------------------------------------------------ */
@@ -83,10 +137,10 @@ export const RH_NAV_CONFIG: ConsoleNavConfig = {
   settingsLabel: "Parametres",
   groups: [
     {
-      label: null,
+      label: "Vue d'ensemble",
       items: [
         {
-          label: "Vue d'ensemble",
+          label: "Tableau de bord",
           href: "/dashboard/rh",
           icon: LayoutDashboard,
         },
@@ -96,21 +150,18 @@ export const RH_NAV_CONFIG: ConsoleNavConfig = {
       label: "Gestion",
       items: [
         {
+          /*
+           * Pas de sous-menu : une seule page, avec un filtre de statut a l'interieur.
+           *
+           * Les URL /actifs et /inactifs restent VALIDES — elles pre-selectionnent le
+           * filtre correspondant. Un signet existant continue donc de fonctionner, et
+           * `activePrefix` marque cette entree active sur toutes ces routes, fiche
+           * collaborateur comprise.
+           */
           label: "Collaborateurs",
           href: "/dashboard/rh/collaborateurs",
           icon: Users,
           activePrefix: "/dashboard/rh/collaborateurs",
-          children: [
-            {
-              label: "Tous les collaborateurs",
-              href: "/dashboard/rh/collaborateurs",
-            },
-            { label: "Actifs", href: "/dashboard/rh/collaborateurs/actifs" },
-            {
-              label: "Inactifs / Sortants",
-              href: "/dashboard/rh/collaborateurs/inactifs",
-            },
-          ],
         },
         {
           label: "Documents",
@@ -141,20 +192,42 @@ export const RH_NAV_CONFIG: ConsoleNavConfig = {
         },
       ],
     },
+    /*
+     * Groupe « Recrutement » RETIRE DE LA NAVIGATION le 18/08/2026 : fonctionnalite non
+     * utilisee pour l'instant.
+     *
+     * Les pages ne sont PAS supprimees — /dashboard/rh/offres, ses archives, ses
+     * candidatures et son formulaire de creation repondent toujours, ainsi que les routes
+     * d'API correspondantes. Seul le point d'entree disparait. Pour retablir la section,
+     * remettre ce bloc :
+     *
+     *   {
+     *     label: "Recrutement",
+     *     items: [
+     *       {
+     *         label: "Offres",
+     *         href: "/dashboard/rh/offres",
+     *         icon: Briefcase,
+     *         activePrefix: "/dashboard/rh/offres",
+     *         children: [
+     *           { label: "Offres actives", href: "/dashboard/rh/offres" },
+     *           { label: "Candidatures", href: "/dashboard/rh/offres/candidatures" },
+     *           { label: "Archives", href: "/dashboard/rh/offres/archives" },
+     *           { label: "Creer une offre", href: "/dashboard/rh/offres/creer" },
+     *         ],
+     *       },
+     *     ],
+     *   },
+     *
+     * NB : `Briefcase` n'est plus importe de lucide-react — le reajouter aussi.
+     */
     {
-      label: "Recrutement",
+      label: "Administration",
       items: [
         {
-          label: "Offres",
-          href: "/dashboard/rh/offres",
-          icon: Briefcase,
-          activePrefix: "/dashboard/rh/offres",
-          children: [
-            { label: "Offres actives", href: "/dashboard/rh/offres" },
-            { label: "Candidatures", href: "/dashboard/rh/offres/candidatures" },
-            { label: "Archives", href: "/dashboard/rh/offres/archives" },
-            { label: "Creer une offre", href: "/dashboard/rh/offres/creer" },
-          ],
+          label: "Parametres",
+          href: "/dashboard/rh/parametres",
+          icon: Settings,
         },
       ],
     },
@@ -185,10 +258,10 @@ export const SALARIE_NAV_CONFIG: ConsoleNavConfig = {
   settingsLabel: "Parametres",
   groups: [
     {
-      label: null,
+      label: "Vue d'ensemble",
       items: [
         {
-          label: "Vue d'ensemble",
+          label: "Tableau de bord",
           href: "/dashboard/salarie",
           icon: LayoutDashboard,
         },
@@ -229,24 +302,38 @@ export const SALARIE_NAV_CONFIG: ConsoleNavConfig = {
         },
       ],
     },
+    /*
+     * Groupe « Carriere » RETIRE DE LA NAVIGATION le 18/08/2026, en pendant du groupe
+     * « Recrutement » cote RH : sans personne pour publier d'offres, il n'y avait plus de
+     * raison d'en proposer la consultation aux salaries.
+     *
+     * Les pages ne sont PAS supprimees — /dashboard/salarie/offres, /mes-offres,
+     * /candidatures et /cv repondent toujours. Seul le point d'entree disparait. Pour
+     * retablir la section, remettre ce bloc :
+     *
+     *   {
+     *     label: "Carriere",
+     *     items: [
+     *       {
+     *         label: "Offres d'emploi",
+     *         href: "/dashboard/salarie/offres",
+     *         icon: Briefcase,
+     *         aliases: ["/dashboard/salarie/mes-offres"],
+     *       },
+     *       { label: "Mes candidatures", href: "/dashboard/salarie/candidatures", icon: Send },
+     *       { label: "Mes CVs", href: "/dashboard/salarie/cv", icon: IdCard },
+     *     ],
+     *   },
+     *
+     * NB : `Briefcase`, `Send` et `IdCard` ne sont plus importes — les reajouter aussi.
+     */
     {
-      label: "Carriere",
+      label: "Administration",
       items: [
         {
-          label: "Offres d'emploi",
-          href: "/dashboard/salarie/offres",
-          icon: Briefcase,
-          aliases: ["/dashboard/salarie/mes-offres"],
-        },
-        {
-          label: "Mes candidatures",
-          href: "/dashboard/salarie/candidatures",
-          icon: Send,
-        },
-        {
-          label: "Mes CVs",
-          href: "/dashboard/salarie/cv",
-          icon: IdCard,
+          label: "Parametres",
+          href: "/dashboard/salarie/parametres",
+          icon: Settings,
         },
       ],
     },
@@ -380,11 +467,17 @@ export function flattenNavDestinations(config: ConsoleNavConfig) {
     }
   }
 
-  destinations.push({
-    label: config.settingsLabel,
-    href: config.settingsHref,
-    section: config.rootLabel,
-  });
+  // Les parametres figurent desormais dans le groupe « Administration » et sont donc deja
+  // collectes par la boucle. On ne les ajoute que s'ils manquent — la garde couvre les deux
+  // sens : pas de doublon dans la palette aujourd'hui, et pas de disparition silencieuse si
+  // ce groupe venait a etre retire.
+  if (!destinations.some((destination) => destination.href === config.settingsHref)) {
+    destinations.push({
+      label: config.settingsLabel,
+      href: config.settingsHref,
+      section: config.rootLabel,
+    });
+  }
 
   return destinations;
 }

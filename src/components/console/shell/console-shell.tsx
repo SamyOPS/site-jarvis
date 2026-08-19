@@ -71,7 +71,6 @@ export function ConsoleShell({
   const [searchOpen, setSearchOpen] = useState(false);
 
   const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
-  const openSearch = useCallback(() => setSearchOpen(true), []);
   const toggleCollapsed = useCallback(() => {
     sidebarCollapsedPreference.set(!sidebarCollapsedPreference.getSnapshot());
   }, []);
@@ -91,13 +90,9 @@ export function ConsoleShell({
   const breadcrumb = getConsoleBreadcrumb(config, pathname);
   const title = pageTitle ?? getConsolePageTitle(config, pathname);
 
-  const sidebarProps = {
-    config,
-    pathname,
-    displayName,
-    email,
-    onSignOut,
-  };
+  // Le menu de compte a quitte la barre laterale : elle n'a plus besoin de l'identite ni
+  // de la deconnexion, qui restent portees par l'avatar de la barre superieure.
+  const sidebarProps = { config, pathname };
 
   return (
     <div
@@ -139,7 +134,6 @@ export function ConsoleShell({
           email={email}
           onSignOut={onSignOut}
           onOpenMobileNav={() => setMobileNavOpen(true)}
-          onOpenSearch={openSearch}
         />
 
         <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">

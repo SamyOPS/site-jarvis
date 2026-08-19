@@ -71,3 +71,52 @@ export function isPayslipDocumentLabel(value: string) {
     normalizedLabel.includes("salaire")
   );
 }
+
+/** Un point de la serie mensuelle : cle stable, libelle d'axe, compte. */
+export type MonthlyCount = {
+  /** Format AAAA-MM. */
+  key: string;
+  /** Libelle court de l'axe : « mars », « avr. »… */
+  label: string;
+  value: number;
+};
+
+/**
+ * Nombre de documents deposes par mois, sur une fenetre glissante.
+ *
+ * Les mois sans depot sont CONSERVES a zero : les omettre donnerait un axe irregulier et
+ * ferait mentir la lecture des ecarts entre barres.
+ *
+ * `reference` est injectable pour que la fonction reste pure et testable — sans quoi son
+ * resultat dependrait de l'horloge et ne pourrait pas etre compare d'une execution a
+ * l'autre.
+ */
+export function buildMonthlyDocumentCounts(
+  documents: { createdAt: string | null }[],
+  options?: { months?: number; reference?: Date },
+): MonthlyCount[] {
+  const months = options?.months ?? 6;
+  const reference = options?.reference ?? new Date();
+  const buckets = new Map<string, MonthlyCount>();
+
+  for (let offset = months - 1; offset >= 0; offset -= 1) {
+    const date = new Date(reference.getFullYear(), reference.getMonth() - offset, 1);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    buckets.set(key, {
+      key,
+      label: date.toLocaleDateString("fr-FR", { month: "short" }),
+      value: 0,
+    });
+  }
+
+  for (const document of documents) {
+    if (!document.createdAt) continue;
+    const createdAt = new Date(document.createdAt);
+    if (Number.isNaN(createdAt.getTime())) continue;
+    const key = `${createdAt.getFullYear()}-${String(createdAt.getMonth() + 1).padStart(2, "0")}`;
+    const bucket = buckets.get(key);
+    if (bucket) bucket.value += 1;
+  }
+
+  return Array.from(buckets.values());
+}

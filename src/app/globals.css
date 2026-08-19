@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Jetons de la console, scopes sous [data-app="console"] : le site vitrine n_est pas repeint. */
+@import "../styles/console.css";
 
 @custom-variant dark (&:is(.dark *));
 
