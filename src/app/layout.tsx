@@ -55,8 +55,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr">
+    /*
+      `suppressHydrationWarning` est REQUIS ici, et strictement ici.
+
+      Le script d'amorce ci-dessous pose `data-theme` sur <html> avant l'hydratation, pour
+      eviter un flash de theme. Le HTML rendu par le serveur ne porte donc pas cet attribut
+      alors que le DOM client l'a deja : React signale un ecart d'hydratation.
+
+      L'attribut n'ignore qu'UN SEUL niveau — les attributs de <html> — et rien de son
+      contenu. C'est le motif documente par React pour les scripts de theme.
+    */
+    <html lang="fr" suppressHydrationWarning>
+      {/*
+        Meme raison sur <body> : le script y pose `data-app="console"` sur les routes de la
+        console. Sans cela l'ecart d'hydratation reapparaitrait des l'ouverture d'une page
+        du tableau de bord, la ou l'erreur signalee ne concernait que <html> sur l'accueil.
+      */}
       <body
+        suppressHydrationWarning
         className={`${inter.variable} ${interDisplay.variable} ${geistMono.variable} ${chakraPetch.variable} antialiased`}
       >
         {/*

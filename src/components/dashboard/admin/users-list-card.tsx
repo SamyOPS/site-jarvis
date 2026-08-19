@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, Loader2, Trash2, Users } from "lucide-react";
+import { AlertCircle, CheckCircle2, KeyRound, Loader2, Trash2, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,9 @@ type AdminUsersListCardProps = {
   onProfessionalStatusChange: (profileId: string, nextStatus: ProfessionalStatus) => void | Promise<void>;
   onRoleChange: (profile: AdminProfileRow, nextRole: string) => void | Promise<void>;
   onDeleteUser: (profile: AdminProfileRow) => void | Promise<void>;
+  /** Reinitialisation du mot de passe par l'admin. */
+  onResetPassword: (profile: AdminProfileRow) => void | Promise<void>;
+  passwordResettingId: string | null;
 };
 
 export function AdminUsersListCard({
@@ -58,6 +61,8 @@ export function AdminUsersListCard({
   onProfessionalStatusChange,
   onRoleChange,
   onDeleteUser,
+  onResetPassword,
+  passwordResettingId,
 }: AdminUsersListCardProps) {
   return (
     <Card className="border-slate-200 bg-white text-[#0A1A2F] shadow-lg backdrop-blur">
@@ -215,7 +220,40 @@ export function AdminUsersListCard({
                     </Button>
                   </div>
                 )}
-                <div className="mt-2">
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {/*
+                    Desactive dans DEUX cas, tous deux refuses par le serveur — l'interface
+                    ne fait que l'annoncer :
+                      - son propre compte : il existe un formulaire dans les parametres, qui
+                        exige le mot de passe actuel ;
+                      - un autre administrateur : sinon un seul compte admin compromis
+                        permettrait de prendre la main sur tous les autres.
+                  */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={
+                      passwordResettingId === profile.id ||
+                      profile.id === currentUserId ||
+                      profile.role === "admin"
+                    }
+                    onClick={() => void onResetPassword(profile)}
+                    title={
+                      profile.id === currentUserId
+                        ? "Change ton propre mot de passe depuis tes parametres."
+                        : profile.role === "admin"
+                          ? "Le mot de passe d'un administrateur se reinitialise par la procedure de mot de passe oublie."
+                          : undefined
+                    }
+                  >
+                    {passwordResettingId === profile.id ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <KeyRound className="mr-2 h-4 w-4" />
+                    )}
+                    Reinitialiser le mot de passe
+                  </Button>
+
                   <Button
                     size="sm"
                     variant="outline"

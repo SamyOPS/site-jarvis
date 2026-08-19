@@ -46,6 +46,7 @@ export default function DashboardPage() {
   const [profileUpdatingId, setProfileUpdatingId] = useState<string | null>(null);
   const [roleUpdatingId, setRoleUpdatingId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [passwordResettingId, setPasswordResettingId] = useState<string | null>(null);
   const [userDeleteStatus, setUserDeleteStatus] = useState<AsyncStatus>({ type: "idle" });
   const [offerSaving, setOfferSaving] = useState(false);
   const [offerStatus, setOfferStatus] = useState<AsyncStatus>({ type: "idle" });
@@ -377,6 +378,79 @@ export default function DashboardPage() {
     // Les listes RH / salaries de la carte Affectations viennent d'une autre requete :
     // sans ce rechargement, le compte resterait dans son ancienne colonne.
     await loadRhCollaboratorAssignments(accessToken);
+  };
+
+  /**
+   * Reinitialisation du mot de passe d'un compte par l'admin.
+   *
+   * Le mot de passe est saisi puis confirme, et n'est jamais conserve dans un etat React :
+   * il part directement a la route et les variables locales disparaissent avec la fonction.
+   * L'autorisation, elle, est verifiee cote SERVEUR — ce qui suit n'est que du confort.
+   */
+  const handleResetPassword = async (targetProfile: ProfileRow) => {
+    if (targetProfile.id === user?.id) {
+      setUserDeleteStatus({
+        type: "error",
+        message: "Change ton propre mot de passe depuis tes parametres.",
+      });
+      return;
+    }
+
+    const password = window.prompt(
+      `Nouveau mot de passe pour ${targetProfile.email} (8 caracteres minimum) :`,
+    );
+    if (password === null) return;
+    if (password.length < 8) {
+      setUserDeleteStatus({
+        type: "error",
+        message: "Le mot de passe doit contenir au moins 8 caracteres.",
+      });
+      return;
+    }
+
+    // Double saisie : une faute de frappe enfermerait l'utilisateur dehors sans que
+    // personne ne s'en apercoive avant sa prochaine connexion.
+    const confirmation = window.prompt("Confirme le nouveau mot de passe :");
+    if (confirmation === null) return;
+    if (confirmation !== password) {
+      setUserDeleteStatus({ type: "error", message: "Les deux saisies different." });
+      return;
+    }
+
+    setPasswordResettingId(targetProfile.id);
+    setUserDeleteStatus({ type: "idle" });
+
+    const result = await runAdminAction<{ error?: string; warning?: string | null }>(
+      getFreshAccessToken,
+      `/api/admin/users/${encodeURIComponent(targetProfile.id)}/password`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      },
+      {
+        expiredSession:
+          "Session admin expiree. Reconnecte-toi pour reinitialiser un mot de passe.",
+        failure: "Reinitialisation du mot de passe impossible",
+      },
+    );
+
+    setPasswordResettingId(null);
+
+    if (!result.ok) {
+      setUserDeleteStatus({ type: "error", message: result.message });
+      return;
+    }
+
+    // La revocation des sessions peut echouer alors que le mot de passe est bien change :
+    // on le dit, plutot que d'afficher un succes qui laisserait croire l'acces coupe.
+    const warning = result.payload?.warning;
+    setUserDeleteStatus({
+      type: warning ? "error" : "success",
+      message: warning
+        ? `Mot de passe de ${targetProfile.email} change, mais ${warning}`
+        : `Mot de passe de ${targetProfile.email} reinitialise et sessions ouvertes fermees. Communique-le par un canal sur, il ne sera plus affiche.`,
+    });
   };
 
   const handleDeleteUser = async (targetProfile: ProfileRow) => {
@@ -731,6 +805,8 @@ export default function DashboardPage() {
         </div>
 
         <AdminUsersListCard
+          onResetPassword={handleResetPassword}
+          passwordResettingId={passwordResettingId}
           allProfiles={allProfiles}
           activityByUserId={activityByUserId}
           profileStatus={profileStatus}
