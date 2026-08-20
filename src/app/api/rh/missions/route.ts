@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { MISSION_COLUMNS, parseMissionPayload, type MissionPayload } from "@/lib/missions";
-import { canRhAccessEmployee } from "@/lib/rh-access";
+import { canRhAccessEmployee, listAssignedEmployeeIds } from "@/lib/rh-access";
 import {
   getAccessTokenFromRequest,
   getAuthorizedActor,
@@ -90,11 +90,64 @@ async function authorizeEmployee(request: Request, employeeId: string): Promise<
   return { adminClient };
 }
 
+/**
+ * Missions d'un collaborateur, ou de TOUS ceux que l'acteur peut voir.
+ *
+ * Sans `employeeId`, la route rend les missions de l'ensemble du perimetre. C'est ce qui
+ * permet a la liste des collaborateurs d'afficher leurs entreprises clientes sans une
+ * requete par ligne : un collaborateur pouvant en avoir plusieurs, il n'y a pas d'autre
+ * moyen que de les charger toutes.
+ *
+ * Le perimetre reste celui des affectations : `listAssignedEmployeeIds` rend `null` pour un
+ * admin — aucune restriction — et la liste exacte pour un RH. Confondre ce `null` avec un
+ * tableau vide donnerait tout voir a un RH sans affectation.
+ */
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const employeeId = (url.searchParams.get("employeeId") ?? "").trim();
     const includeArchived = url.searchParams.get("archived") === "1";
+
+    if (!employeeId) {
+      const accessToken = getAccessTokenFromRequest(request);
+      if (!accessToken) {
+        return NextResponse.json({ error: "Session RH manquante." }, { status: 401 });
+      }
+      const authorized = await getAuthorizedActor(accessToken, ["rh", "admin"]);
+      if (isAuthorizedActorError(authorized)) {
+        return NextResponse.json({ error: authorized.error }, { status: authorized.status });
+      }
+
+      const { adminClient, profile: actorProfile } = authorized;
+      const allowedIds = await listAssignedEmployeeIds(adminClient, {
+        id: actorProfile.id,
+        role: actorProfile.role,
+      });
+
+      let scopedQuery = adminClient
+        .from("employee_missions")
+        .select(MISSION_COLUMNS)
+        .order("employee_id", { ascending: true })
+        .order("position", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      // `null` = admin, aucune restriction. Un tableau vide reste un tableau vide.
+      if (allowedIds !== null) {
+        if (allowedIds.length === 0) {
+          return NextResponse.json({ items: [] });
+        }
+        scopedQuery = scopedQuery.in("employee_id", allowedIds);
+      }
+      if (!includeArchived) {
+        scopedQuery = scopedQuery.is("archived_at", null);
+      }
+
+      const { data: scoped, error: scopedError } = await scopedQuery;
+      if (scopedError) {
+        return NextResponse.json({ error: scopedError.message }, { status: 400 });
+      }
+      return NextResponse.json({ items: scoped ?? [] });
+    }
 
     const auth = await authorizeEmployee(request, employeeId);
     if (auth.response) return auth.response;

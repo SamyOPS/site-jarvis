@@ -1,4 +1,5 @@
 import { ConsoleStatRow } from "@/components/console/overview/stat-row";
+import { ConsoleStatusBadge } from "@/components/console/overview/status-badge";
 import { formatDate, formatMonth } from "@/lib/dashboard-formatters";
 
 type RhOverviewRequest = {
@@ -89,12 +90,29 @@ function formatRelative(value: string | null) {
   return `il y a ${Math.round(hours / 24)} j`;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: "En attente",
-  uploaded: "Déposé",
-  rejected: "Rejeté",
-  expired: "Expiré",
-};
+/**
+ * Etat d'une echeance : en retard, imminente, ou lointaine.
+ *
+ * La couleur ne porte JAMAIS l'information seule — le libelle rendu dit « en retard » ou
+ * « dans 3 j ». Un lecteur qui ne distingue pas le rouge de l'orange lit la meme chose.
+ */
+function describeDueDate(dueAt: string | null) {
+  if (!dueAt) return { label: "Sans echeance", className: "text-app-text-muted" };
+  const due = new Date(dueAt).getTime();
+  if (Number.isNaN(due)) return { label: "Echeance inconnue", className: "text-app-text-muted" };
+
+  const days = Math.ceil((due - Date.now()) / 86_400_000);
+  if (days < 0) {
+    const late = Math.abs(days);
+    return {
+      label: `En retard de ${late} j`,
+      className: "text-rejected font-medium",
+    };
+  }
+  if (days === 0) return { label: "Aujourd'hui", className: "text-missing font-medium" };
+  if (days <= 7) return { label: `Dans ${days} j`, className: "text-missing font-medium" };
+  return { label: `Dans ${days} j`, className: "text-app-text-muted" };
+}
 
 export function RhOverviewSection({
   pendingDocumentsCount,
@@ -169,16 +187,18 @@ export function RhOverviewSection({
                       {request.typeLabel}
                     </p>
                     <p className="mt-1 text-app-xs text-app-text-muted">
-                      {`Échéance ${formatDate(request.dueAt)} · Période ${formatMonth(request.periodMonth)}`}
+                      {(() => {
+                        const due = describeDueDate(request.dueAt);
+                        return (
+                          <>
+                            <span className={due.className}>{due.label}</span>
+                            {` · ${formatDate(request.dueAt)} · Période ${formatMonth(request.periodMonth)}`}
+                          </>
+                        );
+                      })()}
                     </p>
                   </div>
-                  {/*
-                    Le statut porte son LIBELLE, pas seulement une pastille de couleur :
-                    une couleur seule n'est pas lisible par tout le monde.
-                  */}
-                  <span className="shrink-0 rounded-app-control border border-app-line px-2 py-1 text-app-xs text-app-text-secondary">
-                    {STATUS_LABELS[request.status] ?? request.status}
-                  </span>
+                  <ConsoleStatusBadge status={request.status} />
                 </li>
               ))}
             </ul>

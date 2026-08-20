@@ -316,10 +316,16 @@ export const POST = withActor(
       throw new ApiError(billingError?.message ?? "Profil de facturation introuvable.", 400);
     }
 
+    /*
+     * Le tarif journalier du profil de facturation est DEPRECIE depuis le multi-missions :
+     * chaque entreprise cliente porte le sien. Il n'est plus exige a l'entree.
+     *
+     * Il ne sert plus qu'au REPLI de la facture, quand aucune ligne ne porte de mission —
+     * un CRA du chemin historique. La verification est donc reportee la ou elle a un sens
+     * (branche facture, plus bas), au lieu de bloquer d'emblee un CRA parfaitement valide
+     * dont toutes les lignes ont une entreprise.
+     */
     const dailyRate = Number(billingProfile.daily_rate ?? 0);
-    if (!Number.isFinite(dailyRate) || dailyRate <= 0) {
-      throw new ApiError("Le tarif journalier du profil est invalide.", 400);
-    }
 
     // Missions du COLLABORATEUR, pas du RH : ce sont ses entreprises clientes qui portent
     // le tarif et l'unite de chaque ligne. Chargees apres le controle d'habilitation.
@@ -614,6 +620,15 @@ export const POST = withActor(
     // ou collaborateur sans mission enregistree), on retombe sur l'unique ligne construite
     // depuis le profil de facturation, exactement comme avant.
     const missionInvoiceLines = buildInvoiceLinesFromEntries(entries, missions);
+
+    // Repli impossible sans tarif : on le dit clairement, avec la marche a suivre.
+    if (!missionInvoiceLines.length && (!Number.isFinite(dailyRate) || dailyRate <= 0)) {
+      throw new ApiError(
+        "Aucune entreprise cliente avec un tarif pour ce collaborateur : ajoute-lui une entreprise avant de generer une facture.",
+        400,
+      );
+    }
+
     const invoiceLines: InvoiceLineInput[] = missionInvoiceLines.length
       ? missionInvoiceLines
       : [

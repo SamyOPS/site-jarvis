@@ -13,6 +13,9 @@ import { RhOffersSection } from "@/components/dashboard/rh-offers-section";
 import { RhDocumentsSection } from "@/components/dashboard/rh-documents-section";
 import type { RhLeaveRequestPayload } from "@/components/dashboard/rh/leave-request-editor";
 import { RhOverviewSection } from "@/components/dashboard/rh-overview-section";
+import { MissionsCard } from "@/components/dashboard/missions-card";
+import type { MissionFormState, MissionItem } from "@/components/dashboard/missions-card";
+import { ConsoleCollaborateursTable } from "@/components/console/collaborateurs/collaborateurs-table";
 import { ConsoleShell } from "@/components/console/shell/console-shell";
 import { RhSettingsSection } from "@/components/dashboard/rh-settings-section";
 import { StatusNotice } from "@/components/dashboard/status-notice";
@@ -179,6 +182,12 @@ export default function RhWorkspace({
   // Le depot en lot vit dans son propre hook : voir `useBatchUploadForm`. Il est instancie
   // plus bas, une fois `employees` et `allowedTypeIdsForEmployee` disponibles.
   const [generateEmployeeId, setGenerateEmployeeId] = useState("");
+  /** Missions du collaborateur affiche dans la fiche. Distinctes de celles du CRA. */
+  const [selectedEmployeeMissions, setSelectedEmployeeMissions] = useState<MissionItem[]>([]);
+  const [missionsLoading, setMissionsLoading] = useState(false);
+  const [missionsSaving, setMissionsSaving] = useState(false);
+  const [missionsMessage, setMissionsMessage] = useState<string | null>(null);
+
   /** Missions du collaborateur pour lequel on genere. Chargees a chaque changement. */
   const [craMissionRows, setCraMissionRows] = useState<CraEditorMission[]>([]);
   const [craMissionsLoading, setCraMissionsLoading] = useState(false);
@@ -960,17 +969,191 @@ export default function RhWorkspace({
     }
     return employees;
   }, [employeeStatusFilter, employees]);
+  /**
+   * Missions de TOUT le perimetre, indexees par collaborateur.
+   *
+   * La liste affiche les entreprises clientes de chaque ligne. Un collaborateur pouvant en
+   * avoir plusieurs, il n'y a pas de champ unique a lire : il faut les charger. Un seul
+   * appel sans `employeeId` suffit — le serveur restreint au perimetre des affectations.
+   */
+  const [missionsByEmployee, setMissionsByEmployee] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const payload = (await callRhDocumentsApi("/api/rh/missions")) as {
+          items?: { employee_id: string; company_name: string }[];
+        } | null;
+        if (cancelled) return;
+        const grouped: Record<string, string[]> = {};
+        for (const mission of payload?.items ?? []) {
+          if (!mission.employee_id || !mission.company_name) continue;
+          grouped[mission.employee_id] = [
+            ...(grouped[mission.employee_id] ?? []),
+            mission.company_name,
+          ];
+        }
+        setMissionsByEmployee(grouped);
+      } catch {
+        // Echec silencieux : la colonne se contente d'afficher « - ». Empecher l'affichage
+        // de toute la liste des collaborateurs pour ca serait disproportionne.
+        if (!cancelled) setMissionsByEmployee({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [callRhDocumentsApi]);
+
+  /**
+   * Missions du collaborateur ouvert dans la fiche.
+   *
+   * Un collaborateur peut travailler pour PLUSIEURS entreprises clientes depuis la
+   * migration multi-missions : `profiles.company_name` et le profil de facturation n'en
+   * decrivent qu'une, et sont deprecies. La source de verite est `employee_missions`.
+   */
+  const loadSelectedEmployeeMissions = useCallback(
+    async (employeeId: string) => {
+      setMissionsLoading(true);
+      setMissionsMessage(null);
+      try {
+        const payload = (await callRhDocumentsApi(
+          `/api/rh/missions?employeeId=${encodeURIComponent(employeeId)}`,
+        )) as { items?: MissionItem[] } | null;
+        setSelectedEmployeeMissions(payload?.items ?? []);
+      } catch (error) {
+        setSelectedEmployeeMissions([]);
+        setMissionsMessage(
+          error instanceof Error ? error.message : "Chargement des entreprises impossible.",
+        );
+      } finally {
+        setMissionsLoading(false);
+      }
+    },
+    [callRhDocumentsApi],
+  );
+
+  useEffect(() => {
+    if (!selectedEmployeeId) {
+      setSelectedEmployeeMissions([]);
+      return;
+    }
+    void loadSelectedEmployeeMissions(selectedEmployeeId);
+  }, [loadSelectedEmployeeMissions, selectedEmployeeId]);
+
+  const handleMissionSave = useCallback(
+    async (form: MissionFormState) => {
+      if (!selectedEmployeeId) return;
+      setMissionsSaving(true);
+      setMissionsMessage(null);
+      try {
+        await callRhDocumentsApi("/api/rh/missions", {
+          // La creation et la modification partagent la meme route : c'est la presence
+          // d'un `missionId` qui les distingue, comme cote serveur.
+          method: form.id ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            employeeId: selectedEmployeeId,
+            missionId: form.id || undefined,
+            companyName: form.companyName,
+            esnPartenaire: form.esnPartenaire,
+            rate: form.rate,
+            rateUnit: form.rateUnit,
+          }),
+        });
+        await loadSelectedEmployeeMissions(selectedEmployeeId);
+        setMissionsMessage("Entreprise enregistree.");
+      } catch (error) {
+        setMissionsMessage(
+          error instanceof Error ? error.message : "Enregistrement impossible.",
+        );
+      } finally {
+        setMissionsSaving(false);
+      }
+    },
+    [callRhDocumentsApi, loadSelectedEmployeeMissions, selectedEmployeeId],
+  );
+
+  /**
+   * ARCHIVE la mission, ne la supprime pas.
+   *
+   * La route RH n'expose deliberement aucun DELETE : une mission est referencee par les CRA
+   * et les lignes de facture passes. L'effacer romprait l'historique ; on la retire donc de
+   * la liste active en posant `archived_at`.
+   */
+  const handleMissionDelete = useCallback(
+    async (missionId: string) => {
+      if (!selectedEmployeeId) return;
+      setMissionsSaving(true);
+      setMissionsMessage(null);
+      try {
+        await callRhDocumentsApi("/api/rh/missions", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ employeeId: selectedEmployeeId, missionId, archived: true }),
+        });
+        await loadSelectedEmployeeMissions(selectedEmployeeId);
+        setMissionsMessage("Entreprise archivee.");
+      } catch (error) {
+        setMissionsMessage(error instanceof Error ? error.message : "Archivage impossible.");
+      } finally {
+        setMissionsSaving(false);
+      }
+    },
+    [callRhDocumentsApi, loadSelectedEmployeeMissions, selectedEmployeeId],
+  );
+
+  /**
+   * Demandes ouvertes indexees par collaborateur.
+   *
+   * L'ancien tableau appelait `requests.filter(...)` DANS le rendu de chaque ligne : cout
+   * quadratique, refait a chaque rendu. Un index construit une fois suffit.
+   */
+  const openRequestsByEmployee = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const request of openRequests) {
+      counts.set(request.employeeId, (counts.get(request.employeeId) ?? 0) + 1);
+    }
+    return counts;
+  }, [openRequests]);
+
   const visibleCollaborateurs = useMemo(() => {
     const query = collaborateurSearch.trim().toLowerCase();
     if (!query) return collaborateursRows;
     return collaborateursRows.filter((employee) =>
-      [employee.full_name, employee.company_name, employee.esn_partenaire, employee.email]
+      // La recherche porte sur les ENTREPRISES CLIENTES reelles, plus sur l'ancien champ
+      // unique du profil : chercher « ACME » doit trouver le collaborateur qui y travaille,
+      // meme s'il travaille aussi ailleurs.
+      [employee.full_name, employee.email, ...(missionsByEmployee[employee.id] ?? [])]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
         .includes(query),
     );
-  }, [collaborateursRows, collaborateurSearch]);
+  }, [collaborateursRows, collaborateurSearch, missionsByEmployee]);
+
+  /** Lignes du tableau des collaborateurs, pretes a afficher. */
+  const collaborateurRows = useMemo(
+    () =>
+      visibleCollaborateurs.map((employee) => ({
+        id: employee.id,
+        fullName: employee.full_name,
+        email: employee.email,
+        companies: missionsByEmployee[employee.id] ?? [],
+        employmentStatus: employee.employment_status ?? null,
+        isOnline: isRecentlyActive(employee.id),
+        lastSignInLabel: formatLastSignIn(employee.id),
+        openRequestsCount: openRequestsByEmployee.get(employee.id) ?? 0,
+      })),
+    [
+      formatLastSignIn,
+      isRecentlyActive,
+      missionsByEmployee,
+      openRequestsByEmployee,
+      visibleCollaborateurs,
+    ],
+  );
   const salarieUploadableTypes = useMemo(() => documentTypes.filter((documentType) => documentType.allowedUploaderRoles.length === 0 || documentType.allowedUploaderRoles.includes("salarie")), [documentTypes]);
   const rhUploadableTypes = useMemo(() => documentTypes.filter((documentType) => documentType.allowedUploaderRoles.length === 0 || documentType.allowedUploaderRoles.includes("rh")), [documentTypes]);
   // Restrict the document type to those allowed for the selected employee.
@@ -1538,23 +1721,33 @@ export default function RhWorkspace({
               <CardHeader><CardTitle>Collaborateurs</CardTitle></CardHeader>
               <CardContent>
                 {currentSubSection === "collab_detail" && selectedEmployee && activeDraft ? (
-                  <div className="space-y-4 text-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-base font-semibold text-[#0A1A2F]">Fiche collaborateur</h3>
-                      <Button asChild variant="outline" size="sm">
-                        <Link href="/dashboard/rh/collaborateurs">Retour</Link>
-                      </Button>
+                  <div className="space-y-4 text-app-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-app-md font-semibold text-app-text">
+                          {selectedEmployee.full_name ?? selectedEmployee.email}
+                        </h3>
+                        <p className="truncate text-app-sm text-app-text-secondary">
+                          {selectedEmployee.email}
+                        </p>
+                      </div>
+                      <Link
+                        href="/dashboard/rh/collaborateurs"
+                        className="shrink-0 rounded-app-control border border-app-line px-3 py-2 text-app-sm text-app-text-secondary transition-colors hover:bg-app-surface-hover hover:text-app-text focus-visible:outline-app"
+                      >
+                        Retour
+                      </Link>
                     </div>
 
-                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <div className="overflow-hidden rounded-app-card border border-app-line bg-app-surface">
                       <div className="flex items-center justify-between px-4 py-3">
-                        <p className="text-base font-medium text-[#0A1A2F]">Information</p>
+                        <p className="text-app-md font-medium text-app-text">Information</p>
                         {!isBillingProfileEditMode ? (
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-[#0A1A2F]/70 hover:text-[#0A1A2F]"
+                            className="h-8 w-8 text-app-text-secondary hover:text-app-text"
                             onClick={() => {
                               if (selectedEmployee) {
                                 resetBillingProfileDraft(selectedEmployee.id, selectedEmployeeBillingProfile);
@@ -1595,43 +1788,27 @@ export default function RhWorkspace({
                         )}
                       </div>
                       {activeBillingProfileDraft ? (
-                        <div className="grid gap-6 border-t border-slate-200 p-4 md:grid-cols-[160px_minmax(0,1fr)]">
+                        <div className="grid gap-6 border-t border-app-line p-4 md:grid-cols-[160px_minmax(0,1fr)]">
                           <div className="space-y-3">
-                            <div className="flex h-[132px] w-[132px] items-center justify-center rounded border border-slate-300 bg-white text-3xl font-semibold text-[#0A1A2F]/60">
+                            <div className="flex h-[132px] w-[132px] items-center justify-center rounded border border-app-line bg-app-surface text-3xl font-semibold text-app-text-muted">
                               {`${activeBillingProfileDraft.firstName ?? ""} ${activeBillingProfileDraft.lastName ?? ""}`.trim().charAt(0).toUpperCase() || "F"}
                             </div>
-                            <p className="text-xs text-[#0A1A2F]/60">Profil de facturation</p>
+                            <p className="text-app-xs text-app-text-muted">Profil de facturation</p>
                           </div>
                           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Nom</p>
+                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">Nom</p>
                             {isBillingProfileEditMode ? (
                               <div className="mt-1 grid grid-cols-2 gap-2">
-                                <input value={activeBillingProfileDraft.firstName} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, firstName: event.target.value } }))} className="h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" placeholder="Prenom" />
-                                <input value={activeBillingProfileDraft.lastName} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, lastName: event.target.value } }))} className="h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" placeholder="Nom" />
+                                <input value={activeBillingProfileDraft.firstName} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, firstName: event.target.value } }))} className="h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" placeholder="Prenom" />
+                                <input value={activeBillingProfileDraft.lastName} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, lastName: event.target.value } }))} className="h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" placeholder="Nom" />
                               </div>
                             ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{`${activeBillingProfileDraft.firstName ?? ""} ${activeBillingProfileDraft.lastName ?? ""}`.trim() || "-"}</p>
+                              <p className="mt-1 text-app-text-secondary">{`${activeBillingProfileDraft.firstName ?? ""} ${activeBillingProfileDraft.lastName ?? ""}`.trim() || "-"}</p>
                             )}
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Entreprise</p>
-                            {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.companyName} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, companyName: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
-                            ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.companyName || "-"}</p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">ESN partenaire</p>
-                            {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.esnPartenaire} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, esnPartenaire: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
-                            ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.esnPartenaire || "-"}</p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Statut</p>
+                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">Statut</p>
                             {isBillingProfileEditMode ? (
                               <select
                                 value={activeDraft.employment_status}
@@ -1642,111 +1819,124 @@ export default function RhWorkspace({
                                     [selectedEmployee.id]: { ...activeDraft, employment_status: event.target.value },
                                   }))
                                 }
-                                className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm"
+                                className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm"
                               >
                                 <option value="active">active</option>
                                 <option value="inactive">inactive</option>
                                 <option value="exited">exited</option>
                               </select>
                             ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{activeDraft.employment_status || "-"}</p>
+                              <p className="mt-1 text-app-text-secondary">{activeDraft.employment_status || "-"}</p>
                             )}
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Adresse</p>
+                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">Adresse</p>
                             {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.addressLine1} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, addressLine1: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                              <input value={activeBillingProfileDraft.addressLine1} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, addressLine1: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" />
                             ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.addressLine1 || "-"}</p>
+                              <p className="mt-1 text-app-text-secondary">{activeBillingProfileDraft.addressLine1 || "-"}</p>
                             )}
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Complement d'adresse</p>
+                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">Complement d'adresse</p>
                             {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.addressLine2} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, addressLine2: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                              <input value={activeBillingProfileDraft.addressLine2} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, addressLine2: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" />
                             ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.addressLine2 || "-"}</p>
+                              <p className="mt-1 text-app-text-secondary">{activeBillingProfileDraft.addressLine2 || "-"}</p>
                             )}
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Ville / Code postal / Pays</p>
+                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">Ville / Code postal / Pays</p>
                             {isBillingProfileEditMode ? (
                               <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                <input value={activeBillingProfileDraft.postalCode} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, postalCode: event.target.value } }))} className="h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" placeholder="Code postal" />
-                                <input value={activeBillingProfileDraft.city} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, city: event.target.value } }))} className="h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" placeholder="Ville" />
-                                <input value={activeBillingProfileDraft.country} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, country: event.target.value } }))} className="h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" placeholder="Pays" />
+                                <input value={activeBillingProfileDraft.postalCode} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, postalCode: event.target.value } }))} className="h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" placeholder="Code postal" />
+                                <input value={activeBillingProfileDraft.city} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, city: event.target.value } }))} className="h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" placeholder="Ville" />
+                                <input value={activeBillingProfileDraft.country} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, country: event.target.value } }))} className="h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" placeholder="Pays" />
                               </div>
                             ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{`${activeBillingProfileDraft.postalCode ?? ""} ${activeBillingProfileDraft.city ?? ""} ${activeBillingProfileDraft.country ?? ""}`.trim() || "-"}</p>
+                              <p className="mt-1 text-app-text-secondary">{`${activeBillingProfileDraft.postalCode ?? ""} ${activeBillingProfileDraft.city ?? ""} ${activeBillingProfileDraft.country ?? ""}`.trim() || "-"}</p>
                             )}
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Email de facturation</p>
+                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">Email de facturation</p>
                             {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.email} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, email: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                              <input value={activeBillingProfileDraft.email} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, email: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" />
                             ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.email || "-"}</p>
+                              <p className="mt-1 text-app-text-secondary">{activeBillingProfileDraft.email || "-"}</p>
                             )}
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Telephone</p>
+                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">Telephone</p>
                             {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.phone} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, phone: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                              <input value={activeBillingProfileDraft.phone} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, phone: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" />
                             ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.phone || "-"}</p>
+                              <p className="mt-1 text-app-text-secondary">{activeBillingProfileDraft.phone || "-"}</p>
                             )}
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">SIRET</p>
+                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">SIRET</p>
                             {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.siret} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, siret: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                              <input value={activeBillingProfileDraft.siret} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, siret: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" />
                             ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.siret || "-"}</p>
+                              <p className="mt-1 text-app-text-secondary">{activeBillingProfileDraft.siret || "-"}</p>
                             )}
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">IBAN</p>
+                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">IBAN</p>
                             {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.iban} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, iban: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                              <input value={activeBillingProfileDraft.iban} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, iban: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" />
                             ) : (
-                              <p className="mt-1 break-all text-[#0A1A2F]/80">{activeBillingProfileDraft.iban || "-"}</p>
+                              <p className="mt-1 break-all text-app-text-secondary">{activeBillingProfileDraft.iban || "-"}</p>
                             )}
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">BIC</p>
+                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">BIC</p>
                             {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.bic} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, bic: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
+                              <input value={activeBillingProfileDraft.bic} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, bic: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" />
                             ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{activeBillingProfileDraft.bic || "-"}</p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-[#0A1A2F]/50">Tarif journalier</p>
-                            {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.dailyRate} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, dailyRate: event.target.value } }))} type="number" min="0" step="0.01" className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-2 text-sm" />
-                            ) : (
-                              <p className="mt-1 text-[#0A1A2F]/80">{Number(activeBillingProfileDraft.dailyRate || 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR</p>
+                              <p className="mt-1 text-app-text-secondary">{activeBillingProfileDraft.bic || "-"}</p>
                             )}
                           </div>
                           </div>
                         </div>
                       ) : (
-                        <div className="border-t border-slate-200 px-4 py-4 text-sm text-[#0A1A2F]/70">
+                        <div className="border-t border-app-line px-4 py-4 text-app-sm text-app-text-secondary">
                           Aucun profil de facturation trouve pour ce collaborateur.
                         </div>
                       )}
                     </div>
+
+                    {/*
+                      Entreprises clientes du collaborateur.
+                      
+                      Un collaborateur peut en avoir PLUSIEURS depuis la migration
+                      multi-missions : `profiles.company_name` et le profil de facturation
+                      n'en decrivent qu'une et sont deprecies. On reutilise la carte deja
+                      ecrite pour l'espace salarie plutot que d'en refaire une : ses props
+                      `title` / `description` avaient justement ete prevues pour ce cas.
+                    */}
+                    <MissionsCard
+                      missions={selectedEmployeeMissions}
+                      onSave={handleMissionSave}
+                      onDelete={handleMissionDelete}
+                      saving={missionsSaving}
+                      loading={missionsLoading}
+                      message={missionsMessage}
+                      title="Entreprises clientes"
+                      description="Chaque entreprise porte son propre tarif et son unite de facturation."
+                    />
+
                         <div className="flex items-center gap-2">
-                          {saveMessage && <p className="text-sm text-[#0A1A2F]/70">{saveMessage}</p>}
+                          {saveMessage && <p className="text-app-sm text-app-text-secondary">{saveMessage}</p>}
                         </div>
-                      <div className="w-full border-b border-slate-200 bg-white">
-                        <div className="flex items-end gap-1 px-2 text-sm">
+                      <div className="w-full border-b border-app-line bg-app-surface">
+                        <div className="flex items-end gap-1 px-2 text-app-sm">
                           <button
                             type="button"
                             className={`rounded-t-md px-4 py-2 font-medium transition ${
                               collabDetailSection === "demandes"
-                                ? "border-b-2 border-[#0A1A2F] bg-slate-50 text-[#0A1A2F]"
-                                : "text-[#0A1A2F]/65 hover:bg-slate-50 hover:text-[#0A1A2F]"
+                                ? "border-b-2 border-app-text bg-app-surface-hover text-app-text"
+                                : "text-app-text-muted hover:bg-app-surface-hover hover:text-app-text"
                             }`}
                             onClick={() => {
                               setCollabDetailSection("demandes");
@@ -1759,8 +1949,8 @@ export default function RhWorkspace({
                             type="button"
                             className={`rounded-t-md px-4 py-2 font-medium transition ${
                               collabDetailSection === "documents"
-                                ? "border-b-2 border-[#0A1A2F] bg-slate-50 text-[#0A1A2F]"
-                                : "text-[#0A1A2F]/65 hover:bg-slate-50 hover:text-[#0A1A2F]"
+                                ? "border-b-2 border-app-text bg-app-surface-hover text-app-text"
+                                : "text-app-text-muted hover:bg-app-surface-hover hover:text-app-text"
                             }`}
                             onClick={() => {
                               setCollabDetailSection("documents");
@@ -1773,8 +1963,8 @@ export default function RhWorkspace({
                             type="button"
                             className={`rounded-t-md px-4 py-2 font-medium transition ${
                               collabDetailSection === "candidatures"
-                                ? "border-b-2 border-[#0A1A2F] bg-slate-50 text-[#0A1A2F]"
-                                : "text-[#0A1A2F]/65 hover:bg-slate-50 hover:text-[#0A1A2F]"
+                                ? "border-b-2 border-app-text bg-app-surface-hover text-app-text"
+                                : "text-app-text-muted hover:bg-app-surface-hover hover:text-app-text"
                             }`}
                             onClick={() => {
                               setCollabDetailSection("candidatures");
@@ -1790,8 +1980,8 @@ export default function RhWorkspace({
                         <div className="rounded p-3">
                           <p className="mb-2 font-medium">Demandes ({selectedEmployeeRequests.length})</p>
                           {selectedEmployeeRequests.length ? selectedEmployeeRequests.map((request) => (
-                            <p key={request.id} className="text-[#0A1A2F]/80">{request.typeLabel} - {request.status}</p>
-                          )) : <p className="text-[#0A1A2F]/70">Aucune demande.</p>}
+                            <p key={request.id} className="text-app-text-secondary">{request.typeLabel} - {request.status}</p>
+                          )) : <p className="text-app-text-secondary">Aucune demande.</p>}
                         </div>
                       ) : null}
                       {collabDetailSection === "documents" ? (
@@ -1801,17 +1991,17 @@ export default function RhWorkspace({
                                 <p className="font-medium">Documents ({filteredSelectedEmployeeDocuments.length})</p>
                                 <button
                                   type="button"
-                                  className="rounded-md p-1 text-[#0A1A2F]/70 hover:bg-slate-100 hover:text-[#0A1A2F]"
+                                  className="rounded-app-control p-1 text-app-text-secondary hover:bg-app-surface-hover hover:text-app-text"
                                   aria-label="Options documents"
                                   onClick={() => setCollabDocumentsMenuOpen((open) => !open)}
                                 >
                                   <ChevronDown className={`h-4 w-4 transition ${collabDocumentsMenuOpen ? "rotate-180" : ""}`} />
                                 </button>
                                 {collabDocumentsMenuOpen ? (
-                                  <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                                  <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-app-card border border-app-line bg-app-surface p-1 shadow-sm">
                                     <button
                                       type="button"
-                                      className="w-full rounded-md px-3 py-2 text-left text-sm text-[#0A1A2F] hover:bg-slate-50"
+                                      className="w-full rounded-app-control px-3 py-2 text-left text-app-sm text-app-text hover:bg-app-surface-hover"
                                       onClick={() => {
                                         openRhBatchDialog(selectedEmployee.id);
                                         setCollabDocumentsMenuOpen(false);
@@ -1895,7 +2085,7 @@ export default function RhWorkspace({
                                     </>
                                   )}
                               />
-                            ) : <p className="text-[#0A1A2F]/70">Aucun document.</p>}
+                            ) : <p className="text-app-text-secondary">Aucun document.</p>}
                           </div>
                         </>
                       ) : null}
@@ -1903,119 +2093,19 @@ export default function RhWorkspace({
                         <div className="rounded p-3">
                           <p className="mb-2 font-medium">Candidatures ({selectedEmployeeApplications.length})</p>
                           {selectedEmployeeApplications.length ? selectedEmployeeApplications.map((application) => (
-                            <p key={application.id} className="text-[#0A1A2F]/80">{application.jobTitle} - {application.status}</p>
-                          )) : <p className="text-[#0A1A2F]/70">Aucune candidature.</p>}
+                            <p key={application.id} className="text-app-text-secondary">{application.jobTitle} - {application.status}</p>
+                          )) : <p className="text-app-text-secondary">Aucune candidature.</p>}
                         </div>
                       ) : null}
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <input
-                        type="search"
-                        value={collaborateurSearch}
-                        onChange={(event) => setCollaborateurSearch(event.target.value)}
-                        placeholder="Rechercher un collaborateur (nom, entreprise, ESN, email)..."
-                        className="h-10 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm"
-                      />
-
-                      {/*
-                        Filtre de statut, en remplacement des trois entrees de sous-menu.
-                        `role="group"` et `aria-pressed` plutot que trois boutons muets :
-                        l'etat selectionne doit etre annonce, pas seulement colore.
-                      */}
-                      <div
-                        role="group"
-                        aria-label="Filtrer par statut"
-                        className="flex items-center gap-1 rounded-md border border-slate-300 bg-white p-1"
-                      >
-                        {([
-                          { value: "all", label: "Tous" },
-                          { value: "active", label: "Actifs" },
-                          { value: "inactive", label: "Inactifs" },
-                        ] as const).map((option) => {
-                          const selected = employeeStatusFilter === option.value;
-                          return (
-                            <button
-                              key={option.value}
-                              type="button"
-                              aria-pressed={selected}
-                              onClick={() => setEmployeeStatusOverride(option.value)}
-                              className={`rounded px-3 py-1 text-sm transition ${
-                                selected
-                                  ? "bg-slate-100 font-medium text-[#0A1A2F]"
-                                  : "text-[#0A1A2F]/65 hover:text-[#0A1A2F]"
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <span className="text-sm text-[#0A1A2F]/60">
-                        {visibleCollaborateurs.length} collaborateur
-                        {visibleCollaborateurs.length > 1 ? "s" : ""}
-                      </span>
-                    </div>
-                    <div className="overflow-x-auto rounded-lg">
-                      <table className="min-w-full text-sm">
-                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-[#0A1A2F]/70">
-                          <tr>
-                            <th className="px-3 py-2">Nom</th>
-                            <th className="px-3 py-2">Entreprise</th>
-                            <th className="px-3 py-2">ESN partenaire</th>
-                            <th className="px-3 py-2">Email</th>
-                            <th className="px-3 py-2">Statut</th>
-                            <th className="px-3 py-2">Connexion</th>
-                            <th className="px-3 py-2">Derniere connexion</th>
-                            <th className="px-3 py-2">Demandes ouvertes</th>
-                          </tr>
-                        </thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">
-                        {visibleCollaborateurs.length ? (
-                          visibleCollaborateurs.map((employee) => (
-                            <tr key={employee.id}>
-                              <td className="px-3 py-2">
-                                <Link
-                                  href={`/dashboard/rh/collaborateurs/${employee.id}`}
-                                  className="hover:underline"
-                                >
-                                  {employee.full_name ?? "-"}
-                                </Link>
-                              </td>
-                              <td className="px-3 py-2">{employee.company_name ?? "-"}</td>
-                              <td className="px-3 py-2">{employee.esn_partenaire ?? "-"}</td>
-                              <td className="px-3 py-2">{employee.email}</td>
-                              <td className="px-3 py-2">{employee.employment_status ?? "-"}</td>
-                              <td className="px-3 py-2">
-                                {isRecentlyActive(employee.id) ? "Actif recemment" : "Hors ligne"}
-                              </td>
-                              <td className="px-3 py-2">{formatLastSignIn(employee.id)}</td>
-                              <td className="px-3 py-2">
-                                {
-                                  requests.filter(
-                                    (request) =>
-                                      request.employeeId === employee.id &&
-                                      ["pending", "uploaded", "rejected", "expired"].includes(
-                                        request.status,
-                                      ),
-                                  ).length
-                                }
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={8} className="px-3 py-6 text-center text-[#0A1A2F]/60">
-                              Aucun collaborateur trouve.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                    </div>
-                  </div>
+                  <ConsoleCollaborateursTable
+                    rows={collaborateurRows}
+                    search={collaborateurSearch}
+                    onSearchChange={setCollaborateurSearch}
+                    statusFilter={employeeStatusFilter}
+                    onStatusFilterChange={setEmployeeStatusOverride}
+                  />
                 )}
               </CardContent>
             </Card>

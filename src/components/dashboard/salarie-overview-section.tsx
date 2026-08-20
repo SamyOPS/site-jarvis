@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { ConsoleMonthlyBars, type MonthlyPoint } from "@/components/console/overview/monthly-bars";
 import { ConsoleStatRow } from "@/components/console/overview/stat-row";
+import { ConsoleStatusBadge } from "@/components/console/overview/status-badge";
 import { formatDate, formatMonth } from "@/lib/dashboard-formatters";
 
 type SalarieOverviewRequest = {
@@ -54,13 +55,6 @@ function Panel({
     </section>
   );
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: "En attente",
-  uploaded: "Déposé",
-  rejected: "Rejeté",
-  expired: "Expiré",
-};
 
 export function SalarieOverviewSection({
   pendingRequestsCount,
@@ -119,13 +113,7 @@ export function SalarieOverviewSection({
                       {`Échéance ${formatDate(request.dueAt)} · Période ${formatMonth(request.periodMonth)}`}
                     </p>
                   </div>
-                  {/*
-                    Le statut porte son LIBELLE, pas seulement une pastille de couleur :
-                    une couleur seule n'est pas lisible par tout le monde.
-                  */}
-                  <span className="shrink-0 rounded-app-control border border-app-line px-2 py-1 text-app-xs text-app-text-secondary">
-                    {STATUS_LABELS[request.status] ?? request.status}
-                  </span>
+                  <ConsoleStatusBadge status={request.status} />
                 </li>
               ))}
             </ul>
