@@ -28,7 +28,7 @@ export function ConsoleStatRow({ stats }: { stats: ConsoleStat[] }) {
           key={stat.label}
           className="rounded-app-card border border-app-line bg-app-surface px-5 py-4"
         >
-          <dt className="text-app-xs text-app-text-secondary">{stat.label}</dt>
+          <dt className="text-app-sm text-app-text-secondary">{stat.label}</dt>
           {/*
             Chiffres PROPORTIONNELS, pas tabulaires : `tabular-nums` donne a chaque chiffre
             la largeur d'un zero, ce qui fait respirer trop largement un nombre comme 121 a
@@ -36,7 +36,7 @@ export function ConsoleStatRow({ stats }: { stats: ConsoleStat[] }) {
           */}
           <dd className="mt-3 text-app-xl font-semibold text-app-text">{stat.value}</dd>
           {stat.hint ? (
-            <p className="mt-2 text-app-xs text-app-text-muted">{stat.hint}</p>
+            <p className="mt-2 text-app-sm text-app-text-muted">{stat.hint}</p>
           ) : null}
         </div>
       ))}

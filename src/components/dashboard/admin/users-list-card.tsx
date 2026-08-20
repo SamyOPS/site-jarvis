@@ -27,7 +27,7 @@ type ProfessionalStatus = "none" | "pending" | "verified" | "rejected";
 const ASSIGNABLE_ROLES = [
   { value: "candidate", label: "Candidat" },
   { value: "professional", label: "Professionnel" },
-  { value: "salarie", label: "Salarie" },
+  { value: "salarie", label: "Salarié" },
   { value: "rh", label: "RH" },
   { value: "admin", label: "Administrateur" },
 ] as const;
@@ -240,9 +240,9 @@ export function AdminUsersListCard({
                     onClick={() => void onResetPassword(profile)}
                     title={
                       profile.id === currentUserId
-                        ? "Change ton propre mot de passe depuis tes parametres."
+                        ? "Change ton propre mot de passe depuis tes paramètres."
                         : profile.role === "admin"
-                          ? "Le mot de passe d'un administrateur se reinitialise par la procedure de mot de passe oublie."
+                          ? "Le mot de passe d'un administrateur se réinitialise par la procédure de mot de passe oublié."
                           : undefined
                     }
                   >
@@ -251,7 +251,7 @@ export function AdminUsersListCard({
                     ) : (
                       <KeyRound className="mr-2 h-4 w-4" />
                     )}
-                    Reinitialiser le mot de passe
+                    Réinitialiser le mot de passe
                   </Button>
 
                   <Button

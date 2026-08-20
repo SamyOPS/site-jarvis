@@ -112,7 +112,7 @@ export function ConsoleMonthlyBars({
         {points.map((point) => (
           <span
             key={point.key}
-            className="flex-1 text-center text-app-xs text-app-text-muted"
+            className="flex-1 text-center text-app-sm text-app-text-muted"
           >
             {point.label}
           </span>

@@ -92,8 +92,8 @@ export function ConsoleSidebar({
           <button
             type="button"
             onClick={onToggleCollapsed}
-            aria-label="Deplier la navigation"
-            title="Deplier la navigation"
+            aria-label="Déplier la navigation"
+            title="Déplier la navigation"
             className="flex h-8 w-8 items-center justify-center rounded-app-control text-app-text-muted transition-colors hover:bg-app-surface-hover hover:text-app-text focus-visible:outline-app"
           >
             <PanelLeft className="h-4 w-4" />

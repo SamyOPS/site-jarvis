@@ -110,9 +110,9 @@ export type ConsoleFooter = {
  */
 export const CONSOLE_FOOTER: ConsoleFooter = {
   note: {
-    eyebrow: "Nouveautes",
+    eyebrow: "Nouveautés",
     title: "Nouvelle console",
-    description: "Navigation repensee et mise en page allegee.",
+    description: "Navigation repensée et mise en page allégée.",
     linkLabel: "En savoir plus",
   },
   links: [
@@ -121,7 +121,7 @@ export const CONSOLE_FOOTER: ConsoleFooter = {
   ],
   // Repris tel quel du pied du site public. Sans annee calculee : `new Date()` au
   // chargement du module ferait diverger le rendu serveur et le rendu client.
-  legal: "Jarvis Connect - Tous droits reserves",
+  legal: "Jarvis Connect - Tous droits réservés",
 };
 
 /* ---------------------------------------------------------------------------
@@ -134,7 +134,7 @@ export const RH_NAV_CONFIG: ConsoleNavConfig = {
   rootHref: "/dashboard/rh",
   rootLabel: "Espace RH",
   settingsHref: "/dashboard/rh/parametres",
-  settingsLabel: "Parametres",
+  settingsLabel: "Paramètres",
   groups: [
     {
       label: "Vue d'ensemble",
@@ -181,8 +181,8 @@ export const RH_NAV_CONFIG: ConsoleNavConfig = {
               label: "CRA & Facture",
               href: "/dashboard/rh/documents/cra-facture",
             },
-            { label: "Conges", href: "/dashboard/rh/documents/conge" },
-            { label: "A valider", href: "/dashboard/rh/documents/a-valider" },
+            { label: "Congés", href: "/dashboard/rh/documents/conge" },
+            { label: "À valider", href: "/dashboard/rh/documents/a-valider" },
             {
               label: "Mes demandes",
               href: "/dashboard/rh/documents/mes-demandes",
@@ -225,7 +225,7 @@ export const RH_NAV_CONFIG: ConsoleNavConfig = {
       label: "Administration",
       items: [
         {
-          label: "Parametres",
+          label: "Paramètres",
           href: "/dashboard/rh/parametres",
           icon: Settings,
         },
@@ -233,7 +233,7 @@ export const RH_NAV_CONFIG: ConsoleNavConfig = {
     },
   ],
   resolveLeafLabel(pathname) {
-    if (pathname === "/dashboard/rh/parametres") return "Parametres";
+    if (pathname === "/dashboard/rh/parametres") return "Paramètres";
     if (
       pathname.startsWith("/dashboard/rh/collaborateurs/") &&
       !pathname.endsWith("/actifs") &&
@@ -251,11 +251,11 @@ export const RH_NAV_CONFIG: ConsoleNavConfig = {
 
 export const SALARIE_NAV_CONFIG: ConsoleNavConfig = {
   role: "salarie",
-  roleLabel: "Espace salarie",
+  roleLabel: "Espace salarié",
   rootHref: "/dashboard/salarie",
-  rootLabel: "Espace salarie",
+  rootLabel: "Espace salarié",
   settingsHref: "/dashboard/salarie/parametres",
-  settingsLabel: "Parametres",
+  settingsLabel: "Paramètres",
   groups: [
     {
       label: "Vue d'ensemble",
@@ -331,7 +331,7 @@ export const SALARIE_NAV_CONFIG: ConsoleNavConfig = {
       label: "Administration",
       items: [
         {
-          label: "Parametres",
+          label: "Paramètres",
           href: "/dashboard/salarie/parametres",
           icon: Settings,
         },
@@ -339,7 +339,7 @@ export const SALARIE_NAV_CONFIG: ConsoleNavConfig = {
     },
   ],
   resolveLeafLabel(pathname) {
-    return pathname === "/dashboard/salarie/parametres" ? "Parametres" : null;
+    return pathname === "/dashboard/salarie/parametres" ? "Paramètres" : null;
   },
 };
 

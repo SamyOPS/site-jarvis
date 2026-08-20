@@ -43,9 +43,9 @@ function Panel({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-app-sm font-semibold text-app-text">{title}</h2>
+          <h2 className="text-app-md font-semibold text-app-text">{title}</h2>
           {description ? (
-            <p className="mt-1 text-app-xs text-app-text-secondary">{description}</p>
+            <p className="mt-1 text-app-sm text-app-text-secondary">{description}</p>
           ) : null}
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
@@ -57,9 +57,9 @@ function Panel({
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "En attente",
-  uploaded: "Depose",
-  rejected: "Rejete",
-  expired: "Expire",
+  uploaded: "Déposé",
+  rejected: "Rejeté",
+  expired: "Expiré",
 };
 
 export function SalarieOverviewSection({
@@ -81,9 +81,9 @@ export function SalarieOverviewSection({
       */}
       <ConsoleStatRow
         stats={[
-          { label: "Documents a deposer", value: pendingRequestsCount },
-          { label: "Documents deposes", value: documentsCount },
-          { label: "Documents valides", value: validatedDocumentsCount },
+          { label: "Documents à déposer", value: pendingRequestsCount },
+          { label: "Documents déposés", value: documentsCount },
+          { label: "Documents validés", value: validatedDocumentsCount },
           {
             label: "En cours de validation",
             value: Math.max(0, documentsCount - validatedDocumentsCount),
@@ -93,7 +93,7 @@ export function SalarieOverviewSection({
 
       <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
         <Panel
-          title="Mes depots"
+          title="Mes dépôts"
           description="Volume mensuel, six derniers mois."
           className="lg:col-span-2"
         >
@@ -101,29 +101,29 @@ export function SalarieOverviewSection({
         </Panel>
 
         <Panel
-          title="A deposer"
+          title="À déposer"
           description="Demandes RH en attente de votre part."
           action={action}
         >
           {priorities.length === 0 ? (
-            <p className="text-app-xs text-app-text-muted">Aucune demande en attente.</p>
+            <p className="text-app-sm text-app-text-muted">Aucune demande en attente.</p>
           ) : (
             <ul className="divide-y divide-app-line">
               {priorities.map((request) => (
                 <li key={request.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-app-xs font-medium text-app-text">
+                    <p className="truncate text-app-sm font-medium text-app-text">
                       {request.typeLabel}
                     </p>
-                    <p className="mt-1 text-app-2xs text-app-text-muted">
-                      {`Echeance ${formatDate(request.dueAt)} · Periode ${formatMonth(request.periodMonth)}`}
+                    <p className="mt-1 text-app-xs text-app-text-muted">
+                      {`Échéance ${formatDate(request.dueAt)} · Période ${formatMonth(request.periodMonth)}`}
                     </p>
                   </div>
                   {/*
                     Le statut porte son LIBELLE, pas seulement une pastille de couleur :
                     une couleur seule n'est pas lisible par tout le monde.
                   */}
-                  <span className="shrink-0 rounded-app-control border border-app-line px-2 py-1 text-app-2xs text-app-text-secondary">
+                  <span className="shrink-0 rounded-app-control border border-app-line px-2 py-1 text-app-xs text-app-text-secondary">
                     {STATUS_LABELS[request.status] ?? request.status}
                   </span>
                 </li>

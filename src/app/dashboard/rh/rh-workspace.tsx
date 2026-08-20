@@ -24,7 +24,6 @@ import { usePasswordUpdate } from "@/features/dashboard/use-password-update";
 import { createAuthorizedFetch, getFreshAccessToken } from "@/lib/dashboard-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { buildMonthlyDocumentCounts } from "@/domain/documents";
 import { displayNameFromMetadata } from "@/domain/profiles";
 import { useCraEditor, type CraEditorMission } from "@/features/dashboard/cra/use-cra-editor";
 import { useBatchUploadForm } from "@/features/dashboard/rh/use-batch-upload-form";
@@ -734,6 +733,110 @@ export default function RhWorkspace({
     [documents],
   );
   const pendingDocuments = useMemo(() => salarieDocuments.filter((document) => document.status === "pending"), [salarieDocuments]);
+
+  /**
+   * Collaborateurs ACTIFS. Base commune des listes de personnes du tableau de bord.
+   *
+   * Un salarie sorti ou inactif n'a plus rien a deposer, et sa derniere connexion n'apprend
+   * rien : le lister ne fait que diluer ce sur quoi il y a matiere a agir. Le filtre etait
+   * ecrit deux fois, il l'est desormais une seule.
+   */
+  const activeEmployees = useMemo(
+    () => employees.filter((employee) => employee.employment_status === "active"),
+    [employees],
+  );
+
+  /**
+   * Collaborateurs actifs n'ayant RIEN depose ce mois-ci.
+   *
+   * Deux choix de definition, qui changent completement le resultat :
+   *
+   * 1. On regarde `salarieDocuments`, c'est-a-dire les documents dont l'auteur du depot est
+   *    le SALARIE (`uploaderRole === "salarie"`). Un document que le RH a televerse pour
+   *    lui ne compte pas : la question est « qui n'a rien fourni », pas « pour qui n'a-t-on
+   *    rien ». Sans cette distinction, deposer soi-meme une fiche de paie ferait disparaitre
+   *    le collaborateur de la liste alors qu'il n'a rien fait.
+   *
+   * 2. Seuls les collaborateurs ACTIFS sont comptes. Un salarie sorti ou inactif n'a rien a
+   *    deposer, l'y faire figurer noierait la liste sous des faux positifs permanents.
+   */
+  const employeesWithoutDeposit = useMemo(() => {
+    const now = new Date();
+    const depositors = new Set(
+      salarieDocuments
+        .filter((document) => {
+          if (!document.createdAt) return false;
+          const createdAt = new Date(document.createdAt);
+          return (
+            !Number.isNaN(createdAt.getTime()) &&
+            createdAt.getMonth() === now.getMonth() &&
+            createdAt.getFullYear() === now.getFullYear()
+          );
+        })
+        .map((document) => document.employeeId),
+    );
+
+    return activeEmployees
+      .filter((employee) => !depositors.has(employee.id))
+      .map((employee) => ({
+        id: employee.id,
+        name: employee.full_name ?? employee.email,
+        companyName: employee.company_name ?? null,
+      }));
+  }, [activeEmployees, salarieDocuments]);
+
+  /** Denominateur de la liste ci-dessus. */
+  const activeEmployeesCount = activeEmployees.length;
+
+  /**
+   * Dernieres connexions, la plus recente en tete.
+   *
+   * L'application ne suit AUCUNE session ouverte : la seule donnee disponible est
+   * `last_sign_in_at`, remontee par `collaborators/activity`. On ne peut donc pas dire qui
+   * est connecte, seulement qui s'est connecte en dernier — et c'est ce que la liste montre.
+   *
+   * `isOnline` reprend la fenetre de 15 minutes deja utilisee par la page admin
+   * (`isRecentlyActive`) plutot que d'en inventer une seconde : deux ecrans qui repondent
+   * differemment a « qui est connecte » seraient pires que pas de reponse du tout. Les
+   * connexions de moins de 15 minutes remontent naturellement en tete, puisque le tri est
+   * chronologique.
+   *
+   * Les comptes jamais connectes sont ECARTES : ils n'ont pas leur place dans une liste de
+   * connexions. Ils meriteraient leur propre indicateur, c'est un autre sujet.
+   */
+  const recentSignIns = useMemo(() => {
+    const now = Date.now();
+    return activeEmployees
+      .map((employee) => {
+        const lastSignInAt = activityByEmployeeId[employee.id]?.lastSignInAt ?? null;
+        const timestamp = lastSignInAt ? new Date(lastSignInAt).getTime() : Number.NaN;
+        return {
+          id: employee.id,
+          name: employee.full_name ?? employee.email,
+          lastSignInAt,
+          timestamp,
+          isOnline: !Number.isNaN(timestamp) && now - timestamp <= 15 * 60 * 1000,
+        };
+      })
+      .filter((employee) => !Number.isNaN(employee.timestamp))
+      .sort((left, right) => right.timestamp - left.timestamp)
+      .slice(0, 8);
+  }, [activeEmployees, activityByEmployeeId]);
+
+  /** Documents en attente de controle, les plus anciens d'abord : ce sont les plus urgents. */
+  const pendingDocumentsForReview = useMemo(
+    () =>
+      [...pendingDocuments]
+        .sort((left, right) => (left.createdAt ?? "").localeCompare(right.createdAt ?? ""))
+        .map((document) => ({
+          id: document.id,
+          employeeName: document.employeeName,
+          typeLabel: document.typeLabel,
+          periodMonth: document.periodMonth,
+          createdAt: document.createdAt,
+        })),
+    [pendingDocuments],
+  );
   const rhDocumentFilterSource = useMemo(
     () =>
       currentSubSection === "docs_all"
@@ -820,8 +923,6 @@ export default function RhWorkspace({
   const craCalendarCells = useMemo(() => buildCalendarCells(craPeriodMonth), [craPeriodMonth]);
   const openRequests = useMemo(() => requests.filter((request) => ["pending", "uploaded", "rejected", "expired"].includes(request.status)), [requests]);
 
-  /** Volume mensuel reel des depots. Meme calcul que l'espace salarie. */
-  const documentsByMonth = useMemo(() => buildMonthlyDocumentCounts(documents), [documents]);
   const currentMonthDocuments = useMemo(() => {
     const now = new Date();
     return documents.filter((document) => {
@@ -1425,7 +1526,10 @@ export default function RhWorkspace({
               employeesCount={employees.length}
               currentMonthDocumentsCount={currentMonthDocuments.length}
               openRequests={openRequests}
-              documentsByMonth={documentsByMonth}
+              pendingDocuments={pendingDocumentsForReview}
+              recentSignIns={recentSignIns}
+              employeesWithoutDeposit={employeesWithoutDeposit}
+              activeEmployeesCount={activeEmployeesCount}
             />
           )}
 
