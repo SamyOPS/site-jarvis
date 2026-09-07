@@ -43,7 +43,18 @@ function parseBillingProfilePayload(payload: RhBillingProfilePayload) {
   return {
     first_name: getRequiredString(payload.firstName, "prenom"),
     last_name: getRequiredString(payload.lastName, "nom"),
-    company_name: getRequiredString(payload.companyName, "nom de la societe"),
+    /*
+     * DEPRECIE, donc OPTIONNEL.
+     *
+     * L'entreprise cliente vit desormais dans `employee_missions` — un collaborateur peut en
+     * avoir plusieurs. La migration multi-missions a d'ailleurs retire la contrainte NOT NULL
+     * de cette colonne, et la fiche RH n'expose plus le champ.
+     *
+     * Le laisser obligatoire faisait echouer l'enregistrement sur un champ INVISIBLE, avec un
+     * message renvoyant a une saisie impossible. La colonne reste ecrite telle qu'elle est
+     * transmise, pour ne pas effacer les valeurs des profils anterieurs.
+     */
+    company_name: getOptionalString(payload.companyName),
     esn_partenaire: getOptionalString(payload.esnPartenaire),
     address_line_1: getRequiredString(payload.addressLine1, "adresse"),
     address_line_2: getOptionalString(payload.addressLine2),

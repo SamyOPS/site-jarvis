@@ -989,22 +989,31 @@ export default function RhWorkspace({
    * avoir plusieurs, il n'y a pas de champ unique a lire : il faut les charger. Un seul
    * appel sans `employeeId` suffit — le serveur restreint au perimetre des affectations.
    */
-  const [missionsByEmployee, setMissionsByEmployee] = useState<Record<string, string[]>>({});
+  /**
+   * On conserve l'IDENTIFIANT de mission, pas seulement le nom.
+   *
+   * Deux missions peuvent porter le meme nom d'entreprise pour un meme collaborateur — par
+   * exemple un client facture a l'heure sur un contrat et au jour sur un autre. Utiliser le
+   * nom comme cle React provoquait alors un doublon.
+   */
+  const [missionsByEmployee, setMissionsByEmployee] = useState<
+    Record<string, { id: string; name: string }[]>
+  >({});
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const payload = (await callRhDocumentsApi("/api/rh/missions")) as {
-          items?: { employee_id: string; company_name: string }[];
+          items?: { id: string; employee_id: string; company_name: string }[];
         } | null;
         if (cancelled) return;
-        const grouped: Record<string, string[]> = {};
+        const grouped: Record<string, { id: string; name: string }[]> = {};
         for (const mission of payload?.items ?? []) {
           if (!mission.employee_id || !mission.company_name) continue;
           grouped[mission.employee_id] = [
             ...(grouped[mission.employee_id] ?? []),
-            mission.company_name,
+            { id: mission.id, name: mission.company_name },
           ];
         }
         setMissionsByEmployee(grouped);
@@ -1138,7 +1147,11 @@ export default function RhWorkspace({
       // La recherche porte sur les ENTREPRISES CLIENTES reelles, plus sur l'ancien champ
       // unique du profil : chercher « ACME » doit trouver le collaborateur qui y travaille,
       // meme s'il travaille aussi ailleurs.
-      [employee.full_name, employee.email, ...(missionsByEmployee[employee.id] ?? [])]
+      [
+        employee.full_name,
+        employee.email,
+        ...(missionsByEmployee[employee.id] ?? []).map((mission) => mission.name),
+      ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
@@ -1291,6 +1304,12 @@ export default function RhWorkspace({
           employeeId: selectedEmployee.id,
           firstName: activeBillingProfileDraft.firstName,
           lastName: activeBillingProfileDraft.lastName,
+          /*
+           * Les trois champs deprecies — entreprise, ESN, tarif journalier — ne sont plus
+           * modifiables depuis la fiche : l'entreprise cliente vit dans les missions. Ils
+           * sont transmis TELS QU'ILS ONT ETE CHARGES, pour ne pas effacer ce qui existe
+           * en base sur les profils anterieurs.
+           */
           companyName: activeBillingProfileDraft.companyName,
           esnPartenaire: activeBillingProfileDraft.esnPartenaire,
           addressLine1: activeBillingProfileDraft.addressLine1,
@@ -1303,7 +1322,14 @@ export default function RhWorkspace({
           siret: activeBillingProfileDraft.siret,
           iban: activeBillingProfileDraft.iban,
           bic: activeBillingProfileDraft.bic,
-          dailyRate: Number(activeBillingProfileDraft.dailyRate || 0),
+          /*
+           * On transmet la CHAINE, pas `Number(... || 0)`.
+           *
+           * Un tarif vide donnait `0`, et le serveur refuse un tarif nul : l'enregistrement
+           * echouait sur « le champ tarif journalier est invalide », a propos d'un champ que
+           * la fiche n'affiche plus. Une chaine vide est bien interpretee comme « absent ».
+           */
+          dailyRate: activeBillingProfileDraft.dailyRate || null,
         }),
       });
       await loadBillingProfiles();

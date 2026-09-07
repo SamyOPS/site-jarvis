@@ -11,8 +11,12 @@ export type CollaborateurRow = {
    * Entreprises clientes du collaborateur. Un tableau, pas un champ : depuis la migration
    * multi-missions un collaborateur peut en avoir plusieurs, et l'ancienne colonne unique
    * n'en montrait qu'une — au hasard.
+   *
+   * Chaque entree porte l'identifiant de sa mission : deux missions peuvent avoir le MEME
+   * nom d'entreprise chez un meme collaborateur (un client facture a l'heure d'un cote, au
+   * jour de l'autre), et le nom ne peut donc pas servir de cle.
    */
-  companies: string[];
+  companies: { id: string; name: string }[];
   employmentStatus: string | null;
   /** Connexion de moins de 15 minutes. */
   isOnline: boolean;
@@ -197,10 +201,10 @@ export function ConsoleCollaborateursTable({
                       <span className="flex flex-wrap gap-1">
                         {row.companies.map((company) => (
                           <span
-                            key={company}
+                            key={company.id}
                             className="rounded-app-control border border-app-line px-2 py-1 text-app-xs text-app-text-secondary"
                           >
-                            {company}
+                            {company.name}
                           </span>
                         ))}
                       </span>
