@@ -13,6 +13,10 @@ import { RhOffersSection } from "@/components/dashboard/rh-offers-section";
 import { RhDocumentsSection } from "@/components/dashboard/rh-documents-section";
 import type { RhLeaveRequestPayload } from "@/components/dashboard/rh/leave-request-editor";
 import { RhOverviewSection } from "@/components/dashboard/rh-overview-section";
+import {
+  ConsoleResultDialog,
+  type ConsoleResult,
+} from "@/components/console/feedback/result-dialog";
 import { MissionsCard } from "@/components/dashboard/missions-card";
 import type { MissionFormState, MissionItem } from "@/components/dashboard/missions-card";
 import { ConsoleCollaborateursTable } from "@/components/console/collaborateurs/collaborateurs-table";
@@ -182,6 +186,15 @@ export default function RhWorkspace({
   // Le depot en lot vit dans son propre hook : voir `useBatchUploadForm`. Il est instancie
   // plus bas, une fois `employees` et `allowedTypeIdsForEmployee` disponibles.
   const [generateEmployeeId, setGenerateEmployeeId] = useState("");
+  /**
+   * Resultat de la generation d'un CRA ou d'une facture, affiche au centre de l'ecran.
+   *
+   * Ces deux actions durent plusieurs secondes et produisent un document archive : leur
+   * issue ne doit pas se lire dans une ligne en haut de page, alors que le clic vient d'un
+   * bouton situe en bas d'un calendrier. Le reste des retours reste en ligne.
+   */
+  const [generationResult, setGenerationResult] = useState<ConsoleResult | null>(null);
+
   /** Missions du collaborateur affiche dans la fiche. Distinctes de celles du CRA. */
   const [selectedEmployeeMissions, setSelectedEmployeeMissions] = useState<MissionItem[]>([]);
   const [missionsLoading, setMissionsLoading] = useState(false);
@@ -1519,10 +1532,18 @@ export default function RhWorkspace({
         },
         body: JSON.stringify(payload),
       });
-      setSaveMessage("CRA genere avec succes.");
+      setGenerationResult({
+        tone: "success",
+        title: "CRA généré",
+        message: "Le CRA a été généré et ajouté aux documents du collaborateur.",
+      });
       await refreshDashboardData();
     } catch (error) {
-      setSaveMessage(error instanceof Error ? error.message : "Generation impossible.");
+      setGenerationResult({
+        tone: "error",
+        title: "CRA non généré",
+        message: error instanceof Error ? error.message : "Génération impossible.",
+      });
     } finally {
       setCraGenerating(false);
     }
@@ -1541,10 +1562,18 @@ export default function RhWorkspace({
         },
         body: JSON.stringify(payload),
       });
-      setSaveMessage("Facture generee avec succes.");
+      setGenerationResult({
+        tone: "success",
+        title: "Facture générée",
+        message: "La facture a été générée et ajoutée aux documents du collaborateur.",
+      });
       await refreshDashboardData();
     } catch (error) {
-      setSaveMessage(error instanceof Error ? error.message : "Generation impossible.");
+      setGenerationResult({
+        tone: "error",
+        title: "Facture non générée",
+        message: error instanceof Error ? error.message : "Génération impossible.",
+      });
     } finally {
       setInvoiceGenerating(false);
     }
@@ -2270,6 +2299,11 @@ export default function RhWorkspace({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConsoleResultDialog
+        result={generationResult}
+        onClose={() => setGenerationResult(null)}
+      />
 
       <RhBatchUploadDialog
         open={batchForm.open}

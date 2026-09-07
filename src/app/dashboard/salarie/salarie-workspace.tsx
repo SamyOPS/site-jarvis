@@ -13,6 +13,10 @@ import { SalarieOffersSection } from "@/components/dashboard/salarie-offers-sect
 import { SalarieOverviewSection } from "@/components/dashboard/salarie-overview-section";
 import { SalarieSettingsSection } from "@/components/dashboard/salarie-settings-section";
 import type { MissionFormState, MissionItem } from "@/components/dashboard/missions-card";
+import {
+  ConsoleResultDialog,
+  type ConsoleResult,
+} from "@/components/console/feedback/result-dialog";
 import { StatusNotice } from "@/components/dashboard/status-notice";
 import { Button } from "@/components/ui/button";
 import { useDocumentFolders } from "@/features/dashboard/documents/use-document-folders";
@@ -168,6 +172,14 @@ export default function SalarieWorkspace({
   const [missionsMessage, setMissionsMessage] = useState<string | null>(null);
   const [craItems, setCraItems] = useState<CraSummaryRow[]>([]);
   const [selectedCraId, setSelectedCraId] = useState<string | null>(null);
+  /**
+   * Resultat de la generation d'un CRA ou d'une facture, au centre de l'ecran.
+   *
+   * Meme raison que cote RH : l'action dure, produit un document, et son bouton est loin du
+   * haut de page ou s'affichent les messages en ligne.
+   */
+  const [generationResult, setGenerationResult] = useState<ConsoleResult | null>(null);
+
   const [craGenerating, setCraGenerating] = useState(false);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
   const [leaveGenerating, setLeaveGenerating] = useState(false);
@@ -919,9 +931,18 @@ export default function SalarieWorkspace({
         method: "POST",
       });
       await Promise.all([loadCraItems(), profile ? loadDashboardData(profile.id) : Promise.resolve()]);
-      setActionMessage("PDF CRA genere et ajoute aux documents.");
+      setGenerationResult({
+        tone: "success",
+        title: "CRA généré",
+        message: "Le PDF a été généré et ajouté à tes documents.",
+      });
     } catch (error) {
-      setActionMessage(error instanceof Error ? error.message : "Generation du PDF CRA impossible.");
+      setGenerationResult({
+        tone: "error",
+        title: "CRA non généré",
+        message:
+          error instanceof Error ? error.message : "Génération du PDF CRA impossible.",
+      });
     } finally {
       setCraGenerating(false);
     }
@@ -962,9 +983,18 @@ export default function SalarieWorkspace({
           body: JSON.stringify(payload),
         });
         await (profile ? loadDashboardData(profile.id) : Promise.resolve());
-        setActionMessage("Facture PDF generee et ajoutee aux documents.");
+        setGenerationResult({
+          tone: "success",
+          title: "Facture générée",
+          message: "Le PDF a été généré et ajouté à tes documents.",
+        });
       } catch (error) {
-        setActionMessage(error instanceof Error ? error.message : "Generation de la facture impossible.");
+        setGenerationResult({
+          tone: "error",
+          title: "Facture non générée",
+          message:
+            error instanceof Error ? error.message : "Génération de la facture impossible.",
+        });
       } finally {
         setInvoiceGenerating(false);
       }
@@ -1296,6 +1326,11 @@ export default function SalarieWorkspace({
       </div>
 
       {loading && <DashboardLoadingOverlay message="Chargement..." />}
+
+      <ConsoleResultDialog
+        result={generationResult}
+        onClose={() => setGenerationResult(null)}
+      />
 
       <Dialog
         open={uploadDialogOpen}
