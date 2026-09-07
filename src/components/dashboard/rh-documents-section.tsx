@@ -474,6 +474,7 @@ export function RhDocumentsSection({
         ) : (
           <RhDocumentsListView
             toolbar={filtersBar}
+            onOpenReviewDialog={openReviewDialog}
             storageScope={storageScope}
             preferencesAuthToken={preferencesAuthToken}
             showRhFolderTrash={showRhFolderTrash}
@@ -490,7 +491,6 @@ export function RhDocumentsSection({
             onRhPurgeFolder={onRhPurgeFolder}
             onViewDocument={onViewDocument}
             onDownloadDocument={onDownloadDocument}
-            onReviewDocument={onReviewDocument}
             onDeleteRhDocument={onDeleteRhDocument}
             onRestoreRhDocument={onRestoreRhDocument}
             onDeleteRhDocumentPermanently={onDeleteRhDocumentPermanently}
@@ -498,8 +498,6 @@ export function RhDocumentsSection({
             downloadingDocumentId={downloadingDocumentId}
             reviewingDocumentId={reviewingDocumentId}
             deletingRhDocumentId={deletingRhDocumentId}
-            reviewDrafts={reviewDrafts}
-            onReviewDraftsChange={onReviewDraftsChange}
             setDraggedRhDocumentId={setDraggedRhDocumentId}
           />
         )}

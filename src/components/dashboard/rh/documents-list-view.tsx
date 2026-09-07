@@ -1,4 +1,4 @@
-import { RotateCcw, Trash2 } from "lucide-react";
+import { Check, RotateCcw, Trash2, X } from "lucide-react";
 
 import type { ReactNode } from "react";
 
@@ -31,7 +31,6 @@ type RhDocumentsListViewProps = {
   onRhPurgeFolder: (folderId: string) => void | Promise<void>;
   onViewDocument: (document: RhDocumentRow) => void | Promise<void>;
   onDownloadDocument: (document: RhDocumentRow) => void | Promise<void>;
-  onReviewDocument: (document: RhDocumentRow, status: "pending" | "validated" | "rejected") => void | Promise<void>;
   onDeleteRhDocument: (document: RhDocumentRow) => void | Promise<void>;
   onRestoreRhDocument: (document: RhDocumentRow) => void | Promise<void>;
   onDeleteRhDocumentPermanently: (document: RhDocumentRow) => void | Promise<void>;
@@ -39,11 +38,20 @@ type RhDocumentsListViewProps = {
   downloadingDocumentId: string | null;
   reviewingDocumentId: string | null;
   deletingRhDocumentId: string | null;
-  reviewDrafts: Record<string, string>;
-  onReviewDraftsChange: (updater: (prev: Record<string, string>) => Record<string, string>) => void;
   setDraggedRhDocumentId: (value: string | null) => void;
   /** Filtres, poses dans la barre d'outils du tableau. */
   toolbar?: ReactNode;
+  /**
+   * Ouvre la fenetre de confirmation, ou le commentaire se saisit.
+   *
+   * Remplace l'appel direct a `onReviewDocument` : valider ou refuser depuis un menu, sans
+   * confirmation ni possibilite de commenter, etait trop expeditif pour une action qui
+   * notifie le collaborateur.
+   */
+  onOpenReviewDialog: (
+    document: RhDocumentRow,
+    status: "pending" | "validated" | "rejected",
+  ) => void;
 };
 
 /**
@@ -55,6 +63,7 @@ type RhDocumentsListViewProps = {
  */
 export function RhDocumentsListView({
   toolbar,
+  onOpenReviewDialog,
   storageScope,
   preferencesAuthToken,
   showRhFolderTrash,
@@ -71,7 +80,6 @@ export function RhDocumentsListView({
   onRhPurgeFolder,
   onViewDocument,
   onDownloadDocument,
-  onReviewDocument,
   onDeleteRhDocument,
   onRestoreRhDocument,
   onDeleteRhDocumentPermanently,
@@ -79,8 +87,6 @@ export function RhDocumentsListView({
   downloadingDocumentId,
   reviewingDocumentId,
   deletingRhDocumentId,
-  reviewDrafts,
-  onReviewDraftsChange,
   setDraggedRhDocumentId,
 }: RhDocumentsListViewProps) {
   return (
@@ -113,14 +119,11 @@ export function RhDocumentsListView({
       setDraggedId={setDraggedRhDocumentId}
       renderDocumentActions={(document, closeMenu) => (
         <>
-          <input
-            value={reviewDrafts[document.id] ?? document.reviewComment ?? ""}
-            onChange={(event) =>
-              onReviewDraftsChange((prev) => ({ ...prev, [document.id]: event.target.value }))
-            }
-            placeholder="Commentaire de validation ou de refus"
-            className="h-9 w-full min-w-[240px] rounded-md border border-slate-300 px-3 text-sm"
-          />
+          {/*
+            Plus de champ de commentaire ici, et plus d'entree « Visualiser » : le
+            commentaire se saisit dans la fenetre de confirmation, et l'apercu s'ouvre par
+            un double-clic sur la ligne.
+          */}
           <DocumentViewDownloadActions
             document={document}
             closeMenu={closeMenu}
@@ -128,19 +131,21 @@ export function RhDocumentsListView({
             onDownloadDocument={onDownloadDocument}
             viewingDocumentId={viewingDocumentId}
             downloadingDocumentId={downloadingDocumentId}
+            showView={false}
           />
           {document.status !== "validated" ? (
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="w-full justify-start"
+              className="w-full justify-start text-validated hover:text-validated"
               onClick={() => {
                 closeMenu();
-                void onReviewDocument(document, "validated");
+                onOpenReviewDialog(document, "validated");
               }}
               disabled={reviewingDocumentId === document.id}
             >
+              <Check className="mr-2 h-4 w-4" />
               {reviewingDocumentId === document.id ? "Traitement..." : "Valider"}
             </Button>
           ) : null}
@@ -149,13 +154,14 @@ export function RhDocumentsListView({
               type="button"
               variant="ghost"
               size="sm"
-              className="w-full justify-start text-red-600 hover:text-red-700"
+              className="w-full justify-start text-rejected hover:text-rejected"
               onClick={() => {
                 closeMenu();
-                void onReviewDocument(document, "rejected");
+                onOpenReviewDialog(document, "rejected");
               }}
               disabled={reviewingDocumentId === document.id}
             >
+              <X className="mr-2 h-4 w-4" />
               {reviewingDocumentId === document.id ? "Traitement..." : "Refuser"}
             </Button>
           ) : null}
@@ -167,7 +173,7 @@ export function RhDocumentsListView({
               className="w-full justify-start"
               onClick={() => {
                 closeMenu();
-                void onReviewDocument(document, "pending");
+                onOpenReviewDialog(document, "pending");
               }}
               disabled={reviewingDocumentId === document.id}
             >
@@ -179,7 +185,7 @@ export function RhDocumentsListView({
             type="button"
             variant="ghost"
             size="sm"
-            className="w-full justify-start text-red-600 hover:text-red-700"
+            className="w-full justify-start text-rejected hover:text-rejected"
             onClick={() => {
               closeMenu();
               void onDeleteRhDocument(document);

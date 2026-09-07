@@ -28,7 +28,7 @@ export function RhPendingValidationList({
   onOpenReviewDialog,
 }: RhPendingValidationListProps) {
   if (!documents.length) {
-    return <p className="text-sm text-[#0A1A2F]/70">Aucun document en attente de validation.</p>;
+    return <p className="text-app-sm text-app-text-muted">Aucun document en attente de validation.</p>;
   }
 
   return (
@@ -63,7 +63,7 @@ export function RhPendingValidationList({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
+            className="h-8 w-8 text-validated hover:text-validated"
             onClick={() => onOpenReviewDialog(document, "validated")}
             disabled={reviewingDocumentId === document.id}
             aria-label={`Valider ${document.fileName}`}
@@ -75,7 +75,7 @@ export function RhPendingValidationList({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-rose-600 hover:text-rose-700"
+            className="h-8 w-8 text-rejected hover:text-rejected"
             onClick={() => onOpenReviewDialog(document, "rejected")}
             disabled={reviewingDocumentId === document.id}
             aria-label={`Refuser ${document.fileName}`}

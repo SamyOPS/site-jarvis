@@ -78,6 +78,7 @@ export function DocumentViewDownloadActions<TDoc extends ExplorerDocument>({
   onDownloadDocument,
   viewingDocumentId,
   downloadingDocumentId,
+  showView = true,
 }: {
   document: TDoc;
   closeMenu: () => void;
@@ -85,6 +86,11 @@ export function DocumentViewDownloadActions<TDoc extends ExplorerDocument>({
   onDownloadDocument: (document: TDoc) => void | Promise<void>;
   viewingDocumentId: string | null;
   downloadingDocumentId: string | null;
+  /**
+   * Affiche l'entree « Visualiser ». Le menu RH la masque : le double-clic sur la ligne
+   * ouvre deja l'apercu, l'entree faisait doublon.
+   */
+  showView?: boolean;
 }) {
   const busy =
     !document.storagePath ||
@@ -93,7 +99,7 @@ export function DocumentViewDownloadActions<TDoc extends ExplorerDocument>({
 
   return (
     <>
-      {document.fileName.toLowerCase().endsWith(".pdf") ? (
+      {showView && document.fileName.toLowerCase().endsWith(".pdf") ? (
         <Button
           type="button"
           variant="ghost"

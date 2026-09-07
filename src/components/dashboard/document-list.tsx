@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { MoreVertical } from "lucide-react";
 
 import type { DocumentListItem } from "@/domain/documents";
@@ -63,7 +63,20 @@ export function DashboardDocumentList<T extends DocumentListItem>({
   canDropOnItem,
   onItemDrop,
 }: DashboardDocumentListProps<T>) {
-  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  /**
+   * Menu d'actions ouvert : identifiant de la ligne, et position a l'ecran du bouton.
+   *
+   * La position est relevee a l'ouverture parce que le menu est rendu en `fixed` : c'est ce
+   * qui lui permet de PASSER PAR-DESSUS la liste au lieu d'etre rogne par le conteneur a
+   * defilement horizontal du tableau. Un menu en `absolute` y serait coupe.
+   */
+  const [actionMenu, setActionMenu] = useState<{
+    id: string;
+    top: number;
+    right: number;
+  } | null>(null);
+  const actionMenuId = actionMenu?.id ?? null;
+  const closeActionMenu = useCallback(() => setActionMenu(null), []);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
 
@@ -78,15 +91,30 @@ export function DashboardDocumentList<T extends DocumentListItem>({
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setActionMenuId(null);
+        closeActionMenu();
       }
     };
 
+    /*
+      Le menu est en `fixed` : sa position est figee a l'ouverture. Un defilement ou un
+      redimensionnement le laisserait derriere, decolle de son bouton. On le ferme plutot
+      que de le recalculer en continu — c'est le comportement habituel d'un menu contextuel.
+      `capture` attrape aussi le defilement des conteneurs internes, qui ne remonte pas.
+    */
     window.addEventListener("keydown", handleEscape);
+    window.addEventListener("scroll", closeActionMenu, true);
+    window.addEventListener("resize", closeActionMenu);
     return () => {
       window.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("scroll", closeActionMenu, true);
+      window.removeEventListener("resize", closeActionMenu);
     };
-  }, [actionMenuId]);
+  }, [actionMenuId, closeActionMenu]);
+
+  const activeItem = useMemo(
+    () => (actionMenuId ? (items.find((item) => item.id === actionMenuId) ?? null) : null),
+    [actionMenuId, items],
+  );
 
   const activeColumns = useMemo(
     () =>
@@ -155,9 +183,9 @@ export function DashboardDocumentList<T extends DocumentListItem>({
           </thead>
           <tbody className="divide-y divide-app-line">
             {items.map((item) => (
-              <Fragment key={item.id}>
-                <tr
-                  className={`transition-colors hover:bg-app-surface-hover ${dragOverItemId === item.id ? "bg-app-surface-hover/70" : ""} ${(isItemDoubleClickable ? isItemDoubleClickable(item) : false) ? "cursor-pointer" : ""}`}
+              <tr
+                key={item.id}
+                className={`transition-colors hover:bg-app-surface-hover ${dragOverItemId === item.id ? "bg-app-surface-hover/70" : ""} ${(isItemDoubleClickable ? isItemDoubleClickable(item) : false) ? "cursor-pointer" : ""}`}
                   draggable={Boolean(getDraggableId?.(item))}
                   onDoubleClick={() => {
                     if (!onItemDoubleClick) return;
@@ -295,11 +323,22 @@ export function DashboardDocumentList<T extends DocumentListItem>({
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-app-text-secondary hover:text-app-text"
-                          onClick={() =>
-                            setActionMenuId((currentId) =>
-                              currentId === item.id ? null : item.id,
-                            )
-                          }
+                          aria-haspopup="menu"
+                          aria-expanded={actionMenuId === item.id}
+                          onClick={(event) => {
+                            if (actionMenuId === item.id) {
+                              closeActionMenu();
+                              return;
+                            }
+                            // Position relevee au clic : le menu s'affiche en `fixed`, sous
+                            // le bouton et aligne a droite sur lui.
+                            const rect = event.currentTarget.getBoundingClientRect();
+                            setActionMenu({
+                              id: item.id,
+                              top: rect.bottom + 4,
+                              right: window.innerWidth - rect.right,
+                            });
+                          }}
                           aria-label={`Ouvrir les actions pour ${item.fileName}`}
                         >
                           <MoreVertical className="h-4 w-4" />
@@ -307,43 +346,57 @@ export function DashboardDocumentList<T extends DocumentListItem>({
                       )}
                     </div>
                   </td>
-                </tr>
-                {actionMenuId === item.id ? (
-                  <tr className="bg-app-surface-hover">
-                    <td colSpan={activeColumns.length + 2} className="px-3 py-3 sm:px-4">
-                      {item.hideDetailsPanel ? (
-                        <div className="flex flex-col items-stretch gap-2 md:max-w-[340px]">
-                          {renderActions ? renderActions(item, () => setActionMenuId(null)) : null}
-                        </div>
-                      ) : (
-                        <div className="grid gap-4 md:grid-cols-[minmax(260px,340px)_minmax(0,1fr)] md:items-start">
-                          <div className="flex flex-col items-stretch gap-2">
-                            {renderActions ? renderActions(item, () => setActionMenuId(null)) : null}
-                          </div>
-                          {formatActionDetails(item.details) ? (
-                            <div className="rounded-xl border border-app-line bg-app-surface px-4 py-3">
-                              <p className="text-app-xs font-medium uppercase tracking-wide text-app-text/55">
-                                Commentaire RH
-                              </p>
-                              <p className="mt-2 whitespace-pre-wrap text-app-sm text-app-text-secondary">
-                                {formatActionDetails(item.details)}
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="rounded-xl border border-dashed border-app-line px-4 py-3 text-app-sm text-app-text/55">
-                              Aucun commentaire RH pour ce document.
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ) : null}
-              </Fragment>
+              </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/*
+        Menu d'actions, rendu UNE SEULE FOIS hors du tableau et positionne en `fixed`.
+
+        Le placer dans la cellule le ferait rogner par le conteneur a defilement horizontal ;
+        `fixed` l'en affranchit et lui permet de passer par-dessus la liste. Il n'est pas
+        duplique par ligne : une seule instance suffit, celle de la ligne ouverte.
+      */}
+      {activeItem ? (
+        <>
+          {/*
+            Capteur de clic exterieur. Transparent, sous le menu : un clic ailleurs ferme,
+            sans bloquer le defilement ni masquer quoi que ce soit.
+          */}
+          <div
+            aria-hidden="true"
+            className="fixed inset-0 z-40"
+            onClick={closeActionMenu}
+          />
+          <div
+            role="menu"
+            aria-label={`Actions pour ${activeItem.fileName}`}
+            style={{ top: actionMenu?.top, right: actionMenu?.right }}
+            className="fixed z-50 w-72 rounded-app-card border border-app-line bg-app-raised p-2 shadow-app-raised"
+          >
+            <div className="flex flex-col items-stretch gap-1">
+              {renderActions ? renderActions(activeItem, closeActionMenu) : null}
+            </div>
+
+            {/*
+              Le commentaire RH figurait dans la ligne depliee. Il est conserve ici plutot
+              que perdu : c'est souvent la raison d'un refus, et l'action a mener en depend.
+            */}
+            {!activeItem.hideDetailsPanel && formatActionDetails(activeItem.details) ? (
+              <div className="mt-2 border-t border-app-line pt-2">
+                <p className="text-app-xs font-medium uppercase tracking-wide text-app-text-muted">
+                  Commentaire RH
+                </p>
+                <p className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap text-app-sm text-app-text-secondary">
+                  {formatActionDetails(activeItem.details)}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
