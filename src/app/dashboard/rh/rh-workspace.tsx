@@ -2,13 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import type { Session, User } from "@supabase/supabase-js";
-import { ChevronDown, Pencil } from "lucide-react";
-
 import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
-import { DashboardDocumentList } from "@/components/dashboard/document-list";
-import { DocumentFiltersBar } from "@/components/dashboard/document-filters-bar";
 import { RhOffersSection } from "@/components/dashboard/rh-offers-section";
 import { RhDocumentsSection } from "@/components/dashboard/rh-documents-section";
 import type { RhLeaveRequestPayload } from "@/components/dashboard/rh/leave-request-editor";
@@ -18,19 +13,17 @@ import {
   ConsoleResultDialog,
   type ConsoleResult,
 } from "@/components/console/feedback/result-dialog";
-import { MissionsCard } from "@/components/dashboard/missions-card";
 import type { MissionFormState, MissionItem } from "@/components/dashboard/missions-card";
 import { ConsoleCollaborateursTable } from "@/components/console/collaborateurs/collaborateurs-table";
+import { ConsoleCollaborateurDetail } from "@/components/console/collaborateurs/collaborateur-detail";
 import { ConsoleShell } from "@/components/console/shell/console-shell";
 import { RhSettingsSection } from "@/components/dashboard/rh-settings-section";
 import { StatusNotice } from "@/components/dashboard/status-notice";
 import { Button } from "@/components/ui/button";
-import { useDismissable } from "@/hooks/use-dismissable";
 import { useDocumentFolders } from "@/features/dashboard/documents/use-document-folders";
 import { useDocumentPreview } from "@/features/dashboard/documents/use-document-preview";
 import { usePasswordUpdate } from "@/features/dashboard/use-password-update";
 import { createAuthorizedFetch, getFreshAccessToken } from "@/lib/dashboard-api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { displayNameFromMetadata } from "@/domain/profiles";
 import { useCraEditor, type CraEditorMission } from "@/features/dashboard/cra/use-cra-editor";
@@ -179,8 +172,6 @@ export default function RhWorkspace({
   // Il est instancie plus bas, une fois `salarieUploadableTypes` et
   // `allowedTypeIdsForEmployee` disponibles.
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null);
-  const [collabDetailSection, setCollabDetailSection] = useState<"demandes" | "documents" | "candidatures">("documents");
-  const [collabDocumentsMenuOpen, setCollabDocumentsMenuOpen] = useState(false);
   // Fiche collaborateur : on est deja sur un seul collaborateur, le filtre designe donc le
   // DEPOSANT du document (`uploadedByName`, la valeur par defaut du hook).
   const collabDocumentFilters = useDocumentFilters();
@@ -257,9 +248,6 @@ export default function RhWorkspace({
   const [isBillingProfileEditMode, setIsBillingProfileEditMode] = useState(false);
   const [billingProfileSaving, setBillingProfileSaving] = useState(false);
   const [deletingRhDocumentId, setDeletingRhDocumentId] = useState<string | null>(null);
-  const collabDocumentsMenuRef = useDismissable<HTMLDivElement>(collabDocumentsMenuOpen, () =>
-    setCollabDocumentsMenuOpen(false),
-  );
 
   const applyDashboardCache = useCallback((cache: RhDashboardCache) => {
     setEmployees(cache.employees);
@@ -561,10 +549,6 @@ export default function RhWorkspace({
     [profile?.email, profile?.full_name, user?.user_metadata],
   );
 
-  useEffect(() => {
-    setCollabDetailSection("documents");
-    setCollabDocumentsMenuOpen(false);
-  }, [selectedEmployeeId]);
   // On depend de `reset` seul, PAS de `collabDocumentFilters` : l'objet du hook change des
   // qu'une valeur de filtre change, et l'effet remettrait alors tout a « all » aussitot apres
   // chaque selection de l'utilisateur. `reset` est un useCallback sans dependance, stable.
@@ -647,10 +631,21 @@ export default function RhWorkspace({
   }, [activityByEmployeeId]);
   const formatLastSignIn = useCallback((employeeId: string) => {
     const lastSignInAt = activityByEmployeeId[employeeId]?.lastSignInAt;
-    if (!lastSignInAt) return "Jamais connecte";
+    if (!lastSignInAt) return "Jamais connecté";
     const date = new Date(lastSignInAt);
     if (Number.isNaN(date.getTime())) return "Date inconnue";
-    return date.toLocaleString();
+    /*
+      Sans options, `toLocaleString` ajoute les secondes : « 07/09/2026 14:32:07 ». Une
+      seconde n'apprend rien sur une derniere connexion, et le chiffre en trop deplace la
+      colonne du tableau des collaborateurs a chaque ligne.
+    */
+    return date.toLocaleString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }, [activityByEmployeeId]);
   const refreshDashboardData = useCallback(async () => {
     if (!profile?.id || !profile.email || !session?.access_token) return;
@@ -1330,6 +1325,55 @@ export default function RhWorkspace({
     };
   }, [callRhDocumentsApi, generateEmployeeId]);
 
+  /**
+   * Modification d'un champ du profil de facturation.
+   *
+   * La fiche ne connait plus la forme du brouillon : elle envoie une retouche partielle,
+   * le workspace la fusionne. Chacun des dix champs portait auparavant sa propre copie de
+   * ce `setBillingProfileDrafts((prev) => ({ ...prev, [id]: { ...draft, champ: valeur } }))`.
+   */
+  const handleBillingDraftChange = useCallback(
+    (patch: Partial<typeof activeBillingProfileDraft>) => {
+      if (!selectedEmployee || !activeBillingProfileDraft) return;
+      setBillingProfileDrafts((prev) => ({
+        ...prev,
+        [selectedEmployee.id]: { ...activeBillingProfileDraft, ...patch },
+      }));
+    },
+    [activeBillingProfileDraft, selectedEmployee],
+  );
+
+  /** Le statut d'emploi vit dans `profiles`, pas dans le profil de facturation. */
+  const handleEmploymentStatusChange = useCallback(
+    (value: string) => {
+      if (!selectedEmployee || !activeDraft) return;
+      setEmployeeDrafts((prev) => ({
+        ...prev,
+        [selectedEmployee.id]: { ...activeDraft, employment_status: value },
+      }));
+    },
+    [activeDraft, selectedEmployee],
+  );
+
+  /*
+    Entrer et sortir du mode edition remettent TOUS LES DEUX les brouillons a l'etat
+    enregistre : a l'ouverture pour repartir de la base et non d'une saisie abandonnee, a
+    l'annulation pour jeter ce qui vient d'etre tape.
+  */
+  const handleStartBillingEdit = useCallback(() => {
+    if (!selectedEmployee) return;
+    resetBillingProfileDraft(selectedEmployee.id, selectedEmployeeBillingProfile);
+    resetEmployeeDraft(selectedEmployee);
+    setIsBillingProfileEditMode(true);
+  }, [resetBillingProfileDraft, resetEmployeeDraft, selectedEmployee, selectedEmployeeBillingProfile]);
+
+  const handleCancelBillingEdit = useCallback(() => {
+    if (!selectedEmployee) return;
+    resetBillingProfileDraft(selectedEmployee.id, selectedEmployeeBillingProfile);
+    resetEmployeeDraft(selectedEmployee);
+    setIsBillingProfileEditMode(false);
+  }, [resetBillingProfileDraft, resetEmployeeDraft, selectedEmployee, selectedEmployeeBillingProfile]);
+
   const handleSaveBillingProfile = useCallback(async () => {
     if (!supabase || !selectedEmployee || !activeBillingProfileDraft || !activeDraft) return;
     setBillingProfileSaving(true);
@@ -1814,400 +1858,78 @@ export default function RhWorkspace({
             />
           )}
 
-          {currentSection === "collaborateurs" && (
-            <Card className="border-0 shadow-none">
-              <CardHeader><CardTitle>Collaborateurs</CardTitle></CardHeader>
-              <CardContent>
-                {currentSubSection === "collab_detail" && selectedEmployee && activeDraft ? (
-                  <div className="space-y-4 text-app-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <h3 className="truncate text-app-md font-semibold text-app-text">
-                          {selectedEmployee.full_name ?? selectedEmployee.email}
-                        </h3>
-                        <p className="truncate text-app-sm text-app-text-secondary">
-                          {selectedEmployee.email}
-                        </p>
-                      </div>
-                      <Link
-                        href="/dashboard/rh/collaborateurs"
-                        className="shrink-0 rounded-app-control border border-app-line px-3 py-2 text-app-sm text-app-text-secondary transition-colors hover:bg-app-surface-hover hover:text-app-text focus-visible:outline-app"
-                      >
-                        Retour
-                      </Link>
-                    </div>
-
-                    <div className="overflow-hidden rounded-app-card border border-app-line bg-app-surface">
-                      <div className="flex items-center justify-between px-4 py-3">
-                        <p className="text-app-md font-medium text-app-text">Information</p>
-                        {!isBillingProfileEditMode ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-app-text-secondary hover:text-app-text"
-                            onClick={() => {
-                              if (selectedEmployee) {
-                                resetBillingProfileDraft(selectedEmployee.id, selectedEmployeeBillingProfile);
-                                resetEmployeeDraft(selectedEmployee);
-                              }
-                              setIsBillingProfileEditMode(true);
-                            }}
-                            aria-label="Modifier le profil de facturation"
-                            title="Modifier"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => void handleSaveBillingProfile()}
-                              disabled={billingProfileSaving}
-                            >
-                              {billingProfileSaving ? "Enregistrement..." : "Enregistrer"}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                if (selectedEmployee) {
-                                  resetBillingProfileDraft(selectedEmployee.id, selectedEmployeeBillingProfile);
-                                  resetEmployeeDraft(selectedEmployee);
-                                }
-                                setIsBillingProfileEditMode(false);
-                              }}
-                              disabled={billingProfileSaving}
-                            >
-                              Annuler
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                      {activeBillingProfileDraft ? (
-                        <div className="grid gap-6 border-t border-app-line p-4 md:grid-cols-[160px_minmax(0,1fr)]">
-                          <div className="space-y-3">
-                            <div className="flex h-[132px] w-[132px] items-center justify-center rounded border border-app-line bg-app-surface text-3xl font-semibold text-app-text-muted">
-                              {`${activeBillingProfileDraft.firstName ?? ""} ${activeBillingProfileDraft.lastName ?? ""}`.trim().charAt(0).toUpperCase() || "F"}
-                            </div>
-                            <p className="text-app-xs text-app-text-muted">Profil de facturation</p>
-                          </div>
-                          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                          <div>
-                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">Nom</p>
-                            {isBillingProfileEditMode ? (
-                              <div className="mt-1 grid grid-cols-2 gap-2">
-                                <input value={activeBillingProfileDraft.firstName} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, firstName: event.target.value } }))} className="h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" placeholder="Prenom" />
-                                <input value={activeBillingProfileDraft.lastName} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, lastName: event.target.value } }))} className="h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" placeholder="Nom" />
-                              </div>
-                            ) : (
-                              <p className="mt-1 text-app-text-secondary">{`${activeBillingProfileDraft.firstName ?? ""} ${activeBillingProfileDraft.lastName ?? ""}`.trim() || "-"}</p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">Statut</p>
-                            {isBillingProfileEditMode ? (
-                              <select
-                                value={activeDraft.employment_status}
-                                onChange={(event) =>
-                                  selectedEmployee &&
-                                  setEmployeeDrafts((prev) => ({
-                                    ...prev,
-                                    [selectedEmployee.id]: { ...activeDraft, employment_status: event.target.value },
-                                  }))
-                                }
-                                className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm"
-                              >
-                                <option value="active">active</option>
-                                <option value="inactive">inactive</option>
-                                <option value="exited">exited</option>
-                              </select>
-                            ) : (
-                              <p className="mt-1 text-app-text-secondary">{activeDraft.employment_status || "-"}</p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">Adresse</p>
-                            {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.addressLine1} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, addressLine1: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" />
-                            ) : (
-                              <p className="mt-1 text-app-text-secondary">{activeBillingProfileDraft.addressLine1 || "-"}</p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">Complement d'adresse</p>
-                            {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.addressLine2} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, addressLine2: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" />
-                            ) : (
-                              <p className="mt-1 text-app-text-secondary">{activeBillingProfileDraft.addressLine2 || "-"}</p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">Ville / Code postal / Pays</p>
-                            {isBillingProfileEditMode ? (
-                              <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                <input value={activeBillingProfileDraft.postalCode} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, postalCode: event.target.value } }))} className="h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" placeholder="Code postal" />
-                                <input value={activeBillingProfileDraft.city} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, city: event.target.value } }))} className="h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" placeholder="Ville" />
-                                <input value={activeBillingProfileDraft.country} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, country: event.target.value } }))} className="h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" placeholder="Pays" />
-                              </div>
-                            ) : (
-                              <p className="mt-1 text-app-text-secondary">{`${activeBillingProfileDraft.postalCode ?? ""} ${activeBillingProfileDraft.city ?? ""} ${activeBillingProfileDraft.country ?? ""}`.trim() || "-"}</p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">Email de facturation</p>
-                            {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.email} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, email: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" />
-                            ) : (
-                              <p className="mt-1 text-app-text-secondary">{activeBillingProfileDraft.email || "-"}</p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">Telephone</p>
-                            {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.phone} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, phone: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" />
-                            ) : (
-                              <p className="mt-1 text-app-text-secondary">{activeBillingProfileDraft.phone || "-"}</p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">SIRET</p>
-                            {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.siret} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, siret: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" />
-                            ) : (
-                              <p className="mt-1 text-app-text-secondary">{activeBillingProfileDraft.siret || "-"}</p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">IBAN</p>
-                            {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.iban} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, iban: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" />
-                            ) : (
-                              <p className="mt-1 break-all text-app-text-secondary">{activeBillingProfileDraft.iban || "-"}</p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-app-xs uppercase tracking-wide text-app-text-muted">BIC</p>
-                            {isBillingProfileEditMode ? (
-                              <input value={activeBillingProfileDraft.bic} onChange={(event) => selectedEmployee && setBillingProfileDrafts((prev) => ({ ...prev, [selectedEmployee.id]: { ...activeBillingProfileDraft, bic: event.target.value } }))} className="mt-1 h-9 w-full rounded border border-app-line bg-app-surface px-2 text-app-sm" />
-                            ) : (
-                              <p className="mt-1 text-app-text-secondary">{activeBillingProfileDraft.bic || "-"}</p>
-                            )}
-                          </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="border-t border-app-line px-4 py-4 text-app-sm text-app-text-secondary">
-                          Aucun profil de facturation trouve pour ce collaborateur.
-                        </div>
-                      )}
-                    </div>
-
-                    {/*
-                      Entreprises clientes du collaborateur.
-                      
-                      Un collaborateur peut en avoir PLUSIEURS depuis la migration
-                      multi-missions : `profiles.company_name` et le profil de facturation
-                      n'en decrivent qu'une et sont deprecies. On reutilise la carte deja
-                      ecrite pour l'espace salarie plutot que d'en refaire une : ses props
-                      `title` / `description` avaient justement ete prevues pour ce cas.
-                    */}
-                    <MissionsCard
-                      missions={selectedEmployeeMissions}
-                      onSave={handleMissionSave}
-                      onDelete={handleMissionDelete}
-                      saving={missionsSaving}
-                      loading={missionsLoading}
-                      message={missionsMessage}
-                      title="Entreprises clientes"
-                      description="Chaque entreprise porte son propre tarif et son unite de facturation."
-                    />
-
-                        <div className="flex items-center gap-2">
-                          {saveMessage && <p className="text-app-sm text-app-text-secondary">{saveMessage}</p>}
-                        </div>
-                      <div className="w-full border-b border-app-line bg-app-surface">
-                        <div className="flex items-end gap-1 px-2 text-app-sm">
-                          <button
-                            type="button"
-                            className={`rounded-t-md px-4 py-2 font-medium transition ${
-                              collabDetailSection === "demandes"
-                                ? "border-b-2 border-app-text bg-app-surface-hover text-app-text"
-                                : "text-app-text-muted hover:bg-app-surface-hover hover:text-app-text"
-                            }`}
-                            onClick={() => {
-                              setCollabDetailSection("demandes");
-                              setCollabDocumentsMenuOpen(false);
-                            }}
-                          >
-                            Demandes
-                          </button>
-                          <button
-                            type="button"
-                            className={`rounded-t-md px-4 py-2 font-medium transition ${
-                              collabDetailSection === "documents"
-                                ? "border-b-2 border-app-text bg-app-surface-hover text-app-text"
-                                : "text-app-text-muted hover:bg-app-surface-hover hover:text-app-text"
-                            }`}
-                            onClick={() => {
-                              setCollabDetailSection("documents");
-                              setCollabDocumentsMenuOpen(false);
-                            }}
-                          >
-                            Documents
-                          </button>
-                          <button
-                            type="button"
-                            className={`rounded-t-md px-4 py-2 font-medium transition ${
-                              collabDetailSection === "candidatures"
-                                ? "border-b-2 border-app-text bg-app-surface-hover text-app-text"
-                                : "text-app-text-muted hover:bg-app-surface-hover hover:text-app-text"
-                            }`}
-                            onClick={() => {
-                              setCollabDetailSection("candidatures");
-                              setCollabDocumentsMenuOpen(false);
-                            }}
-                          >
-                            Candidatures
-                          </button>
-                        </div>
-                      </div>
-
-                      {collabDetailSection === "demandes" ? (
-                        <div className="rounded p-3">
-                          <p className="mb-2 font-medium">Demandes ({selectedEmployeeRequests.length})</p>
-                          {selectedEmployeeRequests.length ? selectedEmployeeRequests.map((request) => (
-                            <p key={request.id} className="text-app-text-secondary">{request.typeLabel} - {request.status}</p>
-                          )) : <p className="text-app-text-secondary">Aucune demande.</p>}
-                        </div>
-                      ) : null}
-                      {collabDetailSection === "documents" ? (
-                        <>
-                            <div className="rounded p-3">
-                              <div ref={collabDocumentsMenuRef} className="relative mb-2 flex items-center gap-2">
-                                <p className="font-medium">Documents ({filteredSelectedEmployeeDocuments.length})</p>
-                                <button
-                                  type="button"
-                                  className="rounded-app-control p-1 text-app-text-secondary hover:bg-app-surface-hover hover:text-app-text"
-                                  aria-label="Options documents"
-                                  onClick={() => setCollabDocumentsMenuOpen((open) => !open)}
-                                >
-                                  <ChevronDown className={`h-4 w-4 transition ${collabDocumentsMenuOpen ? "rotate-180" : ""}`} />
-                                </button>
-                                {collabDocumentsMenuOpen ? (
-                                  <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-app-card border border-app-line bg-app-surface p-1 shadow-sm">
-                                    <button
-                                      type="button"
-                                      className="w-full rounded-app-control px-3 py-2 text-left text-app-sm text-app-text hover:bg-app-surface-hover"
-                                      onClick={() => {
-                                        openRhBatchDialog(selectedEmployee.id);
-                                        setCollabDocumentsMenuOpen(false);
-                                      }}
-                                    >
-                                      Importer des documents
-                                    </button>
-                                  </div>
-                                ) : null}
-                              </div>
-                              <DocumentFiltersBar
-                              fields={["type", "period", "status", "owner"]}
-                              values={{
-                                type: collabDocumentFilters.type,
-                                period: collabDocumentFilters.period,
-                                status: collabDocumentFilters.status,
-                                owner: collabDocumentFilters.creator,
-                              }}
-                              options={selectedEmployeeDocumentFilterOptions}
-                              onChange={(field, value) => {
-                                if (field === "type") collabDocumentFilters.setType(value);
-                                if (field === "period") collabDocumentFilters.setPeriod(value);
-                                if (field === "status") collabDocumentFilters.setStatus(value);
-                                if (field === "owner") collabDocumentFilters.setCreator(value);
-                              }}
-                            />
-                            {filteredSelectedEmployeeDocuments.length ? (
-                                <DashboardDocumentList
-                                  items={selectedEmployeeDocumentListItems}
-                                  storageKey="rh-collab-detail-documents-columns"
-                                  storageScope={user?.id ?? profile?.id ?? null}
-                                  preferencesAuthToken={session?.access_token ?? null}
-                                  columnControlPlacement="inline"
-                                  onItemDoubleClick={(document) => {
-                                    if (
-                                      document.fileName.toLowerCase().endsWith(".pdf") &&
-                                      document.storagePath
-                                    ) {
-                                      void handleViewDocument(document);
-                                    }
-                                  }}
-                                  isItemDoubleClickable={(document) =>
-                                    document.fileName.toLowerCase().endsWith(".pdf") && !!document.storagePath
-                                  }
-                                  renderActions={(document) => (
-                                    <>
-                                      {document.fileName.toLowerCase().endsWith(".pdf") ? (
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          className="w-full justify-start"
-                                          onClick={() => {
-                                            void handleViewDocument(document);
-                                          }}
-                                          disabled={
-                                            !document.storagePath ||
-                                            viewingDocumentId === document.id ||
-                                            downloadingDocumentId === document.id
-                                          }
-                                        >
-                                          Visualiser
-                                        </Button>
-                                      ) : null}
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="w-full justify-start"
-                                        onClick={() => {
-                                          void handleDownloadDocument(document);
-                                        }}
-                                        disabled={
-                                          !document.storagePath ||
-                                          downloadingDocumentId === document.id ||
-                                          viewingDocumentId === document.id
-                                        }
-                                      >
-                                        Télécharger
-                                      </Button>
-                                    </>
-                                  )}
-                              />
-                            ) : <p className="text-app-text-secondary">Aucun document.</p>}
-                          </div>
-                        </>
-                      ) : null}
-                      {collabDetailSection === "candidatures" ? (
-                        <div className="rounded p-3">
-                          <p className="mb-2 font-medium">Candidatures ({selectedEmployeeApplications.length})</p>
-                          {selectedEmployeeApplications.length ? selectedEmployeeApplications.map((application) => (
-                            <p key={application.id} className="text-app-text-secondary">{application.jobTitle} - {application.status}</p>
-                          )) : <p className="text-app-text-secondary">Aucune candidature.</p>}
-                        </div>
-                      ) : null}
-                  </div>
-                ) : (
-                  <ConsoleCollaborateursTable
-                    rows={collaborateurRows}
-                    search={collaborateurSearch}
-                    onSearchChange={setCollaborateurSearch}
-                    statusFilter={employeeStatusFilter}
-                    onStatusFilterChange={setEmployeeStatusOverride}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          )}          {currentSection === "documents" && (
+          {currentSection === "collaborateurs" &&
+            (currentSubSection === "collab_detail" && selectedEmployee && activeDraft ? (
+              <ConsoleCollaborateurDetail
+                employee={{
+                  id: selectedEmployee.id,
+                  name: selectedEmployee.full_name ?? "",
+                  email: selectedEmployee.email,
+                  phone: selectedEmployee.phone,
+                }}
+                lastSignInLabel={formatLastSignIn(selectedEmployee.id)}
+                isOnline={isRecentlyActive(selectedEmployee.id)}
+                employmentStatus={activeDraft.employment_status}
+                onEmploymentStatusChange={handleEmploymentStatusChange}
+                billingDraft={activeBillingProfileDraft}
+                onBillingDraftChange={handleBillingDraftChange}
+                editing={isBillingProfileEditMode}
+                saving={billingProfileSaving}
+                onStartEdit={handleStartBillingEdit}
+                onCancelEdit={handleCancelBillingEdit}
+                onSave={() => void handleSaveBillingProfile()}
+                missions={{
+                  items: selectedEmployeeMissions,
+                  onSave: handleMissionSave,
+                  onDelete: handleMissionDelete,
+                  saving: missionsSaving,
+                  loading: missionsLoading,
+                  message: missionsMessage,
+                }}
+                requests={selectedEmployeeRequests}
+                applications={selectedEmployeeApplications}
+                documents={{
+                  items: selectedEmployeeDocumentListItems,
+                  totalCount: selectedEmployeeDocuments.length,
+                  storageScope: user?.id ?? profile?.id ?? null,
+                  authToken: session?.access_token ?? null,
+                  filterValues: {
+                    type: collabDocumentFilters.type,
+                    period: collabDocumentFilters.period,
+                    status: collabDocumentFilters.status,
+                    owner: collabDocumentFilters.creator,
+                  },
+                  filterOptions: selectedEmployeeDocumentFilterOptions,
+                  onFilterChange: (field, value) => {
+                    if (field === "type") collabDocumentFilters.setType(value);
+                    if (field === "period") collabDocumentFilters.setPeriod(value);
+                    if (field === "status") collabDocumentFilters.setStatus(value);
+                    if (field === "owner") collabDocumentFilters.setCreator(value);
+                  },
+                  onView: handleViewDocument,
+                  onDownload: handleDownloadDocument,
+                  viewingId: viewingDocumentId,
+                  downloadingId: downloadingDocumentId,
+                  onImport: () => openRhBatchDialog(selectedEmployee.id),
+                }}
+              />
+            ) : (
+              <div className="space-y-2">
+                {/*
+                  Le titre etait porte par un `CardHeader` ; le reste de la console n'en
+                  utilise plus. Un simple titre de page suffit — la fiche, elle, porte le
+                  nom du collaborateur en `h1`.
+                */}
+                <h1 className="text-app-lg font-semibold text-app-text">Collaborateurs</h1>
+                <ConsoleCollaborateursTable
+                  rows={collaborateurRows}
+                  search={collaborateurSearch}
+                  onSearchChange={setCollaborateurSearch}
+                  statusFilter={employeeStatusFilter}
+                  onStatusFilterChange={setEmployeeStatusOverride}
+                />
+              </div>
+            ))}          {currentSection === "documents" && (
             <div className="space-y-3">
               <RhDocumentsSection
               storageScope={user?.id ?? profile?.id ?? null}

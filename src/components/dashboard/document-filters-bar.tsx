@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 
-type FilterFieldKey = "type" | "period" | "status" | "owner";
+export type FilterFieldKey = "type" | "period" | "status" | "owner";
 
 type FilterOption = {
   value: string;

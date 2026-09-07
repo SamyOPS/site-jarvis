@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -46,7 +45,7 @@ function missionToForm(mission: MissionItem): MissionFormState {
 }
 
 export function formatMissionRate(mission: MissionItem) {
-  if (mission.rate === null) return "Tarif a renseigner";
+  if (mission.rate === null) return "Tarif à renseigner";
   const suffix = mission.rate_unit === "hour" ? "/ h" : "/ j";
   return `${new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(
     mission.rate,
@@ -111,11 +110,18 @@ export function MissionsCard({
   const isHourly = form.rateUnit === "hour";
 
   return (
-    <Card className={className}>
-      <CardHeader className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <CardTitle>{title}</CardTitle>
-          <p className="mt-1 text-sm text-[#0A1A2F]/70">{description}</p>
+    /*
+      Panneau de la console — un cadre, un filet, pas d'ombre — au lieu de la carte
+      generique : ce composant s'affiche desormais dans la fiche collaborateur, au milieu
+      de panneaux qui suivent tous cette forme.
+    */
+    <section
+      className={`rounded-app-card border border-app-line bg-app-surface p-5 ${className ?? ""}`}
+    >
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-app-md font-semibold text-app-text">{title}</h2>
+          <p className="mt-1 text-app-sm text-app-text-secondary">{description}</p>
         </div>
         {!editing ? (
           <Button
@@ -129,28 +135,28 @@ export function MissionsCard({
             Ajouter
           </Button>
         ) : null}
-      </CardHeader>
+      </div>
 
-      <CardContent className="space-y-4">
+      <div className="mt-4 space-y-4">
         {loading ? (
-          <p className="text-sm text-[#0A1A2F]/60">Chargement...</p>
+          <p className="text-app-sm text-app-text-muted">Chargement...</p>
         ) : missions.length === 0 ? (
-          <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-[#0A1A2F]/60">
-            Aucune entreprise enregistree. Ajoute ta premiere entreprise pour pouvoir saisir
-            un CRA et generer une facture.
+          <p className="rounded-app-card border border-dashed border-app-line p-4 text-app-sm text-app-text-muted">
+            Aucune entreprise enregistrée. Ajoutez une première entreprise pour pouvoir
+            saisir un CRA et générer une facture.
           </p>
         ) : (
-          <ul className="divide-y divide-slate-200 rounded-md border border-slate-200">
+          <ul className="divide-y divide-app-line rounded-app-card border border-app-line">
             {missions.map((mission) => (
               <li
                 key={mission.id}
                 className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-[#0A1A2F]">
+                  <p className="truncate text-app-sm font-medium text-app-text">
                     {mission.company_name}
                   </p>
-                  <p className="text-xs text-[#0A1A2F]/60">
+                  <p className="text-app-xs text-app-text-muted">
                     {formatMissionRate(mission)}
                     {mission.esn_partenaire ? ` · via ${mission.esn_partenaire}` : ""}
                   </p>
@@ -181,9 +187,9 @@ export function MissionsCard({
         )}
 
         {editing ? (
-          <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50/60 p-3">
+          <div className="space-y-3 rounded-app-card border border-app-line bg-app-surface-hover p-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-[#0A1A2F]">
+              <p className="text-app-sm font-medium text-app-text">
                 {form.id ? "Modifier l'entreprise" : "Nouvelle entreprise"}
               </p>
               <Button type="button" size="sm" variant="ghost" onClick={cancel}>
@@ -191,8 +197,13 @@ export function MissionsCard({
               </Button>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1 md:col-span-2">
+            {/*
+              Une seule colonne : la carte s'affiche desormais dans une colonne d'un tiers
+              sur la fiche collaborateur, ou `md:grid-cols-2` — qui suit la largeur de la
+              FENETRE, pas celle du conteneur — serrait deux champs dans 180 px.
+            */}
+            <div className="grid gap-3">
+              <div className="space-y-1">
                 <Label>Entreprise cliente</Label>
                 <Input
                   value={form.companyName}
@@ -202,7 +213,7 @@ export function MissionsCard({
               </div>
 
               <div className="space-y-1">
-                <Label>ESN partenaire (optionnel)</Label>
+                <Label>ESN partenaire (facultatif)</Label>
                 <Input
                   value={form.esnPartenaire}
                   onChange={(event) => setForm({ ...form, esnPartenaire: event.target.value })}
@@ -216,13 +227,13 @@ export function MissionsCard({
                   onChange={(event) =>
                     setForm({ ...form, rateUnit: event.target.value === "hour" ? "hour" : "day" })
                   }
-                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                  className="h-9 w-full rounded-app-control border border-app-line bg-app-field px-3 text-app-sm text-app-text focus-visible:outline-app"
                 >
-                  <option value="day">Journees (1 j / demi-journee)</option>
+                  <option value="day">Journées (1 j / demi-journée)</option>
                   <option value="hour">Heures par jour</option>
                 </select>
-                <p className="text-xs text-[#0A1A2F]/55">
-                  Determine la saisie du calendrier et l&apos;unite du tarif.
+                <p className="text-app-xs text-app-text-muted">
+                  Détermine la saisie du calendrier et l&apos;unité du tarif.
                 </p>
               </div>
 
@@ -255,8 +266,8 @@ export function MissionsCard({
           </div>
         ) : null}
 
-        {message ? <p className="text-sm text-[#0A1A2F]/70">{message}</p> : null}
-      </CardContent>
-    </Card>
+        {message ? <p className="text-app-sm text-app-text-secondary">{message}</p> : null}
+      </div>
+    </section>
   );
 }

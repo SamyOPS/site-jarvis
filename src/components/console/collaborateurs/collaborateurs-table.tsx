@@ -44,7 +44,7 @@ const EMPLOYMENT_STATUS = {
   exited: { label: "Sorti", className: "border-app-line text-app-text-secondary" },
 } as const;
 
-function EmploymentBadge({ status }: { status: string | null }) {
+export function ConsoleEmploymentBadge({ status }: { status: string | null }) {
   const known =
     status && status in EMPLOYMENT_STATUS
       ? EMPLOYMENT_STATUS[status as keyof typeof EMPLOYMENT_STATUS]
@@ -212,7 +212,7 @@ export function ConsoleCollaborateursTable({
                   </td>
                   <td className="px-4 py-3 text-app-text-secondary">{row.email}</td>
                   <td className="px-4 py-3">
-                    <EmploymentBadge status={row.employmentStatus} />
+                    <ConsoleEmploymentBadge status={row.employmentStatus} />
                   </td>
                   <td className="px-4 py-3 text-app-text-secondary">
                     <span className="flex items-center gap-2">

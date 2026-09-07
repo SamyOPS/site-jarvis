@@ -47,15 +47,19 @@ export function ConsoleStatRow({ stats }: { stats: ConsoleStat[] }) {
 
         const frame = "rounded-app-card border border-app-line bg-app-surface px-5 py-4";
 
-        return stat.href ? (
-          <Link
-            key={stat.label}
-            href={stat.href}
-            className={`${frame} block transition-colors hover:bg-app-surface-hover focus-visible:outline-app`}
-          >
-            {body}
-          </Link>
-        ) : (
+        if (stat.href) {
+          return (
+            <Link
+              key={stat.label}
+              href={stat.href}
+              className={`${frame} block transition-colors hover:bg-app-surface-hover focus-visible:outline-app`}
+            >
+              {body}
+            </Link>
+          );
+        }
+
+        return (
           <div key={stat.label} className={frame}>
             {body}
           </div>
