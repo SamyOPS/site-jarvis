@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { ConsoleStatRow } from "@/components/console/overview/stat-row";
 import { ConsoleStatusBadge } from "@/components/console/overview/status-badge";
 import { formatDate, formatMonth } from "@/lib/dashboard-formatters";
@@ -131,10 +133,26 @@ export function RhOverviewSection({
     <div className="space-y-2">
       <ConsoleStatRow
         stats={[
-          { label: "Documents à valider", value: pendingDocumentsCount },
-          { label: "Demandes ouvertes", value: openRequestsCount },
-          { label: "Collaborateurs suivis", value: employeesCount },
-          { label: "Documents ce mois", value: currentMonthDocumentsCount },
+          {
+            label: "Documents à valider",
+            value: pendingDocumentsCount,
+            href: "/dashboard/rh/documents/a-valider",
+          },
+          {
+            label: "Demandes ouvertes",
+            value: openRequestsCount,
+            href: "/dashboard/rh/documents/mes-demandes",
+          },
+          {
+            label: "Collaborateurs suivis",
+            value: employeesCount,
+            href: "/dashboard/rh/collaborateurs",
+          },
+          {
+            label: "Documents ce mois",
+            value: currentMonthDocumentsCount,
+            href: "/dashboard/rh/documents/tous",
+          },
         ]}
       />
 
@@ -153,8 +171,12 @@ export function RhOverviewSection({
           ) : (
             <ul className="divide-y divide-app-line">
               {pendingDocuments.slice(0, 8).map((document) => (
-                <li key={document.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-                  <div className="min-w-0 flex-1">
+                <li key={document.id}>
+                  <Link
+                    href="/dashboard/rh/documents/a-valider"
+                    className="-mx-2 flex items-start gap-3 rounded-app-control px-2 py-3 transition-colors hover:bg-app-surface-hover focus-visible:outline-app"
+                  >
+                    <div className="min-w-0 flex-1">
                     <p className="truncate text-app-sm font-medium text-app-text">
                       {document.employeeName}
                     </p>
@@ -163,9 +185,10 @@ export function RhOverviewSection({
                       {document.periodMonth ? ` · ${formatMonth(document.periodMonth)}` : ""}
                     </p>
                   </div>
-                  <span className="shrink-0 text-app-xs text-app-text-muted">
-                    {formatRelative(document.createdAt) ?? "-"}
-                  </span>
+                    <span className="shrink-0 text-app-xs text-app-text-muted">
+                      {formatRelative(document.createdAt) ?? "-"}
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -178,27 +201,32 @@ export function RhOverviewSection({
           ) : (
             <ul className="divide-y divide-app-line">
               {priorities.map((request) => (
-                <li key={request.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-app-sm font-medium text-app-text">
-                      {request.employeeName}
-                    </p>
-                    <p className="truncate text-app-sm text-app-text-secondary">
-                      {request.typeLabel}
-                    </p>
-                    <p className="mt-1 text-app-xs text-app-text-muted">
-                      {(() => {
-                        const due = describeDueDate(request.dueAt);
-                        return (
-                          <>
-                            <span className={due.className}>{due.label}</span>
-                            {` · ${formatDate(request.dueAt)} · Période ${formatMonth(request.periodMonth)}`}
-                          </>
-                        );
-                      })()}
-                    </p>
-                  </div>
-                  <ConsoleStatusBadge status={request.status} />
+                <li key={request.id}>
+                  <Link
+                    href="/dashboard/rh/documents/mes-demandes"
+                    className="-mx-2 flex items-start gap-3 rounded-app-control px-2 py-3 transition-colors hover:bg-app-surface-hover focus-visible:outline-app"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-app-sm font-medium text-app-text">
+                        {request.employeeName}
+                      </p>
+                      <p className="truncate text-app-sm text-app-text-secondary">
+                        {request.typeLabel}
+                      </p>
+                      <p className="mt-1 text-app-xs text-app-text-muted">
+                        {(() => {
+                          const due = describeDueDate(request.dueAt);
+                          return (
+                            <>
+                              <span className={due.className}>{due.label}</span>
+                              {` · ${formatDate(request.dueAt)} · Période ${formatMonth(request.periodMonth)}`}
+                            </>
+                          );
+                        })()}
+                      </p>
+                    </div>
+                    <ConsoleStatusBadge status={request.status} />
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -214,7 +242,11 @@ export function RhOverviewSection({
           ) : (
             <ul className="divide-y divide-app-line">
               {recentSignIns.map((employee) => (
-                <li key={employee.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                <li key={employee.id}>
+                  <Link
+                    href={`/dashboard/rh/collaborateurs/${employee.id}`}
+                    className="-mx-2 flex items-center gap-3 rounded-app-control px-2 py-3 transition-colors hover:bg-app-surface-hover focus-visible:outline-app"
+                  >
                   {/*
                     La pastille n'apparait que pour une connexion de moins de 15 minutes, et
                     elle est TOUJOURS doublee d'un texte : « en ligne » pour un lecteur
@@ -235,9 +267,10 @@ export function RhOverviewSection({
                   <span className="min-w-0 flex-1 truncate text-app-sm text-app-text">
                     {employee.name}
                   </span>
-                  <span className="shrink-0 text-app-xs text-app-text-muted">
-                    {formatRelative(employee.lastSignInAt) ?? "-"}
-                  </span>
+                    <span className="shrink-0 text-app-xs text-app-text-muted">
+                      {formatRelative(employee.lastSignInAt) ?? "-"}
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -268,18 +301,20 @@ export function RhOverviewSection({
             */}
             <ul className="grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
               {employeesWithoutDeposit.slice(0, 9).map((employee) => (
-                <li
-                  key={employee.id}
-                  className="flex items-center gap-3 border-b border-app-line py-2"
-                >
-                  <span className="min-w-0 flex-1 truncate text-app-sm text-app-text">
-                    {employee.name}
-                  </span>
-                  {employee.companyName ? (
-                    <span className="shrink-0 truncate text-app-xs text-app-text-muted">
-                      {employee.companyName}
+                <li key={employee.id} className="border-b border-app-line">
+                  <Link
+                    href={`/dashboard/rh/collaborateurs/${employee.id}`}
+                    className="-mx-2 flex items-center gap-3 rounded-app-control px-2 py-2 transition-colors hover:bg-app-surface-hover focus-visible:outline-app"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-app-sm text-app-text">
+                      {employee.name}
                     </span>
-                  ) : null}
+                    {employee.companyName ? (
+                      <span className="shrink-0 truncate text-app-xs text-app-text-muted">
+                        {employee.companyName}
+                      </span>
+                    ) : null}
+                  </Link>
                 </li>
               ))}
             </ul>

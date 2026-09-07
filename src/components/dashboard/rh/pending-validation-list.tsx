@@ -1,5 +1,7 @@
 import { Check, X } from "lucide-react";
 
+import type { ReactNode } from "react";
+
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
 import { Button } from "@/components/ui/button";
 import type { RhDocumentRow } from "@/features/dashboard/rh/types";
@@ -12,9 +14,12 @@ type RhPendingValidationListProps = {
   reviewingDocumentId: string | null;
   onViewDocument: (document: RhDocumentRow) => void | Promise<void>;
   onOpenReviewDialog: (document: RhDocumentRow, status: "pending" | "validated" | "rejected") => void;
+  /** Filtres, poses dans la barre d'outils du tableau. */
+  toolbar?: ReactNode;
 };
 
 export function RhPendingValidationList({
+  toolbar,
   documents,
   storageScope,
   preferencesAuthToken,
@@ -28,6 +33,7 @@ export function RhPendingValidationList({
 
   return (
     <DashboardDocumentList
+      toolbar={toolbar}
       items={documents.map((document) => ({
         ...document,
         ownerName: document.uploadedByName,

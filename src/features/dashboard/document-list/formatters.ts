@@ -47,7 +47,7 @@ export function getStatusBadgeClass(statusLabel: string | null | undefined) {
     normalized.includes("validé") ||
     normalized.includes("validated")
   ) {
-    return "bg-emerald-100 text-emerald-700";
+    return "border-validated-line bg-validated-soft text-validated";
   }
 
   if (
@@ -55,17 +55,17 @@ export function getStatusBadgeClass(statusLabel: string | null | undefined) {
     normalized.includes("refusé") ||
     normalized.includes("rejected")
   ) {
-    return "bg-rose-100 text-rose-700";
+    return "border-rejected-line bg-rejected-soft text-rejected";
   }
 
   if (
     normalized.includes("en attente") ||
     normalized.includes("pending")
   ) {
-    return "bg-amber-100 text-amber-700";
+    return "border-pending-line bg-pending-soft text-pending";
   }
 
-  return "bg-slate-100 text-[#0A1A2F]/75";
+  return "border-app-line text-app-text-secondary";
 }
 
 export function getHiddenColumnValues<T extends DocumentListItem>(

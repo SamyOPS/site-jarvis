@@ -13,6 +13,7 @@ import { RhOffersSection } from "@/components/dashboard/rh-offers-section";
 import { RhDocumentsSection } from "@/components/dashboard/rh-documents-section";
 import type { RhLeaveRequestPayload } from "@/components/dashboard/rh/leave-request-editor";
 import { RhOverviewSection } from "@/components/dashboard/rh-overview-section";
+import type { ConsoleNotification } from "@/components/console/shell/console-notifications";
 import {
   ConsoleResultDialog,
   type ConsoleResult,
@@ -52,7 +53,7 @@ import type {
   RhProfileRow as ProfileRow,
   RhRequestRow as RequestRow,
 } from "@/features/dashboard/rh/types";
-import { formatDocumentStatus, formatMonth, normalizeJoinOne } from "@/lib/dashboard-formatters";
+import { formatDate, formatDocumentStatus, formatMonth, normalizeJoinOne } from "@/lib/dashboard-formatters";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
 import { browserSupabase as supabase } from "@/lib/supabase-browser";
 
@@ -1159,6 +1160,47 @@ export default function RhWorkspace({
     );
   }, [collaborateursRows, collaborateurSearch, missionsByEmployee]);
 
+  /**
+   * Notifications de la cloche : ce qui attend une action du RH.
+   *
+   * DERIVEES de l'etat metier deja charge, faute de table de notifications. Il n'y a donc
+   * pas de notion de « lu » : la cloche reflete l'instant present, et se vide quand le
+   * travail est fait. C'est une propriete, pas une limite — un compteur qu'on peut marquer
+   * lu sans avoir traite les documents ne servirait a rien.
+   *
+   * Deux sources : les documents deposes en attente de controle, et les demandes dont
+   * l'echeance est passee. Les plus anciennes d'abord.
+   */
+  const consoleNotifications = useMemo<ConsoleNotification[]>(() => {
+    const documents = pendingDocumentsForReview.slice(0, 6).map((document) => ({
+      id: `doc-${document.id}`,
+      title: `${document.typeLabel} a valider`,
+      description: document.employeeName,
+      createdAtLabel: document.createdAt
+        ? `Depose le ${formatDate(document.createdAt)}`
+        : null,
+      href: "/dashboard/rh/documents/a-valider",
+    }));
+
+    const now = Date.now();
+    const overdue = openRequests
+      .filter((request) => {
+        if (!request.dueAt) return false;
+        const due = new Date(request.dueAt).getTime();
+        return !Number.isNaN(due) && due < now;
+      })
+      .slice(0, 6)
+      .map((request) => ({
+        id: `req-${request.id}`,
+        title: `${request.typeLabel} en retard`,
+        description: request.employeeName,
+        createdAtLabel: `Echeance du ${formatDate(request.dueAt)}`,
+        href: "/dashboard/rh/documents/mes-demandes",
+      }));
+
+    return [...documents, ...overdue];
+  }, [openRequests, pendingDocumentsForReview]);
+
   /** Lignes du tableau des collaborateurs, pretes a afficher. */
   const collaborateurRows = useMemo(
     () =>
@@ -1745,6 +1787,7 @@ export default function RhWorkspace({
       displayName={displayName}
       onSignOut={handleSignOut}
       hidePageHeader
+      notifications={consoleNotifications}
     >
       <div className="space-y-4">
           {(!supabase || error) && (

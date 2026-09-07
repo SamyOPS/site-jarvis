@@ -206,12 +206,12 @@ export function DocumentsExplorerList<TDoc extends ExplorerDocument>({
 }: DocumentsExplorerListProps<TDoc>) {
   const trashView =
     !trashFolderItems.length && !trashDocumentItems.length ? (
-      <p className="text-sm text-[#0A1A2F]/70">{trashEmptyMessage}</p>
+      <p className="text-app-sm text-app-text-muted">{trashEmptyMessage}</p>
     ) : (
       <div className="space-y-5">
         {trashFolderItems.length ? (
           <div className="space-y-2">
-            <p className="text-sm font-medium text-[#0A1A2F]/80">Dossiers</p>
+            <p className="text-app-sm font-medium text-app-text">Dossiers</p>
             <DashboardDocumentList
               items={trashFolderItems}
               storageKey={storageKeys.trashFolders}
@@ -232,7 +232,7 @@ export function DocumentsExplorerList<TDoc extends ExplorerDocument>({
         ) : null}
         {trashDocumentItems.length ? (
           <div className="space-y-2">
-            <p className="text-sm font-medium text-[#0A1A2F]/80">Documents</p>
+            <p className="text-app-sm font-medium text-app-text">Documents</p>
             <DashboardDocumentList
               items={trashDocumentItems}
               storageKey={storageKeys.trashDocuments}
@@ -256,9 +256,15 @@ export function DocumentsExplorerList<TDoc extends ExplorerDocument>({
     );
 
   const listView = !items.length ? (
-    <p className="text-sm text-[#0A1A2F]/70">{emptyMessage}</p>
+    <div className="rounded-app-card border border-app-line bg-app-surface p-4">
+      {header ? <div className="mb-4">{header}</div> : null}
+      <p className="text-app-sm text-app-text-muted">{emptyMessage}</p>
+    </div>
   ) : (
     <DashboardDocumentList
+      // Les filtres entrent dans la barre d'outils du cadre : un seul bloc, comme la liste
+      // des collaborateurs, au lieu d'une barre flottant au-dessus du tableau.
+      toolbar={header}
       items={items}
       storageKey={storageKeys.main}
       storageScope={storageScope}
@@ -353,8 +359,18 @@ export function DocumentsExplorerList<TDoc extends ExplorerDocument>({
 
   return (
     <div className="space-y-1">
-      {header}
-      {showTrash ? trashView : listView}
+      {/*
+        `header` n'est plus rendu ici : il est passe en barre d'outils au tableau. En vue
+        corbeille, ou il n'y a rien a filtrer, il reste au-dessus.
+      */}
+      {showTrash ? (
+        <>
+          {header}
+          {trashView}
+        </>
+      ) : (
+        listView
+      )}
     </div>
   );
 }

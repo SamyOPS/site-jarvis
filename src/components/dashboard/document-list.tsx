@@ -29,6 +29,11 @@ type DashboardDocumentListProps<T extends DocumentListItem> = {
   preferencesAuthToken?: string | null;
   createdAtLabel?: string;
   columnControlPlacement?: "stacked" | "inline";
+  /** Contenu place a gauche de la barre d'outils : filtres, fil d'Ariane de dossiers... */
+  toolbar?: ReactNode;
+  /** Nom de l'element compte a droite de la barre d'outils. */
+  countLabelSingular?: string;
+  countLabelPlural?: string;
   onItemDoubleClick?: (item: T) => void;
   isItemDoubleClickable?: (item: T) => boolean;
   getDraggableId?: (item: T) => string | null;
@@ -47,6 +52,9 @@ export function DashboardDocumentList<T extends DocumentListItem>({
   preferencesAuthToken,
   createdAtLabel = "Date de creation",
   columnControlPlacement = "stacked",
+  toolbar,
+  countLabelSingular = "document",
+  countLabelPlural = "documents",
   onItemDoubleClick,
   isItemDoubleClickable,
   getDraggableId,
@@ -103,21 +111,35 @@ export function DashboardDocumentList<T extends DocumentListItem>({
     });
   };
 
+  const frame = "relative rounded-app-card border border-app-line bg-app-surface";
+
   if (!columnsInitialized) {
-    return <div className="h-12 bg-white" />;
+    // Meme cadre pendant le chargement des preferences de colonnes : sans lui, la carte
+    // apparaissait apres coup et la page sautait.
+    return <div className={`${frame} h-12`} />;
   }
 
   return (
-    <div className="relative bg-white">
-      <ColumnVisibilityMenu
-        visibleColumns={visibleColumns}
-        onToggle={toggleColumn}
-        placement={columnControlPlacement}
-      />
+    <div className={frame}>
+      {/*
+        Barre d'outils, dans le cadre et separee par un filet — meme forme que la liste des
+        collaborateurs : controles a gauche, decompte a droite.
+      */}
+      <div className="flex flex-wrap items-center gap-3 border-b border-app-line p-4">
+        <div className="min-w-0 flex-1">{toolbar}</div>
+        <ColumnVisibilityMenu
+          visibleColumns={visibleColumns}
+          onToggle={toggleColumn}
+          placement={columnControlPlacement}
+        />
+        <span className="shrink-0 text-app-sm text-app-text-muted">
+          {items.length} {items.length > 1 ? countLabelPlural : countLabelSingular}
+        </span>
+      </div>
 
-      <div className="overflow-x-auto bg-white">
-        <table className="min-w-full table-fixed text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50/70 text-left text-xs font-medium text-[#0A1A2F]/70">
+      <div className="overflow-x-auto">
+        <table className="min-w-full table-fixed text-app-sm">
+          <thead className="border-b border-app-line text-left text-app-xs font-medium text-app-text-muted">
             <tr>
               <th className="px-3 py-3 font-medium sm:px-4">Nom</th>
               {activeColumns.map((column) => (
@@ -131,11 +153,11 @@ export function DashboardDocumentList<T extends DocumentListItem>({
               <th className="w-auto px-3 py-3 font-medium text-right sm:w-[200px] sm:px-4">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200">
+          <tbody className="divide-y divide-app-line">
             {items.map((item) => (
               <Fragment key={item.id}>
                 <tr
-                  className={`transition-colors hover:bg-slate-50/60 ${dragOverItemId === item.id ? "bg-slate-100/70" : ""} ${(isItemDoubleClickable ? isItemDoubleClickable(item) : false) ? "cursor-pointer" : ""}`}
+                  className={`transition-colors hover:bg-app-surface-hover ${dragOverItemId === item.id ? "bg-app-surface-hover/70" : ""} ${(isItemDoubleClickable ? isItemDoubleClickable(item) : false) ? "cursor-pointer" : ""}`}
                   draggable={Boolean(getDraggableId?.(item))}
                   onDoubleClick={() => {
                     if (!onItemDoubleClick) return;
@@ -192,7 +214,7 @@ export function DashboardDocumentList<T extends DocumentListItem>({
                     <div className="flex items-start gap-3">
                       <div className="mt-0.5 shrink-0">{getFileIcon(item.fileName, item.typeLabel)}</div>
                       <div className="min-w-0">
-                        <p className="truncate font-medium text-[#0A1A2F]" title={item.fileName}>
+                        <p className="truncate font-medium text-app-text" title={item.fileName}>
                           {item.fileName}
                         </p>
                         {(() => {
@@ -208,7 +230,7 @@ export function DashboardDocumentList<T extends DocumentListItem>({
                           }
 
                           return (
-                            <p className="mt-1 truncate text-xs text-[#0A1A2F]/60" title={subtitle}>
+                            <p className="mt-1 truncate text-app-xs text-app-text-muted" title={subtitle}>
                               {subtitle}
                             </p>
                           );
@@ -219,7 +241,7 @@ export function DashboardDocumentList<T extends DocumentListItem>({
 
                   {visibleColumns.includes("type") ? (
                     <td className="hidden px-4 py-3 align-middle sm:table-cell">
-                      <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-[#0A1A2F]/75">
+                      <span className="inline-flex rounded-app-control border border-app-line px-2 py-1 text-app-xs font-medium text-app-text-secondary">
                         {item.typeLabel}
                       </span>
                     </td>
@@ -229,36 +251,36 @@ export function DashboardDocumentList<T extends DocumentListItem>({
                     <td className="hidden px-4 py-3 align-middle sm:table-cell">
                       {item.statusLabel ? (
                         <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusBadgeClass(item.statusLabel)}`}
+                          className={`inline-flex rounded-app-control border px-2 py-1 text-app-xs font-medium ${getStatusBadgeClass(item.statusLabel)}`}
                         >
                           {item.statusLabel}
                         </span>
                       ) : (
-                        <span className="text-[#0A1A2F]/80">-</span>
+                        <span className="text-app-text-secondary">-</span>
                       )}
                     </td>
                   ) : null}
 
                   {visibleColumns.includes("period") ? (
-                    <td className="hidden px-4 py-3 align-middle text-[#0A1A2F]/80 sm:table-cell">
+                    <td className="hidden px-4 py-3 align-middle text-app-text-secondary sm:table-cell">
                       {item.periodLabel ?? "-"}
                     </td>
                   ) : null}
 
                   {visibleColumns.includes("owner") ? (
                     <td className="hidden px-4 py-3 align-middle sm:table-cell">
-                      <span className="truncate text-[#0A1A2F]/80">{item.ownerName}</span>
+                      <span className="truncate text-app-text-secondary">{item.ownerName}</span>
                     </td>
                   ) : null}
 
                   {visibleColumns.includes("createdAt") ? (
-                    <td className="hidden px-4 py-3 align-middle text-[#0A1A2F]/70 sm:table-cell">
+                    <td className="hidden px-4 py-3 align-middle text-app-text-secondary sm:table-cell">
                       {formatCreatedDate(item.createdAt)}
                     </td>
                   ) : null}
 
                   {visibleColumns.includes("size") ? (
-                    <td className="hidden px-4 py-3 align-middle text-[#0A1A2F]/70 sm:table-cell">
+                    <td className="hidden px-4 py-3 align-middle text-app-text-secondary sm:table-cell">
                       {formatFileSize(item.sizeBytes)}
                     </td>
                   ) : null}
@@ -272,7 +294,7 @@ export function DashboardDocumentList<T extends DocumentListItem>({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-[#0A1A2F]/70 hover:text-[#0A1A2F]"
+                          className="h-8 w-8 text-app-text-secondary hover:text-app-text"
                           onClick={() =>
                             setActionMenuId((currentId) =>
                               currentId === item.id ? null : item.id,
@@ -287,7 +309,7 @@ export function DashboardDocumentList<T extends DocumentListItem>({
                   </td>
                 </tr>
                 {actionMenuId === item.id ? (
-                  <tr className="bg-slate-50/70">
+                  <tr className="bg-app-surface-hover">
                     <td colSpan={activeColumns.length + 2} className="px-3 py-3 sm:px-4">
                       {item.hideDetailsPanel ? (
                         <div className="flex flex-col items-stretch gap-2 md:max-w-[340px]">
@@ -299,16 +321,16 @@ export function DashboardDocumentList<T extends DocumentListItem>({
                             {renderActions ? renderActions(item, () => setActionMenuId(null)) : null}
                           </div>
                           {formatActionDetails(item.details) ? (
-                            <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                              <p className="text-xs font-medium uppercase tracking-wide text-[#0A1A2F]/55">
+                            <div className="rounded-xl border border-app-line bg-app-surface px-4 py-3">
+                              <p className="text-app-xs font-medium uppercase tracking-wide text-app-text/55">
                                 Commentaire RH
                               </p>
-                              <p className="mt-2 whitespace-pre-wrap text-sm text-[#0A1A2F]/80">
+                              <p className="mt-2 whitespace-pre-wrap text-app-sm text-app-text-secondary">
                                 {formatActionDetails(item.details)}
                               </p>
                             </div>
                           ) : (
-                            <div className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-sm text-[#0A1A2F]/55">
+                            <div className="rounded-xl border border-dashed border-app-line px-4 py-3 text-app-sm text-app-text/55">
                               Aucun commentaire RH pour ce document.
                             </div>
                           )}

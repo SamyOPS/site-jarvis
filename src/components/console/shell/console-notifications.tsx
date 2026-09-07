@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Bell, Inbox } from "lucide-react";
+import Link from "next/link";
+import { Bell, ChevronRight, Inbox } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useDismissable } from "@/components/console/shell/use-dismissable";
@@ -75,23 +76,55 @@ export function ConsoleNotifications({ items = [] }: ConsoleNotificationsProps) 
             </div>
           ) : (
             <ul className="max-h-80 overflow-y-auto py-1">
-              {items.map((item) => (
-                <li key={item.id}>
-                  <div className="px-4 py-3 transition-colors hover:bg-app-surface-hover">
-                    <p className="text-app-sm text-app-text">{item.title}</p>
-                    {item.description && (
-                      <p className="mt-1 text-app-xs text-app-text-secondary">
-                        {item.description}
-                      </p>
+              {items.map((item) => {
+                const body = (
+                  <>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-app-sm text-app-text">{item.title}</span>
+                      {item.description && (
+                        <span className="mt-1 block text-app-xs text-app-text-secondary">
+                          {item.description}
+                        </span>
+                      )}
+                      {item.createdAtLabel && (
+                        <span className="mt-1 block text-app-xs text-app-text-muted">
+                          {item.createdAtLabel}
+                        </span>
+                      )}
+                    </span>
+                    {item.href && (
+                      <ChevronRight
+                        aria-hidden="true"
+                        className="mt-1 h-4 w-4 shrink-0 text-app-text-muted"
+                      />
                     )}
-                    {item.createdAtLabel && (
-                      <p className="mt-1 text-app-xs text-app-text-muted">
-                        {item.createdAtLabel}
-                      </p>
+                  </>
+                );
+
+                return (
+                  <li key={item.id}>
+                    {/*
+                      Le survol et le chevron ne s'appliquent qu'aux entrees REELLEMENT
+                      navigables. Auparavant chaque ligne etait un <div> avec un fond au
+                      survol : elle paraissait cliquable et ne l'etait pas.
+
+                      Le panneau se ferme a la navigation, sinon il resterait ouvert
+                      par-dessus la page d'arrivee.
+                    */}
+                    {item.href ? (
+                      <Link
+                        href={item.href}
+                        onClick={close}
+                        className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-app-surface-hover focus-visible:outline-app"
+                      >
+                        {body}
+                      </Link>
+                    ) : (
+                      <div className="flex items-start gap-3 px-4 py-3">{body}</div>
                     )}
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

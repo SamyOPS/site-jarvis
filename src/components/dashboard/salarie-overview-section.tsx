@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 
 import { ConsoleMonthlyBars, type MonthlyPoint } from "@/components/console/overview/monthly-bars";
+import Link from "next/link";
+
 import { ConsoleStatRow } from "@/components/console/overview/stat-row";
 import { ConsoleStatusBadge } from "@/components/console/overview/status-badge";
 import { formatDate, formatMonth } from "@/lib/dashboard-formatters";
@@ -75,8 +77,16 @@ export function SalarieOverviewSection({
       */}
       <ConsoleStatRow
         stats={[
-          { label: "Documents à déposer", value: pendingRequestsCount },
-          { label: "Documents déposés", value: documentsCount },
+          {
+            label: "Documents à déposer",
+            value: pendingRequestsCount,
+            href: "/dashboard/salarie/documents/a-deposer",
+          },
+          {
+            label: "Documents déposés",
+            value: documentsCount,
+            href: "/dashboard/salarie/documents",
+          },
           { label: "Documents validés", value: validatedDocumentsCount },
           {
             label: "En cours de validation",
@@ -104,16 +114,21 @@ export function SalarieOverviewSection({
           ) : (
             <ul className="divide-y divide-app-line">
               {priorities.map((request) => (
-                <li key={request.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-app-sm font-medium text-app-text">
-                      {request.typeLabel}
-                    </p>
+                <li key={request.id}>
+                  <Link
+                    href="/dashboard/salarie/documents/a-deposer"
+                    className="-mx-2 flex items-start gap-3 rounded-app-control px-2 py-3 transition-colors hover:bg-app-surface-hover focus-visible:outline-app"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-app-sm font-medium text-app-text">
+                        {request.typeLabel}
+                      </p>
                     <p className="mt-1 text-app-xs text-app-text-muted">
                       {`Échéance ${formatDate(request.dueAt)} · Période ${formatMonth(request.periodMonth)}`}
                     </p>
                   </div>
-                  <ConsoleStatusBadge status={request.status} />
+                    <ConsoleStatusBadge status={request.status} />
+                  </Link>
                 </li>
               ))}
             </ul>

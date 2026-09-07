@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 export type ConsoleStat = {
   /** Phrase courante, sans deux-points final. */
@@ -6,6 +7,11 @@ export type ConsoleStat = {
   value: ReactNode;
   /** Precision facultative sous la valeur. Jamais une variation inventee. */
   hint?: string;
+  /**
+   * Destination du clic. OPTIONNELLE : une tuile sans page dediee reste inerte, sans
+   * survol ni curseur qui promettraient une navigation inexistante.
+   */
+  href?: string;
 };
 
 /**
@@ -23,23 +29,38 @@ export type ConsoleStat = {
 export function ConsoleStatRow({ stats }: { stats: ConsoleStat[] }) {
   return (
     <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-      {stats.map((stat) => (
-        <div
-          key={stat.label}
-          className="rounded-app-card border border-app-line bg-app-surface px-5 py-4"
-        >
-          <dt className="text-app-sm text-app-text-secondary">{stat.label}</dt>
-          {/*
-            Chiffres PROPORTIONNELS, pas tabulaires : `tabular-nums` donne a chaque chiffre
-            la largeur d'un zero, ce qui fait respirer trop largement un nombre comme 121 a
-            cette taille. Le tabulaire est reserve aux colonnes a aligner.
-          */}
-          <dd className="mt-3 text-app-xl font-semibold text-app-text">{stat.value}</dd>
-          {stat.hint ? (
-            <p className="mt-2 text-app-sm text-app-text-muted">{stat.hint}</p>
-          ) : null}
-        </div>
-      ))}
+      {stats.map((stat) => {
+        const body = (
+          <>
+            <dt className="text-app-sm text-app-text-secondary">{stat.label}</dt>
+            {/*
+              Chiffres PROPORTIONNELS, pas tabulaires : `tabular-nums` donne a chaque chiffre
+              la largeur d'un zero, ce qui fait respirer trop largement un nombre comme 121 a
+              cette taille. Le tabulaire est reserve aux colonnes a aligner.
+            */}
+            <dd className="mt-3 text-app-xl font-semibold text-app-text">{stat.value}</dd>
+            {stat.hint ? (
+              <p className="mt-2 text-app-sm text-app-text-muted">{stat.hint}</p>
+            ) : null}
+          </>
+        );
+
+        const frame = "rounded-app-card border border-app-line bg-app-surface px-5 py-4";
+
+        return stat.href ? (
+          <Link
+            key={stat.label}
+            href={stat.href}
+            className={`${frame} block transition-colors hover:bg-app-surface-hover focus-visible:outline-app`}
+          >
+            {body}
+          </Link>
+        ) : (
+          <div key={stat.label} className={frame}>
+            {body}
+          </div>
+        );
+      })}
     </dl>
   );
 }

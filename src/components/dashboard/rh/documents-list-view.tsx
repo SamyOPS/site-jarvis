@@ -1,5 +1,7 @@
 import { RotateCcw, Trash2 } from "lucide-react";
 
+import type { ReactNode } from "react";
+
 import {
   DocumentsExplorerList,
   DocumentViewDownloadActions,
@@ -40,6 +42,8 @@ type RhDocumentsListViewProps = {
   reviewDrafts: Record<string, string>;
   onReviewDraftsChange: (updater: (prev: Record<string, string>) => Record<string, string>) => void;
   setDraggedRhDocumentId: (value: string | null) => void;
+  /** Filtres, poses dans la barre d'outils du tableau. */
+  toolbar?: ReactNode;
 };
 
 /**
@@ -50,6 +54,7 @@ type RhDocumentsListViewProps = {
  * commentaire de revue et les trois transitions de statut.
  */
 export function RhDocumentsListView({
+  toolbar,
   storageScope,
   preferencesAuthToken,
   showRhFolderTrash,
@@ -80,6 +85,7 @@ export function RhDocumentsListView({
 }: RhDocumentsListViewProps) {
   return (
     <DocumentsExplorerList<RhDocumentRow>
+      header={toolbar}
       storageScope={storageScope}
       preferencesAuthToken={preferencesAuthToken}
       showTrash={showRhFolderTrash}

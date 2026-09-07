@@ -13,6 +13,7 @@ import { SalarieOffersSection } from "@/components/dashboard/salarie-offers-sect
 import { SalarieOverviewSection } from "@/components/dashboard/salarie-overview-section";
 import { SalarieSettingsSection } from "@/components/dashboard/salarie-settings-section";
 import type { MissionFormState, MissionItem } from "@/components/dashboard/missions-card";
+import type { ConsoleNotification } from "@/components/console/shell/console-notifications";
 import {
   ConsoleResultDialog,
   type ConsoleResult,
@@ -1025,6 +1026,34 @@ export default function SalarieWorkspace({
   );
 
   const pendingRequests = useMemo(() => requests.filter((request) => ["pending", "rejected", "expired"].includes(request.status)), [requests]);
+
+  /**
+   * Notifications de la cloche : ce que le RH attend du salarie.
+   *
+   * Symetrique du cote RH, et DERIVEES de la meme facon — il n'existe pas de table de
+   * notifications. Un document rejete passe avant les autres : il attend un nouveau depot,
+   * et le salarie n'en est prevenu par aucun autre canal.
+   */
+  const consoleNotifications = useMemo<ConsoleNotification[]>(
+    () =>
+      [...pendingRequests]
+        .sort((left, right) => {
+          const weight = (status: string) => (status === "rejected" ? 0 : 1);
+          return weight(left.status) - weight(right.status);
+        })
+        .slice(0, 6)
+        .map((request) => ({
+          id: request.id,
+          title:
+            request.status === "rejected"
+              ? `${request.typeLabel} refuse`
+              : `${request.typeLabel} a deposer`,
+          description: request.note ?? null,
+          createdAtLabel: request.dueAt ? `Echeance du ${formatDate(request.dueAt)}` : null,
+          href: "/dashboard/salarie/documents/a-deposer",
+        })),
+    [pendingRequests],
+  );
   const selectedUploadType = useMemo(
     () => documentTypes.find((documentType) => documentType.id === uploadDocumentTypeId) ?? null,
     [documentTypes, uploadDocumentTypeId],
@@ -1179,6 +1208,7 @@ export default function SalarieWorkspace({
       displayName={displayName}
       onSignOut={handleSignOut}
       hidePageHeader
+      notifications={consoleNotifications}
     >
       <div className="space-y-4">
           {(!supabase || error) && (

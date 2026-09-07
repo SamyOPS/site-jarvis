@@ -4,7 +4,10 @@ import { Menu, Send } from "lucide-react";
 
 import { ConsoleAccountMenu } from "@/components/console/shell/console-account-menu";
 import { ConsoleBreadcrumb } from "@/components/console/shell/console-breadcrumb";
-import { ConsoleNotifications } from "@/components/console/shell/console-notifications";
+import {
+  ConsoleNotifications,
+  type ConsoleNotification,
+} from "@/components/console/shell/console-notifications";
 import type { ConsoleCrumb, ConsoleNavConfig } from "@/features/dashboard/shell/nav-config";
 
 type ConsoleTopBarProps = {
@@ -14,6 +17,7 @@ type ConsoleTopBarProps = {
   email: string;
   onSignOut: () => void | Promise<void>;
   onOpenMobileNav: () => void;
+  notifications?: ConsoleNotification[];
 };
 
 export function ConsoleTopBar({
@@ -23,6 +27,7 @@ export function ConsoleTopBar({
   email,
   onSignOut,
   onOpenMobileNav,
+  notifications,
 }: ConsoleTopBarProps) {
   return (
     <header className="sticky top-0 z-30 flex h-app-topbar shrink-0 items-center gap-3 border-b border-app-line bg-app-canvas px-4">
@@ -56,7 +61,7 @@ export function ConsoleTopBar({
           <Send className="h-4 w-4" />
         </button>
 
-        <ConsoleNotifications />
+        <ConsoleNotifications items={notifications} />
 
         <ConsoleAccountMenu
           config={config}

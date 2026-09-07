@@ -37,8 +37,8 @@ export function ColumnVisibilityMenu({
           size="sm"
           className={
             placement === "inline"
-              ? "h-8 px-2 text-xs font-medium text-[#0A1A2F]/75 hover:text-[#0A1A2F]"
-              : "gap-2 text-[#0A1A2F]/75 hover:text-[#0A1A2F]"
+              ? "h-8 px-2 text-app-xs font-medium text-app-text/75 hover:text-app-text"
+              : "gap-2 text-app-text/75 hover:text-app-text"
           }
           onClick={() => setMenuOpen((open) => !open)}
         >
@@ -48,8 +48,8 @@ export function ColumnVisibilityMenu({
           Libellés
         </Button>
         {menuOpen ? (
-          <div className="absolute right-0 top-full z-20 mt-2 w-60 rounded-xl border border-slate-200 bg-white p-3">
-            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[#0A1A2F]/55">
+          <div className="absolute right-0 top-full z-20 mt-2 w-60 rounded-app-card border border-app-line bg-app-surface p-3">
+            <p className="mb-3 text-app-xs font-medium uppercase tracking-wide text-app-text/55">
               Colonnes visibles
             </p>
             <div className="space-y-2">
@@ -59,7 +59,7 @@ export function ColumnVisibilityMenu({
                 return (
                   <label
                     key={column.key}
-                    className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-sm text-[#0A1A2F]"
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-app-card px-2 py-1.5 text-app-sm text-app-text"
                   >
                     <span>{column.label}</span>
                     <Checkbox

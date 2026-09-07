@@ -265,6 +265,36 @@ export function RhDocumentsSection({
   const { title: rhDocumentsTitle, hasFolderBrowser } =
     RH_SUBSECTIONS[currentSubSection] ?? RH_SUBSECTION_FALLBACK;
 
+  /**
+   * Filtres de la liste, desormais poses DANS la barre d'outils du tableau plutot qu'au-
+   * dessus : la liste doit se lire comme un seul bloc, a l'image de celle des
+   * collaborateurs. `null` sur les sous-sections qui n'ont rien a filtrer.
+   */
+  const filtersBar = ["docs_all", "docs_a_valider", "docs_corbeille"].includes(
+    currentSubSection,
+  ) ? (
+    <DocumentFiltersBar
+      fields={
+        currentSubSection === "docs_a_valider" || currentSubSection === "docs_corbeille"
+          ? ["type", "period", "owner"]
+          : ["type", "period", "status", "owner"]
+      }
+      values={{
+        type: documentTypeFilter,
+        period: documentPeriodFilter,
+        status: documentStatusFilter,
+        owner: documentCreatorFilter,
+      }}
+      options={rhFilterOptions}
+      onChange={(field, value) => {
+        if (field === "type") onDocumentTypeFilterChange(value);
+        if (field === "period") onDocumentPeriodFilterChange(value);
+        if (field === "status") onDocumentStatusFilterChange(value);
+        if (field === "owner") onDocumentCreatorFilterChange(value);
+      }}
+    />
+  ) : null;
+
   return (
     <section className="space-y-2">
       <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -403,28 +433,6 @@ export function RhDocumentsSection({
           ) : null}
         </div>
       </div>
-      {["docs_all", "docs_a_valider", "docs_corbeille"].includes(currentSubSection) ? (
-        <DocumentFiltersBar
-          fields={
-            currentSubSection === "docs_a_valider" || currentSubSection === "docs_corbeille"
-              ? ["type", "period", "owner"]
-              : ["type", "period", "status", "owner"]
-          }
-          values={{
-            type: documentTypeFilter,
-            period: documentPeriodFilter,
-            status: documentStatusFilter,
-            owner: documentCreatorFilter,
-          }}
-          options={rhFilterOptions}
-          onChange={(field, value) => {
-            if (field === "type") onDocumentTypeFilterChange(value);
-            if (field === "period") onDocumentPeriodFilterChange(value);
-            if (field === "status") onDocumentStatusFilterChange(value);
-            if (field === "owner") onDocumentCreatorFilterChange(value);
-          }}
-        />
-      ) : null}
       <div>
         {currentSubSection === "docs_cra_facture" ? (
           <RhCraInvoiceEditor
@@ -455,6 +463,7 @@ export function RhDocumentsSection({
           />
         ) : currentSubSection === "docs_a_valider" ? (
           <RhPendingValidationList
+            toolbar={filtersBar}
             documents={filteredPendingDocuments}
             storageScope={storageScope}
             preferencesAuthToken={preferencesAuthToken}
@@ -464,6 +473,7 @@ export function RhDocumentsSection({
           />
         ) : (
           <RhDocumentsListView
+            toolbar={filtersBar}
             storageScope={storageScope}
             preferencesAuthToken={preferencesAuthToken}
             showRhFolderTrash={showRhFolderTrash}

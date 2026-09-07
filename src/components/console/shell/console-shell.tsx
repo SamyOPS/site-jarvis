@@ -8,6 +8,7 @@ import { sidebarCollapsedPreference } from "@/lib/console-preferences";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ConsoleSidebar } from "@/components/console/shell/console-sidebar";
 import { ConsoleTopBar } from "@/components/console/shell/console-top-bar";
+import type { ConsoleNotification } from "@/components/console/shell/console-notifications";
 import { ConsolePageHeader } from "@/components/console/shell/console-page-header";
 import {
   ConsoleCommandPalette,
@@ -32,6 +33,14 @@ type ConsoleShellProps = {
   /** A activer quand la section rend deja son propre en-tete. */
   hidePageHeader?: boolean;
   searchGroups?: ConsoleCommandGroup[];
+  /**
+   * Ce qui attend une action de l'utilisateur, affiche sous la cloche.
+   *
+   * Il n'existe aucune table de notifications : la liste est DERIVEE de l'etat metier deja
+   * charge par le workspace (documents a valider, demandes en attente). Elle vaut donc pour
+   * l'instant present, sans notion de « lu ».
+   */
+  notifications?: ConsoleNotification[];
   children: ReactNode;
 };
 
@@ -56,6 +65,7 @@ export function ConsoleShell({
   pageActions,
   hidePageHeader = false,
   searchGroups,
+  notifications,
   children,
 }: ConsoleShellProps) {
   const config = CONSOLE_NAV_CONFIGS[role];
@@ -133,6 +143,7 @@ export function ConsoleShell({
           displayName={displayName}
           email={email}
           onSignOut={onSignOut}
+          notifications={notifications}
           onOpenMobileNav={() => setMobileNavOpen(true)}
         />
 
