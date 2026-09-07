@@ -425,13 +425,10 @@ export function RhDocumentsSection({
         ) : (
           <h2 className="text-lg font-semibold text-[#0A1A2F]">{rhDocumentsTitle}</h2>
         )}
-        <div className="flex items-center gap-2">
-          {currentSubSection === "docs_mes_demandes" ? (
-            <Button type="button" variant="outline" size="sm" onClick={onOpenRequestDialog}>
-              Demander un document
-            </Button>
-          ) : null}
-        </div>
+        {/*
+          Le bouton « Demander un document » a rejoint la barre d'outils du tableau : les
+          controles d'une liste se tiennent avec elle, pas au-dessus.
+        */}
       </div>
       <div>
         {currentSubSection === "docs_cra_facture" ? (
@@ -457,6 +454,11 @@ export function RhDocumentsSection({
           />
         ) : currentSubSection === "docs_mes_demandes" ? (
           <RhRequestsTable
+            action={
+              <Button type="button" variant="outline" size="sm" onClick={onOpenRequestDialog}>
+                Demander un document
+              </Button>
+            }
             requests={requests}
             cancellingRequestId={cancellingRequestId}
             onCancelRequest={onCancelRequest}

@@ -17,16 +17,35 @@ import { CircleAlert, CircleCheck, CircleX, Clock } from "lucide-react";
  * Chaque pastille porte une ICONE ET UN LIBELLE, jamais la couleur seule — un tiers des
  * hommes distingue mal le rouge du vert, et l'information doit passer sans elle.
  */
+/*
+ * Les CLES sont les statuts stockes en base (`DocumentRequestStatus` et le statut d'un
+ * document) ; les noms de couleur — missing, pending, rejected, validated — sont des ROLES
+ * de la palette, pas des statuts. La premiere version confondait les deux : la cle `pending`
+ * portait le libelle « Depose », et `uploaded` n'etait pas couvert du tout — il s'affichait
+ * en brut dans la pastille neutre.
+ *
+ * Correspondance des couleurs :
+ *   orange (missing)  : demande ouverte, AUCUN document depose ;
+ *   ambre  (pending)  : document depose, pas encore controle ;
+ *   rouge  (rejected) : refuse, ou echu sans avoir jamais ete satisfait ;
+ *   vert   (validated): controle et accepte ;
+ *   neutre            : annule — c'est un fait, pas une alerte.
+ */
 const STATUS_STYLES = {
-  missing: {
+  pending: {
     label: "En attente",
     icon: CircleAlert,
     className: "border-missing-line bg-missing-soft text-missing",
   },
-  pending: {
+  uploaded: {
     label: "Déposé",
     icon: Clock,
     className: "border-pending-line bg-pending-soft text-pending",
+  },
+  validated: {
+    label: "Validé",
+    icon: CircleCheck,
+    className: "border-validated-line bg-validated-soft text-validated",
   },
   rejected: {
     label: "Rejeté",
@@ -38,10 +57,10 @@ const STATUS_STYLES = {
     icon: CircleX,
     className: "border-rejected-line bg-rejected-soft text-rejected",
   },
-  validated: {
-    label: "Validé",
-    icon: CircleCheck,
-    className: "border-validated-line bg-validated-soft text-validated",
+  cancelled: {
+    label: "Annulé",
+    icon: CircleX,
+    className: "border-app-line text-app-text-secondary",
   },
 } as const;
 

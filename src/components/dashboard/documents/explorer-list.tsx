@@ -133,44 +133,56 @@ export function DocumentViewDownloadActions<TDoc extends ExplorerDocument>({
   );
 }
 
-/** Deux boutons Restaurer / Supprimer definitivement, en cellule d'action de corbeille. */
-function TrashActions({
+/**
+ * Restaurer / Supprimer definitivement, en entrees du menu « ... ».
+ *
+ * La corbeille posait ces deux actions en boutons-icones nus dans la colonne Actions, la
+ * ou la liste classique n'affiche qu'un menu. Meme liste, meme geste : on ouvre le menu.
+ */
+function trashMenuActions({
   label,
   onRestore,
   onPurge,
   purgeDisabled,
+  closeMenu,
 }: {
   label: string;
   onRestore: () => void;
   onPurge: () => void;
   purgeDisabled?: boolean;
+  closeMenu: () => void;
 }) {
   return (
-    <div className="flex items-center justify-end gap-1.5">
+    <>
       <Button
         type="button"
         variant="ghost"
-        size="icon"
-        className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
-        onClick={onRestore}
-        aria-label={`Restaurer ${label}`}
-        title="Restaurer"
+        size="sm"
+        className="w-full justify-start text-validated hover:text-validated"
+        onClick={() => {
+          closeMenu();
+          onRestore();
+        }}
       >
-        <RotateCcw className="h-4 w-4" />
+        <RotateCcw className="mr-2 h-4 w-4" />
+        Restaurer
       </Button>
       <Button
         type="button"
         variant="ghost"
-        size="icon"
-        className="h-8 w-8 text-red-600 hover:text-red-700"
-        onClick={onPurge}
+        size="sm"
+        className="w-full justify-start text-rejected hover:text-rejected"
+        onClick={() => {
+          closeMenu();
+          onPurge();
+        }}
         disabled={purgeDisabled}
-        aria-label={`Supprimer definitivement ${label}`}
-        title="Supprimer definitivement"
+        aria-label={`Supprimer définitivement ${label}`}
       >
-        <Trash2 className="h-4 w-4" />
+        <Trash2 className="mr-2 h-4 w-4" />
+        Supprimer définitivement
       </Button>
-    </div>
+    </>
   );
 }
 
@@ -212,51 +224,62 @@ export function DocumentsExplorerList<TDoc extends ExplorerDocument>({
 }: DocumentsExplorerListProps<TDoc>) {
   const trashView =
     !trashFolderItems.length && !trashDocumentItems.length ? (
-      <p className="text-app-sm text-app-text-muted">{trashEmptyMessage}</p>
+      // Le vide entre dans le cadre, comme celui de la liste classique, au lieu d'une
+      // phrase nue posee sur le fond de page.
+      <div className="rounded-app-card border border-app-line bg-app-surface p-4">
+        <p className="text-app-sm text-app-text-muted">{trashEmptyMessage}</p>
+      </div>
     ) : (
-      <div className="space-y-5">
+      <div className="space-y-4">
         {trashFolderItems.length ? (
-          <div className="space-y-2">
-            <p className="text-app-sm font-medium text-app-text">Dossiers</p>
-            <DashboardDocumentList
-              items={trashFolderItems}
-              storageKey={storageKeys.trashFolders}
-              storageScope={storageScope}
-              preferencesAuthToken={preferencesAuthToken}
-              createdAtLabel="Date de mise a la corbeille"
-              renderActionCell={(item) =>
-                item.rowType !== "folder" ? null : (
-                  <TrashActions
-                    label={item.fileName}
-                    onRestore={() => void onRestoreFolder(item.folderId)}
-                    onPurge={() => void onPurgeFolder(item.folderId)}
-                  />
-                )
-              }
-            />
-          </div>
+          <DashboardDocumentList
+            // L'intitule entre dans la barre d'outils, a la place des controles de la liste
+            // classique ; le decompte reste a droite. Il flottait au-dessus du cadre.
+            // Cote documents, ce sont les filtres qui occupent cette place.
+            toolbar={<span className="text-app-sm font-medium text-app-text">Dossiers</span>}
+            countLabelSingular="dossier"
+            countLabelPlural="dossiers"
+            columnControlPlacement="inline"
+            items={trashFolderItems}
+            storageKey={storageKeys.trashFolders}
+            storageScope={storageScope}
+            preferencesAuthToken={preferencesAuthToken}
+            createdAtLabel="Date de mise à la corbeille"
+            renderActions={(item, closeMenu) =>
+              item.rowType !== "folder"
+                ? null
+                : trashMenuActions({
+                    label: item.fileName,
+                    onRestore: () => void onRestoreFolder(item.folderId),
+                    onPurge: () => void onPurgeFolder(item.folderId),
+                    closeMenu,
+                  })
+            }
+          />
         ) : null}
         {trashDocumentItems.length ? (
-          <div className="space-y-2">
-            <p className="text-app-sm font-medium text-app-text">Documents</p>
-            <DashboardDocumentList
-              items={trashDocumentItems}
-              storageKey={storageKeys.trashDocuments}
-              storageScope={storageScope}
-              preferencesAuthToken={preferencesAuthToken}
-              createdAtLabel="Date de mise a la corbeille"
-              renderActionCell={(item) =>
-                item.rowType !== "document" ? null : (
-                  <TrashActions
-                    label={item.fileName}
-                    onRestore={() => void onRestoreDocument(item.document)}
-                    onPurge={() => void onPurgeDocument(item.document)}
-                    purgeDisabled={purgingDocumentId === item.document.id}
-                  />
-                )
-              }
-            />
-          </div>
+          <DashboardDocumentList
+            // Les filtres prennent la place de l'intitule « Documents » : le decompte a
+            // droite dit deja de quoi ce tableau est fait.
+            toolbar={header}
+            columnControlPlacement="inline"
+            items={trashDocumentItems}
+            storageKey={storageKeys.trashDocuments}
+            storageScope={storageScope}
+            preferencesAuthToken={preferencesAuthToken}
+            createdAtLabel="Date de mise à la corbeille"
+            renderActions={(item, closeMenu) =>
+              item.rowType !== "document"
+                ? null
+                : trashMenuActions({
+                    label: item.fileName,
+                    onRestore: () => void onRestoreDocument(item.document),
+                    onPurge: () => void onPurgeDocument(item.document),
+                    purgeDisabled: purgingDocumentId === item.document.id,
+                    closeMenu,
+                  })
+            }
+          />
         ) : null}
       </div>
     );
@@ -364,14 +387,22 @@ export function DocumentsExplorerList<TDoc extends ExplorerDocument>({
   );
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-4">
       {/*
-        `header` n'est plus rendu ici : il est passe en barre d'outils au tableau. En vue
-        corbeille, ou il n'y a rien a filtrer, il reste au-dessus.
+        En vue normale, `header` entre dans la barre d'outils du tableau. En corbeille il
+        reste au-dessus : les filtres gouvernent LES DEUX tableaux (dossiers et documents),
+        les loger dans la barre d'outils de l'un laisserait croire qu'il n'agit que sur lui.
       */}
       {showTrash ? (
         <>
-          {header}
+          {/*
+            Les filtres sont loges dans la barre d'outils du tableau « Documents ». Ils
+            gouvernent AUSSI celui des dossiers : quand le tableau des documents n'est pas
+            rendu — filtre trop restrictif, ou corbeille sans document — ils remontent
+            au-dessus, faute de quoi la barre qui a masque les lignes disparaitrait avec
+            elles et le filtre deviendrait impossible a lever.
+          */}
+          {trashDocumentItems.length ? null : header}
           {trashView}
         </>
       ) : (
