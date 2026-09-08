@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-import { ConsoleMonthlyBars, type MonthlyPoint } from "@/components/console/overview/monthly-bars";
 import Link from "next/link";
 
 import { ConsoleStatRow } from "@/components/console/overview/stat-row";
@@ -21,8 +20,6 @@ type SalarieOverviewSectionProps = {
   documentsCount: number;
   validatedDocumentsCount: number;
   pendingRequests: SalarieOverviewRequest[];
-  /** Volume mensuel reel, deduit de la date de depot des documents. */
-  documentsByMonth: MonthlyPoint[];
   action: ReactNode;
 };
 
@@ -63,7 +60,6 @@ export function SalarieOverviewSection({
   documentsCount,
   validatedDocumentsCount,
   pendingRequests,
-  documentsByMonth,
   action,
 }: SalarieOverviewSectionProps) {
   const priorities = pendingRequests.slice(0, 6);
@@ -95,46 +91,40 @@ export function SalarieOverviewSection({
         ]}
       />
 
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
-        <Panel
-          title="Mes dépôts"
-          description="Volume mensuel, six derniers mois."
-          className="lg:col-span-2"
-        >
-          <ConsoleMonthlyBars points={documentsByMonth} valueLabel="documents" />
-        </Panel>
-
-        <Panel
-          title="À déposer"
-          description="Demandes RH en attente de votre part."
-          action={action}
-        >
-          {priorities.length === 0 ? (
-            <p className="text-app-sm text-app-text-muted">Aucune demande en attente.</p>
-          ) : (
-            <ul className="divide-y divide-app-line">
-              {priorities.map((request) => (
-                <li key={request.id}>
-                  <Link
-                    href="/dashboard/salarie/documents/a-deposer"
-                    className="-mx-2 flex items-start gap-3 rounded-app-control px-2 py-3 transition-colors hover:bg-app-surface-hover focus-visible:outline-app"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-app-sm font-medium text-app-text">
-                        {request.typeLabel}
-                      </p>
-                    <p className="mt-1 text-app-xs text-app-text-muted">
-                      {`Échéance ${formatDate(request.dueAt)} · Période ${formatMonth(request.periodMonth)}`}
+      {/*
+        Un seul panneau, en pleine largeur : le graphique du volume mensuel a ete retire, et
+        la grille a trois colonnes n'avait plus rien a repartir.
+      */}
+      <Panel
+        title="À déposer"
+        description="Demandes RH en attente de votre part."
+        action={action}
+      >
+        {priorities.length === 0 ? (
+          <p className="text-app-sm text-app-text-muted">Aucune demande en attente.</p>
+        ) : (
+          <ul className="divide-y divide-app-line">
+            {priorities.map((request) => (
+              <li key={request.id}>
+                <Link
+                  href="/dashboard/salarie/documents/a-deposer"
+                  className="-mx-2 flex items-start gap-3 rounded-app-control px-2 py-3 transition-colors hover:bg-app-surface-hover focus-visible:outline-app"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-app-sm font-medium text-app-text">
+                      {request.typeLabel}
                     </p>
-                  </div>
-                    <ConsoleStatusBadge status={request.status} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-      </div>
+                  <p className="mt-1 text-app-xs text-app-text-muted">
+                    {`Échéance ${formatDate(request.dueAt)} · Période ${formatMonth(request.periodMonth)}`}
+                  </p>
+                </div>
+                  <ConsoleStatusBadge status={request.status} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
     </div>
   );
 }

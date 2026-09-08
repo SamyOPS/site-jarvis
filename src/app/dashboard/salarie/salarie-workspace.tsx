@@ -33,7 +33,6 @@ import {
   sortCraEntries,
   WEEKDAY_LABELS,
 } from "@/domain/cra";
-import { buildMonthlyDocumentCounts } from "@/domain/documents";
 import { useCraEditor } from "@/features/dashboard/cra/use-cra-editor";
 import { useDocumentFilters } from "@/features/dashboard/documents/document-filters";
 import type { SalarieWorkspaceRouteProps } from "@/features/dashboard/salarie/navigation";
@@ -1106,11 +1105,6 @@ export default function SalarieWorkspace({
     return activeDocuments;
   }, [activeDocuments, currentFolderId, currentSubSection]);
 
-  /** Volume mensuel reel des depots. Meme calcul que l'espace RH. */
-  const documentsByMonth = useMemo(
-    () => buildMonthlyDocumentCounts(activeDocuments),
-    [activeDocuments],
-  );
   const documentTypeOptions = useMemo(
     () => {
       const options = new Set(filteredDocuments.map((document) => document.typeLabel));
@@ -1233,7 +1227,6 @@ export default function SalarieWorkspace({
               documentsCount={activeDocuments.length}
               validatedDocumentsCount={activeDocuments.filter((document) => document.status === "validated").length}
               pendingRequests={pendingRequests}
-              documentsByMonth={documentsByMonth}
               action={
                 <Button type="button" variant="outline" size="sm" onClick={() => openUploadDialog()}>
                   Deposer un document
