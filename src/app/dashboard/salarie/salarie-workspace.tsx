@@ -6,7 +6,7 @@ import type { Session, User } from "@supabase/supabase-js";
 
 import type { BillingProfileFormState } from "@/components/dashboard/billing-profile-card";
 import type { LeaveRequestPayload } from "@/components/dashboard/salarie/leave-request-editor";
-import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
+import { ConsoleLoadingSkeleton } from "@/components/console/feedback/loading-skeleton";
 import { ConsoleShell } from "@/components/console/shell/console-shell";
 import { SalarieDocumentsSection } from "@/components/dashboard/salarie-documents-section";
 import { SalarieOffersSection } from "@/components/dashboard/salarie-offers-section";
@@ -1210,7 +1210,13 @@ export default function SalarieWorkspace({
       hidePageHeader
       notifications={consoleNotifications}
     >
-      <div className="space-y-4">
+      {/*
+        Le contenu est MASQUE — et non demonte — pendant le premier chargement : le
+        squelette prend sa place juste dessous. Le garder monte evite de recreer tous les
+        etats des sections quand les donnees arrivent, et `display:none` le retire aussi
+        de l'arbre d'accessibilite, donc rien n'est lu deux fois.
+      */}
+      <div className={loading ? "hidden" : "space-y-4"}>
           {(!supabase || error) && (
             <StatusNotice
               tone="error"
@@ -1355,7 +1361,12 @@ export default function SalarieWorkspace({
           )}
       </div>
 
-      {loading && <DashboardLoadingOverlay message="Chargement..." />}
+      {loading && (
+        <ConsoleLoadingSkeleton
+          label="Chargement des données..."
+          showStats={currentSection === "overview"}
+        />
+      )}
 
       <ConsoleResultDialog
         result={generationResult}

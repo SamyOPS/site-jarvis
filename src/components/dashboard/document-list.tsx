@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { MoreVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreVertical } from "lucide-react";
 
 import type { DocumentListItem } from "@/domain/documents";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,12 @@ import {
 } from "@/features/dashboard/document-list/formatters";
 import { useColumnPreferences } from "@/features/dashboard/document-list/use-column-preferences";
 
+/**
+ * Tailles de page proposees. La plus petite sert aussi de seuil d'apparition de la barre
+ * de pagination : en dessous, la liste tient d'un seul tenant.
+ */
+const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+
 type DashboardDocumentListProps<T extends DocumentListItem> = {
   items: T[];
   renderActions?: (item: T, closeMenu: () => void) => ReactNode;
@@ -34,6 +40,11 @@ type DashboardDocumentListProps<T extends DocumentListItem> = {
   /** Nom de l'element compte a droite de la barre d'outils. */
   countLabelSingular?: string;
   countLabelPlural?: string;
+  /**
+   * Nombre de lignes par page. Doit figurer dans `PAGE_SIZE_OPTIONS`, faute de quoi le
+   * choix affiche ne correspondrait a aucune option du menu.
+   */
+  defaultPageSize?: 25 | 50 | 100;
   onItemDoubleClick?: (item: T) => void;
   isItemDoubleClickable?: (item: T) => boolean;
   getDraggableId?: (item: T) => string | null;
@@ -55,6 +66,7 @@ export function DashboardDocumentList<T extends DocumentListItem>({
   toolbar,
   countLabelSingular = "document",
   countLabelPlural = "documents",
+  defaultPageSize = 25,
   onItemDoubleClick,
   isItemDoubleClickable,
   getDraggableId,
@@ -85,6 +97,47 @@ export function DashboardDocumentList<T extends DocumentListItem>({
     storageScope,
     preferencesAuthToken,
   });
+
+  const [pageSize, setPageSize] = useState<number>(defaultPageSize);
+  const [requestedPage, setRequestedPage] = useState(1);
+
+  /*
+    Retour a la premiere page quand la liste change de taille — typiquement un filtre qui
+    vient d'etre pose. Rester en page 3 apres un filtrage montrerait des lignes qui n'ont
+    plus rien a voir avec ce que l'on vient de demander.
+
+    L'ajustement se fait PENDANT le rendu, pas dans un effet : c'est le motif que React
+    prescrit pour deriver un etat d'une prop qui bouge. Un effet aurait laisse passer un
+    rendu intermediaire sur la mauvaise page, visible a l'ecran.
+  */
+  const [lastItemCount, setLastItemCount] = useState(items.length);
+  if (lastItemCount !== items.length) {
+    setLastItemCount(items.length);
+    setRequestedPage(1);
+  }
+
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  /*
+    La page est BORNEE au rendu. Passer de 100 a 25 lignes par page, ou filtrer une liste
+    de dix pages jusqu'a deux, laisserait sinon `requestedPage` pointer au-dela de la fin
+    et la page s'afficherait vide.
+  */
+  const page = Math.min(requestedPage, pageCount);
+  const firstIndex = (page - 1) * pageSize;
+  const pageItems = useMemo(
+    () => items.slice(firstIndex, firstIndex + pageSize),
+    [firstIndex, items, pageSize],
+  );
+
+  const goToPage = useCallback(
+    (next: number) => {
+      setRequestedPage(next);
+      // Le menu d'actions est positionne en `fixed` au moment du clic : le laisser ouvert
+      // apres un changement de page le collerait a une ligne qui n'est plus la.
+      closeActionMenu();
+    },
+    [closeActionMenu],
+  );
 
   useEffect(() => {
     if (!actionMenuId) return;
@@ -182,7 +235,7 @@ export function DashboardDocumentList<T extends DocumentListItem>({
             </tr>
           </thead>
           <tbody className="divide-y divide-app-line">
-            {items.map((item) => (
+            {pageItems.map((item) => (
               <tr
                 key={item.id}
                 className={`transition-colors hover:bg-app-surface-hover ${dragOverItemId === item.id ? "bg-app-surface-hover/70" : ""} ${(isItemDoubleClickable ? isItemDoubleClickable(item) : false) ? "cursor-pointer" : ""}`}
@@ -351,6 +404,76 @@ export function DashboardDocumentList<T extends DocumentListItem>({
           </tbody>
         </table>
       </div>
+
+      {/*
+        Barre de pagination, dans le cadre et separee par un filet — symetrique de la barre
+        d'outils du haut.
+
+        Elle n'apparait qu'au-dela de la plus petite taille de page : sous ce seuil il n'y a
+        ni page a tourner, ni raison d'offrir un choix de taille. Le seuil est la plus
+        PETITE option et non `pageSize` : choisir 100 pour trente lignes ne doit pas faire
+        disparaitre le menu qui vient de servir.
+      */}
+      {items.length > PAGE_SIZE_OPTIONS[0] ? (
+        <nav
+          aria-label="Pagination des documents"
+          className="flex flex-wrap items-center gap-3 border-t border-app-line p-4 text-app-sm"
+        >
+          <label className="flex items-center gap-2 text-app-text-secondary">
+            Par page
+            <select
+              value={pageSize}
+              onChange={(event) => {
+                setPageSize(Number(event.target.value));
+                // Le premier element visible change de place : on repart du debut plutot
+                // que d'atterrir au milieu de nulle part.
+                goToPage(1);
+              }}
+              className="h-8 rounded-app-control border border-app-line bg-app-field px-2 text-app-sm text-app-text focus-visible:outline-app"
+            >
+              {PAGE_SIZE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/*
+            `aria-live` : tourner une page ne deplace pas le focus, un lecteur d'ecran
+            n'aurait donc rien annonce. La plage remplace le decompte pour dire OU l'on est.
+          */}
+          <span aria-live="polite" className="text-app-text-muted">
+            {`${firstIndex + 1}–${Math.min(firstIndex + pageSize, items.length)} sur ${items.length}`}
+          </span>
+
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => goToPage(page - 1)}
+              disabled={page <= 1}
+              aria-label="Page precedente"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="px-2 text-app-text-secondary">
+              {`Page ${page} sur ${pageCount}`}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => goToPage(page + 1)}
+              disabled={page >= pageCount}
+              aria-label="Page suivante"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </nav>
+      ) : null}
 
       {/*
         Menu d'actions, rendu UNE SEULE FOIS hors du tableau et positionne en `fixed`.

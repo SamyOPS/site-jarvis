@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, Pencil, Upload } from "lucide-react";
+import { ArrowLeft, ChevronDown, FilePlus, Pencil } from "lucide-react";
 
 import { ConsoleStatRow } from "@/components/console/overview/stat-row";
 import { ConsoleStatusBadge } from "@/components/console/overview/status-badge";
@@ -15,6 +15,7 @@ import {
 import { MissionsCard, type MissionFormState, type MissionItem } from "@/components/dashboard/missions-card";
 import { Button } from "@/components/ui/button";
 import type { DocumentListItem } from "@/domain/documents";
+import { useDismissable } from "@/hooks/use-dismissable";
 
 /**
  * Profil de facturation en cours d'edition.
@@ -90,6 +91,8 @@ type CollaborateurDetailProps<TDoc extends DetailDocumentItem> = {
   };
 
   requests: DetailRequest[];
+  /** Ouvre le dialogue de demande, deja pointe sur ce collaborateur. */
+  onRequestDocument: () => void;
   applications: DetailApplication[];
 
   documents: {
@@ -113,27 +116,88 @@ type CollaborateurDetailProps<TDoc extends DetailDocumentItem> = {
   };
 };
 
-/** Carte de la console : un cadre, un filet, pas d'ombre. Meme forme que le tableau de bord. */
+type PanelMenuItem = { label: string; onSelect: () => void };
+
+/**
+ * Carte de la console : un cadre, un filet, pas d'ombre. Meme forme que le tableau de bord.
+ *
+ * `menu` transforme le titre en declencheur de menu deroulant, comme le titre de la liste
+ * de documents principale. `actions` pose des boutons a droite. Les deux se combinent, mais
+ * une carte n'a en general besoin que de l'un des deux.
+ */
 function Panel({
   title,
   description,
   actions,
+  menu,
   className,
   children,
 }: {
   title: string;
   description?: string;
   actions?: ReactNode;
+  menu?: PanelMenuItem[];
   className?: string;
   children: ReactNode;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useDismissable<HTMLDivElement>(menuOpen, () => setMenuOpen(false));
+
   return (
     <section
       className={`rounded-app-card border border-app-line bg-app-surface p-5 ${className ?? ""}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-app-md font-semibold text-app-text">{title}</h2>
+          {menu?.length ? (
+            <div ref={menuRef} className="relative">
+              {/*
+                Le bouton reste DANS le `h2` : c'est un titre de section avant d'etre un
+                declencheur, et le sortir du titre priverait la page d'un niveau de plan
+                pour les lecteurs d'ecran.
+              */}
+              <h2 className="text-app-md font-semibold text-app-text">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((open) => !open)}
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  className="-mx-2 flex items-center gap-2 rounded-app-control px-2 py-1 transition-colors hover:bg-app-surface-hover focus-visible:outline-app"
+                >
+                  {title}
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={`h-4 w-4 transition-transform ${menuOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+              </h2>
+
+              {menuOpen ? (
+                <div
+                  role="menu"
+                  aria-label={`Actions pour ${title}`}
+                  className="absolute left-0 top-full z-20 mt-1 w-56 rounded-app-card border border-app-line bg-app-raised p-1 shadow-app-raised"
+                >
+                  {menu.map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        item.onSelect();
+                      }}
+                      className="flex w-full items-center rounded-app-control px-3 py-2 text-left text-app-sm text-app-text transition-colors hover:bg-app-surface-hover focus-visible:outline-app"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <h2 className="text-app-md font-semibold text-app-text">{title}</h2>
+          )}
           {description ? (
             <p className="mt-1 text-app-sm text-app-text-secondary">{description}</p>
           ) : null}
@@ -177,7 +241,7 @@ const EMPLOYMENT_OPTIONS = [
  *   1. identite, carte HORIZONTALE pleine largeur ;
  *   2. quatre tuiles chiffrees ;
  *   3. informations, carte HORIZONTALE pleine largeur — dix champs etouffent en colonne ;
- *   4. entreprises / demandes / candidatures, TROIS cartes VERTICALES cote a cote ;
+ *   4. entreprises / demandes, DEUX cartes VERTICALES cote a cote ;
  *   5. documents, carte HORIZONTALE pleine largeur — un tableau reclame la largeur.
  *
  * Il n'y a plus d'onglets : tout est visible d'un coup. Les entreprises clientes en
@@ -203,6 +267,7 @@ export function ConsoleCollaborateurDetail<TDoc extends DetailDocumentItem>({
   onSave,
   missions,
   requests,
+  onRequestDocument,
   applications,
   documents,
 }: CollaborateurDetailProps<TDoc>) {
@@ -486,11 +551,13 @@ export function ConsoleCollaborateurDetail<TDoc extends DetailDocumentItem>({
       </Panel>
 
       {/*
-        Trois cartes VERTICALES cote a cote — la meme rangee de trois que le tableau de
-        bord. Ce sont des listes courtes : elles gagnent en hauteur ce qu'elles n'ont pas
-        besoin de prendre en largeur.
+        Deux cartes VERTICALES cote a cote. Ce sont des listes courtes : elles gagnent en
+        hauteur ce qu'elles n'ont pas besoin de prendre en largeur.
+
+        Deux colonnes et non trois : la carte des candidatures a ete retiree, et une grille
+        a trois colonnes aurait laisse un tiers vide a droite.
       */}
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
         <MissionsCard
           missions={missions.items}
           onSave={missions.onSave}
@@ -502,7 +569,16 @@ export function ConsoleCollaborateurDetail<TDoc extends DetailDocumentItem>({
           description="Chaque entreprise porte son tarif et son unité."
         />
 
-        <Panel title="Demandes" description="Documents réclamés à ce collaborateur.">
+        <Panel
+          title="Demandes"
+          description="Documents réclamés à ce collaborateur."
+          actions={
+            <Button type="button" variant="outline" size="sm" onClick={onRequestDocument}>
+              <FilePlus className="mr-2 h-4 w-4" />
+              Demander
+            </Button>
+          }
+        >
           {requests.length === 0 ? (
             <p className="text-app-sm text-app-text-muted">Aucune demande.</p>
           ) : (
@@ -522,37 +598,17 @@ export function ConsoleCollaborateurDetail<TDoc extends DetailDocumentItem>({
             </ul>
           )}
         </Panel>
-
-        <Panel title="Candidatures" description="Offres auxquelles il a postulé.">
-          {applications.length === 0 ? (
-            <p className="text-app-sm text-app-text-muted">Aucune candidature.</p>
-          ) : (
-            <ul className="divide-y divide-app-line">
-              {applications.map((application) => (
-                <li key={application.id} className="flex items-center gap-3 py-3">
-                  <span className="min-w-0 flex-1 truncate text-app-sm text-app-text">
-                    {application.jobTitle}
-                  </span>
-                  <span className="shrink-0 rounded-app-control border border-app-line px-2 py-1 text-app-xs text-app-text-secondary">
-                    {application.status}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
       </div>
 
       {/* Documents — carte HORIZONTALE : un tableau a six colonnes reclame la largeur. */}
       <Panel
         title="Documents"
         description="Déposés par le collaborateur ou par les RH."
-        actions={
-          <Button type="button" variant="outline" size="sm" onClick={documents.onImport}>
-            <Upload className="mr-2 h-4 w-4" />
-            Importer
-          </Button>
-        }
+        /*
+          Menu sur le titre plutot qu'un bouton a droite : c'est la forme de la liste de
+          documents principale, et il accueillera d'autres entrees sans s'allonger.
+        */
+        menu={[{ label: "Importer des documents", onSelect: documents.onImport }]}
       >
         {documents.totalCount === 0 ? (
           <p className="text-app-sm text-app-text-muted">Aucun document.</p>

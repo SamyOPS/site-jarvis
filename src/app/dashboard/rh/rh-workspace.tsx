@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
-import { DashboardLoadingOverlay } from "@/components/dashboard/loading-overlay";
+import { ConsoleLoadingSkeleton } from "@/components/console/feedback/loading-skeleton";
 import { RhOffersSection } from "@/components/dashboard/rh-offers-section";
 import { RhDocumentsSection } from "@/components/dashboard/rh-documents-section";
 import type { RhLeaveRequestPayload } from "@/components/dashboard/rh/leave-request-editor";
@@ -1833,7 +1833,13 @@ export default function RhWorkspace({
       hidePageHeader
       notifications={consoleNotifications}
     >
-      <div className="space-y-4">
+      {/*
+        Le contenu est MASQUE — et non demonte — pendant le premier chargement : le
+        squelette prend sa place juste dessous. Le garder monte evite de recreer tous les
+        etats des sections quand les donnees arrivent, et `display:none` le retire aussi
+        de l'arbre d'accessibilite, donc rien n'est lu deux fois.
+      */}
+      <div className={loading ? "hidden" : "space-y-4"}>
           {(!supabase || error) && (
             <StatusNotice
               tone="error"
@@ -1887,6 +1893,7 @@ export default function RhWorkspace({
                   message: missionsMessage,
                 }}
                 requests={selectedEmployeeRequests}
+                onRequestDocument={() => openRequestDialog(selectedEmployee.id)}
                 applications={selectedEmployeeApplications}
                 documents={{
                   items: selectedEmployeeDocumentListItems,
@@ -2116,7 +2123,12 @@ export default function RhWorkspace({
         uploading={batchForm.uploading}
       />
 
-      {loading && <DashboardLoadingOverlay message="Chargement des donnees..." />}
+      {loading && (
+        <ConsoleLoadingSkeleton
+          label="Chargement des données..."
+          showStats={currentSection === "overview"}
+        />
+      )}
     </ConsoleShell>
   );
 }
