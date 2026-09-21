@@ -64,6 +64,14 @@ export type ConsoleNavConfig = {
   settingsLabel: string;
   groups: ConsoleNavGroup[];
   /**
+   * Guide d'utilisation de l'espace, servi comme fichier statique depuis `public/`.
+   * Alimente l'entree « Documentation » du pied de la barre laterale.
+   *
+   * Propre au role : un salarie n'a rien a faire du guide RH, et l'inverse est vrai.
+   * Absent = l'entree reste grisee, comme avant qu'un guide existe.
+   */
+  documentationHref?: string;
+  /**
    * Libelle du dernier fil d'Ariane pour les routes qui n'ont pas d'entree
    * de navigation dediee (fiche collaborateur, parametres...).
    */
@@ -73,15 +81,22 @@ export type ConsoleNavConfig = {
 /**
  * Lien du pied de la barre laterale.
  *
- * `href` est OPTIONNEL a dessein : le centre d'aide, la documentation et le changelog
- * n'ont aucune page dans l'application. Plutot que d'inventer des destinations ou de
- * pointer vers une page sans rapport, une entree sans `href` s'affiche en grise et ne
- * navigue pas. Renseigner l'adresse suffit a l'activer.
+ * `href` est OPTIONNEL a dessein : toutes ces entrees n'ont pas de destination dans
+ * l'application. Plutot que d'inventer une adresse ou de pointer vers une page sans
+ * rapport, une entree sans `href` s'affiche en grise et ne navigue pas. Renseigner
+ * l'adresse suffit a l'activer.
  */
 export type ConsoleFooterLink = {
   label: string;
   href?: string;
   icon: LucideIcon;
+  /**
+   * Destination hors routage : fichier statique de `public/`, ou site tiers. Rendue par
+   * un `<a>` ouvrant un nouvel onglet, et non par `<Link>` — le routeur ne sait pas
+   * naviguer vers un PDF, et l'utilisateur ne doit pas perdre l'ecran sur lequel il
+   * travaille pour consulter un guide.
+   */
+  external?: boolean;
 };
 
 /** Encart d'annonce en pied de barre laterale. Masque tant que `title` est absent. */
@@ -102,11 +117,14 @@ export type ConsoleFooter = {
 };
 
 /**
- * Pied commun aux deux espaces : le contenu ne depend pas du role.
+ * Part commune du pied de barre laterale : elle ne depend pas du role.
  *
  * L'encart reprend la forme de la maquette (surtitre, titre, une phrase, un lien). Son
  * texte decrit le chantier en cours plutot qu'une version fictive : annoncer une release
  * qui n'existe pas serait une fausse communication produit.
+ *
+ * L'entree « Documentation » ne figure PAS ici : elle pointe vers le guide du role, et
+ * c'est `getConsoleFooter` qui la compose.
  */
 export const CONSOLE_FOOTER: ConsoleFooter = {
   note: {
@@ -115,14 +133,33 @@ export const CONSOLE_FOOTER: ConsoleFooter = {
     description: "Navigation repensée et mise en page allégée.",
     linkLabel: "En savoir plus",
   },
-  links: [
-    { label: "Centre d'aide", href: "/contact", icon: CircleHelp },
-    { label: "Documentation", icon: BookOpen },
-  ],
+  links: [{ label: "Centre d'aide", href: "/contact", icon: CircleHelp }],
   // Repris tel quel du pied du site public. Sans annee calculee : `new Date()` au
   // chargement du module ferait diverger le rendu serveur et le rendu client.
   legal: "Jarvis Connect - Tous droits réservés",
 };
+
+/**
+ * Pied de barre laterale pour un espace donne.
+ *
+ * Seule l'entree « Documentation » varie : chaque espace renvoie vers son propre guide.
+ * Sans `documentationHref`, l'entree reste affichee mais grisee — l'emplacement ne
+ * disparait pas de l'interface parce qu'un guide manque.
+ */
+export function getConsoleFooter(config: ConsoleNavConfig): ConsoleFooter {
+  return {
+    ...CONSOLE_FOOTER,
+    links: [
+      ...CONSOLE_FOOTER.links,
+      {
+        label: "Documentation",
+        href: config.documentationHref,
+        icon: BookOpen,
+        external: true,
+      },
+    ],
+  };
+}
 
 /* ---------------------------------------------------------------------------
  * Espace RH
@@ -135,6 +172,7 @@ export const RH_NAV_CONFIG: ConsoleNavConfig = {
   rootLabel: "Espace RH",
   settingsHref: "/dashboard/rh/parametres",
   settingsLabel: "Paramètres",
+  documentationHref: "/docs/guide-espace-rh.pdf",
   groups: [
     {
       label: "Vue d'ensemble",
@@ -256,6 +294,7 @@ export const SALARIE_NAV_CONFIG: ConsoleNavConfig = {
   rootLabel: "Espace salarié",
   settingsHref: "/dashboard/salarie/parametres",
   settingsLabel: "Paramètres",
+  documentationHref: "/docs/guide-espace-salarie.pdf",
   groups: [
     {
       label: "Vue d'ensemble",

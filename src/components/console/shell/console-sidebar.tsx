@@ -7,8 +7,8 @@ import { ChevronDown, PanelLeft, PanelLeftClose } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConsoleMark } from "@/components/console/shell/console-mark";
 import {
-  CONSOLE_FOOTER,
   getActiveChild,
+  getConsoleFooter,
   isChildActive,
   isEntryActive,
   type ConsoleNavConfig,
@@ -42,6 +42,9 @@ export function ConsoleSidebar({
    * replie sur l'autre — elles ne sont jamais visibles en meme temps.
    */
   const [openEntries, setOpenEntries] = useState<Record<string, boolean>>({});
+
+  /** Le pied depend du role : chaque espace renvoie vers son propre guide. */
+  const footer = getConsoleFooter(config);
 
   return (
     <aside
@@ -241,39 +244,42 @@ export function ConsoleSidebar({
         Entierement masque quand la barre est repliee — a 64px de large, l'encart serait
         illisible et les liens tronques.
 
-        Une entree sans `href` n'est PAS un lien : le centre d'aide, la documentation et le
-        changelog n'ont pas tous une page. Rendre un <a> vers nulle part donnerait un lien
-        qui parait actif et ne fait rien ; on affiche donc un texte grise, marque
-        `aria-disabled`, qu'il suffit de pointer pour activer.
+        Une entree sans `href` n'est PAS un lien : toutes n'ont pas de destination. Rendre
+        un <a> vers nulle part donnerait un lien qui parait actif et ne fait rien ; on
+        affiche donc un texte grise, marque `aria-disabled`, qu'il suffit de pointer pour
+        activer.
+
+        « Documentation » est le seul lien qui varie d'un espace a l'autre : il ouvre le
+        guide du role, un PDF de `public/docs`, dans un nouvel onglet.
       */}
       {!collapsed && (
         <div className="shrink-0 border-t border-app-line px-3 py-4">
           {/* Filet separant l'annonce des liens d'aide : deux blocs de nature differente. */}
-          {CONSOLE_FOOTER.note && (
+          {footer.note && (
             <div className="mb-4 border-b border-app-line pb-4">
               <p className="text-app-2xs font-medium tracking-wider text-app-text-muted uppercase">
-                {CONSOLE_FOOTER.note.eyebrow}
+                {footer.note.eyebrow}
               </p>
               <p className="mt-2 text-app-xs font-semibold text-app-text">
-                {CONSOLE_FOOTER.note.title}
+                {footer.note.title}
               </p>
               <p className="mt-1 text-app-xs text-app-text-muted">
-                {CONSOLE_FOOTER.note.description}
+                {footer.note.description}
               </p>
-              {CONSOLE_FOOTER.note.href ? (
+              {footer.note.href ? (
                 <Link
-                  href={CONSOLE_FOOTER.note.href}
+                  href={footer.note.href}
                   onClick={onNavigate}
                   className="mt-2 inline-block text-app-xs text-app-text-secondary underline underline-offset-2 transition-colors hover:text-app-text focus-visible:outline-app"
                 >
-                  {CONSOLE_FOOTER.note.linkLabel}
+                  {footer.note.linkLabel}
                 </Link>
               ) : (
                 <span
                   aria-disabled="true"
                   className="mt-2 inline-block text-app-xs text-app-text-muted"
                 >
-                  {CONSOLE_FOOTER.note.linkLabel}
+                  {footer.note.linkLabel}
                 </span>
               )}
             </div>
@@ -281,21 +287,20 @@ export function ConsoleSidebar({
 
           {/* Meme gabarit que les entrees de navigation : icone 16px, gap-3, hauteur 32px. */}
           <ul className="space-y-1">
-            {CONSOLE_FOOTER.links.map((link) => {
+            {footer.links.map((link) => {
               const Icon = link.icon;
+              const rowClass =
+                "flex h-9 items-center gap-3 rounded-app-control px-3 text-app-sm text-app-text-secondary transition-colors hover:bg-app-surface-hover hover:text-app-text focus-visible:outline-app";
+              const rowContent = (
+                <>
+                  <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-app-text-muted" />
+                  <span className="truncate">{link.label}</span>
+                </>
+              );
 
               return (
                 <li key={link.label}>
-                  {link.href ? (
-                    <Link
-                      href={link.href}
-                      onClick={onNavigate}
-                      className="flex h-9 items-center gap-3 rounded-app-control px-3 text-app-sm text-app-text-secondary transition-colors hover:bg-app-surface-hover hover:text-app-text focus-visible:outline-app"
-                    >
-                      <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-app-text-muted" />
-                      <span className="truncate">{link.label}</span>
-                    </Link>
-                  ) : (
+                  {!link.href ? (
                     <span
                       aria-disabled="true"
                       className="flex h-9 items-center gap-3 px-3 text-app-sm text-app-text-muted/60"
@@ -303,6 +308,28 @@ export function ConsoleSidebar({
                       <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
                       <span className="truncate">{link.label}</span>
                     </span>
+                  ) : link.external ? (
+                    /*
+                      `<a>` et non `<Link>` : la cible est un fichier de `public/`, que le
+                      routeur ne sait pas atteindre. Le nouvel onglet est annonce aux
+                      lecteurs d'ecran — une ouverture inattendue, muette, desoriente.
+
+                      Pas de `onNavigate` : le tiroir mobile n'a pas a se fermer alors que
+                      la page reste affichee.
+                    */
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={rowClass}
+                    >
+                      {rowContent}
+                      <span className="sr-only">(nouvel onglet)</span>
+                    </a>
+                  ) : (
+                    <Link href={link.href} onClick={onNavigate} className={rowClass}>
+                      {rowContent}
+                    </Link>
                   )}
                 </li>
               );
@@ -310,7 +337,7 @@ export function ConsoleSidebar({
           </ul>
 
           <p className="mt-4 px-3 text-app-2xs text-app-text-muted/70">
-            {CONSOLE_FOOTER.legal}
+            {footer.legal}
           </p>
         </div>
       )}
