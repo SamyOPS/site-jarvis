@@ -135,6 +135,33 @@ function isMissingRelationError(error: { code?: string; message?: string } | nul
   return error.code === "42P01" || /does not exist/i.test(error.message ?? "");
 }
 
+type PostgrestErrorLike = {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+};
+
+/**
+ * Detail complet d'une erreur Postgres.
+ *
+ * `message` seul ne suffit pas a identifier ce qui bloque : c'est `details` qui nomme la
+ * contrainte et la ligne fautive, et `code` qui dit s'il s'agit d'une cle etrangere
+ * (23503), d'une contrainte de verification (23514) ou d'un NOT NULL (23502). Une
+ * suppression qui echoue sans laisser de trace exploitable oblige a deviner — ce qui a
+ * coute plusieurs allers-retours sur ce defaut precis.
+ */
+function describeError(error: PostgrestErrorLike) {
+  return [
+    error.message ?? "erreur inconnue",
+    error.code ? `[${error.code}]` : null,
+    error.details ? `details: ${error.details}` : null,
+    error.hint ? `hint: ${error.hint}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 /**
  * Supprime les donnees personnelles rattachees a un compte avant sa suppression.
  *
@@ -175,6 +202,21 @@ async function purgeUserData(adminClient: SupabaseClient, userId: string) {
         throw new Error(`Suppression des fichiers impossible : ${storageError.message}`);
       }
     }
+  }
+
+  /*
+    Photo de profil. C'est une donnee personnelle stockee hors de la table : la laisser
+    ferait survivre le portrait d'un compte efface. L'echec n'interrompt pas — un fichier
+    orphelin dans un bucket est moins grave qu'une suppression bloquee a mi-chemin.
+  */
+  const { data: avatarProfile } = await adminClient
+    .from("profiles")
+    .select("avatar_url")
+    .eq("id", userId)
+    .maybeSingle();
+  const avatarPath = (avatarProfile as { avatar_url?: string | null } | null)?.avatar_url;
+  if (avatarPath) {
+    await adminClient.storage.from("avatars").remove([avatarPath]);
   }
 
   const documentIds = documentRows.map((row) => row.id);
@@ -245,12 +287,90 @@ async function purgeUserData(adminClient: SupabaseClient, userId: string) {
       label: "profile_cvs",
       run: () => adminClient.from("profile_cvs").delete().eq("user_id", userId),
     },
+    {
+      // Preferences d'affichage : strictement personnelles. Aucune cle etrangere ne les
+      // rattache au profil, elles survivaient donc au compte sans jamais le signaler.
+      label: "user_dashboard_preferences",
+      run: () =>
+        adminClient.from("user_dashboard_preferences").delete().eq("user_id", userId),
+    },
+    {
+      // Candidatures : donnees du candidat lui-meme, et `candidate_id` est NOT NULL —
+      // elles retenaient la suppression de tout compte ayant postule.
+      label: "applications",
+      run: () => adminClient.from("applications").delete().eq("candidate_id", userId),
+    },
   ];
 
-  for (const step of steps) {
-    const { error } = (await step.run()) as { error: { code?: string; message?: string } | null };
+  /*
+    Ce dont le compte est l'AUTEUR, et non le sujet.
+    
+    Ces lignes concernent d'autres personnes : le document televerse appartient au
+    collaborateur, pas au RH qui l'a depose ; la demande attend une piece d'un tiers. Les
+    supprimer effacerait le dossier de quelqu'un d'autre. On detache donc l'auteur, comme
+    le fait `messages.sender_id` a la suppression d'un compte.
+
+    C'est ce qui manquait pour supprimer un compte RH : ses depots pour autrui le
+    retenaient, et `employee_documents.uploaded_by` etait NOT NULL (voir la migration
+    20260922030000, indispensable a cette etape).
+  */
+  const detachSteps: Array<{ label: string; run: () => PromiseLike<{ error: unknown }> }> = [
+    {
+      label: "employee_documents (deposant)",
+      run: () =>
+        adminClient
+          .from("employee_documents")
+          .update({ uploaded_by: null })
+          .eq("uploaded_by", userId),
+    },
+    {
+      label: "employee_documents (controleur)",
+      run: () =>
+        adminClient
+          .from("employee_documents")
+          .update({ reviewed_by: null })
+          .eq("reviewed_by", userId),
+    },
+    {
+      label: "rh_employee_assignments (auteur)",
+      run: () =>
+        adminClient
+          .from("rh_employee_assignments")
+          .update({ created_by: null })
+          .eq("created_by", userId),
+    },
+    {
+      label: "document_requests (demandeur)",
+      run: () =>
+        adminClient
+          .from("document_requests")
+          .update({ requested_by: null })
+          .eq("requested_by", userId),
+    },
+    {
+      label: "job_offers (auteur)",
+      run: () =>
+        adminClient.from("job_offers").update({ created_by: null }).eq("created_by", userId),
+    },
+    {
+      label: "news (auteur)",
+      run: () => adminClient.from("news").update({ author_id: null }).eq("author_id", userId),
+    },
+  ];
+
+  for (const step of detachSteps) {
+    const { error } = (await step.run()) as { error: PostgrestErrorLike | null };
     if (error && !isMissingRelationError(error)) {
-      throw new Error(`Suppression ${step.label} impossible : ${error.message}`);
+      console.error("[admin] detachement echoue", { step: step.label, userId, error });
+      throw new Error(`Detachement ${step.label} impossible : ${describeError(error)}`);
+    }
+  }
+
+  for (const step of steps) {
+    const { error } = (await step.run()) as { error: PostgrestErrorLike | null };
+    if (error && !isMissingRelationError(error)) {
+      console.error("[admin] purge echouee", { step: step.label, userId, error });
+      throw new Error(`Suppression ${step.label} impossible : ${describeError(error)}`);
     }
   }
 
@@ -291,7 +411,14 @@ export const DELETE = withActor<RouteContext>(
       .delete()
       .eq("id", targetUserId);
     if (deleteProfileError) {
-      throw new ApiError(deleteProfileError.message, 400);
+      console.error("[admin] suppression du profil echouee", {
+        userId: targetUserId,
+        error: deleteProfileError,
+      });
+      throw new ApiError(
+        `Suppression du profil impossible : ${describeError(deleteProfileError)}`,
+        400,
+      );
     }
 
     const { error: deleteAuthError } = await authorized.adminClient.auth.admin.deleteUser(

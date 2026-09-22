@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeft, ChevronDown, FilePlus, Pencil } from "lucide-react";
 
 import { ConsoleStatRow } from "@/components/console/overview/stat-row";
+import { AvatarBubble } from "@/components/console/avatar-bubble";
 import { ConsoleStatusBadge } from "@/components/console/overview/status-badge";
 import { ConsoleEmploymentBadge } from "@/components/console/collaborateurs/collaborateurs-table";
 import { DashboardDocumentList } from "@/components/dashboard/document-list";
@@ -65,6 +66,8 @@ type CollaborateurDetailProps<TDoc extends DetailDocumentItem> = {
     email: string;
     /** Telephone du compte, distinct du telephone de facturation. */
     phone: string | null;
+    /** Photo de profil, ou `null` : la pastille retombe sur les initiales. */
+    avatarUrl: string | null;
   };
   lastSignInLabel: string;
   isOnline: boolean;
@@ -271,17 +274,6 @@ export function ConsoleCollaborateurDetail<TDoc extends DetailDocumentItem>({
   applications,
   documents,
 }: CollaborateurDetailProps<TDoc>) {
-  const initials = useMemo(() => {
-    const source = employee.name.trim() || employee.email;
-    return (
-      source
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((part) => part.charAt(0).toUpperCase())
-        .join("") || "?"
-    );
-  }, [employee.email, employee.name]);
-
   const openRequestsCount = requests.filter(
     (request) => !["validated", "cancelled"].includes(request.status),
   ).length;
@@ -291,12 +283,13 @@ export function ConsoleCollaborateurDetail<TDoc extends DetailDocumentItem>({
       {/* En-tete d'identite : qui, comment le joindre, dans quel etat, et depuis quand. */}
       <section className="rounded-app-card border border-app-line bg-app-surface p-5">
         <div className="flex flex-wrap items-start gap-4">
-          <span
-            aria-hidden="true"
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface-hover text-app-lg font-semibold text-app-text-secondary"
-          >
-            {initials}
-          </span>
+          <AvatarBubble
+            avatarUrl={employee.avatarUrl}
+            name={employee.name}
+            email={employee.email}
+            size={56}
+            className="text-app-lg"
+          />
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">

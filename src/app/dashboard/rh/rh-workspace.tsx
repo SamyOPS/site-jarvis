@@ -60,6 +60,8 @@ type RhDashboardCache = {
   profileId: string;
   timestamp: number;
   employees: ProfileRow[];
+  /** Collegues RH, hors soi-meme. Distincts des collaborateurs : voir `rhColleagues`. */
+  rhColleagues: ProfileRow[];
   documentTypes: DocumentTypeRow[];
   documents: RHDocumentRow[];
   requests: RequestRow[];
@@ -82,8 +84,14 @@ type RhDashboardCache = {
 const RH_DASHBOARD_CACHE_TTL_MS = 2 * 60 * 1000;
 let rhDashboardCache: RhDashboardCache | null = null;
 
-/** Statuts proposes par le filtre de la page Collaborateurs. */
-type EmployeeStatusFilter = "all" | "active" | "inactive";
+/**
+ * Positions du filtre de la page Collaborateurs.
+ *
+ * « actifs » et « inactifs » portent sur le STATUT D'EMPLOI, qui ne concerne que les
+ * consultants : ces deux positions ne montrent donc qu'eux. « rh » isole les collegues,
+ * et « tous » reunit les deux populations.
+ */
+type EmployeeStatusFilter = "all" | "active" | "inactive" | "rh";
 
 export default function RhWorkspace({
   currentSection = defaultRouteProps.currentSection,
@@ -96,6 +104,16 @@ export default function RhWorkspace({
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [employees, setEmployees] = useState<ProfileRow[]>([]);
+  /**
+   * Collegues RH.
+   *
+   * VOLONTAIREMENT SEPARE de `employees`. Ce dernier alimente tout ce qui suppose un
+   * consultant : selecteur du CRA, depot en lot, demande de document, formulaire de conge,
+   * compteurs de la vue d'ensemble. Y verser des RH les ferait apparaitre dans une dizaine
+   * d'endroits ou ils n'ont rien a faire. Les deux listes ne se rejoignent qu'au moment de
+   * composer le tableau.
+   */
+  const [rhColleagues, setRhColleagues] = useState<ProfileRow[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeRow[]>([]);
   // employeeId -> allowed document type ids. Empty / missing = all types allowed.
   const [typeRestrictionsByEmployee, setTypeRestrictionsByEmployee] = useState<
@@ -244,6 +262,7 @@ export default function RhWorkspace({
 
   const applyDashboardCache = useCallback((cache: RhDashboardCache) => {
     setEmployees(cache.employees);
+    setRhColleagues(cache.rhColleagues ?? []);
     setDocumentTypes(cache.documentTypes);
     setTypeRestrictionsByEmployee(cache.typeRestrictionsByEmployee ?? {});
     setDocuments(cache.documents);
@@ -293,7 +312,7 @@ export default function RhWorkspace({
     };
 
     const [employeesRes, documentTypesRes, docsRes, requestsRes, offersRes, appsRes, activityResponse] = await Promise.all([
-      supabase.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("role", "salarie").order("email", { ascending: true }),
+      supabase.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire,avatar_url").eq("role", "salarie").order("email", { ascending: true }),
       supabase.from("document_types").select("id,label,requires_period,allowed_uploader_roles").eq("active", true).order("label", { ascending: true }),
       supabase.from("employee_documents").select("id,status,file_name,period_month,created_at,updated_at,size_bytes,review_comment,uploader_role,uploaded_by,storage_bucket,storage_path,source_kind,folder_id,deleted_at,document_type:document_types(id,label,code),employee:profiles!employee_documents_employee_id_fkey(id,full_name,email,role),uploader:profiles!employee_documents_uploaded_by_fkey(full_name,email)").order("created_at", { ascending: false }),
       supabase.from("document_requests").select("id,status,due_at,period_month,note,document_type:document_types(id,label),employee:profiles!document_requests_employee_id_fkey(id,full_name,email)").order("created_at", { ascending: false }),
@@ -355,6 +374,25 @@ export default function RhWorkspace({
     }
 
     const mappedEmployees = ((employeesRes.data as ProfileRow[]) ?? []).filter((employee) => canAccessEmployee(employee.id));
+
+    /*
+      Collegues RH : par une ROUTE SERVEUR, et non par PostgREST. La policy
+      `profiles_select_scoped` n'ouvre a un RH que son propre profil et ceux de ses
+      affectes — une lecture directe des pairs ne remonterait rien, en silence.
+
+      Un echec est sans gravite : le tableau se contente alors des consultants.
+    */
+    let mappedRhColleagues: ProfileRow[] = [];
+    try {
+      const colleaguesPayload = (await fetch("/api/rh/colleagues", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }).then((response) => (response.ok ? response.json() : null))) as {
+        items?: ProfileRow[];
+      } | null;
+      mappedRhColleagues = colleaguesPayload?.items ?? [];
+    } catch {
+      mappedRhColleagues = [];
+    }
     const mappedDocumentTypes = ((documentTypesRes.data ?? []) as {
       id: string;
       label: string;
@@ -472,6 +510,7 @@ export default function RhWorkspace({
       profileId: rhId,
       timestamp: Date.now(),
       employees: mappedEmployees,
+      rhColleagues: mappedRhColleagues,
       documentTypes: mappedDocumentTypes,
       documents: mappedDocuments,
       requests: filteredRequests,
@@ -500,7 +539,7 @@ export default function RhWorkspace({
       }
       setSession(currentSession);
       setUser(currentSession.user);
-      const { data: profileData, error: profileError } = await client.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire").eq("id", currentSession.user.id).single();
+      const { data: profileData, error: profileError } = await client.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire,avatar_url").eq("id", currentSession.user.id).single();
       if (profileError || !profileData || profileData.role !== "rh" || profileData.professional_status !== "verified") {
         router.push("/auth");
         return;
@@ -961,6 +1000,9 @@ export default function RhWorkspace({
   const employeeStatusFilter = employeeStatusOverride ?? routeEmployeeStatus;
 
   const collaborateursRows = useMemo(() => {
+    if (employeeStatusFilter === "rh") {
+      return rhColleagues;
+    }
     if (employeeStatusFilter === "active") {
       return employees.filter((employee) => employee.employment_status === "active");
     }
@@ -969,8 +1011,10 @@ export default function RhWorkspace({
         ["inactive", "exited"].includes(employee.employment_status ?? ""),
       );
     }
-    return employees;
-  }, [employeeStatusFilter, employees]);
+    // « Tous » : les consultants d'abord, les collegues ensuite. L'ordre compte — la page
+    // sert d'abord au suivi des consultants.
+    return [...employees, ...rhColleagues];
+  }, [employeeStatusFilter, employees, rhColleagues]);
   /**
    * Missions de TOUT le perimetre, indexees par collaborateur.
    *
@@ -1189,20 +1233,44 @@ export default function RhWorkspace({
     return [...documents, ...overdue];
   }, [openRequests, pendingDocumentsForReview]);
 
+  /**
+   * URL publique d'une photo, reconstituee cote client.
+   *
+   * La base ne stocke qu'un chemin. Le bucket etant public, l'URL se compose sans appel :
+   * inutile de faire signer chaque ligne du tableau par le serveur.
+   */
+  const avatarUrlOf = useCallback((path: string | null | undefined) => {
+    if (!path || !supabase) return null;
+    return supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+  }, []);
+
   /** Lignes du tableau des collaborateurs, pretes a afficher. */
   const collaborateurRows = useMemo(
     () =>
-      visibleCollaborateurs.map((employee) => ({
-        id: employee.id,
-        fullName: employee.full_name,
-        email: employee.email,
-        companies: missionsByEmployee[employee.id] ?? [],
-        employmentStatus: employee.employment_status ?? null,
-        isOnline: isRecentlyActive(employee.id),
-        lastSignInLabel: formatLastSignIn(employee.id),
-        openRequestsCount: openRequestsByEmployee.get(employee.id) ?? 0,
-      })),
+      visibleCollaborateurs.map((employee) => {
+        const isColleague = employee.role === "rh";
+        return {
+          id: employee.id,
+          fullName: employee.full_name,
+          email: employee.email,
+          role: employee.role,
+          avatarUrl: avatarUrlOf(employee.avatar_url),
+          companies: isColleague ? [] : (missionsByEmployee[employee.id] ?? []),
+          employmentStatus: employee.employment_status ?? null,
+          isOnline: isColleague ? false : isRecentlyActive(employee.id),
+          /*
+            Les colonnes propres au suivi d'un consultant restent VIDES pour un collegue :
+            entreprises clientes, demandes, derniere connexion. Cette derniere n'est pas
+            connue — la route d'activite ne rend que les comptes affectes —, et afficher
+            « 0 demande » pour quelqu'un a qui on n'en adresse jamais serait une reponse a
+            une question qui ne se pose pas.
+          */
+          lastSignInLabel: isColleague ? "—" : formatLastSignIn(employee.id),
+          openRequestsCount: isColleague ? null : (openRequestsByEmployee.get(employee.id) ?? 0),
+        };
+      }),
     [
+      avatarUrlOf,
       formatLastSignIn,
       isRecentlyActive,
       missionsByEmployee,
@@ -1869,6 +1937,7 @@ export default function RhWorkspace({
                   name: selectedEmployee.full_name ?? "",
                   email: selectedEmployee.email,
                   phone: selectedEmployee.phone,
+                  avatarUrl: avatarUrlOf(selectedEmployee.avatar_url),
                 }}
                 lastSignInLabel={formatLastSignIn(selectedEmployee.id)}
                 isOnline={isRecentlyActive(selectedEmployee.id)}

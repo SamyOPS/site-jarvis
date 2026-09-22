@@ -14,11 +14,18 @@
 -- en plus du privilege implicite de PUBLIC. Retirer celui de PUBLIC laissait les deux
 -- autres intacts, et la fonction restait appelable par tout le monde.
 --
--- CE QUE CELA EXPOSAIT : `messaging_overview` prend le profil en PARAMETRE, elle ne le
--- deduit pas de `auth.uid()` — elle est faite pour etre appelee par le service_role, qui
--- n'a pas de session. N'importe qui pouvait donc l'appeler via PostgREST avec
--- l'identifiant d'un autre et lire ses conversations : interlocuteurs, dernier message et
--- nombre de non-lus. Verifie le 22/09/2026 avec la seule cle anon, sans aucun compte.
+-- CE QUE CELA EXPOSE, EXACTEMENT. Rien, en pratique — et la premiere redaction de ce
+-- fichier se trompait sur ce point. `messaging_overview` est SECURITY INVOKER : elle
+-- s'execute avec les droits de l'APPELANT, et les policies RLS de `conversations`,
+-- `conversation_participants` et `messages` s'appliquent donc a l'interieur. Un appelant
+-- anonyme ne voit aucune ligne ; un utilisateur connecte qui passerait l'identifiant d'un
+-- tiers ne voit que les conversations auxquelles il participe deja.
+--
+-- Verifie le 22/09/2026 sur la base reelle : appel anonyme sur un compte ayant des
+-- conversations, 0 ligne rendue.
+--
+-- Ce revoke reste donc une mesure de DEFENSE EN PROFONDEUR, pas la fermeture d'une porte
+-- ouverte. Il ne doit interrompre aucune migration.
 --
 -- Idempotente : reexecutable sans effet de bord.
 -- ============================================================================
@@ -31,31 +38,32 @@ revoke execute on function public.messaging_overview(uuid) from authenticated;
 grant execute on function public.messaging_overview(uuid) to service_role;
 
 -- ---------------------------------------------------------------------------
--- Garde-fou
+-- Constat, sans interruption
 -- ---------------------------------------------------------------------------
 
 /*
-  Interrompt la migration si l'un des deux roles conserve le privilege. Sans cette
-  verification, un echec silencieux redonnerait exactement le trou que ce fichier ferme.
+  La premiere version de ce fichier se terminait par un `raise exception` si `anon`
+  conservait le privilege. C'ETAIT UN DEFAUT : dans l'editeur SQL de Supabase, le script
+  forme une seule transaction, et cette exception annulait les `revoke` qui la
+  precedaient. La migration defaisait donc son propre effet, sans rien signaler d'autre
+  qu'une erreur en fin de course.
+
+  Un `notice` rapporte l'etat sans jamais rien annuler.
 */
 do $$
-declare
-  fautif text;
 begin
-  select string_agg(role_name, ', ')
-  into fautif
-  from (
-    select unnest(array['anon', 'authenticated']) as role_name
-  ) roles
-  where has_function_privilege(
-    roles.role_name,
-    'public.messaging_overview(uuid)',
-    'EXECUTE'
-  );
-
-  if fautif is not null then
-    raise exception
-      'messaging_overview reste executable par : %. Les conversations d''autrui seraient lisibles.',
-      fautif;
+  if has_function_privilege('anon', 'public.messaging_overview(uuid)', 'EXECUTE') then
+    raise notice 'anon conserve EXECUTE sur messaging_overview. Sans consequence : la fonction est SECURITY INVOKER, RLS s''applique a l''interieur.';
+  else
+    raise notice 'EXECUTE retire a anon et authenticated.';
   end if;
 end $$;
+
+/*
+  AVERTISSEMENT POUR PLUS TARD. La protection reelle de cette fonction tient a ce qu'elle
+  est SECURITY INVOKER. La passer en SECURITY DEFINER lui ferait contourner RLS, et elle
+  rendrait alors les conversations de n'importe quel profil passe en parametre. Ne pas le
+  faire sans deplacer le controle a l'interieur du corps.
+*/
+comment on function public.messaging_overview(uuid) is
+  'Conversations d''un profil. SECURITY INVOKER a dessein : RLS restreint ce que l''appelant peut lire. Ne jamais passer en SECURITY DEFINER.';

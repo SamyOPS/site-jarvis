@@ -11,6 +11,8 @@ export type RhProfileRow = ProfileRow & {
   employment_status: "active" | "inactive" | "exited" | null;
   company_name: string | null;
   esn_partenaire: string | null;
+  /** Chemin de la photo dans le bucket `avatars`. L'URL se compose a l'affichage. */
+  avatar_url: string | null;
 };
 
 export type RhDocumentRow = {

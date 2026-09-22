@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
 
-export type CollaborateurStatusFilter = "all" | "active" | "inactive";
+import { AvatarBubble } from "@/components/console/avatar-bubble";
+
+export type CollaborateurStatusFilter = "all" | "active" | "inactive" | "rh";
 
 export type CollaborateurRow = {
   id: string;
@@ -21,7 +23,14 @@ export type CollaborateurRow = {
   /** Connexion de moins de 15 minutes. */
   isOnline: boolean;
   lastSignInLabel: string;
-  openRequestsCount: number;
+  /**
+   * `null` pour un collegue RH : on ne lui adresse pas de demande, et afficher « 0 »
+   * repondrait a une question qui ne se pose pas.
+   */
+  openRequestsCount: number | null;
+  /** `rh` pour un collegue, `salarie` pour un consultant. */
+  role: string | null;
+  avatarUrl: string | null;
 };
 
 /**
@@ -61,11 +70,22 @@ export function ConsoleEmploymentBadge({ status }: { status: string | null }) {
   );
 }
 
+/**
+ * Positions du filtre.
+ *
+ * « Actifs » et « Inactifs » portent sur le statut d'emploi, qui ne concerne que les
+ * consultants : ces deux positions ne montrent donc qu'eux. « Équipe RH » isole les
+ * collegues, et « Tous » reunit les deux.
+ */
 const FILTERS = [
   { value: "all", label: "Tous" },
   { value: "active", label: "Actifs" },
   { value: "inactive", label: "Inactifs" },
+  { value: "rh", label: "Équipe RH" },
 ] as const;
+
+/** Ce qui n'a pas de sens pour un collegue RH s'affiche en tiret, jamais en zero. */
+const NOT_APPLICABLE = <span className="text-app-text-muted">—</span>;
 
 /**
  * Liste des collaborateurs : recherche, filtre de statut, tableau.
@@ -149,6 +169,9 @@ export function ConsoleCollaborateursTable({
                 Nom
               </th>
               <th scope="col" className="px-4 py-3 font-medium">
+                Rôle
+              </th>
+              <th scope="col" className="px-4 py-3 font-medium">
                 Entreprises
               </th>
               <th scope="col" className="px-4 py-3 font-medium">
@@ -169,28 +192,65 @@ export function ConsoleCollaborateursTable({
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-4 py-10 text-center text-app-sm text-app-text-muted"
                 >
                   Aucun collaborateur ne correspond.
                 </td>
               </tr>
             ) : (
-              rows.map((row) => (
+              rows.map((row) => {
+                const isColleague = row.role === "rh";
+
+                return (
                 <tr
                   key={row.id}
                   className="border-b border-app-line transition-colors last:border-b-0 hover:bg-app-surface-hover"
                 >
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/dashboard/rh/collaborateurs/${row.id}`}
-                      className="font-medium text-app-text hover:underline focus-visible:outline-app"
+                    <span className="flex items-center gap-2.5">
+                      <AvatarBubble
+                        avatarUrl={row.avatarUrl}
+                        name={row.fullName ?? ""}
+                        email={row.email}
+                      />
+                      {/*
+                        Seul un consultant a une fiche. Celle du collegue RH n'existe pas :
+                        elle est construite pour un suivi documentaire — documents, demandes,
+                        entreprises clientes — et ses champs sont refuses par le serveur pour
+                        qui n'est pas affecte. Un lien qui mene a un ecran vide et a des
+                        enregistrements rejetes vaut moins que pas de lien du tout.
+                      */}
+                      {isColleague ? (
+                        <span className="font-medium text-app-text">
+                          {row.fullName ?? row.email}
+                        </span>
+                      ) : (
+                        <Link
+                          href={`/dashboard/rh/collaborateurs/${row.id}`}
+                          className="font-medium text-app-text hover:underline focus-visible:outline-app"
+                        >
+                          {row.fullName ?? row.email}
+                        </Link>
+                      )}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex items-center rounded-app-control border px-2 py-1 text-app-xs font-medium ${
+                        isColleague
+                          ? "border-app-accent-soft bg-app-accent-soft text-app-accent-fg"
+                          : "border-app-line text-app-text-secondary"
+                      }`}
                     >
-                      {row.fullName ?? row.email}
-                    </Link>
+                      {isColleague ? "RH" : "Consultant"}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
-                    {row.companies.length === 0 ? (
+                    {isColleague ? (
+                      NOT_APPLICABLE
+                    ) : row.companies.length === 0 ? (
                       <span className="text-app-text-muted">-</span>
                     ) : (
                       /*
@@ -212,7 +272,11 @@ export function ConsoleCollaborateursTable({
                   </td>
                   <td className="px-4 py-3 text-app-text-secondary">{row.email}</td>
                   <td className="px-4 py-3">
-                    <ConsoleEmploymentBadge status={row.employmentStatus} />
+                    {isColleague ? (
+                      NOT_APPLICABLE
+                    ) : (
+                      <ConsoleEmploymentBadge status={row.employmentStatus} />
+                    )}
                   </td>
                   <td className="px-4 py-3 text-app-text-secondary">
                     <span className="flex items-center gap-2">
@@ -234,14 +298,17 @@ export function ConsoleCollaborateursTable({
                       Le nombre passe en orange des qu'il est non nul : c'est ce qui reste
                       a traiter. Zero reste en gris, c'est une absence, pas un statut.
                     */}
-                    {row.openRequestsCount > 0 ? (
+                    {row.openRequestsCount === null ? (
+                      NOT_APPLICABLE
+                    ) : row.openRequestsCount > 0 ? (
                       <span className="font-medium text-missing">{row.openRequestsCount}</span>
                     ) : (
                       <span className="text-app-text-muted">0</span>
                     )}
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>
