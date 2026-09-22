@@ -126,18 +126,19 @@ export type ConsoleFooter = {
  * Part commune du pied de barre laterale : elle ne depend pas du role.
  *
  * L'encart reprend la forme de la maquette (surtitre, titre, une phrase, un lien). Son
- * texte decrit le chantier en cours plutot qu'une version fictive : annoncer une release
- * qui n'existe pas serait une fausse communication produit.
+ * texte annonce une fonctionnalite REELLE de la console — annoncer une release qui
+ * n'existe pas serait une fausse communication produit. A mettre a jour quand la
+ * nouveaute suivante arrive.
  *
- * L'entree « Documentation » ne figure PAS ici : elle pointe vers le guide du role, et
- * c'est `getConsoleFooter` qui la compose.
+ * Sa destination n'est pas fixee ici : elle depend du role, et c'est `getConsoleFooter`
+ * qui la resout. L'entree « Documentation » suit la meme logique.
  */
 export const CONSOLE_FOOTER: ConsoleFooter = {
   note: {
     eyebrow: "Nouveautés",
-    title: "Nouvelle console",
-    description: "Navigation repensée et mise en page allégée.",
-    linkLabel: "En savoir plus",
+    title: "Messagerie interne",
+    description: "Écrivez à vos interlocuteurs directement depuis la console.",
+    linkLabel: "Ouvrir la messagerie",
   },
   links: [{ label: "Centre d'aide", href: "/contact", icon: CircleHelp }],
   // Repris tel quel du pied du site public. Sans annee calculee : `new Date()` au
@@ -148,13 +149,17 @@ export const CONSOLE_FOOTER: ConsoleFooter = {
 /**
  * Pied de barre laterale pour un espace donne.
  *
- * Seule l'entree « Documentation » varie : chaque espace renvoie vers son propre guide.
- * Sans `documentationHref`, l'entree reste affichee mais grisee — l'emplacement ne
- * disparait pas de l'interface parce qu'un guide manque.
+ * Deux elements dependent du role, et c'est tout : l'encart d'annonce, qui mene a la
+ * messagerie de l'espace courant, et l'entree « Documentation », qui ouvre le guide du
+ * role. Sans `documentationHref`, cette derniere reste affichee mais grisee —
+ * l'emplacement ne disparait pas de l'interface parce qu'un guide manque.
  */
 export function getConsoleFooter(config: ConsoleNavConfig): ConsoleFooter {
   return {
     ...CONSOLE_FOOTER,
+    note: CONSOLE_FOOTER.note
+      ? { ...CONSOLE_FOOTER.note, href: config.messagesHref }
+      : undefined,
     links: [
       ...CONSOLE_FOOTER.links,
       {
