@@ -5,7 +5,7 @@ import {
   SettingsRow,
   SettingsSection,
   SettingsToggle,
-} from "@/components/account/settings-section";
+} from "@/components/console/settings-fields";
 import {
   HOME_PAGES,
   HOME_PAGE_LABELS,

@@ -9,7 +9,7 @@ import {
   SettingsField,
   SettingsInput,
   SettingsSection,
-} from "@/components/account/settings-section";
+} from "@/components/console/settings-fields";
 import { PASSWORD_MIN_LENGTH } from "@/domain/account-settings";
 import { usePasswordChange } from "@/features/account/use-password-change";
 import { formatRelativeTime } from "@/features/messaging/format";

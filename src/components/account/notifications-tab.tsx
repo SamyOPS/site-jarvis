@@ -4,7 +4,7 @@ import {
   SettingsRow,
   SettingsSection,
   SettingsToggle,
-} from "@/components/account/settings-section";
+} from "@/components/console/settings-fields";
 import {
   NOTIFICATION_KINDS,
   NOTIFICATION_LABELS,

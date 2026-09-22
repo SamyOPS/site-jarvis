@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { createAuthorizedFetch } from "@/lib/dashboard-api";
-import type { BillingProfileFormState } from "@/components/dashboard/billing-profile-card";
+import type { BillingProfileFormState } from "@/components/account/billing-profile-form";
 import type { MissionFormState, MissionItem } from "@/components/dashboard/missions-card";
 
 /**

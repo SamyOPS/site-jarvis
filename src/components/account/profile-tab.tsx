@@ -8,7 +8,7 @@ import {
   SettingsField,
   SettingsInput,
   SettingsSection,
-} from "@/components/account/settings-section";
+} from "@/components/console/settings-fields";
 import { PROFILE_LIMITS, type AccountProfile } from "@/domain/account-settings";
 import { messagingRoleLabel } from "@/domain/messaging";
 import { AVATAR_MAX_BYTES, AVATAR_MIME_TYPES } from "@/lib/avatars";

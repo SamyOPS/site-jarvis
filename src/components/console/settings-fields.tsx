@@ -5,11 +5,15 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Briques de la page de parametres.
+ * Briques de formulaire de la console.
  *
  * Trois formes seulement, et c'est voulu : un cadre, une ligne « intitule a gauche,
  * controle a droite », et un champ empile. Les ecrans de reglages deviennent illisibles
  * des qu'on y melange quatre mises en page differentes.
+ *
+ * Rangees sous `console/` et non sous `account/` : la carte des entreprises clientes s'en
+ * sert aussi, et elle s'affiche autant dans les parametres d'un consultant que dans la
+ * fiche collaborateur cote RH.
  */
 
 export function SettingsSection({

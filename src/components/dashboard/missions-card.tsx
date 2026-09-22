@@ -4,8 +4,7 @@ import { useState } from "react";
 import { Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { SettingsField, SettingsInput } from "@/components/console/settings-fields";
 
 /** Une mission telle que la renvoie l'API (colonnes de MISSION_COLUMNS). */
 export type MissionItem = {
@@ -52,13 +51,16 @@ export function formatMissionRate(mission: MissionItem) {
   )} ${suffix}`;
 }
 
-type MissionsCardProps = {
+type MissionsEditorProps = {
   missions: MissionItem[];
   onSave: (form: MissionFormState) => void | Promise<void>;
   onDelete: (missionId: string) => void | Promise<void>;
   saving: boolean;
   loading: boolean;
   message: string | null;
+};
+
+type MissionsCardProps = MissionsEditorProps & {
   className?: string;
   /** Titre adapte au contexte : le RH gere les missions d'un collaborateur. */
   title?: string;
@@ -66,24 +68,26 @@ type MissionsCardProps = {
 };
 
 /**
- * Gestion des entreprises clientes d'un collaborateur.
+ * Gestion des entreprises clientes d'un collaborateur : liste, ajout, modification.
  *
  * Chaque mission porte son propre tarif et sa propre unite : un consultant peut etre
  * facture a l'heure chez un client et a la journee chez un autre. C'est ce couple qui
  * remplace les champs « Societe » et « Tarif journalier » du profil de facturation, qui
  * n'en admettaient qu'un seul.
+ *
+ * CORPS SEUL, sans cadre : la page de parametres le pose dans une `SettingsSection` pour
+ * qu'il ait exactement la meme forme que les autres reglages, tandis que la fiche
+ * collaborateur passe par `MissionsCard`, qui rend le cadre historique. Deux presentations,
+ * une seule implementation.
  */
-export function MissionsCard({
+export function MissionsEditor({
   missions,
   onSave,
   onDelete,
   saving,
   loading,
   message,
-  className,
-  title = "Mes entreprises",
-  description = "Une ligne par entreprise cliente, avec son tarif et son unite de saisie.",
-}: MissionsCardProps) {
+}: MissionsEditorProps) {
   const [form, setForm] = useState<MissionFormState>(emptyMissionForm());
   const [editing, setEditing] = useState(false);
 
@@ -110,34 +114,22 @@ export function MissionsCard({
   const isHourly = form.rateUnit === "hour";
 
   return (
-    /*
-      Panneau de la console — un cadre, un filet, pas d'ombre — au lieu de la carte
-      generique : ce composant s'affiche desormais dans la fiche collaborateur, au milieu
-      de panneaux qui suivent tous cette forme.
-    */
-    <section
-      className={`rounded-app-card border border-app-line bg-app-surface p-5 ${className ?? ""}`}
-    >
-      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-app-md font-semibold text-app-text">{title}</h2>
-          <p className="mt-1 text-app-sm text-app-text-secondary">{description}</p>
-        </div>
-        {!editing ? (
-          <Button
-            type="button"
-            size="sm"
-            onClick={startCreate}
-            disabled={loading}
-            className="self-start sm:self-auto"
-          >
+    <div className="space-y-4">
+      {/*
+        Le bouton d'ajout se tient AVEC la liste, et non dans l'en-tete du cadre : le corps
+        est rendu tantot dans une `SettingsSection`, tantot dans le panneau de la fiche
+        collaborateur, et il ne peut pas compter sur l'en-tete de l'un ou de l'autre.
+      */}
+      {!editing ? (
+        <div className="flex justify-end">
+          <Button type="button" size="sm" onClick={startCreate} disabled={loading}>
             <Plus className="mr-1 h-4 w-4" />
             Ajouter
           </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
-      <div className="mt-4 space-y-4">
+      <div className="space-y-4">
         {loading ? (
           <p className="text-app-sm text-app-text-muted">Chargement...</p>
         ) : missions.length === 0 ? (
@@ -203,26 +195,30 @@ export function MissionsCard({
               FENETRE, pas celle du conteneur — serrait deux champs dans 180 px.
             */}
             <div className="grid gap-3">
-              <div className="space-y-1">
-                <Label>Entreprise cliente</Label>
-                <Input
+              <SettingsField label="Entreprise cliente" htmlFor="mission-company">
+                <SettingsInput
+                  id="mission-company"
                   value={form.companyName}
                   onChange={(event) => setForm({ ...form, companyName: event.target.value })}
                   placeholder="Nom de l'entreprise"
                 />
-              </div>
+              </SettingsField>
 
-              <div className="space-y-1">
-                <Label>ESN partenaire (facultatif)</Label>
-                <Input
+              <SettingsField label="ESN partenaire" htmlFor="mission-esn" hint="Facultatif.">
+                <SettingsInput
+                  id="mission-esn"
                   value={form.esnPartenaire}
                   onChange={(event) => setForm({ ...form, esnPartenaire: event.target.value })}
                 />
-              </div>
+              </SettingsField>
 
-              <div className="space-y-1">
-                <Label>Unite</Label>
+              <SettingsField
+                label="Unité"
+                htmlFor="mission-unit"
+                hint="Détermine la saisie du calendrier et l'unité du tarif."
+              >
                 <select
+                  id="mission-unit"
                   value={form.rateUnit}
                   onChange={(event) =>
                     setForm({ ...form, rateUnit: event.target.value === "hour" ? "hour" : "day" })
@@ -232,22 +228,21 @@ export function MissionsCard({
                   <option value="day">Journées (1 j / demi-journée)</option>
                   <option value="hour">Heures par jour</option>
                 </select>
-                <p className="text-app-xs text-app-text-muted">
-                  Détermine la saisie du calendrier et l&apos;unité du tarif.
-                </p>
-              </div>
+              </SettingsField>
 
-              <div className="space-y-1">
-                <Label>{isHourly ? "Tarif horaire" : "Tarif journalier"}</Label>
-                <Input
+              <SettingsField
+                label={isHourly ? "Tarif horaire" : "Tarif journalier"}
+                htmlFor="mission-rate"
+              >
+                <SettingsInput
+                  id="mission-rate"
                   type="number"
                   min="0"
                   step="0.01"
                   value={form.rate}
                   onChange={(event) => setForm({ ...form, rate: event.target.value })}
                 />
-              </div>
-
+              </SettingsField>
             </div>
 
             <div className="flex justify-end gap-2">
@@ -267,6 +262,33 @@ export function MissionsCard({
         ) : null}
 
         {message ? <p className="text-app-sm text-app-text-secondary">{message}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Le corps, dans le cadre de la console.
+ *
+ * Conserve pour la fiche collaborateur, qui aligne ses panneaux sur cette forme. La page
+ * de parametres, elle, utilise `MissionsEditor` directement dans une `SettingsSection`.
+ */
+export function MissionsCard({
+  className,
+  title = "Mes entreprises",
+  description = "Une ligne par entreprise cliente, avec son tarif et son unite de saisie.",
+  ...editor
+}: MissionsCardProps) {
+  return (
+    <section
+      className={`rounded-app-card border border-app-line bg-app-surface p-5 ${className ?? ""}`}
+    >
+      <div className="min-w-0">
+        <h2 className="text-app-md font-semibold text-app-text">{title}</h2>
+        <p className="mt-1 text-app-sm text-app-text-secondary">{description}</p>
+      </div>
+      <div className="mt-4">
+        <MissionsEditor {...editor} />
       </div>
     </section>
   );

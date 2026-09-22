@@ -2,8 +2,9 @@
 
 import { useEffect } from "react";
 
-import { BillingProfileCard } from "@/components/dashboard/billing-profile-card";
-import { MissionsCard } from "@/components/dashboard/missions-card";
+import { BillingProfileForm } from "@/components/account/billing-profile-form";
+import { MissionsEditor } from "@/components/dashboard/missions-card";
+import { SettingsSection } from "@/components/console/settings-fields";
 import { useSalarieBilling } from "@/features/account/use-salarie-billing";
 
 type BillingTabProps = {
@@ -15,9 +16,9 @@ type BillingTabProps = {
 /**
  * Facturation du consultant : identite administrative et entreprises clientes.
  *
- * Les deux cartes sont celles de l'ancienne page, inchangees — elles fonctionnaient. Ce
- * qui change, c'est qu'elles ne dependent plus du workspace : le hook les alimente, et il
- * est partage avec l'ecran CRA.
+ * Sections EMPILEES en pleine largeur, comme les autres onglets. La grille a deux colonnes
+ * qu'elle utilisait auparavant serrait un formulaire de douze champs dans une demi-page,
+ * et rompait la lecture des que l'on passait d'un onglet a l'autre.
  */
 export function BillingTab({ email, onMessage }: BillingTabProps) {
   const billing = useSalarieBilling({ fallbackEmail: email, onMessage });
@@ -31,8 +32,8 @@ export function BillingTab({ email, onMessage }: BillingTabProps) {
   }, [loadBillingProfile, loadMissions]);
 
   return (
-    <div className="grid gap-2 xl:grid-cols-2">
-      <BillingProfileCard
+    <div className="space-y-2">
+      <BillingProfileForm
         form={billing.billingProfileForm}
         onChange={billing.setBillingProfileForm}
         onSubmit={billing.handleBillingProfileSave}
@@ -40,16 +41,19 @@ export function BillingTab({ email, onMessage }: BillingTabProps) {
         loading={billing.billingProfileLoading}
       />
 
-      <MissionsCard
-        missions={billing.missions}
-        onSave={billing.handleMissionSave}
-        onDelete={billing.handleMissionDelete}
-        saving={billing.missionsSaving}
-        loading={billing.missionsLoading}
-        message={billing.missionsMessage}
+      <SettingsSection
         title="Entreprises clientes"
-        description="Chaque entreprise porte son tarif et son unité."
-      />
+        description="Une ligne par entreprise, avec son tarif et son unité de saisie. C'est ce couple qui commande la saisie du CRA et le calcul de la facture."
+      >
+        <MissionsEditor
+          missions={billing.missions}
+          onSave={billing.handleMissionSave}
+          onDelete={billing.handleMissionDelete}
+          saving={billing.missionsSaving}
+          loading={billing.missionsLoading}
+          message={billing.missionsMessage}
+        />
+      </SettingsSection>
     </div>
   );
 }
