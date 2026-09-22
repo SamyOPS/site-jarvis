@@ -1,9 +1,10 @@
 "use client";
 
-import { Menu, Send } from "lucide-react";
+import { Menu } from "lucide-react";
 
 import { ConsoleAccountMenu } from "@/components/console/shell/console-account-menu";
 import { ConsoleBreadcrumb } from "@/components/console/shell/console-breadcrumb";
+import { ConsoleMessages } from "@/components/console/shell/console-messages";
 import {
   ConsoleNotifications,
   type ConsoleNotification,
@@ -53,13 +54,7 @@ export function ConsoleTopBar({
         par ce bouton — mais elle n'a plus de point d'entree visible.
       */}
       <div className="flex flex-1 items-center justify-end gap-1">
-        <button
-          type="button"
-          aria-label="Messages"
-          className="flex h-8 w-8 items-center justify-center rounded-app-control text-app-text-muted transition-colors hover:bg-app-surface-hover hover:text-app-text focus-visible:outline-app"
-        >
-          <Send className="h-4 w-4" />
-        </button>
+        <ConsoleMessages messagesHref={config.messagesHref} />
 
         <ConsoleNotifications items={notifications} />
 

@@ -4,6 +4,7 @@ import {
   FileText,
   FolderClosed,
   LayoutDashboard,
+  MessageSquare,
   Settings,
   Users,
   type LucideIcon,
@@ -63,6 +64,11 @@ export type ConsoleNavConfig = {
   settingsHref: string;
   settingsLabel: string;
   groups: ConsoleNavGroup[];
+  /**
+   * Messagerie de l'espace. Destination du bouton de la barre superieure, et base des
+   * liens vers une conversation precise (`?c=<id>`).
+   */
+  messagesHref: string;
   /**
    * Guide d'utilisation de l'espace, servi comme fichier statique depuis `public/`.
    * Alimente l'entree « Documentation » du pied de la barre laterale.
@@ -172,6 +178,7 @@ export const RH_NAV_CONFIG: ConsoleNavConfig = {
   rootLabel: "Espace RH",
   settingsHref: "/dashboard/rh/parametres",
   settingsLabel: "Paramètres",
+  messagesHref: "/dashboard/rh/messages",
   documentationHref: "/docs/guide-espace-rh.pdf",
   groups: [
     {
@@ -181,6 +188,11 @@ export const RH_NAV_CONFIG: ConsoleNavConfig = {
           label: "Tableau de bord",
           href: "/dashboard/rh",
           icon: LayoutDashboard,
+        },
+        {
+          label: "Messages",
+          href: "/dashboard/rh/messages",
+          icon: MessageSquare,
         },
       ],
     },
@@ -294,6 +306,7 @@ export const SALARIE_NAV_CONFIG: ConsoleNavConfig = {
   rootLabel: "Espace salarié",
   settingsHref: "/dashboard/salarie/parametres",
   settingsLabel: "Paramètres",
+  messagesHref: "/dashboard/salarie/messages",
   documentationHref: "/docs/guide-espace-salarie.pdf",
   groups: [
     {
@@ -303,6 +316,11 @@ export const SALARIE_NAV_CONFIG: ConsoleNavConfig = {
           label: "Tableau de bord",
           href: "/dashboard/salarie",
           icon: LayoutDashboard,
+        },
+        {
+          label: "Messages",
+          href: "/dashboard/salarie/messages",
+          icon: MessageSquare,
         },
       ],
     },

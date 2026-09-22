@@ -322,3 +322,62 @@ export async function notifyAdminOfApplication(params: ApplicationNotificationPa
     replyTo: params.candidateEmail,
   });
 }
+
+type UnreadMessagesNotificationParams = {
+  recipientEmail: string;
+  recipientName: string | null;
+  /** Determine l'espace vers lequel pointe le bouton. */
+  recipientRole: string | null;
+  /** Expediteurs et nombre de messages non lus, du plus bavard au moins bavard. */
+  senders: { name: string; count: number }[];
+  totalCount: number;
+};
+
+/**
+ * Rappel des messages restes non lus.
+ *
+ * Un seul e-mail par destinataire et par passage, quel que soit le nombre
+ * d'interlocuteurs : un message par conversation transformerait une matinee d'echanges
+ * en boite aux lettres saturee.
+ *
+ * Aucun contenu de message n'est repris — seulement qui a ecrit et combien de fois. Le
+ * courriel sort du perimetre de la console et peut etre lu ailleurs : y recopier le
+ * texte etendrait la confidentialite de l'echange a la messagerie personnelle.
+ */
+export async function notifyUnreadMessages(params: UnreadMessagesNotificationParams) {
+  const greeting = params.recipientName
+    ? `Bonjour ${escapeHtml(params.recipientName)},`
+    : "Bonjour,";
+
+  // L'admin n'a pas d'ecran de messagerie : on le renvoie a son tableau de bord.
+  const messagesPath =
+    params.recipientRole === "rh"
+      ? "/dashboard/rh/messages"
+      : params.recipientRole === "salarie"
+        ? "/dashboard/salarie/messages"
+        : "/dashboard";
+  const link = buildDashboardLink(messagesPath);
+
+  const plural = params.totalCount > 1 ? "s" : "";
+  const senderLines = params.senders
+    .map(
+      (sender) =>
+        `<li><strong>${escapeHtml(sender.name)}</strong> — ${sender.count} message${
+          sender.count > 1 ? "s" : ""
+        }</li>`,
+    )
+    .join("");
+
+  const html = renderShell(`
+    <p>${greeting}</p>
+    <p>Vous avez <strong>${params.totalCount} message${plural} non lu${plural}</strong> dans votre messagerie Jarvis Connect.</p>
+    <ul>${senderLines}</ul>
+    <p style="margin-top:24px">${renderButton(link, "Lire mes messages")}</p>
+  `);
+
+  return sendEmail({
+    to: params.recipientEmail,
+    subject: `${params.totalCount} message${plural} non lu${plural} - Jarvis Connect`,
+    html,
+  });
+}
