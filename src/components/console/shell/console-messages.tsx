@@ -125,7 +125,7 @@ export function ConsoleMessages({ messagesHref }: ConsoleMessagesProps) {
                       </span>
 
                       {unread > 0 ? (
-                        <span className="mt-0.5 shrink-0 rounded-full bg-app-accent px-1.5 py-0.5 text-app-2xs font-semibold text-white">
+                        <span className="mt-0.5 shrink-0 rounded-full bg-app-accent px-1.5 py-0.5 text-app-2xs font-semibold text-app-on-accent">
                           {unread}
                           <span className="sr-only"> non lus</span>
                         </span>

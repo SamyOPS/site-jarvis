@@ -342,3 +342,57 @@
 [data-theme="dark"] .console-mark--light {
   display: none;
 }
+
+/* ----------------------------------------------------------------------------
+ * 7. Composants shadcn dans la console
+ * -------------------------------------------------------------------------- */
+
+/* Button, Input, Badge, Dialog et Card lisent les variables de `globals.css` :
+ * --primary vaut #2563eb, --input #d1d5db, --ring #93c5fd. Aucune de ces trois
+ * couleurs n'appartient a la console, qui est batie sur --app-accent (#00e0ff)
+ * et des filets neutres. D'ou l'impression, justifiee, de deux interfaces
+ * cousues ensemble.
+ *
+ * On REMAPPE donc ces variables dans le perimetre de la console, plutot que de
+ * reecrire les composants : les 98 appels a <Button> repartis dans 39 fichiers
+ * restent inchanges, et les champs, badges et dialogues sont corriges du meme
+ * geste. C'est l'usage prevu par ce systeme de jetons.
+ *
+ * SPECIFICITE : `:root` de globals.css vaut (0,1,0) et est declare APRES ce
+ * fichier (console.css est importe en tete). Un simple [data-app="console"]
+ * perdrait donc l'arbitrage a egalite. Le selecteur reprend la forme des blocs
+ * de theme ci-dessus, qui vaut (0,2,0).
+ *
+ * Les valeurs pointent vers les jetons de la console : elles suivent donc
+ * automatiquement le theme clair ou sombre, sans duplication. */
+[data-theme] [data-app="console"],
+[data-app="console"][data-theme] {
+  --background: var(--app-surface);
+  --foreground: var(--app-text);
+
+  --card: var(--app-surface);
+  --card-foreground: var(--app-text);
+  --popover: var(--app-raised);
+  --popover-foreground: var(--app-text);
+
+  /* --app-on-accent, et non blanc : #00E0FF sur blanc plafonne a ~1.4:1, du
+   * texte clair y serait illisible. Le jeton existe pour ce cas precis. */
+  --primary: var(--app-accent);
+  --primary-foreground: var(--app-on-accent);
+
+  --secondary: var(--app-surface-hover);
+  --secondary-foreground: var(--app-text);
+  --muted: var(--app-surface-hover);
+  --muted-foreground: var(--app-text-muted);
+
+  /* `accent` sert aux etats de survol des variantes outline et ghost. */
+  --accent: var(--app-surface-hover);
+  --accent-foreground: var(--app-text);
+
+  --destructive: var(--app-rejected);
+  --destructive-foreground: var(--app-surface);
+
+  --border: var(--app-line);
+  --input: var(--app-line);
+  --ring: var(--app-focus);
+}

@@ -115,7 +115,7 @@ export function MessageThread({
                       className={cn(
                         "max-w-[78%] rounded-app-card px-3 py-2",
                         mine
-                          ? "bg-app-accent text-white"
+                          ? "bg-app-accent text-app-on-accent"
                           : "border border-app-line bg-app-surface text-app-text",
                       )}
                     >
@@ -125,7 +125,7 @@ export function MessageThread({
                       <p
                         className={cn(
                           "mt-1 text-app-2xs",
-                          mine ? "text-white/70" : "text-app-text-muted",
+                          mine ? "text-app-on-accent/70" : "text-app-text-muted",
                         )}
                       >
                         {formatMessageTime(message.createdAt)}

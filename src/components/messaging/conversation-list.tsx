@@ -101,7 +101,7 @@ export function ConversationList({
                       : messagingRoleLabel(conversation.contact?.role)}
                   </span>
                   {unread > 0 && (
-                    <span className="shrink-0 rounded-full bg-app-accent px-1.5 py-0.5 text-app-2xs font-semibold text-white">
+                    <span className="shrink-0 rounded-full bg-app-accent px-1.5 py-0.5 text-app-2xs font-semibold text-app-on-accent">
                       {unread}
                       <span className="sr-only"> message(s) non lu(s)</span>
                     </span>
