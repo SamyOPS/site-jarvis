@@ -48,15 +48,3 @@ export function formatDaySeparator(value: string) {
 export function dayKey(value: string) {
   return value.slice(0, 10);
 }
-
-/** Initiales d'un nom, pour la pastille d'avatar. */
-export function initialsOf(name: string) {
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part.charAt(0).toUpperCase())
-      .join("") || "?"
-  );
-}

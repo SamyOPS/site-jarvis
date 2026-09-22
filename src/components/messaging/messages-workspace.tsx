@@ -9,6 +9,8 @@ import { ConsoleLoadingSkeleton } from "@/components/console/feedback/loading-sk
 import { MessagesView } from "@/components/messaging/messages-view";
 import { displayNameFromMetadata } from "@/domain/profiles";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
+import { resetAppearanceHydration } from "@/features/account/appearance-store";
+import { resetAccountIdentity } from "@/features/account/identity-store";
 import { browserSupabase as supabase } from "@/lib/supabase-browser";
 import type { ConsoleRole } from "@/features/dashboard/shell/nav-config";
 
@@ -87,6 +89,10 @@ export function MessagesWorkspace({ role }: MessagesWorkspaceProps) {
 
   const handleSignOut = useCallback(async () => {
     if (!supabase) return;
+    // Les preferences et l'identite sont propres au compte : on ne les laisse pas
+    // en place pour celui qui se connectera ensuite dans le meme onglet.
+    resetAppearanceHydration();
+    resetAccountIdentity();
     await forceClientSignOut(supabase);
     router.push("/auth?logged_out=1");
   }, [router]);

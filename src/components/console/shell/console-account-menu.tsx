@@ -7,12 +7,15 @@ import { ChevronsUpDown, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConsoleThemeSwitch } from "@/components/console/shell/console-theme-switch";
 import { useDismissable } from "@/components/console/shell/use-dismissable";
+import { AvatarBubble } from "@/components/console/avatar-bubble";
 import type { ConsoleNavConfig } from "@/features/dashboard/shell/nav-config";
 
 type ConsoleAccountMenuProps = {
   config: ConsoleNavConfig;
   displayName: string;
   email: string;
+  /** Photo de profil. Absente, la pastille retombe sur les initiales. */
+  avatarUrl?: string | null;
   onSignOut: () => void | Promise<void>;
   onNavigate?: () => void;
   /** `block` = bloc profil de la sidebar, `avatar` = pastille seule. */
@@ -26,21 +29,11 @@ type ConsoleAccountMenuProps = {
   side: "left" | "right";
 };
 
-function getInitials(displayName: string, email: string) {
-  const source = displayName.trim() || email.trim();
-  if (!source) return "?";
-
-  const words = source.split(/[\s._-]+/).filter(Boolean);
-  if (words.length >= 2) {
-    return `${words[0][0]}${words[1][0]}`.toUpperCase();
-  }
-  return source.slice(0, 2).toUpperCase();
-}
-
 export function ConsoleAccountMenu({
   config,
   displayName,
   email,
+  avatarUrl,
   onSignOut,
   onNavigate,
   variant,
@@ -51,16 +44,7 @@ export function ConsoleAccountMenu({
   const close = useCallback(() => setOpen(false), []);
   const containerRef = useDismissable<HTMLDivElement>(open, close);
 
-  const initials = getInitials(displayName, email);
-
-  const avatar = (
-    <span
-      aria-hidden="true"
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-app-accent-soft text-app-xs font-semibold text-app-accent-fg"
-    >
-      {initials}
-    </span>
-  );
+  const avatar = <AvatarBubble avatarUrl={avatarUrl} name={displayName} email={email} />;
 
   return (
     <div ref={containerRef} className="relative">

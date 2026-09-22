@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { ApiError } from "@/lib/api-handler";
 import { displayContactName, type MessagingContact } from "@/domain/messaging";
+import { avatarPublicUrl } from "@/lib/avatars";
 
 /**
  * Qui a le droit d'ecrire a qui.
@@ -32,16 +33,27 @@ type ProfileRow = {
   email: string;
   role: string | null;
   professional_status: string | null;
+  avatar_url: string | null;
 };
 
-const CONTACT_COLUMNS = "id,full_name,email,role,professional_status";
+const CONTACT_COLUMNS = "id,full_name,email,role,professional_status,avatar_url";
 
-function toContact(row: ProfileRow): MessagingContact {
+/**
+ * L'URL de la photo est reconstituee ICI, cote serveur.
+ *
+ * La base ne stocke qu'un chemin, et une balise <img> ne sait pas porter d'en-tete
+ * d'autorisation : le navigateur a besoin d'une URL complete, deja resolue.
+ */
+function toContact(
+  adminClient: SupabaseClient,
+  row: ProfileRow,
+): MessagingContact {
   return {
     id: row.id,
     name: displayContactName(row),
     email: row.email,
     role: row.role,
+    avatarUrl: avatarPublicUrl(adminClient, row.avatar_url),
   };
 }
 
@@ -155,7 +167,7 @@ export async function listMessagingContacts(
       seen.add(row.id);
       return true;
     })
-    .map(toContact)
+    .map((row) => toContact(adminClient, row))
     .sort((left, right) => left.name.localeCompare(right.name, "fr"));
 }
 
@@ -188,13 +200,13 @@ export async function assertCanStartConversation(
   const denied = new ApiError("Destinataire non autorise.", 403);
   if (!target || !isReachable(target)) throw denied;
 
-  if (actor.role === "admin") return toContact(target);
+  if (actor.role === "admin") return toContact(adminClient, target);
 
   if (actor.role === "rh") {
-    if (target.role === "rh") return toContact(target);
+    if (target.role === "rh") return toContact(adminClient, target);
     if (target.role === "salarie") {
       const employeeIds = await assignedEmployeeIds(adminClient, actor.id);
-      if (employeeIds.includes(target.id)) return toContact(target);
+      if (employeeIds.includes(target.id)) return toContact(adminClient, target);
     }
     throw denied;
   }
@@ -202,7 +214,7 @@ export async function assertCanStartConversation(
   if (actor.role === "salarie") {
     if (target.role === "rh") {
       const rhIds = await assignedRhIds(adminClient, actor.id);
-      if (rhIds.includes(target.id)) return toContact(target);
+      if (rhIds.includes(target.id)) return toContact(adminClient, target);
     }
     throw denied;
   }

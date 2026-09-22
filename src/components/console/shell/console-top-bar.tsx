@@ -16,6 +16,7 @@ type ConsoleTopBarProps = {
   breadcrumb: ConsoleCrumb[];
   displayName: string;
   email: string;
+  avatarUrl?: string | null;
   onSignOut: () => void | Promise<void>;
   onOpenMobileNav: () => void;
   notifications?: ConsoleNotification[];
@@ -26,6 +27,7 @@ export function ConsoleTopBar({
   breadcrumb,
   displayName,
   email,
+  avatarUrl,
   onSignOut,
   onOpenMobileNav,
   notifications,
@@ -62,6 +64,7 @@ export function ConsoleTopBar({
           config={config}
           displayName={displayName}
           email={email}
+          avatarUrl={avatarUrl}
           onSignOut={onSignOut}
           variant="avatar"
           align="bottom"

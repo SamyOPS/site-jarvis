@@ -41,6 +41,8 @@ export type MessagingContact = {
   name: string;
   email: string;
   role: string | null;
+  /** URL publique de la photo de profil, ou `null` : la pastille montre les initiales. */
+  avatarUrl: string | null;
 };
 
 /** Ligne de la liste des conversations. */

@@ -9,7 +9,7 @@ import { ContactPicker } from "@/components/messaging/contact-picker";
 import { MessageThread } from "@/components/messaging/message-thread";
 import { StatusNotice } from "@/components/dashboard/status-notice";
 import { messagingRoleLabel } from "@/domain/messaging";
-import { initialsOf } from "@/features/messaging/format";
+import { AvatarBubble } from "@/components/console/avatar-bubble";
 import { useMessaging } from "@/features/messaging/use-messaging";
 
 type MessagesViewProps = {
@@ -124,12 +124,12 @@ export function MessagesView({
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
-                <span
-                  aria-hidden="true"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface-hover text-app-xs font-semibold text-app-text-secondary"
-                >
-                  {initialsOf(contactName)}
-                </span>
+                <AvatarBubble
+                  avatarUrl={activeConversation?.contact?.avatarUrl}
+                  name={contactName}
+                  email={activeConversation?.contact?.email}
+                  size={32}
+                />
                 <div className="min-w-0">
                   <p className="truncate text-app-sm font-medium text-app-text">
                     {contactName}

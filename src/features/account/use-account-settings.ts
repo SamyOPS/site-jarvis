@@ -12,6 +12,7 @@ import {
   type NotificationSettings,
 } from "@/domain/account-settings";
 import { appearanceStore } from "@/features/account/appearance-store";
+import { setAccountIdentity } from "@/features/account/identity-store";
 import { createAuthorizedFetch, getFreshAccessToken } from "@/lib/dashboard-api";
 
 /**
@@ -43,6 +44,15 @@ export function useAccountSettings() {
   const [savingAvatar, setSavingAvatar] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
 
+  /*
+    Toute modification du profil est republiee vers le store d'identite : c'est ce qui met
+    a jour le nom et la photo de la barre superieure sans recharger la page.
+  */
+  const publishProfile = useCallback((next: AccountProfile) => {
+    setProfile(next);
+    setAccountIdentity(next);
+  }, []);
+
   const load = useCallback(async () => {
     try {
       const [profilePayload, preferencesPayload] = await Promise.all([
@@ -56,7 +66,7 @@ export function useAccountSettings() {
         } | null>,
       ]);
 
-      if (profilePayload?.profile) setProfile(profilePayload.profile);
+      if (profilePayload?.profile) publishProfile(profilePayload.profile);
       setLastSignInAt(profilePayload?.lastSignInAt ?? null);
 
       const nextAppearance = parseAppearance(preferencesPayload?.appearance);
@@ -71,7 +81,7 @@ export function useAccountSettings() {
     } finally {
       setLoading(false);
     }
-  }, [callApi]);
+  }, [callApi, publishProfile]);
 
   useEffect(() => {
     void load();
@@ -90,7 +100,7 @@ export function useAccountSettings() {
           body: JSON.stringify(values),
         })) as { profile?: AccountProfile } | null;
 
-        if (payload?.profile) setProfile(payload.profile);
+        if (payload?.profile) publishProfile(payload.profile);
         setFeedback({ tone: "success", text: "Profil enregistré." });
         return true;
       } catch (error) {
@@ -103,7 +113,7 @@ export function useAccountSettings() {
         setSavingProfile(false);
       }
     },
-    [callApi],
+    [callApi, publishProfile],
   );
 
   /**
@@ -156,15 +166,15 @@ export function useAccountSettings() {
 
       if (!response.ok) throw new Error(payload?.error ?? "Envoi de la photo impossible.");
 
-      setProfile((current) =>
-        current
-          ? {
-              ...current,
-              avatarPath: payload?.avatarPath ?? null,
-              avatarUrl: payload?.avatarUrl ?? null,
-            }
-          : current,
-      );
+      // Publication hors de l'updater d'etat : React peut rejouer un updater, et un
+      // effet de bord a l'interieur partirait alors deux fois.
+      if (profile) {
+        publishProfile({
+          ...profile,
+          avatarPath: payload?.avatarPath ?? null,
+          avatarUrl: payload?.avatarUrl ?? null,
+        });
+      }
       setFeedback({ tone: "success", text: "Photo mise à jour." });
       return true;
     } catch (error) {
@@ -176,16 +186,14 @@ export function useAccountSettings() {
     } finally {
       setSavingAvatar(false);
     }
-  }, []);
+  }, [profile, publishProfile]);
 
   const removeAvatar = useCallback(async () => {
     setSavingAvatar(true);
     setFeedback(null);
     try {
       await callApi("/api/account/avatar", { method: "DELETE" });
-      setProfile((current) =>
-        current ? { ...current, avatarPath: null, avatarUrl: null } : current,
-      );
+      if (profile) publishProfile({ ...profile, avatarPath: null, avatarUrl: null });
       setFeedback({ tone: "success", text: "Photo retirée." });
     } catch (error) {
       setFeedback({
@@ -195,7 +203,7 @@ export function useAccountSettings() {
     } finally {
       setSavingAvatar(false);
     }
-  }, [callApi]);
+  }, [callApi, profile, publishProfile]);
 
   /* ------------------------------------------------------------ Preferences */
 

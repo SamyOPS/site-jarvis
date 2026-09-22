@@ -46,6 +46,8 @@ import type {
 } from "@/features/dashboard/rh/types";
 import { formatDate, formatDocumentStatus, formatMonth, normalizeJoinOne } from "@/lib/dashboard-formatters";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
+import { resetAppearanceHydration } from "@/features/account/appearance-store";
+import { resetAccountIdentity } from "@/features/account/identity-store";
 import { browserSupabase as supabase } from "@/lib/supabase-browser";
 
 const defaultRouteProps: RhWorkspaceRouteProps = {
@@ -1227,6 +1229,10 @@ export default function RhWorkspace({
 
   const handleSignOut = useCallback(async () => {
     if (!supabase) return;
+    // Les preferences et l'identite sont propres au compte : on ne les laisse pas
+    // en place pour celui qui se connectera ensuite dans le meme onglet.
+    resetAppearanceHydration();
+    resetAccountIdentity();
     await forceClientSignOut(supabase);
     router.push("/auth?logged_out=1");
   }, [router]);

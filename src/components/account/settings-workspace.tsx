@@ -23,6 +23,7 @@ import { ProfileTab } from "@/components/account/profile-tab";
 import { SecurityTab } from "@/components/account/security-tab";
 import { useAccountSettings } from "@/features/account/use-account-settings";
 import { resetAppearanceHydration } from "@/features/account/appearance-store";
+import { resetAccountIdentity } from "@/features/account/identity-store";
 import { displayNameFromMetadata } from "@/domain/profiles";
 import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
 import { browserSupabase as supabase } from "@/lib/supabase-browser";
@@ -143,6 +144,7 @@ export function SettingsWorkspace({ role }: SettingsWorkspaceProps) {
   const handleSignOut = useCallback(async () => {
     if (!supabase) return;
     resetAppearanceHydration();
+    resetAccountIdentity();
     await forceClientSignOut(supabase);
     router.push("/auth?logged_out=1");
   }, [router]);

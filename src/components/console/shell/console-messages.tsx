@@ -7,7 +7,8 @@ import { ChevronRight, MessageSquare, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDismissable } from "@/components/console/shell/use-dismissable";
 import { useMessaging } from "@/features/messaging/use-messaging";
-import { formatRelativeTime, initialsOf } from "@/features/messaging/format";
+import { formatRelativeTime } from "@/features/messaging/format";
+import { AvatarBubble } from "@/components/console/avatar-bubble";
 
 type ConsoleMessagesProps = {
   /** Page de messagerie de l'espace courant. */
@@ -94,12 +95,12 @@ export function ConsoleMessages({ messagesHref }: ConsoleMessagesProps) {
                       onClick={close}
                       className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-app-surface-hover focus-visible:outline-app"
                     >
-                      <span
-                        aria-hidden="true"
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface-hover text-app-xs font-semibold text-app-text-secondary"
-                      >
-                        {initialsOf(name)}
-                      </span>
+                      <AvatarBubble
+                        avatarUrl={conversation.contact?.avatarUrl}
+                        name={name}
+                        email={conversation.contact?.email}
+                        size={32}
+                      />
 
                       <span className="min-w-0 flex-1">
                         <span className="flex items-baseline gap-2">

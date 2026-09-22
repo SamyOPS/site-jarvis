@@ -6,6 +6,10 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { sidebarCollapsedPreference } from "@/lib/console-preferences";
 import { hydrateAppearance } from "@/features/account/appearance-store";
+import {
+  accountIdentityStore,
+  hydrateAccountIdentity,
+} from "@/features/account/identity-store";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ConsoleSidebar } from "@/components/console/shell/console-sidebar";
 import { ConsoleTopBar } from "@/components/console/shell/console-top-bar";
@@ -88,7 +92,24 @@ export function ConsoleShell({
   */
   useEffect(() => {
     void hydrateAppearance();
+    void hydrateAccountIdentity();
   }, []);
+
+  /*
+    Identite affichee dans la barre superieure.
+
+    La table `profiles` PRIME sur ce que passe l'ecran appelant. Celui-ci lit d'abord
+    `user_metadata`, que la page de parametres ne modifie pas : sans cette priorite, un
+    changement de nom n'apparaissait jamais dans la barre. La photo, elle, n'existe que
+    par ce store.
+  */
+  const identity = useSyncExternalStore(
+    accountIdentityStore.subscribe,
+    accountIdentityStore.getSnapshot,
+    accountIdentityStore.getServerSnapshot,
+  );
+  const effectiveName = identity.fullName?.trim() || displayName;
+  const effectiveEmail = identity.email ?? email;
 
   const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
   const toggleCollapsed = useCallback(() => {
@@ -150,8 +171,9 @@ export function ConsoleShell({
         <ConsoleTopBar
           config={config}
           breadcrumb={breadcrumb}
-          displayName={displayName}
-          email={email}
+          displayName={effectiveName}
+          email={effectiveEmail}
+          avatarUrl={identity.avatarUrl}
           onSignOut={onSignOut}
           notifications={notifications}
           onOpenMobileNav={() => setMobileNavOpen(true)}

@@ -134,6 +134,24 @@ export const PATCH = withActor([...ACCOUNT_ROLES], async ({ adminClient, profile
   }
 
   unwrap(await adminClient.from("profiles").update(update).eq("id", profile.id));
+
+  /*
+    Les METADONNEES d'authentification portent elles aussi un nom, et plusieurs ecrans les
+    lisaient en priorite — l'en-tete du site public le fait encore. Sans cette
+    synchronisation, changer son nom ici laissait l'ancien s'afficher ailleurs.
+
+    L'echec n'interrompt pas : le profil, qui est la source de verite de l'application,
+    est deja enregistre. On ne va pas rendre une erreur pour une copie.
+  */
+  if (update.full_name) {
+    const { error: metadataError } = await adminClient.auth.admin.updateUserById(profile.id, {
+      user_metadata: { full_name: update.full_name },
+    });
+    if (metadataError) {
+      console.error("[compte] synchronisation des metadonnees echouee", metadataError);
+    }
+  }
+
   const row = await readProfile(adminClient, profile.id);
 
   return NextResponse.json({

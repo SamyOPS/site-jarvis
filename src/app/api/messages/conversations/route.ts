@@ -10,6 +10,7 @@ import {
   type MessagingContact,
 } from "@/domain/messaging";
 import { assertCanStartConversation } from "@/lib/messaging-access";
+import { avatarPublicUrl } from "@/lib/avatars";
 
 export const runtime = "nodejs";
 
@@ -52,9 +53,15 @@ export const GET = withActor(
       const profiles = unwrap(
         await adminClient
           .from("profiles")
-          .select("id,full_name,email,role")
+          .select("id,full_name,email,role,avatar_url")
           .in("id", contactIds),
-      ) as { id: string; full_name: string | null; email: string; role: string | null }[] | null;
+      ) as {
+        id: string;
+        full_name: string | null;
+        email: string;
+        role: string | null;
+        avatar_url: string | null;
+      }[] | null;
 
       for (const row of profiles ?? []) {
         contactsById.set(row.id, {
@@ -62,6 +69,7 @@ export const GET = withActor(
           name: displayContactName(row),
           email: row.email,
           role: row.role,
+          avatarUrl: avatarPublicUrl(adminClient, row.avatar_url),
         });
       }
     }

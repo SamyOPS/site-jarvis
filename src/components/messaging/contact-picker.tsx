@@ -6,7 +6,7 @@ import { PenSquare, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDismissable } from "@/hooks/use-dismissable";
 import { messagingRoleLabel, type MessagingContact } from "@/domain/messaging";
-import { initialsOf } from "@/features/messaging/format";
+import { AvatarBubble } from "@/components/console/avatar-bubble";
 
 type ContactPickerProps = {
   contacts: MessagingContact[];
@@ -99,12 +99,12 @@ export function ContactPicker({ contacts, onSelect, compact = false }: ContactPi
                     }}
                     className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-app-surface-hover focus-visible:outline-app"
                   >
-                    <span
-                      aria-hidden="true"
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface-hover text-app-2xs font-semibold text-app-text-secondary"
-                    >
-                      {initialsOf(contact.name)}
-                    </span>
+                    <AvatarBubble
+                      avatarUrl={contact.avatarUrl}
+                      name={contact.name}
+                      email={contact.email}
+                      size={28}
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-app-sm text-app-text">
                         {contact.name}

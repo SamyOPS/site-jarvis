@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Image from "next/image";
 import { Trash2, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,7 @@ import {
 import { PROFILE_LIMITS, type AccountProfile } from "@/domain/account-settings";
 import { messagingRoleLabel } from "@/domain/messaging";
 import { AVATAR_MAX_BYTES, AVATAR_MIME_TYPES } from "@/lib/avatars";
-import { initialsOf } from "@/features/messaging/format";
+import { AvatarBubble } from "@/components/console/avatar-bubble";
 
 type ProfileTabProps = {
   profile: AccountProfile;
@@ -75,25 +74,13 @@ export function ProfileTab({
         description="Elle remplace vos initiales dans la messagerie et les listes."
       >
         <div className="flex flex-wrap items-center gap-4">
-          {profile.avatarUrl ? (
-            <Image
-              src={profile.avatarUrl}
-              alt=""
-              width={64}
-              height={64}
-              // `unoptimized` : l'image vient du stockage Supabase, dont le domaine n'est
-              // pas declare dans next.config. L'optimiseur la refuserait.
-              unoptimized
-              className="h-16 w-16 rounded-full border border-app-line object-cover"
-            />
-          ) : (
-            <span
-              aria-hidden="true"
-              className="flex h-16 w-16 items-center justify-center rounded-full border border-app-line bg-app-surface-hover text-app-lg font-semibold text-app-text-secondary"
-            >
-              {initialsOf(displayName)}
-            </span>
-          )}
+          <AvatarBubble
+            avatarUrl={profile.avatarUrl}
+            name={displayName}
+            email={profile.email}
+            size={64}
+            className="text-app-lg"
+          />
 
           <div className="flex flex-wrap items-center gap-2">
             <input
