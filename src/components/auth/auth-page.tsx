@@ -6,6 +6,7 @@ import { browserSupabase } from "@/lib/supabase-browser";
 import { AlertCircle, CheckCircle2, LogIn, UserPlus } from "lucide-react";
 
 import { Footer } from "@/components/sections/footer";
+import { resolveLandingPath } from "@/features/account/landing";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -193,7 +194,10 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
         });
         return;
       }
-      router.replace(getDashboardPath(resolvedRole));
+      // L'ecran d'accueil suit la preference du compte, quand elle existe.
+      router.replace(
+        await resolveLandingPath(resolvedRole, getDashboardPath(resolvedRole)),
+      );
     };
 
     void redirectIfAuthenticated();
@@ -282,7 +286,7 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
       });
       return;
     }
-    router.replace(getDashboardPath(resolvedRole));
+    router.replace(await resolveLandingPath(resolvedRole, getDashboardPath(resolvedRole)));
   };
 
   const handleRegisterSubmit = async (event: React.FormEvent<HTMLFormElement>) => {

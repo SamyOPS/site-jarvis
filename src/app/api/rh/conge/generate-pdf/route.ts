@@ -6,6 +6,7 @@ import { readPdfLogoBase64 } from "@/lib/pdf-logo";
 import { assertRhAccess } from "@/lib/rh-access";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { notifyEmployeeOfDocument } from "@/lib/email";
+import { shouldNotify } from "@/lib/notification-preferences";
 import { ensureLeaveDocumentType } from "@/lib/leave-document-type";
 import { buildLeavePdfBuffer, type LeaveType } from "@/lib/leave-pdf";
 import { toDocumentDate } from "@/lib/server-supabase";
@@ -187,7 +188,10 @@ export const POST = withActor(
     }
 
     try {
-      if (employeeProfile?.email) {
+      if (
+        employeeProfile?.email &&
+        (await shouldNotify(auth.adminClient, employeeId, "generatedDocuments"))
+      ) {
         const { data: actorProfile } = await auth.adminClient
           .from("profiles")
           .select("full_name,email")

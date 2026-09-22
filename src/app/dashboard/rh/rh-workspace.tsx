@@ -17,12 +17,10 @@ import type { MissionFormState, MissionItem } from "@/components/dashboard/missi
 import { ConsoleCollaborateursTable } from "@/components/console/collaborateurs/collaborateurs-table";
 import { ConsoleCollaborateurDetail } from "@/components/console/collaborateurs/collaborateur-detail";
 import { ConsoleShell } from "@/components/console/shell/console-shell";
-import { RhSettingsSection } from "@/components/dashboard/rh-settings-section";
 import { StatusNotice } from "@/components/dashboard/status-notice";
 import { Button } from "@/components/ui/button";
 import { useDocumentFolders } from "@/features/dashboard/documents/use-document-folders";
 import { useDocumentPreview } from "@/features/dashboard/documents/use-document-preview";
-import { usePasswordUpdate } from "@/features/dashboard/use-password-update";
 import { createAuthorizedFetch, getFreshAccessToken } from "@/lib/dashboard-api";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { displayNameFromMetadata } from "@/domain/profiles";
@@ -158,13 +156,6 @@ export default function RhWorkspace({
     handleViewDocument,
     handleDownloadDocument,
   } = useDocumentPreview<RHDocumentRow>(setSaveMessage);
-  const {
-    passwordForm,
-    setPasswordForm,
-    passwordMessage,
-    passwordSaving,
-    handlePasswordUpdate,
-  } = usePasswordUpdate();
   const [employeeDrafts, setEmployeeDrafts] = useState<Record<string, { full_name: string; phone: string; company_name: string; esn_partenaire: string; employment_status: string }>>({});
   const [reviewingDocumentId, setReviewingDocumentId] = useState<string | null>(null);
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({});
@@ -2016,19 +2007,6 @@ export default function RhWorkspace({
             />
           )}
 
-          {currentSection === "parametres" && (
-            <RhSettingsSection
-              email={profile?.email ?? "-"}
-              fullName={profile?.full_name ?? "-"}
-              userId={user?.id ?? "N/A"}
-              expiresAt={session?.expires_at ? new Date(session.expires_at * 1000).toLocaleString() : "-"}
-              passwordSaving={passwordSaving}
-              passwordMessage={passwordMessage}
-              passwordForm={passwordForm}
-              onPasswordFormChange={setPasswordForm}
-              onPasswordSubmit={handlePasswordUpdate}
-            />
-          )}
       </div>
 
       <Dialog

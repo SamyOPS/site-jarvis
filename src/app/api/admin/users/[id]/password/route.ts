@@ -7,7 +7,7 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-/** Meme regle que la modification de son propre mot de passe (`use-password-update`). */
+/** Meme regle que la modification de son propre mot de passe (`use-password-change`). */
 const MIN_PASSWORD_LENGTH = 8;
 
 /**

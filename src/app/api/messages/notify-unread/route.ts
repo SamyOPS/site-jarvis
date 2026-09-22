@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getServerSupabaseClients } from "@/lib/server-supabase";
+import { notificationSettingsByUser } from "@/lib/notification-preferences";
 import { displayContactName } from "@/domain/messaging";
 import { notifyUnreadMessages } from "@/lib/email";
 
@@ -167,6 +168,12 @@ export async function POST(request: Request) {
   const notifiedIds: string[] = [...alreadyReadIds];
   let skipped = 0;
   let recipients = 0;
+  let declined = 0;
+
+  const preferences = await notificationSettingsByUser(
+    adminClient,
+    Array.from(pendingByRecipient.keys()),
+  );
 
   for (const [recipientId, entries] of pendingByRecipient) {
     const recipient = profilesById.get(recipientId);
@@ -175,6 +182,17 @@ export async function POST(request: Request) {
     // Destinataire sans e-mail exploitable : rien a envoyer, et rien a reessayer non plus.
     if (!recipient?.email) {
       notifiedIds.push(...messageIds);
+      continue;
+    }
+
+    /*
+      Rappels coupes dans les parametres du compte. Les messages sont marques comme
+      traites : les garder en attente les ferait ressortir si la preference etait
+      reactivee, avec un rappel portant sur des echanges vieux de plusieurs jours.
+    */
+    if (!(preferences.get(recipientId)?.messageReminders ?? true)) {
+      notifiedIds.push(...messageIds);
+      declined += 1;
       continue;
     }
 
@@ -223,5 +241,6 @@ export async function POST(request: Request) {
     notified: notifiedIds.length,
     recipients,
     skipped,
+    declined,
   });
 }

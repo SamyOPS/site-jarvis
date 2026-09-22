@@ -6,6 +6,7 @@ import {
   validateDocumentFile,
 } from "@/lib/document-storage";
 import { notifyEmployeeOfDocument } from "@/lib/email";
+import { shouldNotify } from "@/lib/notification-preferences";
 import { assertRhAccess } from "@/lib/rh-access";
 import { ApiError, withActor } from "@/lib/api-handler";
 import {
@@ -162,7 +163,10 @@ export const POST = withActor(
         .select("email,full_name")
         .eq("id", employeeId)
         .single();
-      if (employeeRow?.email) {
+      if (
+        employeeRow?.email &&
+        (await shouldNotify(adminClient, employeeId, "documentUploads"))
+      ) {
         await notifyEmployeeOfDocument({
           employeeEmail: employeeRow.email,
           employeeName: employeeRow.full_name,

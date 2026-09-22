@@ -1,7 +1,15 @@
-import RhWorkspace from "../rh-workspace";
+import { Suspense } from "react";
 
-import { RH_WORKSPACE_ROUTES } from "@/features/dashboard/rh/navigation";
+import { SettingsWorkspace } from "@/components/account/settings-workspace";
 
+/*
+  `Suspense` est requis : l'onglet courant est lu dans l'URL (`?section=`) avec
+  `useSearchParams`, que Next impose d'isoler pour pouvoir prerendre le reste de la page.
+*/
 export default function RhParametresPage() {
-  return <RhWorkspace {...RH_WORKSPACE_ROUTES.parametres} />;
+  return (
+    <Suspense fallback={null}>
+      <SettingsWorkspace role="rh" />
+    </Suspense>
+  );
 }

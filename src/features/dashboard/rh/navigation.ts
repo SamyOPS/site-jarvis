@@ -89,10 +89,6 @@ export const RH_WORKSPACE_ROUTES = {
     currentSection: "offres",
     currentSubSection: "offres_creer",
   },
-  parametres: {
-    currentSection: "parametres",
-    currentSubSection: "overview",
-  },
 } satisfies Record<string, RhWorkspaceRouteProps>;
 
 export function createRhCollaborateurDetailRoute(

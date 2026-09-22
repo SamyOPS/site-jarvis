@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { ApiError, withActor } from "@/lib/api-handler";
 import { notifyEmployeeOfDocumentRequest } from "@/lib/email";
+import { shouldNotify } from "@/lib/notification-preferences";
 import { assertRhAccess } from "@/lib/rh-access";
 
 export const runtime = "nodejs";
@@ -88,7 +89,11 @@ export const POST = withActor(
     }
 
     // L'envoi du mail ne doit pas faire echouer la demande, qui est deja enregistree.
-    if (employeeProfile.email) {
+    // Le collaborateur peut avoir coupe cette famille d'e-mails dans ses parametres.
+    if (
+      employeeProfile.email &&
+      (await shouldNotify(adminClient, employeeId, "documentRequests"))
+    ) {
       try {
         await notifyEmployeeOfDocumentRequest({
           employeeEmail: employeeProfile.email,

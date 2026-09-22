@@ -147,7 +147,7 @@ export const POST = withActor(
     const trackingWarning = requestUpdateError?.message ?? eventInsertError?.message ?? null;
 
     try {
-      const rhEmails = await getRhRecipientsForEmployee(adminClient, profile.id);
+      const rhEmails = await getRhRecipientsForEmployee(adminClient, profile.id, "documentUploads");
       if (rhEmails.length) {
         await notifyRhOfDocument({
           rhEmails,

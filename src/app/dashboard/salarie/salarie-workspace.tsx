@@ -4,15 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
 
-import type { BillingProfileFormState } from "@/components/dashboard/billing-profile-card";
 import type { LeaveRequestPayload } from "@/components/dashboard/salarie/leave-request-editor";
 import { ConsoleLoadingSkeleton } from "@/components/console/feedback/loading-skeleton";
 import { ConsoleShell } from "@/components/console/shell/console-shell";
 import { SalarieDocumentsSection } from "@/components/dashboard/salarie-documents-section";
 import { SalarieOffersSection } from "@/components/dashboard/salarie-offers-section";
 import { SalarieOverviewSection } from "@/components/dashboard/salarie-overview-section";
-import { SalarieSettingsSection } from "@/components/dashboard/salarie-settings-section";
-import type { MissionFormState, MissionItem } from "@/components/dashboard/missions-card";
 import type { ConsoleNotification } from "@/components/console/shell/console-notifications";
 import {
   ConsoleResultDialog,
@@ -22,8 +19,8 @@ import { StatusNotice } from "@/components/dashboard/status-notice";
 import { Button } from "@/components/ui/button";
 import { useDocumentFolders } from "@/features/dashboard/documents/use-document-folders";
 import { useDocumentPreview } from "@/features/dashboard/documents/use-document-preview";
-import { usePasswordUpdate } from "@/features/dashboard/use-password-update";
 import { createAuthorizedFetch } from "@/lib/dashboard-api";
+import { useSalarieBilling } from "@/features/account/use-salarie-billing";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   buildCalendarCells,
@@ -56,22 +53,6 @@ import { forceClientSignOut, safeGetClientSession } from "@/lib/client-auth";
 function toInvoiceAmount(value: string) {
   return value.trim() === "" ? 0 : Number(value);
 }
-
-const emptyBillingProfileForm = (): BillingProfileFormState => ({
-  firstName: "",
-  lastName: "",
-  addressLine1: "",
-  addressLine2: "",
-  postalCode: "",
-  city: "",
-  country: "France",
-  phone: "",
-  email: "",
-  siret: "",
-  iban: "",
-  bic: "",
-  timeUnit: "day",
-});
 
 const weekdayLabels = WEEKDAY_LABELS;
 
@@ -125,6 +106,21 @@ export default function SalarieWorkspace({
   const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const callSalarieApi = useMemo(() => createAuthorizedFetch("salarie"), []);
+  /*
+    Profil de facturation et entreprises clientes. Cet ecran n'en lit plus que ce dont le
+    CRA a besoin — les missions et l'unite de repli du profil : leur REGLAGE a rejoint la
+    page de parametres, qui s'appuie sur le meme hook.
+  */
+  const {
+    billingProfileForm,
+    billingProfileReady,
+    loadBillingProfile,
+    missions,
+    loadMissions,
+  } = useSalarieBilling({
+    fallbackEmail: profile?.email,
+    onMessage: setActionMessage,
+  });
   const {
     folders,
     trashedFolders,
@@ -155,21 +151,6 @@ export default function SalarieWorkspace({
     handleViewDocument,
     handleDownloadDocument,
   } = useDocumentPreview<DocumentRow>(setActionMessage);
-  const {
-    passwordForm,
-    setPasswordForm,
-    passwordMessage,
-    passwordSaving,
-    handlePasswordUpdate,
-  } = usePasswordUpdate();
-  const [billingProfileForm, setBillingProfileForm] = useState<BillingProfileFormState>(emptyBillingProfileForm);
-  const [billingProfileReady, setBillingProfileReady] = useState(false);
-  const [billingProfileLoading, setBillingProfileLoading] = useState(false);
-  const [billingProfileSaving, setBillingProfileSaving] = useState(false);
-  const [missions, setMissions] = useState<MissionItem[]>([]);
-  const [missionsLoading, setMissionsLoading] = useState(false);
-  const [missionsSaving, setMissionsSaving] = useState(false);
-  const [missionsMessage, setMissionsMessage] = useState<string | null>(null);
   const [craItems, setCraItems] = useState<CraSummaryRow[]>([]);
   const [selectedCraId, setSelectedCraId] = useState<string | null>(null);
   /**
@@ -383,67 +364,6 @@ export default function SalarieWorkspace({
     };
     void load();
   }, [applyDashboardCache, loadDashboardData, router]);
-
-  const loadBillingProfile = useCallback(async () => {
-    setBillingProfileLoading(true);
-    try {
-      // Toutes ces colonnes sont nullables en base : daily_rate / iban / bic / siret
-      // ne concernent que les auto-entrepreneurs (migration optional_billing_fields),
-      // et les autres peuvent etre vides sur un profil incomplet. On les traite donc
-      // toutes comme nullables, et le formulaire ne manipule que des chaines.
-      const payload = (await callSalarieApi("/api/salarie/billing-profile")) as {
-        profile?: Partial<{
-          first_name: string | null;
-          last_name: string | null;
-          company_name: string | null;
-          esn_partenaire: string | null;
-          address_line_1: string | null;
-          address_line_2: string | null;
-          postal_code: string | null;
-          city: string | null;
-          country: string | null;
-          phone: string | null;
-          email: string | null;
-          siret: string | null;
-          iban: string | null;
-          bic: string | null;
-          daily_rate: number | null;
-          time_unit: string | null;
-        }> | null;
-      };
-
-      if (!payload.profile) {
-        setBillingProfileReady(false);
-        setBillingProfileForm((prev) => ({
-          ...prev,
-          firstName: prev.firstName || "",
-          lastName: prev.lastName || "",
-          phone: prev.phone || "",
-          email: prev.email || profile?.email || "",
-        }));
-        return;
-      }
-
-      setBillingProfileForm({
-        firstName: payload.profile.first_name ?? "",
-        lastName: payload.profile.last_name ?? "",
-        addressLine1: payload.profile.address_line_1 ?? "",
-        addressLine2: payload.profile.address_line_2 ?? "",
-        postalCode: payload.profile.postal_code ?? "",
-        city: payload.profile.city ?? "",
-        country: payload.profile.country ?? "",
-        phone: payload.profile.phone ?? "",
-        email: payload.profile.email ?? "",
-        siret: payload.profile.siret ?? "",
-        iban: payload.profile.iban ?? "",
-        bic: payload.profile.bic ?? "",
-        timeUnit: payload.profile.time_unit === "hour" ? "hour" : "day",
-      });
-      setBillingProfileReady(true);
-    } finally {
-      setBillingProfileLoading(false);
-    }
-  }, [callSalarieApi, profile?.email]);
 
   const loadCraItems = useCallback(async () => {
     const payload = (await callSalarieApi("/api/salarie/cra")) as { items?: CraSummaryRow[] };
@@ -770,107 +690,6 @@ export default function SalarieWorkspace({
     [loadCraDetail],
   );
 
-  const handleBillingProfileSave = useCallback(async () => {
-    try {
-      setBillingProfileSaving(true);
-      setActionMessage(null);
-      await callSalarieApi("/api/salarie/billing-profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(billingProfileForm),
-      });
-      setBillingProfileReady(true);
-      setActionMessage("Profil de facturation enregistre.");
-      await loadBillingProfile();
-    } catch (error) {
-      setActionMessage(error instanceof Error ? error.message : "Enregistrement du profil impossible.");
-    } finally {
-      setBillingProfileSaving(false);
-    }
-  }, [billingProfileForm, callSalarieApi, loadBillingProfile]);
-
-  const loadMissions = useCallback(async () => {
-    try {
-      setMissionsLoading(true);
-      const payload = (await callSalarieApi("/api/salarie/missions")) as {
-        items?: MissionItem[];
-      } | null;
-      setMissions(payload?.items ?? []);
-    } catch (error) {
-      setMissionsMessage(
-        error instanceof Error ? error.message : "Chargement des entreprises impossible.",
-      );
-    } finally {
-      setMissionsLoading(false);
-    }
-  }, [callSalarieApi]);
-
-  const handleMissionSave = useCallback(
-    async (form: MissionFormState) => {
-      try {
-        setMissionsSaving(true);
-        setMissionsMessage(null);
-        const body = JSON.stringify({
-          companyName: form.companyName,
-          esnPartenaire: form.esnPartenaire,
-          rate: form.rate,
-          rateUnit: form.rateUnit,
-        });
-        await callSalarieApi(
-          form.id ? `/api/salarie/missions/${form.id}` : "/api/salarie/missions",
-          {
-            method: form.id ? "PATCH" : "POST",
-            headers: { "Content-Type": "application/json" },
-            body,
-          },
-        );
-        setMissionsMessage(form.id ? "Entreprise mise a jour." : "Entreprise ajoutee.");
-        await loadMissions();
-      } catch (error) {
-        setMissionsMessage(
-          error instanceof Error ? error.message : "Enregistrement de l'entreprise impossible.",
-        );
-      } finally {
-        setMissionsSaving(false);
-      }
-    },
-    [callSalarieApi, loadMissions],
-  );
-
-  const handleMissionDelete = useCallback(
-    async (missionId: string) => {
-      const mission = missions.find((item) => item.id === missionId);
-      if (
-        !window.confirm(
-          `Retirer l'entreprise "${mission?.company_name ?? ""}" ? Les CRA deja saisis la conservent.`,
-        )
-      ) {
-        return;
-      }
-
-      try {
-        setMissionsSaving(true);
-        setMissionsMessage(null);
-        const payload = (await callSalarieApi(`/api/salarie/missions/${missionId}`, {
-          method: "DELETE",
-        })) as { archived?: boolean } | null;
-        setMissionsMessage(
-          payload?.archived
-            ? "Entreprise archivee : elle reste visible sur les CRA passes."
-            : "Entreprise supprimee.",
-        );
-        await loadMissions();
-      } catch (error) {
-        setMissionsMessage(
-          error instanceof Error ? error.message : "Suppression de l'entreprise impossible.",
-        );
-      } finally {
-        setMissionsSaving(false);
-      }
-    },
-    [callSalarieApi, loadMissions, missions],
-  );
-
   const upsertCraRecord = useCallback(async () => {
     if (!billingProfileReady) {
       throw new Error("Renseigne d'abord ton profil de facturation.");
@@ -1179,12 +998,13 @@ export default function SalarieWorkspace({
   useEffect(() => {
     if (!profile) return;
 
-    if (currentSubSection === "docs_cra_facture" || currentSection === "parametres") {
+    // Le profil de facturation ne sert plus ici qu'a l'ecran CRA : les parametres ont
+    // leur propre page, qui charge ce dont elle a besoin.
+    if (currentSubSection === "docs_cra_facture") {
       void loadBillingProfile().catch((error) => {
         setActionMessage(error instanceof Error ? error.message : "Chargement du profil de facturation impossible.");
       });
-      // Les missions portent l'entreprise, le tarif et l'unite : la page CRA en a besoin
-      // autant que les parametres.
+      // Les missions portent l'entreprise, le tarif et l'unite : la page CRA en a besoin.
       void loadMissions();
     }
 
@@ -1329,29 +1149,6 @@ export default function SalarieWorkspace({
             />
           )}
 
-          {currentSection === "parametres" && (
-            <SalarieSettingsSection
-              email={profile?.email ?? "-"}
-              fullName={profile?.full_name ?? "-"}
-              role={profile?.role ?? "salarie"}
-              billingProfileForm={billingProfileForm}
-              onBillingProfileChange={setBillingProfileForm}
-              onBillingProfileSubmit={handleBillingProfileSave}
-              billingProfileSaving={billingProfileSaving}
-              billingProfileLoading={billingProfileLoading}
-              passwordSaving={passwordSaving}
-              passwordMessage={passwordMessage}
-              passwordForm={passwordForm}
-              onPasswordFormChange={setPasswordForm}
-              onPasswordSubmit={handlePasswordUpdate}
-              missions={missions}
-              onMissionSave={handleMissionSave}
-              onMissionDelete={handleMissionDelete}
-              missionsSaving={missionsSaving}
-              missionsLoading={missionsLoading}
-              missionsMessage={missionsMessage}
-            />
-          )}
       </div>
 
       {loading && (

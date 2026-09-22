@@ -73,8 +73,4 @@ export const SALARIE_WORKSPACE_ROUTES = {
     currentSection: "offres",
     currentSubSection: "cvs",
   },
-  parametres: {
-    currentSection: "parametres",
-    currentSubSection: "offres_toutes",
-  },
 } satisfies Record<string, SalarieWorkspaceRouteProps>;

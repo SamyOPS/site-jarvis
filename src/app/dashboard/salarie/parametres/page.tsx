@@ -1,7 +1,15 @@
-import SalarieWorkspace from "../salarie-workspace";
+import { Suspense } from "react";
 
-import { SALARIE_WORKSPACE_ROUTES } from "@/features/dashboard/salarie/navigation";
+import { SettingsWorkspace } from "@/components/account/settings-workspace";
 
+/*
+  `Suspense` est requis : l'onglet courant est lu dans l'URL (`?section=`) avec
+  `useSearchParams`, que Next impose d'isoler pour pouvoir prerendre le reste de la page.
+*/
 export default function SalarieParametresPage() {
-  return <SalarieWorkspace {...SALARIE_WORKSPACE_ROUTES.parametres} />;
+  return (
+    <Suspense fallback={null}>
+      <SettingsWorkspace role="salarie" />
+    </Suspense>
+  );
 }

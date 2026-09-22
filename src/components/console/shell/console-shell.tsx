@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import { sidebarCollapsedPreference } from "@/lib/console-preferences";
+import { hydrateAppearance } from "@/features/account/appearance-store";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ConsoleSidebar } from "@/components/console/shell/console-sidebar";
 import { ConsoleTopBar } from "@/components/console/shell/console-top-bar";
@@ -79,6 +80,15 @@ export function ConsoleShell({
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  /*
+    Preferences d'apparence : chargees UNE fois par chargement de page, ici, parce que le
+    shell enveloppe tous les ecrans de la console. Les composants qui les lisent — barre
+    laterale, listes de documents — s'abonnent au store sans declencher de requete.
+  */
+  useEffect(() => {
+    void hydrateAppearance();
+  }, []);
 
   const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
   const toggleCollapsed = useCallback(() => {

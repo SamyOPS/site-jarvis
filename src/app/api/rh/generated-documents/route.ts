@@ -18,6 +18,7 @@ import {
 } from "@/lib/missions";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { notifyEmployeeOfDocument } from "@/lib/email";
+import { shouldNotify } from "@/lib/notification-preferences";
 import { buildInvoicePdfBuffer } from "@/lib/invoice-pdf";
 import { assertRhAccess } from "@/lib/rh-access";
 import { ApiError, withActor } from "@/lib/api-handler";
@@ -34,6 +35,7 @@ async function notifyEmployeeForGeneratedDocument(
       adminClient.from("profiles").select("full_name,email").eq("id", params.actorId).single(),
     ]);
     if (!employee?.email) return;
+    if (!(await shouldNotify(adminClient, params.employeeId, "generatedDocuments"))) return;
     await notifyEmployeeOfDocument({
       employeeEmail: employee.email,
       employeeName: employee.full_name,

@@ -285,7 +285,7 @@ export const POST = withActor<RouteContext>(
     }
 
     try {
-      const rhEmails = await getRhRecipientsForEmployee(adminClient, profile.id);
+      const rhEmails = await getRhRecipientsForEmployee(adminClient, profile.id, "generatedDocuments");
       if (rhEmails.length) {
         await notifyRhOfDocument({
           rhEmails,

@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { ChevronLeft, ChevronRight, MoreVertical } from "lucide-react";
 
 import type { DocumentListItem } from "@/domain/documents";
@@ -19,6 +26,7 @@ import {
   getStatusBadgeClass,
 } from "@/features/dashboard/document-list/formatters";
 import { useColumnPreferences } from "@/features/dashboard/document-list/use-column-preferences";
+import { appearanceStore } from "@/features/account/appearance-store";
 
 /**
  * Tailles de page proposees. La plus petite sert aussi de seuil d'apparition de la barre
@@ -43,6 +51,8 @@ type DashboardDocumentListProps<T extends DocumentListItem> = {
   /**
    * Nombre de lignes par page. Doit figurer dans `PAGE_SIZE_OPTIONS`, faute de quoi le
    * choix affiche ne correspondrait a aucune option du menu.
+   *
+   * Absent — le cas courant —, la valeur vient des parametres du compte.
    */
   defaultPageSize?: 25 | 50 | 100;
   onItemDoubleClick?: (item: T) => void;
@@ -66,7 +76,7 @@ export function DashboardDocumentList<T extends DocumentListItem>({
   toolbar,
   countLabelSingular = "document",
   countLabelPlural = "documents",
-  defaultPageSize = 25,
+  defaultPageSize,
   onItemDoubleClick,
   isItemDoubleClickable,
   getDraggableId,
@@ -98,7 +108,17 @@ export function DashboardDocumentList<T extends DocumentListItem>({
     preferencesAuthToken,
   });
 
-  const [pageSize, setPageSize] = useState<number>(defaultPageSize);
+  /*
+    Taille de page : celle imposee par l'appelant, sinon celle des parametres du compte.
+    Le store est deja hydrate par le shell — aucune requete n'est faite ici, et toutes les
+    listes d'un meme ecran lisent la meme valeur.
+  */
+  const preferredPageSize = useSyncExternalStore(
+    appearanceStore.subscribe,
+    appearanceStore.getSnapshot,
+    appearanceStore.getServerSnapshot,
+  ).pageSize;
+  const [pageSize, setPageSize] = useState<number>(defaultPageSize ?? preferredPageSize);
   const [requestedPage, setRequestedPage] = useState(1);
 
   /*

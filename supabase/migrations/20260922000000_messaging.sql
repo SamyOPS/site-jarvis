@@ -258,7 +258,15 @@ as $$
   order by c.last_message_at desc;
 $$;
 
+/*
+  Retirer le privilege a PUBLIC NE SUFFIT PAS sous Supabase : les privileges par defaut du
+  schema `public` accordent EXECUTE explicitement a `anon` et `authenticated` sur chaque
+  fonction creee. Les trois revoke sont donc necessaires — voir 20260922020000, qui a
+  corrige l'oubli apres coup.
+*/
 revoke execute on function public.messaging_overview(uuid) from public;
+revoke execute on function public.messaging_overview(uuid) from anon;
+revoke execute on function public.messaging_overview(uuid) from authenticated;
 grant execute on function public.messaging_overview(uuid) to service_role;
 
 comment on function public.messaging_overview(uuid) is

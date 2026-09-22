@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import nodemailer, { type Transporter } from "nodemailer";
 
+import type { NotificationKind } from "@/domain/account-settings";
+import { filterByNotificationPreference } from "@/lib/notification-preferences";
+
 type SendEmailParams = {
   to: string | string[];
   subject: string;
@@ -106,9 +109,17 @@ function renderShell(innerHtml: string) {
   return `<div style="font-family:Arial,Helvetica,sans-serif;line-height:1.5;color:#111;max-width:560px">${innerHtml}<p style="margin-top:32px;color:#666;font-size:12px">Email automatique - Jarvis Connect. Merci de ne pas repondre.</p></div>`;
 }
 
+/**
+ * Adresses des RH qui suivent un collaborateur.
+ *
+ * `kind` restreint aux RH qui acceptent ce type d'e-mail. L'omettre notifie tout le
+ * monde — c'est le comportement d'origine, conserve pour les appels qui ne relevent
+ * d'aucune famille reglable.
+ */
 export async function getRhRecipientsForEmployee(
   adminClient: SupabaseClient,
   employeeId: string,
+  kind?: NotificationKind,
 ): Promise<string[]> {
   if (!employeeId) return [];
 
@@ -130,17 +141,33 @@ export async function getRhRecipientsForEmployee(
   );
   if (!rhIds.length) return [];
 
+  // L'identifiant est lu en plus de l'adresse : il faut savoir A QUI appartient chaque
+  // e-mail pour consulter sa preference.
   const { data: profiles, error: profilesError } = await adminClient
     .from("profiles")
-    .select("email")
+    .select("id,email")
     .in("id", rhIds);
   if (profilesError || !profiles?.length) return [];
 
+  const rows = (profiles as { id: string; email: string | null }[]).filter(
+    (row) => Boolean(row.email),
+  );
+
+  const allowedIds = kind
+    ? new Set(
+        await filterByNotificationPreference(
+          adminClient,
+          rows.map((row) => row.id),
+          kind,
+        ),
+      )
+    : null;
+
   return Array.from(
     new Set(
-      profiles
-        .map((row) => (row as { email: string | null }).email)
-        .filter((value): value is string => Boolean(value)),
+      rows
+        .filter((row) => !allowedIds || allowedIds.has(row.id))
+        .map((row) => row.email as string),
     ),
   );
 }
