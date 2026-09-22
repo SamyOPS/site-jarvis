@@ -121,6 +121,7 @@ export function MessagesWorkspace({ role }: MessagesWorkspaceProps) {
         <MessagesView
           currentUserId={profile.id}
           initialConversationId={searchParams.get("c")}
+          initialContactId={searchParams.get("to")}
           emptyHint={
             role === "rh"
               ? "Écrivez à un collaborateur ou à un collègue."

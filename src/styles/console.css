@@ -317,3 +317,28 @@
 @utility ring-app-line {
   box-shadow: inset 0 0 0 1px var(--app-line);
 }
+
+/* ----------------------------------------------------------------------------
+ * 6. Marque
+ * -------------------------------------------------------------------------- */
+
+/* Le logo Jarvis existe en deux encres : blanche (fond sombre) et noire (fond
+ * clair). Les deux images sont rendues, et le theme decide laquelle s'affiche.
+ *
+ * Bascule en CSS et non en JS : le theme est pose par le script d'amorcage
+ * AVANT la premiere peinture, et un composant qui lirait le theme en React
+ * afficherait la mauvaise encre le temps de l'hydratation.
+ *
+ * Le clair est le defaut, y compris sans attribut data-theme : c'est l'encre
+ * noire qui s'affiche alors. */
+.console-mark--dark {
+  display: none;
+}
+
+[data-theme="dark"] .console-mark--dark {
+  display: block;
+}
+
+[data-theme="dark"] .console-mark--light {
+  display: none;
+}

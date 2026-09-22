@@ -215,24 +215,18 @@ export function ConsoleCollaborateursTable({
                         email={row.email}
                       />
                       {/*
-                        Seul un consultant a une fiche. Celle du collegue RH n'existe pas :
-                        elle est construite pour un suivi documentaire — documents, demandes,
-                        entreprises clientes — et ses champs sont refuses par le serveur pour
-                        qui n'est pas affecte. Un lien qui mene a un ecran vide et a des
-                        enregistrements rejetes vaut moins que pas de lien du tout.
+                        Meme adresse pour tous, mais deux fiches derriere : le suivi
+                        documentaire pour un consultant, le contact pour un collegue RH.
+                        C'est le workspace qui choisit d'apres le role — les documents, les
+                        demandes et les entreprises clientes n'existent pas pour un pair, et
+                        le serveur refuserait de toute facon d'enregistrer ses champs.
                       */}
-                      {isColleague ? (
-                        <span className="font-medium text-app-text">
-                          {row.fullName ?? row.email}
-                        </span>
-                      ) : (
-                        <Link
-                          href={`/dashboard/rh/collaborateurs/${row.id}`}
-                          className="font-medium text-app-text hover:underline focus-visible:outline-app"
-                        >
-                          {row.fullName ?? row.email}
-                        </Link>
-                      )}
+                      <Link
+                        href={`/dashboard/rh/collaborateurs/${row.id}`}
+                        className="font-medium text-app-text hover:underline focus-visible:outline-app"
+                      >
+                        {row.fullName ?? row.email}
+                      </Link>
                     </span>
                   </td>
 

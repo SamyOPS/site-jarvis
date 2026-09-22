@@ -19,6 +19,11 @@ type MessagesViewProps = {
    * au panneau de la barre superieure de mener droit au bon fil.
    */
   initialConversationId?: string | null;
+  /**
+   * Interlocuteur avec qui ouvrir une conversation (`?to=<id>`), qu'elle existe deja ou
+   * non. C'est par la que passe le bouton « Envoyer un message » d'une fiche.
+   */
+  initialContactId?: string | null;
   /** Phrase affichee quand aucune conversation n'existe encore. */
   emptyHint: string;
 };
@@ -33,6 +38,7 @@ type MessagesViewProps = {
 export function MessagesView({
   currentUserId,
   initialConversationId,
+  initialContactId,
   emptyHint,
 }: MessagesViewProps) {
   const {
@@ -63,6 +69,18 @@ export function MessagesView({
     openedRef.current = initialConversationId;
     void openConversation(initialConversationId);
   }, [initialConversationId, openConversation]);
+
+  /*
+    Ouverture par interlocuteur. `startConversationWith` est idempotent — il rend le fil
+    existant s'il y en a un, en cree un sinon —, et la garde evite qu'un retour a la liste
+    le rouvre aussitot.
+  */
+  const startedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialContactId || startedRef.current === initialContactId) return;
+    startedRef.current = initialContactId;
+    void startConversationWith(initialContactId);
+  }, [initialContactId, startConversationWith]);
 
   const contactName = activeConversation?.contact?.name ?? "Compte supprimé";
 

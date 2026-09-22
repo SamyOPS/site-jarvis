@@ -1,34 +1,53 @@
+import Image from "next/image";
+
 import { cn } from "@/lib/utils";
 
 /**
- * Marque de la console. Le projet ne dispose pas d'un logo Jarvis vectoriel
- * (seuls Logo-Inetum.png et auth/SIIT.png existent, qui sont des logos
- * clients) : la marque est donc dessinee en SVG, sur l'accent, pour rester
- * nette en 24px et suivre le theme.
+ * Marque de la console : le logo du site.
+ *
+ * DEUX ENCRES, PAS UNE. Le logo d'origine (`/logo jarvis.png`) est blanc sur fond
+ * transparent — il est fait pour l'en-tete sombre du site public, et disparaitrait
+ * purement et simplement sur le theme clair de la console, qui est le theme par defaut.
+ * `/logo-jarvis-noir.png` en est la contrepartie a l'encre noire, tiree de `logonoir.jpeg`
+ * dont le fond blanc opaque a ete rendu transparent.
+ *
+ * LA BASCULE EST EN CSS (voir `console.css`, section Marque), pas en React : le theme est
+ * pose par le script d'amorcage avant la premiere peinture. Un composant qui lirait le
+ * theme a l'hydratation afficherait la mauvaise encre pendant un instant, et ce
+ * clignotement serait visible sur chaque chargement de page.
+ *
+ * `unoptimized` : ces deux fichiers sont deja legers et servis tels quels ; les faire
+ * passer par l'optimiseur pour un rendu de 28 px n'apporte rien.
  */
 export function ConsoleMark({ className }: { className?: string }) {
+  /*
+    28 px et non 24 : a 24 le mot-symbole inscrit dans l'embleme se brouille. L'en-tete de
+    la barre laterale fait 48 px de haut, la place est disponible. Le texte « Jarvis
+    Connect » figure de toute facon a cote — l'embleme n'a pas a etre lu, seulement
+    reconnu.
+  */
+  const common = "h-7 w-7 shrink-0 object-contain";
+
   return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className={cn("h-6 w-6 shrink-0", className)}
-    >
-      <rect
-        x="1"
-        y="1"
-        width="22"
-        height="22"
-        rx="6"
-        className="fill-app-accent-soft stroke-app-accent"
-        strokeWidth="1.5"
+    <>
+      <Image
+        src="/logo-jarvis-noir.png"
+        alt=""
+        width={28}
+        height={28}
+        unoptimized
+        priority
+        className={cn("console-mark--light", common, className)}
       />
-      <path
-        d="M15 6.5v7.75a3.75 3.75 0 0 1-6.4 2.65"
-        fill="none"
-        className="stroke-app-accent"
-        strokeWidth="2"
-        strokeLinecap="round"
+      <Image
+        src="/logo jarvis.png"
+        alt=""
+        width={28}
+        height={28}
+        unoptimized
+        priority
+        className={cn("console-mark--dark", common, className)}
       />
-    </svg>
+    </>
   );
 }

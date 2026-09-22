@@ -15,6 +15,7 @@ import {
 } from "@/components/console/feedback/result-dialog";
 import type { MissionFormState, MissionItem } from "@/components/dashboard/missions-card";
 import { ConsoleCollaborateursTable } from "@/components/console/collaborateurs/collaborateurs-table";
+import { ConsoleColleagueDetail } from "@/components/console/collaborateurs/colleague-detail";
 import { ConsoleCollaborateurDetail } from "@/components/console/collaborateurs/collaborateur-detail";
 import { ConsoleShell } from "@/components/console/shell/console-shell";
 import { StatusNotice } from "@/components/dashboard/status-notice";
@@ -36,6 +37,7 @@ import {
 } from "@/features/dashboard/rh/document-batch";
 import { useDocumentFilters } from "@/features/dashboard/documents/document-filters";
 import type { RhWorkspaceRouteProps } from "@/features/dashboard/rh/navigation";
+import { RH_NAV_CONFIG } from "@/features/dashboard/shell/nav-config";
 import type { DocumentRequestStatus, DocumentStatus, DocumentTypeRow } from "@/domain/documents";
 import type {
   RhApplicationRow as ApplicationRow,
@@ -590,6 +592,16 @@ export default function RhWorkspace({
   }, [resetCollabDocumentFilters, selectedEmployeeId]);
 
   const selectedEmployee = useMemo(() => employees.find((employee) => employee.id === selectedEmployeeId) ?? null, [employees, selectedEmployeeId]);
+  /*
+    Un collegue RH ouvert depuis la liste. Cherche dans `rhColleagues` et non dans
+    `employees` : les deux listes restent separees, et c'est le rendu qui choisit la fiche
+    a afficher — celle du suivi documentaire pour un consultant, celle du contact pour un
+    pair.
+  */
+  const selectedColleague = useMemo(
+    () => rhColleagues.find((colleague) => colleague.id === selectedEmployeeId) ?? null,
+    [rhColleagues, selectedEmployeeId],
+  );
   const selectedEmployeeBillingProfile = useMemo(
     () => billingProfiles.find((item) => item.employeeId === selectedEmployeeId) ?? null,
     [billingProfiles, selectedEmployeeId],
@@ -1930,7 +1942,18 @@ export default function RhWorkspace({
           )}
 
           {currentSection === "collaborateurs" &&
-            (currentSubSection === "collab_detail" && selectedEmployee && activeDraft ? (
+            (currentSubSection === "collab_detail" && selectedColleague ? (
+              <ConsoleColleagueDetail
+                colleague={{
+                  id: selectedColleague.id,
+                  name: selectedColleague.full_name ?? "",
+                  email: selectedColleague.email,
+                  phone: selectedColleague.phone,
+                  avatarUrl: avatarUrlOf(selectedColleague.avatar_url),
+                }}
+                messagesHref={RH_NAV_CONFIG.messagesHref}
+              />
+            ) : currentSubSection === "collab_detail" && selectedEmployee && activeDraft ? (
               <ConsoleCollaborateurDetail
                 employee={{
                   id: selectedEmployee.id,
@@ -1941,6 +1964,7 @@ export default function RhWorkspace({
                 }}
                 lastSignInLabel={formatLastSignIn(selectedEmployee.id)}
                 isOnline={isRecentlyActive(selectedEmployee.id)}
+                messagesHref={RH_NAV_CONFIG.messagesHref}
                 employmentStatus={activeDraft.employment_status}
                 onEmploymentStatusChange={handleEmploymentStatusChange}
                 billingDraft={activeBillingProfileDraft}

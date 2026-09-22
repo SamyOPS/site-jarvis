@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, FilePlus, Pencil } from "lucide-react";
+import { ArrowLeft, ChevronDown, FilePlus, MessageSquare, Pencil } from "lucide-react";
 
 import { ConsoleStatRow } from "@/components/console/overview/stat-row";
 import { AvatarBubble } from "@/components/console/avatar-bubble";
@@ -71,6 +71,11 @@ type CollaborateurDetailProps<TDoc extends DetailDocumentItem> = {
   };
   lastSignInLabel: string;
   isOnline: boolean;
+  /**
+   * Page de messagerie de l'espace. Sert au raccourci « Envoyer un message », qui ouvre la
+   * conversation avec ce collaborateur — existante ou non.
+   */
+  messagesHref: string;
 
   employmentStatus: string;
   onEmploymentStatusChange: (value: string) => void;
@@ -259,6 +264,7 @@ export function ConsoleCollaborateurDetail<TDoc extends DetailDocumentItem>({
   employee,
   lastSignInLabel,
   isOnline,
+  messagesHref,
   employmentStatus,
   onEmploymentStatusChange,
   billingDraft,
@@ -314,13 +320,27 @@ export function ConsoleCollaborateurDetail<TDoc extends DetailDocumentItem>({
             </p>
           </div>
 
-          <Link
-            href="/dashboard/rh/collaborateurs"
-            className="flex shrink-0 items-center gap-2 rounded-app-control border border-app-line px-3 py-2 text-app-sm text-app-text-secondary transition-colors hover:bg-app-surface-hover hover:text-app-text focus-visible:outline-app"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Retour
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            {/*
+              Le raccourci est place AVEC le retour, dans l'en-tete d'identite : c'est une
+              action qui vise la personne, pas une de ses sections. `?to=` ouvre la
+              conversation existante ou la cree — la route est idempotente.
+            */}
+            <Button asChild type="button" size="sm">
+              <Link href={`${messagesHref}?to=${encodeURIComponent(employee.id)}`}>
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Envoyer un message
+              </Link>
+            </Button>
+
+            <Link
+              href="/dashboard/rh/collaborateurs"
+              className="flex items-center gap-2 rounded-app-control border border-app-line px-3 py-2 text-app-sm text-app-text-secondary transition-colors hover:bg-app-surface-hover hover:text-app-text focus-visible:outline-app"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Retour
+            </Link>
+          </div>
         </div>
       </section>
 
