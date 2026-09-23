@@ -108,10 +108,24 @@ function Logo({
           src={src}
           alt={alt}
           draggable={false}
+          /*
+            Taille de base portee a 40 px — 56 px pour les deux logos larges — soit ce qui
+            ne s'appliquait qu'a partir de `lg`. Le mobile part donc de 24 px a l'origine
+            pour arriver ici a 40.
+
+            Les paliers `sm` ont ete RETIRES plutot que recopies : ils valaient desormais
+            moins que la base, et un logo qui retrecit en passant a 640 px de large n'a
+            pas de sens. Une classe absente herite simplement du palier precedent.
+
+            `lg` et `2xl` sont inchanges : c'est le petit ecran qui manquait de presence,
+            pas le grand.
+
+            Rappel : `max-w-[190px]` n'est PAS responsive. Un logo tres allonge (au-dela
+            de 190/40, soit un rapport de 4,75:1) est borne par sa largeur et ne profite
+            donc pas de cet agrandissement.
+          */
           className={`w-auto max-w-[190px] object-contain ${
-            big
-              ? "h-10 sm:h-14 lg:h-16 2xl:h-20"
-              : "h-6 sm:h-9 lg:h-10 2xl:h-12"
+            big ? "h-14 lg:h-16 2xl:h-20" : "h-10 2xl:h-12"
           } ${invert ? "brightness-0" : "mix-blend-multiply"}`}
         />
       </button>
@@ -147,7 +161,10 @@ function Row({
           drag="x"
           dragConstraints={wrapRef}
           dragElastic={0.08}
-          className="flex h-20 w-max cursor-grab items-center active:cursor-grabbing sm:h-36 lg:h-44 2xl:h-72"
+          // 160 px de bande sur mobile, contre 80 a l'origine. Le palier `sm` a disparu :
+          // ses 144 px valaient MOINS que la base une fois celle-ci relevee, et une bande
+          // qui retrecit quand l'ecran s'elargit n'a pas de sens.
+          className="flex h-40 w-max cursor-grab items-center active:cursor-grabbing lg:h-44 2xl:h-72"
         >
           {[...items, ...items].map((logo, i) => (
             <Logo
@@ -211,13 +228,19 @@ export default function Clients() {
       id="clients"
       className="bg-white pb-8 sm:pb-16 lg:pb-20 2xl:pb-32"
     >
-      <div className="px-6 pt-6 sm:px-12 sm:pt-10 lg:pt-12 2xl:pt-16">
+      {/*
+        `pt-2` sur mobile au lieu de `pt-6` : les bandes ayant double de hauteur, le
+        blanc du haut n'a plus a en rajouter pour donner de la respiration a la section.
+        Les paliers `sm` et au-dela gardent leur aeration d'origine.
+      */}
+      <div className="px-6 pt-2 sm:px-12 sm:pt-10 lg:pt-12 2xl:pt-16">
         <p className="font-quote text-2xl text-zinc-900 sm:text-3xl lg:text-4xl 2xl:text-5xl">
           Ils nous font confiance
         </p>
       </div>
 
-      <div className="mt-6 sm:mt-10 lg:mt-12">
+      {/* Meme resserrement entre le titre et la premiere bande, mobile uniquement. */}
+      <div className="mt-3 sm:mt-10 lg:mt-12">
         {/* Défilement auto (scroll) + glisser à la main + clic = nom */}
         <Row x={x1} items={row1} onOpen={open} activeId={activeId} rowId="r1" />
         <Row x={x2} items={row2} onOpen={open} activeId={activeId} rowId="r2" />

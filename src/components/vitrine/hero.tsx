@@ -191,8 +191,23 @@ export default function Hero() {
         />
       )}
 
-      {/* Phrase d'accroche + mots clés, centrés en haut de page */}
-      <div className="pointer-events-none absolute left-1/2 top-10 z-20 flex max-w-2xl -translate-x-1/2 flex-col items-center gap-4 px-4 text-center sm:top-12">
+      {/*
+        Phrase d'accroche + mots clés, centrés en haut de page.
+
+        `top-20` (80 px) sur mobile, et non `top-10` : c'est exactement le bas de la
+        barre de navigation, dont les enfants sont `fixed top-8` (32 px) et dont la
+        hauteur est donnée par le burger, `h-12` (48 px). À 40 px, ce bloc passait
+        sous le bouton « Contactez nous » et sous le burger — invisible sur desktop,
+        où il reste large et centré loin des coins, mais franc sur un écran étroit.
+
+        `inset-x-0 mx-auto` et non `left-1/2 -translate-x-1/2` : un bloc absolu posé
+        à `left: 50%` sans `right` se dimensionne au plus sur la moitié restante du
+        conteneur, soit 50vw. Sur mobile, l'accroche se retrouvait pliée dans ~195 px
+        — d'où des lignes supplémentaires qui la faisaient déborder d'autant plus sur
+        la barre. Cadré sur toute la largeur, le bloc reste centré à l'identique sur
+        desktop, où `max-w-2xl` le bornait déjà bien avant les 50vw.
+      */}
+      <div className="pointer-events-none absolute inset-x-0 top-20 z-20 mx-auto flex max-w-2xl flex-col items-center gap-4 px-4 text-center sm:top-12">
         <p
           className="animate-fade-in text-2xl font-semibold leading-snug text-zinc-800 sm:text-4xl"
           style={{ animationDelay: "0.5s" }}
