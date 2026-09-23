@@ -140,9 +140,9 @@ export const CONSOLE_FOOTER: ConsoleFooter = {
     description: "Écrivez à vos interlocuteurs directement depuis la console.",
     linkLabel: "Ouvrir la messagerie",
   },
-  links: [{ label: "Centre d'aide", href: "/contact", icon: CircleHelp }],
-  // Repris tel quel du pied du site public. Sans annee calculee : `new Date()` au
-  // chargement du module ferait diverger le rendu serveur et le rendu client.
+  links: [{ label: "Centre d'aide", href: "mailto:am@jarvis-connect.fr", icon: CircleHelp, external: true }],
+  // Sans annee calculee : `new Date()` au chargement du module ferait diverger le rendu
+  // serveur et le rendu client.
   legal: "Jarvis Connect - Tous droits réservés",
 };
 

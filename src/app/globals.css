@@ -5,10 +5,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Variante « portable » : ecrans courts (hauteur <= 900px). Le rendu de base
+   reste celui du grand ecran ; on ne surcharge que sur portable. */
+@custom-variant laptop (@media (max-height: 900px));
+
 :root {
   --blue-nuit: #0a1a2f;
   --blue-tech: #1a73e8;
-  --gris-clair: #f4f7fa;
   --gris-texte: #4b5563;
   --gris-anthracite: #1e1e1e;
   --font-display: "Inter Tight", system-ui, -apple-system, sans-serif;
@@ -114,8 +117,18 @@ img {
   --color-color-primary: var(--color-primary);
 }
 
+/*
+  Blanc, et non le #f4f7fa d'avant : ce gris etait le fond de sections de
+  l'ancienne vitrine, disparue, et son jeton `--gris-clair` ne servait plus qu'a
+  cette ligne. Toutes les pages posent aujourd'hui leur propre `bg-white`
+  par-dessus ; le body ne se voyait donc plus qu'au rebond de defilement, ou il
+  tranchait. Un seul blanc pour tout le site.
+
+  Sans effet sur la console : `[data-app="console"]` est pose sur <body> et y
+  impose `--app-canvas`. Ni sur /auth, qui a son propre fond gris.
+*/
 body {
-  background: var(--gris-clair);
+  background: #ffffff;
   color: var(--gris-anthracite);
   font-family: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
 }
@@ -195,5 +208,327 @@ html {
   }
   100% {
     transform: translateX(120%);
+  }
+}
+
+
+/* ===========================================================================
+ * Vitrine
+ *
+ * Deux mondes cohabitent dans cette feuille : la console (jetons importes de
+ * styles/console.css, portee [data-app="console"]) et la vitrine, ci-dessous.
+ *
+ * CE QUI DOIT ETRE PORTE L'EST. Les regles qui repeignent des elements
+ * existants — barre de defilement, <img>, <body> — vivent sous
+ * html[data-site="vitrine"], attribut pose par CONSOLE_BOOTSTRAP_SCRIPT avant
+ * la premiere peinture puis entretenu par <VitrineScope>. Sans cette portee,
+ * la console perdrait ses barres de defilement et les offres leurs images
+ * arrondies.
+ *
+ * CE QUI EST OPTIONNEL RESTE GLOBAL. Les @keyframes et les classes qu'on
+ * applique soi-meme (.animate-*, .reveal-*, .text-hatched, .font-soft,
+ * .font-quote) ne s'activent que la ou on les ecrit : les porter n'apporterait
+ * rien et alourdirait le selecteur.
+ * ======================================================================== */
+
+/* La vitrine compose en Geist ; le reste du site est en Inter. `@theme inline`
+   fait que l'utilitaire `font-sans` emet `font-family: var(--font-sans)` : la
+   redefinir ici suffit a basculer toute la vitrine, sans toucher au theme.
+
+   `.vitrine-type` fait la meme chose a la demande, pour un sous-arbre pose hors
+   vitrine — le pied de page sur les offres d'emploi. Elle accompagne les
+   variables de police de VITRINE_FONT_VARS, qui declarent les familles ; seule,
+   elle pointerait vers une variable vide. */
+html[data-site="vitrine"],
+.vitrine-type {
+  --font-sans: var(--font-geist-sans);
+}
+
+/* Le fond blanc vient desormais de la regle `body` generale : il ne reste ici
+   que l'encre propre a la vitrine. */
+html[data-site="vitrine"] body {
+  color: #171717;
+}
+
+/* Barre de defilement native masquee : la progression est indiquee par la jauge
+   verticale du composant <ScrollProgress>. Le defilement reste fonctionnel.
+   html ET body sont couverts — selon les navigateurs, la barre du document est
+   portee par l'un ou par l'autre — plus tout conteneur scrollable interne. */
+html[data-site="vitrine"],
+html[data-site="vitrine"] body {
+  scrollbar-width: none; /* Firefox + Chromium recents */
+  -ms-overflow-style: none; /* anciens Edge/IE */
+}
+
+html[data-site="vitrine"]::-webkit-scrollbar,
+html[data-site="vitrine"] body::-webkit-scrollbar,
+html[data-site="vitrine"] *::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important; /* Chrome, Safari, Edge (WebKit/Blink) */
+}
+
+/*
+  `border-radius: var(--radius)` est pose sur tout <img> plus haut dans cette
+  feuille, pour les cartes de la console et des offres. La vitrine travaille en
+  images pleine page et en logos clients detoures : l'arrondi s'y verrait comme
+  un defaut. On le reprend.
+
+  `-webkit-user-drag` empeche le fantome de glisser-deposer natif du navigateur,
+  qui parasitait le glisser a la main du carrousel clients.
+*/
+html[data-site="vitrine"] img,
+.vitrine-type img {
+  border-radius: 0;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* Police plus douce (DM Sans) pour les pages de contenu. */
+.font-soft {
+  font-family: var(--font-soft), var(--font-geist-sans), sans-serif;
+}
+
+/* Serif editoriale (Instrument Serif) pour les citations / la mission. */
+.font-quote {
+  font-family: var(--font-instrument), Georgia, "Times New Roman", serif;
+}
+
+/* --- Hero : animations de l'arc reactor --- */
+
+/* Halo lumineux qui respire derriere le reacteur */
+@keyframes halo-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(1.12);
+  }
+}
+
+/* Micro-respiration du reacteur lui-meme */
+@keyframes reactor-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.015);
+  }
+}
+
+/* Flash de bloom au moment de l'allumage (une seule fois) */
+@keyframes bloom-flash {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.6);
+  }
+}
+
+/* Pulsation marquee du halo central (battement) */
+@keyframes core-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translate(-50%, -50%) scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.25);
+  }
+}
+
+/* Indicateur de scroll */
+@keyframes scroll-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(6px);
+    opacity: 1;
+  }
+}
+
+/* Fondu d'apparition du titre des l'arrivee sur le site */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Revelation masquee : chaque lettre glisse vers le haut depuis sa ligne */
+@keyframes letter-reveal {
+  from {
+    transform: translateY(110%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-halo {
+  animation: halo-pulse 4.5s ease-in-out infinite;
+}
+
+.animate-core {
+  animation: core-pulse 2.4s ease-in-out infinite;
+}
+
+.animate-reactor {
+  animation: reactor-pulse 4.5s ease-in-out infinite;
+}
+
+.animate-bloom {
+  animation: bloom-flash 1.2s ease-out forwards;
+}
+
+.animate-scroll-bob {
+  animation: scroll-bob 1.8s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  opacity: 0;
+  animation: fade-in 1.4s ease-out 0.2s forwards;
+}
+
+.reveal-mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  padding-bottom: 0.12em;
+}
+
+/* Variante pour le texte courant (bas de casse) : plus de marge basse afin de
+   ne pas rogner les jambages (g, p, y, q...). A utiliser avec translate-y-[135%]
+   pour que la lettre reste totalement cachee avant sa montee. */
+.reveal-mask-text {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  padding-bottom: 0.28em;
+}
+
+.reveal-inner {
+  display: inline-block;
+  transform: translateY(110%);
+  animation: letter-reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Texte rempli de hachures diagonales (style gravure) */
+.text-hatched {
+  background-image: repeating-linear-gradient(
+    45deg,
+    #18181b 0,
+    #18181b 1.5px,
+    transparent 1.5px,
+    transparent 7px
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Meme gravure, en clair : pour les sections sur fond sombre (FAQ). */
+.text-hatched-light {
+  background-image: repeating-linear-gradient(
+    45deg,
+    #fafafa 0,
+    #fafafa 1.5px,
+    transparent 1.5px,
+    transparent 7px
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/*
+  La regle generale plus haut dans cette feuille ramene deja toute animation a
+  0.01ms. Elle ne suffit pas ici : `.animate-fade-in` part d'`opacity: 0` et
+  `.reveal-inner` d'un `translateY(110%)` pose en dur, hors animation. Sans les
+  deux remises a zero ci-dessous, un utilisateur ayant demande moins de
+  mouvement lirait un hero vide et des lettres hors cadre.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .animate-halo,
+  .animate-core,
+  .animate-reactor,
+  .animate-bloom,
+  .animate-scroll-bob {
+    animation: none;
+  }
+
+  .animate-fade-in {
+    animation: none;
+    opacity: 1;
+  }
+
+  .reveal-inner {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* ===========================================================================
+ * Fondu d'entree hors vitrine
+ *
+ * Seconde moitie du fondu de page. La vitrine couvre l'ecran avant de partir
+ * (le voile de <PageTransition>), mais ce voile se demonte avec elle : sur
+ * /auth et /offres, servis par un autre layout, la page surgissait d'un coup
+ * sur fond noir. `data-entering` repose le voile a l'arrivee et le dissipe.
+ *
+ * L'attribut est pose sur <html> par PAGE_REVEAL_BOOTSTRAP_SCRIPT, avant la
+ * premiere peinture, et retire par lui apres la transition. Un pseudo-element
+ * plutot qu'un noeud : rien a monter, rien a hydrater, et le voile existe des
+ * que la feuille de styles est la.
+ *
+ * `pointer-events: none` est un garde-fou : si le script n'allait pas au bout,
+ * l'ecran resterait noir mais la page resterait utilisable.
+ * ======================================================================== */
+
+html[data-entering]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  background: #000;
+  opacity: 1;
+  pointer-events: none;
+  /* Duree accordee a PAGE_REVEAL_DURATION_MS (src/lib/page-reveal.ts). */
+  transition: opacity 500ms ease-in-out;
+}
+
+html[data-entering="done"]::after {
+  opacity: 0;
+}
+
+/*
+  Moins de mouvement : pas de voile du tout. La regle generale ramenerait la
+  transition a 0.01ms, ce qui donnerait un aplat noir apparaissant et
+  disparaissant en une image — un clignotement, exactement ce que ce reglage
+  cherche a eviter.
+*/
+@media (prefers-reduced-motion: reduce) {
+  html[data-entering]::after {
+    display: none;
   }
 }

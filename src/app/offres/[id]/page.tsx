@@ -4,8 +4,9 @@ import { ArrowLeft, CalendarClock, MapPin, Tag } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Footer } from "@/components/sections/footer";
-import { JobApplicationDialog } from "@/components/sections/job-application-dialog";
+import { JobApplicationDialog } from "@/components/offres/job-application-dialog";
+import Footer from "@/components/vitrine/footer";
+import Menu from "@/components/vitrine/menu";
 import { getCvSupabaseClient } from "@/lib/cv-supabase";
 
 export const revalidate = 60;
@@ -104,8 +105,12 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50 text-[#0A1A2F]">
-        <main className="container mx-auto px-6 py-8 lg:px-10 xl:px-16">
+      <div className="min-h-screen bg-white text-[#0A1A2F]">
+        {/* Barre : logo + Contactez nous + burger + panneau */}
+        <Menu />
+
+        {/* Meme marge haute que la liste : la barre fixe ne reserve rien. */}
+        <main className="container mx-auto px-6 pb-8 pt-32 sm:pt-40 lg:px-10 xl:px-16">
           <div className="mb-6 flex items-center gap-3 text-sm">
             <Button variant="link" className="p-0 text-[#0A1A2F] hover:text-[#0A1A2F]" asChild>
               <Link href="/offres" className="inline-flex items-center gap-2">
@@ -252,7 +257,13 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
             </div>
 
             <div className="space-y-6">
-              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm sticky top-6">
+              {/*
+                `top-28 sm:top-32` et non `top-6` : la barre de navigation est
+                fixe, et le burger occupe le coin haut droit — exactement la
+                colonne de cette carte. A 24px du haut, elle serait passee
+                dessous au defilement.
+              */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm sticky top-28 sm:top-32">
                 <h3 className="text-lg font-semibold text-[#0A1A2F] mb-4">Intéressé ?</h3>
                 <p className="text-sm text-[#0A1A2F]/70 mb-6">
                   Partagez-nous votre profil ou posez vos questions. Nous vous recontactons rapidement.
@@ -261,7 +272,7 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                 <div className="space-y-3">
                   <JobApplicationDialog jobId={offer.id} jobTitle={offer.title} />
                   <Button variant="outline" className="w-full border-[#0A1A2F] text-[#0A1A2F] hover:bg-[#0A1A2F]/10 font-semibold py-3" asChild>
-                    <a href="/contact">Contacter l&apos;équipe</a>
+                    <a href="mailto:am@jarvis-connect.fr">Contacter l&apos;équipe</a>
                   </Button>
                   <Button variant="ghost" className="w-full text-[#0A1A2F] hover:bg-gray-100 font-medium" asChild>
                     <Link href="/offres" className="inline-flex items-center gap-2">
@@ -282,7 +293,7 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
         </main>
       </div>
 
-      <Footer />
+      <Footer variant="light" />
     </>
   );
 }

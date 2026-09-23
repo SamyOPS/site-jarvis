@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
  * DEUX ENCRES, PAS UNE. Le logo d'origine (`/logo jarvis.png`) est blanc sur fond
  * transparent — il est fait pour l'en-tete sombre du site public, et disparaitrait
  * purement et simplement sur le theme clair de la console, qui est le theme par defaut.
- * `/logo-jarvis-noir.png` en est la contrepartie a l'encre noire, tiree de `logonoir.jpeg`
- * dont le fond blanc opaque a ete rendu transparent.
+ * `/logo-jarvis-noir.png` en est la contrepartie a l'encre noire : le JPEG d'origine, au
+ * fond blanc opaque, a ete detoure puis retire de `public/` — il n'etait jamais servi.
  *
  * LA BASCULE EST EN CSS (voir `console.css`, section Marque), pas en React : le theme est
  * pose par le script d'amorcage avant la premiere peinture. Un composant qui lirait le

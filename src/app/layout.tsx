@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Chakra_Petch, Inter, Inter_Tight, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { LaunchGate } from "@/components/launch-gate";
 import { CONSOLE_BOOTSTRAP_SCRIPT } from "@/lib/console-theme";
+import { PAGE_REVEAL_BOOTSTRAP_SCRIPT } from "@/lib/page-reveal";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -31,18 +31,18 @@ const chakraPetch = Chakra_Petch({
 
 export const metadata: Metadata = {
   title: {
-    default: "Jarvis Connect | Partenaire IT & digital",
+    default: "Jarvis Connect | Offres d'emploi & espace client",
     template: "%s | Jarvis Connect",
   },
   description:
-    "Support IT, developpement applicatif, securite, reseaux et transformation digitale pour PME, ETI et grandes organisations.",
+    "Les offres d'emploi de Jarvis Connect et l'acces a la console RH, salarie et administration.",
   icons: {
     icon: "/favicon.ico?v=2",
   },
   openGraph: {
-    title: "Jarvis Connect | Partenaire IT & digital",
+    title: "Jarvis Connect | Offres d'emploi & espace client",
     description:
-      "Des equipes IT seniors pour accelerer vos projets support, developpement, securite et transformation digitale.",
+      "Consultez les offres d'emploi ouvertes chez Jarvis Connect et connectez-vous a votre espace.",
     siteName: "Jarvis Connect",
     locale: "fr_FR",
     type: "website",
@@ -58,9 +58,10 @@ export default function RootLayout({
     /*
       `suppressHydrationWarning` est REQUIS ici, et strictement ici.
 
-      Le script d'amorce ci-dessous pose `data-theme` sur <html> avant l'hydratation, pour
-      eviter un flash de theme. Le HTML rendu par le serveur ne porte donc pas cet attribut
-      alors que le DOM client l'a deja : React signale un ecart d'hydratation.
+      Le script d'amorce ci-dessous pose `data-theme` et, sur les routes de la vitrine,
+      `data-site` sur <html> avant l'hydratation, pour eviter un flash de theme. Le HTML
+      rendu par le serveur ne porte donc pas ces attributs alors que le DOM client les a
+      deja : React signale un ecart d'hydratation.
 
       L'attribut n'ignore qu'UN SEUL niveau — les attributs de <html> — et rien de son
       contenu. C'est le motif documente par React pour les scripts de theme.
@@ -76,16 +77,29 @@ export default function RootLayout({
         className={`${inter.variable} ${interDisplay.variable} ${geistMono.variable} ${chakraPetch.variable} antialiased`}
       >
         {/*
-          Pose `data-theme` sur <html> et, sur les routes de la console, `data-app` sur
-          <body>. S'execute avant la peinture : sans lui, un utilisateur ayant choisi le
-          theme sombre le perdrait a chaque rechargement, la bascule ecrivant bien dans
-          localStorage mais plus personne ne l'y lisant au demarrage.
+          Pose trois marques, chacune sur son perimetre : `data-theme` sur <html>
+          partout ; `data-app="console"` sur <body> sur les routes de la console ;
+          `data-site="vitrine"` sur <html> sur celles de la vitrine.
 
-          Sans effet sur le site vitrine : ses tokens ne dependent pas de `data-theme`, et
-          `data-app` n'est pose que sur les prefixes de la console.
+          S'execute avant la peinture, et c'est tout l'interet : sans lui, un utilisateur
+          ayant choisi le theme sombre le perdrait a chaque rechargement — la bascule
+          ecrivant bien dans localStorage, mais plus personne ne l'y lisant au demarrage —
+          et la vitrine afficherait la barre de defilement native le temps d'une image.
+
+          Sans effet sur les offres d'emploi : elles ne relevent d'aucun des deux scopes,
+          et leurs jetons ne dependent pas de `data-theme`.
         */}
         <script dangerouslySetInnerHTML={{ __html: CONSOLE_BOOTSTRAP_SCRIPT }} />
-        <LaunchGate>{children}</LaunchGate>
+        {/*
+          Repose le voile noir sur la page d'arrivee quand on vient de quitter la
+          vitrine, puis le dissipe. Ici aussi avant la peinture : une revelation
+          qui commencerait apres coup montrerait d'abord la page, et le fondu
+          ressemblerait a un clignotement.
+        */}
+        <script
+          dangerouslySetInnerHTML={{ __html: PAGE_REVEAL_BOOTSTRAP_SCRIPT }}
+        />
+        {children}
       </body>
     </html>
   );

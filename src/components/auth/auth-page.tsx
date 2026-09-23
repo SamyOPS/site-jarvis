@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { browserSupabase } from "@/lib/supabase-browser";
 import { AlertCircle, CheckCircle2, LogIn, UserPlus } from "lucide-react";
 
-import { Footer } from "@/components/sections/footer";
 import { resolveLandingPath } from "@/features/account/landing";
 import { Button } from "@/components/ui/button";
 import {
@@ -595,7 +594,6 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
           </Card>
         </div>
       </div>
-      <Footer />
     </>
   );
 }

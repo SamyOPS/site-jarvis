@@ -30,7 +30,7 @@ export function ProUnverifiedOfferPlaceholder({
           <Button
             variant="outline"
             className="border-slate-300 text-[#0A1A2F]"
-            onClick={() => (window.location.href = "/contact")}
+            onClick={() => (window.location.href = "mailto:am@jarvis-connect.fr")}
           >
             Contacter l&apos;administration
           </Button>

@@ -25,7 +25,7 @@ export function ProRejectedCard() {
         <Button
           variant="outline"
           className="border-red-300 text-red-800 hover:bg-red-100"
-          onClick={() => (window.location.href = "/contact")}
+          onClick={() => (window.location.href = "mailto:am@jarvis-connect.fr")}
         >
           Contacter le support
         </Button>
