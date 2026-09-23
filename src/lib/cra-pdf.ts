@@ -24,7 +24,12 @@ export type CraPdfCompanySummary = {
 type CraPdfInput = {
   firstName: string;
   lastName: string;
-  companyName: string;
+  /**
+   * Entreprise cliente du chemin MONO-entreprise, affichee seulement quand `companies` est
+   * vide. Nullable : un collaborateur sans mission enregistree n'en a aucune a nommer, et
+   * le PDF imprime alors « - » comme il l'a toujours fait.
+   */
+  companyName: string | null;
   esnPartenaire: string | null;
   addressLine1: string;
   addressLine2: string | null;

@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { CRA_ENTRY_UNIT_COLUMNS, parseCraEntries, sumAbsenceDays, toCraEntryUnit, type CraEntryInput } from "@/lib/cra-entries";
-import { loadEmployeeMissions, syncCraMissionLines } from "@/lib/missions";
+import {
+  loadEmployeeMissions,
+  missionsCoveredByEntries,
+  summarizeMissionCompanies,
+  syncCraMissionLines,
+} from "@/lib/missions";
 import { ApiError, withActor } from "@/lib/api-handler";
 import { toIsoMonthStart } from "@/lib/server-supabase";
 
@@ -125,6 +130,11 @@ export const PATCH = withActor<RouteContext>(
         unpaid_leave_days:
           leaveDays?.unpaid_leave_days ?? Number(existingRecord.unpaid_leave_days ?? 0),
         status: "draft",
+        // Entreprise relue depuis les missions a chaque enregistrement : le CRA suit les
+        // entreprises du collaborateur au lieu de figer un NULL herite du profil.
+        ...(entries
+          ? summarizeMissionCompanies(missionsCoveredByEntries(entries, missions))
+          : null),
         updated_at: new Date().toISOString(),
       })
       .eq("id", existingRecord.id)

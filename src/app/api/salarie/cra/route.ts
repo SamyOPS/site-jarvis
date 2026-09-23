@@ -8,7 +8,12 @@ import {
   toCraEntryUnit,
   type CraEntryInput,
 } from "@/lib/cra-entries";
-import { loadEmployeeMissions, syncCraMissionLines } from "@/lib/missions";
+import {
+  loadEmployeeMissions,
+  missionsCoveredByEntries,
+  summarizeMissionCompanies,
+  syncCraMissionLines,
+} from "@/lib/missions";
 import { toIsoMonthStart } from "@/lib/server-supabase";
 
 type CraCreatePayload = {
@@ -116,6 +121,7 @@ export const POST = withActor(
         .from("cra_records")
         .update({
           status: "draft",
+          ...summarizeMissionCompanies(missionsCoveredByEntries(entries, missions)),
           worked_days_count: workedDaysCount,
           ...leaveDays,
           notes: getNotes(body.notes),
@@ -155,8 +161,10 @@ export const POST = withActor(
 
     const { data: billingProfile, error: billingError } = await adminClient
       .from("employee_billing_profiles")
+      // L'entreprise cliente et l'ESN ne sont PAS lus ici : leurs colonnes sont depreciees
+      // et valent NULL depuis le multi-missions. Ils viennent des missions, ci-dessous.
       .select(
-        "first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate",
+        "first_name,last_name,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate",
       )
       .eq("employee_id", profile.id)
       .single();
@@ -165,6 +173,10 @@ export const POST = withActor(
       throw new ApiError(billingError?.message ?? "Profil de facturation introuvable.", 400);
     }
 
+    // L'entreprise du CRA se lit dans les missions du collaborateur — la meme source que
+    // la fiche collaborateur — restreinte a celles qu'il a effectivement pointees.
+    const craCompanies = summarizeMissionCompanies(missionsCoveredByEntries(entries, missions));
+
     const { data: craRecord, error: insertError } = await adminClient
       .from("cra_records")
       .insert({
@@ -172,6 +184,7 @@ export const POST = withActor(
         period_month: periodMonth,
         status: "draft",
         ...billingProfile,
+        ...craCompanies,
         worked_days_count: workedDaysCount,
         ...leaveDays,
         notes: getNotes(body.notes),

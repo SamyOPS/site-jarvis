@@ -14,6 +14,8 @@ import { buildCraPdfBuffer } from "@/lib/cra-pdf";
 import {
   buildInvoiceLinesFromEntries,
   loadEmployeeMissions,
+  missionsCoveredByEntries,
+  summarizeMissionCompanies,
   syncCraMissionLines,
 } from "@/lib/missions";
 import { buildEmployeeDocumentPath } from "@/lib/document-storage";
@@ -371,6 +373,13 @@ export const POST = withActor(
     }
 
     const entries = parsedEntries;
+    /*
+     * Entreprise cliente et ESN, lus dans `employee_missions` — la source qu'affiche la
+     * fiche du collaborateur. Les colonnes homonymes de `employee_billing_profiles` sont
+     * depreciees depuis le multi-missions et ne sont plus ecrites : les lire vidait
+     * l'entreprise du CRA et de la facture pour tout collaborateur arrive depuis.
+     */
+    const craCompanies = summarizeMissionCompanies(missionsCoveredByEntries(entries, missions));
     const now = new Date().toISOString();
     const documentDate = toDocumentDate();
     const storageBucket = "employee-documents";
@@ -424,6 +433,7 @@ export const POST = withActor(
             period_month: periodStart,
             status: "draft",
             ...billingProfile,
+            ...craCompanies,
             worked_days_count: workedDaysCount,
             notes,
           })
@@ -440,6 +450,7 @@ export const POST = withActor(
           .update({
             status: "draft",
             ...billingProfile,
+            ...craCompanies,
             worked_days_count: workedDaysCount,
             notes,
             updated_at: now,
@@ -494,8 +505,8 @@ export const POST = withActor(
         {
           firstName: billingProfile.first_name,
           lastName: billingProfile.last_name,
-          companyName: billingProfile.company_name,
-          esnPartenaire: billingProfile.esn_partenaire,
+          companyName: craCompanies.company_name,
+          esnPartenaire: craCompanies.esn_partenaire,
           addressLine1: billingProfile.address_line_1,
           addressLine2: billingProfile.address_line_2,
           postalCode: billingProfile.postal_code,
@@ -635,7 +646,7 @@ export const POST = withActor(
       ? missionInvoiceLines
       : [
           {
-            label: billingProfile.company_name ?? "Client",
+            label: craCompanies.company_name ?? "Client",
             quantity: workedDaysCount,
             rate: dailyRate,
             unit: "day" as const,

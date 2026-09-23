@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { ApiError, withActor } from "@/lib/api-handler";
+import { MISSION_COLUMNS, summarizeMissionCompanies, type MissionRow } from "@/lib/missions";
 import { getOptionalString, getRequiredString } from "@/lib/validation";
 
 const RH_SESSION = { missingSession: "Session RH manquante." };
@@ -138,6 +139,35 @@ export const GET = withActor(
       throw new ApiError(employeesError.message, 400);
     }
 
+    /*
+     * Entreprises clientes, lues dans `employee_missions`.
+     *
+     * `employee_billing_profiles.company_name` est depreciee depuis le multi-missions et
+     * n'est plus ecrite : l'etiquette affichait litteralement « Prenom Nom - null » a
+     * l'ecran CRA/facture du RH, alors que la fiche du collaborateur montre bien ses
+     * entreprises. Les missions archivees sont ecartees : elles ne decrivent plus le
+     * travail en cours.
+     */
+    const { data: missionRows, error: missionsError } = await adminClient
+      .from("employee_missions")
+      .select(MISSION_COLUMNS)
+      .in("employee_id", employeeIds)
+      .is("archived_at", null)
+      .order("position", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (missionsError) {
+      throw new ApiError(missionsError.message, 400);
+    }
+
+    const missionsByEmployee = new Map<string, MissionRow[]>();
+    for (const mission of (missionRows ?? []) as unknown as MissionRow[]) {
+      missionsByEmployee.set(mission.employee_id, [
+        ...(missionsByEmployee.get(mission.employee_id) ?? []),
+        mission,
+      ]);
+    }
+
     const employeesById = new Map(
       (employees ?? []).map((row: { id: string; full_name: string | null; email: string | null }) => [
         row.id,
@@ -167,12 +197,23 @@ export const GET = withActor(
         created_at: string | null;
       }) => {
         const employee = employeesById.get(row.employee_id);
+        const clientCompanies = summarizeMissionCompanies(
+          missionsByEmployee.get(row.employee_id) ?? [],
+        );
+        const billingName = `${row.first_name} ${row.last_name}`.trim();
         return {
           employeeId: row.employee_id,
-          profileLabel: `${row.first_name} ${row.last_name} - ${row.company_name}`.trim(),
+          // Sans entreprise, l'etiquette s'arrete au nom : « Nom - » n'apprend rien de plus.
+          profileLabel: [billingName, clientCompanies.company_name].filter(Boolean).join(" - "),
           employeeName: employee?.full_name ?? employee?.email ?? "Collaborateur",
           firstName: row.first_name,
           lastName: row.last_name,
+          /*
+           * DEPRECIEES, renvoyees telles qu'elles sont en base : la fiche RH les retransmet
+           * au PUT pour ne pas effacer ce que portent les profils anterieurs. Ce n'est PAS
+           * l'entreprise cliente du collaborateur, qui vit dans `employee_missions` et
+           * n'apparait ici que dans `profileLabel`.
+           */
           companyName: row.company_name,
           esnPartenaire: row.esn_partenaire,
           addressLine1: row.address_line_1,

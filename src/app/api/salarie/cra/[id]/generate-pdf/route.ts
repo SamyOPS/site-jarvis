@@ -6,6 +6,11 @@ import { buildEmployeeDocumentPath } from "@/lib/document-storage";
 import { getRhRecipientsForEmployee, notifyRhOfDocument } from "@/lib/email";
 import { ApiError, withActor } from "@/lib/api-handler";
 import { assertUploaderRole, loadActiveDocumentType } from "@/lib/document-types";
+import {
+  loadEmployeeMissions,
+  missionsCoveredByEntries,
+  summarizeMissionCompanies,
+} from "@/lib/missions";
 import { readPdfLogoBase64 } from "@/lib/pdf-logo";
 import { toDocumentDate } from "@/lib/server-supabase";
 
@@ -65,6 +70,25 @@ export const POST = withActor<RouteContext>(
       ]),
     );
 
+    /*
+     * En-tete mono-entreprise, affiche seulement quand le recapitulatif est vide.
+     *
+     * Le snapshot `cra_records` est vide sur les CRA crees tant que l'entreprise etait lue
+     * dans le profil de facturation — colonne depreciee et jamais renseignee depuis le
+     * multi-missions. On la retrouve dans `employee_missions`, la source qu'affiche la
+     * fiche du collaborateur, plutot que d'imprimer « - » a la place de son client.
+     */
+    let headerCompanies = {
+      company_name: (craRecord.company_name ?? null) as string | null,
+      esn_partenaire: (craRecord.esn_partenaire ?? null) as string | null,
+    };
+    if (!headerCompanies.company_name && !(missionLines ?? []).length) {
+      const { missions } = await loadEmployeeMissions(adminClient, profile.id);
+      headerCompanies = summarizeMissionCompanies(
+        missionsCoveredByEntries(entries ?? [], missions),
+      );
+    }
+
     const documentType = await loadActiveDocumentType(
       adminClient,
       { code: "cra" },
@@ -90,8 +114,8 @@ export const POST = withActor<RouteContext>(
       {
         firstName: craRecord.first_name,
         lastName: craRecord.last_name,
-        companyName: craRecord.company_name,
-        esnPartenaire: craRecord.esn_partenaire,
+        companyName: headerCompanies.company_name,
+        esnPartenaire: headerCompanies.esn_partenaire,
         addressLine1: craRecord.address_line_1,
         addressLine2: craRecord.address_line_2,
         postalCode: craRecord.postal_code,

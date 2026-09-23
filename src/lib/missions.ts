@@ -147,6 +147,62 @@ export async function loadEmployeeMissions(adminClient: SupabaseClient, employee
   return { missions, units };
 }
 
+/** Separateur des noms quand plusieurs entreprises doivent tenir dans un champ unique. */
+const COMPANY_JOIN = " / ";
+
+function joinCompanyNames(values: (string | null | undefined)[]) {
+  const names: string[] = [];
+  for (const value of values) {
+    const name = String(value ?? "").trim();
+    if (name && !names.includes(name)) {
+      names.push(name);
+    }
+  }
+  return names.length ? names.join(COMPANY_JOIN) : null;
+}
+
+/**
+ * Missions effectivement pointees par les lignes d'un CRA.
+ *
+ * A defaut — CRA encore vide, ou lignes sans mission heritees d'avant le multi-entreprises —
+ * on retombe sur les missions ACTIVES du collaborateur : c'est encore la meilleure reponse a
+ * « chez qui travaille-t-il », et la seule disponible.
+ */
+export function missionsCoveredByEntries(
+  entries: { mission_id: string | null }[],
+  missions: MissionRow[],
+): MissionRow[] {
+  const used = new Set(entries.map((entry) => entry.mission_id).filter(Boolean));
+  const covered = missions.filter((mission) => used.has(mission.id));
+  if (covered.length) {
+    return covered;
+  }
+  const active = missions.filter((mission) => !mission.archived_at);
+  return active.length ? active : missions;
+}
+
+/**
+ * Entreprise cliente et ESN dans la forme MONO-VALEUR qu'attendent les champs historiques :
+ * `cra_records.company_name`, l'en-tete du PDF CRA, le libelle de repli de la facture.
+ *
+ * C'EST ICI que se lit l'entreprise cliente, et nulle part ailleurs. Les colonnes homonymes
+ * de `employee_billing_profiles` et de `profiles` sont depreciees depuis le multi-missions :
+ * plus personne ne les ecrit, elles valent donc NULL sur tout collaborateur arrive depuis.
+ * Les lire faisait disparaitre l'entreprise du CRA alors que la fiche du collaborateur
+ * l'affiche correctement — la fiche, elle, lit bien `employee_missions`.
+ *
+ * Un collaborateur pouvant avoir PLUSIEURS entreprises, les noms sont joints : c'est la
+ * seule reponse qui n'en masque aucune, et elle est identique a l'ancienne quand il n'y en
+ * a qu'une. Le detail par entreprise n'est lui jamais tronque — il vit dans
+ * `cra_mission_lines`, que le PDF affiche des qu'il existe.
+ */
+export function summarizeMissionCompanies(missions: MissionRow[]) {
+  return {
+    company_name: joinCompanyNames(missions.map((mission) => mission.company_name)),
+    esn_partenaire: joinCompanyNames(missions.map((mission) => mission.esn_partenaire)),
+  };
+}
+
 /**
  * Une ligne de facture par entreprise saisie, chacune dans son unite et avec son tarif.
  *

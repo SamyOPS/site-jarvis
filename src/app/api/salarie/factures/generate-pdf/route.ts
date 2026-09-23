@@ -67,7 +67,9 @@ export const POST = withActor(
     // Le profil porte l'identite de l'emetteur, et l'unite de repli des lignes sans mission.
     const { data: billingProfile, error: billingError } = await adminClient
       .from("employee_billing_profiles")
-      .select("first_name,last_name,company_name,esn_partenaire,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,time_unit")
+      // Ni `company_name` ni `esn_partenaire` : colonnes depreciees, vides depuis le
+      // multi-missions, et l'entreprise de chaque ligne vient deja des missions.
+      .select("first_name,last_name,address_line_1,address_line_2,postal_code,city,country,phone,email,siret,iban,bic,daily_rate,time_unit")
       .eq("employee_id", profile.id)
       .single();
 
