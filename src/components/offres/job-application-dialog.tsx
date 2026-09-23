@@ -31,6 +31,23 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
   const [phone, setPhone] = useState("");
   const [salaryExpectation, setSalaryExpectation] = useState("");
   const [cv, setCv] = useState<File | null>(null);
+  /*
+   * Champ piege : invisible pour un humain, donc toujours vide quand un humain envoie.
+   * Le serveur repond alors 200 sans rien faire (cf. src/lib/application-guard.ts).
+   */
+  const [companyWebsite, setCompanyWebsite] = useState("");
+  /*
+   * Instant d'ouverture du formulaire, pour en mesurer la DUREE de remplissage.
+   *
+   * On envoie une duree et non un horodatage : mesuree aux deux bouts avec la meme
+   * horloge, elle ne depend pas du reglage de l'horloge du visiteur. Un horodatage en
+   * avance de quelques minutes aurait fait refuser des candidats reels.
+   *
+   * Renseigne a l'ouverture du dialogue, pas au rendu : `Date.now()` est impur et n'a rien
+   * a faire dans un corps de composant. A zero, la duree calculee est enorme, donc jamais
+   * « trop rapide » — un formulaire ouvert autrement ne bloque personne.
+   */
+  const openedAtRef = useRef<number>(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [serverMessage, setServerMessage] = useState("");
@@ -42,6 +59,7 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
     setPhone("");
     setSalaryExpectation("");
     setCv(null);
+    setCompanyWebsite("");
     setErrors({});
     if (cvInputRef.current) cvInputRef.current.value = "";
   };
@@ -83,6 +101,8 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
     formData.set("email", email.trim());
     formData.set("phone", phone.trim());
     formData.set("salaryExpectation", salaryExpectation.trim());
+    formData.set("companyWebsite", companyWebsite);
+    formData.set("elapsedMs", String(Date.now() - openedAtRef.current));
     if (cv) formData.set("cv", cv);
 
     try {
@@ -108,7 +128,13 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen) openedAtRef.current = Date.now();
+        setOpen(nextOpen);
+      }}
+    >
       <DialogTrigger asChild>
         <Button className="w-full rounded-full bg-[#0A1A2F] py-6 text-base font-semibold text-white hover:bg-[#0d2a4b]">
           Postuler à cette offre
@@ -169,6 +195,31 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
                   placeholder="Ex : 45000"
                 />
               </Field>
+            </div>
+
+            {/*
+              Champ piege.
+
+              Sorti du flux plutot que masque par `display:none` ou `hidden`, que les
+              robots un peu sérieux savent ignorer. `aria-hidden` et `tabIndex={-1}` le
+              retirent du fil accessible et de l'ordre de tabulation : un lecteur d'ecran
+              comme une navigation au clavier ne peuvent jamais l'atteindre, et donc jamais
+              le remplir par accident.
+            */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute left-[-9999px] h-px w-px overflow-hidden"
+            >
+              <label htmlFor="company-website">Site web de votre entreprise</label>
+              <input
+                id="company-website"
+                name="companyWebsite"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={companyWebsite}
+                onChange={(event) => setCompanyWebsite(event.target.value)}
+              />
             </div>
 
             <div className="mt-8">
