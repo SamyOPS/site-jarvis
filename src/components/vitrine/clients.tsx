@@ -7,6 +7,7 @@ import {
   useTransform,
   type MotionValue,
 } from "motion/react";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 // Logos clients (public/Image/logo_client).
@@ -14,52 +15,54 @@ import { useEffect, useRef, useState } from "react";
 // invert=false : logo en couleur sur fond blanc opaque (ou .webp non vérifié)
 //                -> `mix-blend-multiply` fait disparaître le fond blanc et
 //                affiche le logo dans sa couleur d'origine (pas de carré noir).
-const logos: { src: string; alt: string; invert: boolean; big?: boolean }[] = [
-  { src: "/Image/logo_client/3M.png", alt: "3M", invert: true },
-  { src: "/Image/logo_client/barriere.png", alt: "Barrière", invert: true },
-  {
-    src: "/Image/logo_client/bnp-paribas.png",
-    alt: "BNP Paribas",
-    invert: true,
-  },
-  { src: "/Image/logo_client/groupe-bpce.png", alt: "BPCE", invert: true },
-  { src: "/Image/logo_client/burberry.png", alt: "Burberry", invert: true },
-  { src: "/Image/logo_client/cgi.png", alt: "CGI", invert: true },
-  {
-    src: "/Image/logo_client/bureau_veritas.png",
-    alt: "Bureau Veritas",
-    invert: true,
-  },
-  { src: "/Image/logo_client/engie.png", alt: "Engie", invert: true },
-  { src: "/Image/logo_client/ethypharm.png", alt: "Ethypharm", invert: true },
-  { src: "/Image/logo_client/foncia.png", alt: "Foncia", invert: true },
-  { src: "/Image/logo_client/hp.png", alt: "HP", invert: false },
-  { src: "/Image/logo_client/inli.png", alt: "In'li", invert: true },
-  {
-    src: "/Image/logo_client/les_mousquetaires.png",
-    alt: "Les Mousquetaires",
-    invert: true,
-  },
-  { src: "/Image/logo_client/riccobono.png", alt: "Riccobono", invert: true },
-  { src: "/Image/logo_client/lvmh.png", alt: "LVMH", invert: true },
-  { src: "/Image/logo_client/sisley.png", alt: "Sisley", invert: true },
-  { src: "/Image/logo_client/sncf.png", alt: "SNCF", invert: true },
-  { src: "/Image/logo_client/stihl.png", alt: "Stihl", invert: false },
-  { src: "/Image/logo_client/tpicap.png", alt: "TP ICAP", invert: true },
-  { src: "/Image/logo_client/uniqlo.png", alt: "Uniqlo", invert: false },
-  {
-    src: "/Image/logo_client/apprentis-auteuil.png",
-    alt: "Apprentis d'Auteuil",
-    invert: true,
-    big: true,
-  },
-  {
-    src: "/Image/logo_client/jacquemus.png",
-    alt: "Jacquemus",
-    invert: true,
-    big: true,
-  },
+/*
+ * `w` / `h` : dimensions INTRINSEQUES du fichier, relevees dans les PNG eux-memes.
+ *
+ * Elles ne decrivent pas l'affichage — la CSS impose la hauteur, et `max-w-[190px]` la
+ * largeur — mais `next/image` en a besoin pour tenir le bon rapport et surtout pour
+ * generer les variantes. Sans elles, ces logos partaient BRUTS : 708 Ko, et surtout 50
+ * millions de pixels a decoder, soit ~192 Mo de bitmaps en memoire pour 0,3 Mo reellement
+ * utiles a 40 px de haut. `inli.png` fait a lui seul 8664x4104 pour une vignette de 84 px
+ * de large : c'est le genre de decodage qui fait tousser un telephone d'entree de gamme.
+ */
+const logos: {
+  src: string;
+  alt: string;
+  invert: boolean;
+  w: number;
+  h: number;
+  big?: boolean;
+}[] = [
+  { src: "/Image/logo_client/3M.png", alt: "3M", invert: true, w: 257, h: 135 },
+  { src: "/Image/logo_client/barriere.png", alt: "Barrière", invert: true, w: 1226, h: 890 },
+  { src: "/Image/logo_client/bnp-paribas.png", alt: "BNP Paribas", invert: true, w: 1280, h: 510 },
+  { src: "/Image/logo_client/groupe-bpce.png", alt: "BPCE", invert: true, w: 1247, h: 208 },
+  { src: "/Image/logo_client/burberry.png", alt: "Burberry", invert: true, w: 1182, h: 284 },
+  { src: "/Image/logo_client/cgi.png", alt: "CGI", invert: true, w: 300, h: 140 },
+  { src: "/Image/logo_client/bureau_veritas.png", alt: "Bureau Veritas", invert: true, w: 1282, h: 1593 },
+  { src: "/Image/logo_client/engie.png", alt: "Engie", invert: true, w: 1552, h: 552 },
+  { src: "/Image/logo_client/ethypharm.png", alt: "Ethypharm", invert: true, w: 520, h: 102 },
+  { src: "/Image/logo_client/foncia.png", alt: "Foncia", invert: true, w: 1171, h: 456 },
+  { src: "/Image/logo_client/hp.png", alt: "HP", invert: false, w: 2400, h: 2400 },
+  { src: "/Image/logo_client/inli.png", alt: "In'li", invert: true, w: 8664, h: 4104 },
+  { src: "/Image/logo_client/les_mousquetaires.png", alt: "Les Mousquetaires", invert: true, w: 526, h: 387 },
+  { src: "/Image/logo_client/riccobono.png", alt: "Riccobono", invert: true, w: 300, h: 91 },
+  { src: "/Image/logo_client/lvmh.png", alt: "LVMH", invert: true, w: 1518, h: 354 },
+  { src: "/Image/logo_client/sisley.png", alt: "Sisley", invert: true, w: 878, h: 257 },
+  { src: "/Image/logo_client/sncf.png", alt: "SNCF", invert: true, w: 150, h: 150 },
+  { src: "/Image/logo_client/stihl.png", alt: "Stihl", invert: false, w: 746, h: 161 },
+  { src: "/Image/logo_client/tpicap.png", alt: "TP ICAP", invert: true, w: 604, h: 174 },
+  { src: "/Image/logo_client/uniqlo.png", alt: "Uniqlo", invert: false, w: 1280, h: 1276 },
+  { src: "/Image/logo_client/apprentis-auteuil.png", alt: "Apprentis d'Auteuil", invert: true, w: 400, h: 400, big: true },
+  { src: "/Image/logo_client/jacquemus.png", alt: "Jacquemus", invert: true, w: 320, h: 320, big: true },
 ];
+
+/**
+ * Hauteur d'affichage la PLUS GRANDE de l'echelle responsive : `2xl:h-12`, soit 48 px.
+ * C'est elle qui borne la largeur a servir — a hauteur egale, un logo large en demande
+ * plus qu'un logo carre. Elle doit suivre si l'echelle des hauteurs bouge.
+ */
+const MAX_LOGO_HEIGHT_PX = 48;
 
 const row1 = logos.slice(0, 7);
 const row2 = logos.slice(7, 14);
@@ -74,6 +77,8 @@ function Logo({
   alt,
   invert,
   big,
+  w,
+  h,
   onOpen,
   activeId,
 }: {
@@ -82,6 +87,8 @@ function Logo({
   alt: string;
   invert: boolean;
   big?: boolean;
+  w: number;
+  h: number;
   onOpen: OpenFn;
   activeId: string | null;
 }) {
@@ -103,10 +110,22 @@ function Logo({
           hidden ? "opacity-0" : "hover:opacity-50"
         }`}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        {/*
+          `next/image` et non `<img>` : les fichiers sources font jusqu'a 8664 px de large
+          pour un affichage de 40 px de haut. Servis bruts, ils coutaient 708 Ko de reseau
+          et surtout ~192 Mo de bitmaps decodes — la part qui fait reellement souffrir un
+          telephone. Next sert desormais une variante a la taille utile, en WebP/AVIF.
+
+          `sizes` est calcule et non fixe a 190 px : la largeur occupee depend du RAPPORT
+          de chaque logo, un carre n'en prend que 48. Annoncer 190 px partout ferait
+          telecharger jusqu'a quatre fois trop pour les logos les plus ramasses.
+        */}
+        <Image
           src={src}
           alt={alt}
+          width={w}
+          height={h}
+          sizes={`${Math.min(190, Math.ceil((w / h) * MAX_LOGO_HEIGHT_PX))}px`}
           draggable={false}
           /*
             Taille de base portee a 40 px — 56 px pour les deux logos larges — soit ce qui
@@ -174,6 +193,8 @@ function Row({
               alt={logo.alt}
               invert={logo.invert}
               big={logo.big}
+              w={logo.w}
+              h={logo.h}
               onOpen={onOpen}
               activeId={activeId}
             />

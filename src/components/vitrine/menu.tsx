@@ -220,13 +220,29 @@ export default function Menu() {
         aria-label="Jarvis — Accueil"
         className="fixed left-8 top-8 z-50 sm:left-12 sm:top-12"
       >
+        {/*
+          Meme marque que la console (`console-mark.tsx`) : `/logo-jarvis-noir.png`, a
+          l'encre noire sur fond transparent. Le site public et l'espace connecte ne
+          montrent plus deux emblemes differents.
+
+          L'encre reste RETOURNEE par `invert` sur les sections sombres, comme avant : le
+          fichier est en RVBA a encre noire, le filtre le rend donc blanc. La console, elle,
+          a besoin de DEUX fichiers parce que sa bascule est un theme pose avant la
+          premiere peinture ; ici l'etat `dark` suit le defilement, un filtre anime en
+          300 ms suffit et evite un second telechargement.
+
+          `w-auto` et non `w-10` : cette marque est en 256x195, pas carree comme l'ancien
+          `/logo.png` (641x641). A largeur imposee, `object-contain` l'aurait retrecie
+          d'un quart en hauteur. C'est la HAUTEUR qui doit rester celle d'avant.
+        */}
         <Image
-          src="/logo.png"
+          src="/logo-jarvis-noir.png"
           alt="Jarvis"
-          width={48}
-          height={48}
+          width={256}
+          height={195}
+          sizes="64px"
           priority
-          className={`h-10 w-10 object-contain transition-[filter] duration-300 sm:h-12 sm:w-12 ${
+          className={`h-10 w-auto object-contain transition-[filter] duration-300 sm:h-12 ${
             dark ? "invert" : "invert-0"
           }`}
         />
