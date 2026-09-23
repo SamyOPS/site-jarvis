@@ -7,6 +7,9 @@
  *     (Dialog, Select, cmdk) heritent eux aussi des tokens.
  *   - [data-theme="dark"] sur <html> bascule la console en sombre.
  *     Clair par defaut : l'absence d'attribut vaut clair.
+ *   - [data-site="vitrine"] sur <html> masque la barre de defilement native
+ *     (voir la section Vitrine de globals.css). Pose par le meme script, pour
+ *     la meme raison : sans lui la barre apparaitrait le temps d'une peinture.
  */
 
 export type ConsoleTheme = "dark" | "light";
@@ -18,6 +21,24 @@ export const CONSOLE_THEME_STORAGE_KEY = "jarvis-console-theme";
 export const CONSOLE_ROUTE_PREFIXES = [
   "/dashboard/rh",
   "/dashboard/salarie",
+] as const;
+
+/**
+ * Routes servies par la vitrine, c'est-a-dire le groupe src/app/(vitrine).
+ *
+ * Liste explicite plutot que « tout ce qui n'est ni /auth, ni /offres, ni la
+ * console » : une 404 n'appartient a aucun des deux mondes, et une future route
+ * publique ne doit pas heriter du scope vitrine par simple defaut.
+ *
+ * "/" n'est reconnu qu'en egalite stricte — pris comme prefixe il capterait le
+ * site entier.
+ */
+export const VITRINE_ROUTE_PREFIXES = [
+  "/",
+  "/decouvrir",
+  "/cgu",
+  "/mentions-legales",
+  "/politique-de-confidentialite",
 ] as const;
 
 export function isConsoleTheme(value: unknown): value is ConsoleTheme {
@@ -88,5 +109,9 @@ var p=window.location.pathname;
 var r=${JSON.stringify(CONSOLE_ROUTE_PREFIXES)};
 for(var i=0;i<r.length;i++){
 if(p===r[i]||p.indexOf(r[i]+"/")===0){document.body.setAttribute("data-app","console");break}
+}
+var v=${JSON.stringify(VITRINE_ROUTE_PREFIXES)};
+for(var j=0;j<v.length;j++){
+if(p===v[j]||(v[j]!=="/"&&p.indexOf(v[j]+"/")===0)){document.documentElement.setAttribute("data-site","vitrine");break}
 }
 }catch(e){}})();`;

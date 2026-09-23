@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BriefcaseBusiness, CalendarClock, MapPin } from "lucide-react";
+import { ArrowRight, BriefcaseBusiness, CalendarClock, MapPin } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Footer } from "@/components/sections/footer";
+import Footer from "@/components/vitrine/footer";
+import Menu from "@/components/vitrine/menu";
 import { getCvSupabaseClient } from "@/lib/cv-supabase";
 
 export const revalidate = 60;
@@ -102,16 +103,15 @@ export default async function OffresPage({ searchParams }: OffresPageProps) {
   return (
     <>
       <div className="min-h-screen overflow-x-hidden bg-white text-[#0A1A2F]">
-        <main className="particle-readability container mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-16">
-          <div className="mb-6 flex items-center">
-            <Button variant="link" className="p-0 text-[#0A1A2F]" asChild>
-              <Link href="/#offres" className="inline-flex min-w-0 items-center gap-2 text-sm sm:text-base">
-                <ArrowLeft className="h-4 w-4 shrink-0" />
-                Retour à l&apos;accueil
-              </Link>
-            </Button>
-          </div>
+        {/* Barre : logo + Contactez nous + burger + panneau */}
+        <Menu />
 
+        {/*
+          `pt-32 sm:pt-40` comme sur les pages legales : la barre est en
+          `position: fixed` et ne reserve donc rien: sans cette marge elle
+          recouvrirait le titre.
+        */}
+        <main className="container mx-auto max-w-7xl px-4 pb-10 pt-32 sm:px-6 sm:pb-14 sm:pt-40 lg:px-10 xl:px-16">
           <div className="mx-auto mb-8 max-w-4xl space-y-3 text-center sm:mb-10">
             <p className="text-xs uppercase tracking-[0.2em] text-[#0A1A2F]/70 sm:text-sm">Carrières</p>
             <h1 className="text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
@@ -235,7 +235,7 @@ export default async function OffresPage({ searchParams }: OffresPageProps) {
         </main>
       </div>
 
-      <Footer />
+      <Footer variant="light" />
     </>
   );
 }
