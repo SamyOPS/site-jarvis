@@ -9,7 +9,8 @@ export const metadata: Metadata = {
 };
 
 const donneesSite = [
-  "Données de navigation (adresse IP, type de navigateur, pages consultées) via les cookies techniques et de mesure d'audience.",
+  "Adresse IP et données techniques de connexion, enregistrées automatiquement par l'hébergeur dans ses journaux de sécurité. Le site lui-même ne dépose aucun cookie et n'intègre aucun traceur de mesure d'audience.",
+  "Candidatures aux offres d'emploi : nom, prénom, adresse e-mail, téléphone, prétention salariale et CV, accompagnés d'une empreinte non réversible de l'adresse IP d'envoi, destinée au seul plafonnement des envois automatisés.",
   "Données du formulaire de contact : nom, prénom, adresse e-mail et contenu du message.",
   "Adresse e-mail en cas d'inscription à la newsletter.",
 ];
@@ -31,7 +32,7 @@ const finalites = [
 const baseLegale = [
   "L'exécution d'un contrat (relation salariale ou prestation).",
   "Le respect d'obligations légales (gestion administrative, RH et comptable).",
-  "Votre consentement (newsletter, cookies non essentiels).",
+  "Votre consentement (newsletter).",
   "L'intérêt légitime de JARVIS CONNECT (sécurité et amélioration du site).",
 ];
 
@@ -45,7 +46,7 @@ const conservation = [
   "Demandes de contact : jusqu'à 3 ans après le dernier échange.",
   "Newsletter : jusqu'au retrait de votre consentement.",
   "Données et documents salariés / RH : pendant la durée de la relation, puis selon les durées légales de conservation applicables.",
-  "Cookies : 13 mois maximum.",
+  "Stockage local du navigateur (session de connexion, préférences d'affichage) : conservé jusqu'à votre déconnexion ou l'effacement des données du site depuis votre navigateur.",
 ];
 
 const droits = [
@@ -196,11 +197,21 @@ export default function PolitiqueConfidentialitePage() {
 
           <section>
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              9. Cookies
+              9. Cookies et stockage local
             </h2>
             <p className="mt-4 leading-relaxed text-zinc-600">
               {
-                "Le site utilise des cookies techniques nécessaires à son bon fonctionnement. Les cookies non essentiels (mesure d'audience, etc.) sont soumis à votre consentement préalable, conformément aux recommandations de la CNIL. Vous pouvez configurer ou désactiver les cookies à tout moment depuis les paramètres de votre navigateur."
+                "Ce site ne dépose aucun cookie. Il n'intègre aucun traceur de mesure d'audience, de publicité ou de réseau social, et ne transmet aucune donnée de navigation à un tiers à des fins de suivi."
+              }
+            </p>
+            <p className="mt-4 leading-relaxed text-zinc-600">
+              {
+                "Il utilise en revanche le stockage local de votre navigateur pour des usages strictement nécessaires : conserver votre session lorsque vous êtes connecté à votre espace, mémoriser vos préférences d'affichage et retenir le point de défilement d'une page à l'autre. Ces informations restent sur votre appareil et ne sont transmises à aucun serveur tiers."
+              }
+            </p>
+            <p className="mt-4 leading-relaxed text-zinc-600">
+              {
+                "Ces usages relèvent de l'exemption de consentement prévue par la directive ePrivacy et les lignes directrices de la CNIL pour les traceurs strictement nécessaires au service demandé : aucun bandeau de consentement n'est donc requis. Vous pouvez effacer ces données à tout moment depuis les paramètres de votre navigateur — vous serez alors déconnecté de votre espace."
               }
             </p>
           </section>

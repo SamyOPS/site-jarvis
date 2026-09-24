@@ -166,11 +166,11 @@ export default function MentionsLegalesPage() {
 
           <section>
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              7. Cookies
+              7. Cookies et stockage local
             </h2>
             <p className="mt-4 leading-relaxed text-zinc-600">
               {
-                "Ce site utilise des cookies techniques nécessaires à son bon fonctionnement. Conformément aux recommandations de la CNIL et à la directive européenne ePrivacy, les cookies non essentiels sont soumis à votre consentement préalable. Vous pouvez configurer ou désactiver les cookies à tout moment depuis les paramètres de votre navigateur."
+                "Ce site ne dépose aucun cookie et n'intègre aucun traceur de mesure d'audience, de publicité ou de réseau social. Il utilise uniquement le stockage local de votre navigateur, pour les besoins strictement nécessaires à son fonctionnement : session de connexion à l'espace sécurisé, préférences d'affichage et repères de navigation. Ces usages relèvent de l'exemption de consentement prévue par la directive européenne ePrivacy et les lignes directrices de la CNIL ; aucun bandeau de consentement n'est requis. Vous pouvez effacer ces données à tout moment depuis les paramètres de votre navigateur."
               }
             </p>
           </section>

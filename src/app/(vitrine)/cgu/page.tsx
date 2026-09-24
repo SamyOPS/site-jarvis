@@ -180,7 +180,7 @@ export default function CguPage() {
                 politique de confidentialité
               </Link>
               {
-                ", qui précise notamment les finalités, les bases légales, les durées de conservation et les droits dont l'utilisateur dispose conformément au RGPD. L'utilisation des cookies — cookies strictement nécessaires, notamment à l'authentification, et cookies soumis à consentement — y est également détaillée."
+                ", qui précise notamment les finalités, les bases légales, les durées de conservation et les droits dont l'utilisateur dispose conformément au RGPD. Le site ne dépose aucun cookie : seul le stockage local du navigateur est utilisé, pour les besoins strictement nécessaires au service — authentification et préférences d'affichage."
               }
             </p>
           </section>
