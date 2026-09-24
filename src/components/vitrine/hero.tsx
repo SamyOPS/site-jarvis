@@ -226,7 +226,13 @@ export default function Hero() {
       {/* « VI » (6 en chiffres romains), style hachuré, en haut à droite */}
       <span
         aria-hidden
-        className="pointer-events-none absolute right-8 top-[32%] z-20 -translate-y-1/2 select-none font-sans text-8xl font-bold leading-none tracking-tight sm:right-12 sm:text-[12rem] laptop:top-[42%]"
+        /*
+          Masque sur mobile. Il partageait la bande du reacteur avec la citation, sur une
+          largeur ou les trois ne tiennent pas. Un element absolu voit de toute facon son
+          `display` calcule en `block` : `sm:block` ne change donc rien au rendu, il ne
+          fait que defaire le `hidden`.
+        */
+        className="pointer-events-none absolute right-8 top-[32%] z-20 hidden -translate-y-1/2 select-none font-sans text-8xl font-bold leading-none tracking-tight sm:right-12 sm:block sm:text-[12rem] laptop:top-[42%]"
       >
         {["V", "I"].map((char, i) => (
           <span key={i} className="reveal-mask">
@@ -245,7 +251,25 @@ export default function Hero() {
       </span>
 
       {/* Citation, à gauche, centrée verticalement, animée lettre par lettre */}
-      <figure className="pointer-events-none absolute left-8 top-[32%] z-20 max-w-xs -translate-y-1/2 sm:left-12 sm:max-w-sm laptop:top-[42%]">
+      {/*
+        MOBILE : la citation se pose SOUS le reacteur, plus au milieu de lui.
+
+        La position est CALCULEE, pas devinee. Le visuel du reacteur est en 3:2 et rendu en
+        `object-contain` : en portrait il est donc borne par la largeur, haut de 100vw/1,5
+        = 66,66vw, et centre verticalement. Son bord bas tombe a `50dvh + 33,33vw`, quelle
+        que soit la taille du telephone. La citation demarre 1rem plus bas.
+
+        Pas de `-translate-y-1/2` sur mobile : ce calage donne le bord HAUT du bloc, il ne
+        faut donc pas le recentrer sur lui-meme.
+
+        `sm:laptop:` et non `laptop:` : la variante `laptop` est une hauteur d'ecran
+        (max-height 900px), que la plupart des telephones satisfont — elle ecrasait le
+        placement mobile. La restreindre a `sm:` lui rend son sens, « large ET court ».
+
+        Le raisonnement ne vaut qu'en portrait, seul cas ou l'image est bornee par la
+        largeur ; au-dela de 640px de large, les regles d'origine reprennent la main.
+      */}
+      <figure className="pointer-events-none absolute left-8 top-[calc(50dvh_+_33.33vw_+_1rem)] z-20 max-w-xs sm:left-12 sm:top-[32%] sm:max-w-sm sm:-translate-y-1/2 sm:laptop:top-[42%]">
         <span
           aria-hidden
           className="animate-fade-in block font-sans text-5xl font-bold leading-none text-zinc-900"
