@@ -6,6 +6,7 @@ import {
   useScroll,
   useTransform,
 } from "motion/react";
+import { X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { lockScroll, unlockScroll } from "@/features/vitrine/scroll-lock";
@@ -269,12 +270,92 @@ export default function ExpertiseGallery() {
             >
               <Image
                 src={active.image}
-                alt={active.title}
+                alt=""
+                aria-hidden="true"
                 fill
                 sizes="100vw"
                 draggable={false}
                 className="object-cover"
               />
+            </motion.div>
+
+            {/*
+              Contenu du detail.
+
+              SŒUR de l'image et non enfant : la boite de l'image s'anime de la vignette
+              au plein ecran, un contenu place dedans serait donc compose a la taille de
+              la vignette puis etire. Ici il est mis en page d'emblee au format final, et
+              ne fait que paraitre.
+
+              Il entre APRES l'atterrissage de l'image — le delai vaut 60 % de la duree du
+              zoom — et sort deux fois plus vite : on attend pour lire, on n'attend pas
+              pour fermer.
+            */}
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24, transition: { duration: 0.2 } }}
+              transition={{
+                duration: 0.45,
+                delay: IMG_TRANSITION.duration * 0.6,
+                ease: "easeOut",
+              }}
+              className="pointer-events-none fixed inset-0 flex flex-col justify-end"
+            >
+              {/* Voile de lisibilite : une photo ne garantit aucun contraste sous le
+                  texte. Degrade plutot qu'aplat, pour ne pas eteindre le haut de l'image. */}
+              <div
+                aria-hidden
+                className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/10"
+              />
+
+              <button
+                type="button"
+                onClick={close}
+                autoFocus
+                aria-label="Fermer le détail"
+                className="pointer-events-auto absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full border border-white/40 text-white transition-colors duration-300 hover:bg-white hover:text-black sm:right-8 sm:top-8"
+              >
+                <X className="h-5 w-5" aria-hidden />
+              </button>
+
+              {/* `stopPropagation` : le fond ferme au clic, mais selectionner une ligne
+                  de texte ne doit pas faire disparaitre ce qu'on est en train de lire. */}
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="pointer-events-auto relative mx-auto flex max-h-[80svh] w-full max-w-5xl flex-col gap-4 overflow-y-auto px-6 pb-12 text-white sm:gap-5 sm:px-10 sm:pb-16"
+              >
+                <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] uppercase tracking-[0.2em] text-white/70">
+                  <span>{active.index}</span>
+                  <span aria-hidden className="text-white/30">/</span>
+                  <span>{active.domaine}</span>
+                  <span aria-hidden className="text-white/30">/</span>
+                  <span>{active.approche}</span>
+                </p>
+
+                <h2 className="font-quote text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">
+                  {active.title}
+                </h2>
+
+                <p className="max-w-2xl text-sm leading-relaxed text-white/80 sm:text-base">
+                  {active.desc}
+                </p>
+
+                <ul className="grid gap-x-10 gap-y-2 sm:grid-cols-2">
+                  {active.points.map((point) => (
+                    <li
+                      key={point}
+                      className="flex items-start gap-3 text-sm text-white/90 sm:text-base"
+                    >
+                      <span
+                        aria-hidden
+                        className="mt-[0.6em] h-1 w-1 shrink-0 rounded-full bg-white/60"
+                      />
+                      {point}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </motion.div>
           </motion.div>
         )}
