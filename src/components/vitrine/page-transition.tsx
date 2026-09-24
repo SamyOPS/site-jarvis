@@ -30,6 +30,15 @@ type TransitionCtx = {
     page d'arrivée reprend le relais avec le sien (voir `src/lib/page-reveal.ts`).
   */
   leave: (action?: () => void) => void;
+  /*
+    Demande au routeur de charger une page A L'AVANCE.
+
+    Sans cela, le chunk de la page d'arrivee n'etait reclame qu'au `router.push`, donc
+    APRES le fondu : l'ecran restait noir le temps du fondu, PUIS le temps du reseau. Rien
+    dans la vitrine ne rend de <Link> vers /decouvrir — la navigation part d'un geste de
+    molette — Next n'avait donc aucune occasion de precharger de lui-meme.
+  */
+  prefetch: (href: string) => void;
 };
 
 /*
@@ -50,14 +59,29 @@ const NO_TRANSITION: TransitionCtx = {
   leave: (action) => {
     action?.();
   },
+  prefetch: () => {},
 };
 
 const TransitionContext = createContext<TransitionCtx>(NO_TRANSITION);
 
 export const usePageTransition = () => useContext(TransitionContext);
 
-// Durée du fondu du voile noir (doit correspondre à `duration-500`).
-const DURATION = 500;
+/*
+  Duree du fondu du voile noir, en millisecondes.
+
+  350 et non 500 : le fondu se paie DEUX fois par navigation, a l'aller et au retour, et
+  s'ajoutait a l'attente reseau. Un quart de seconde gagne sur un geste que l'on repete.
+
+  La valeur pilote desormais la transition CSS par `style`, et non plus une classe
+  `duration-500` qu'il fallait penser a changer en meme temps.
+*/
+const DURATION = 350;
+
+/*
+  Battement entre l'arrivee de la nouvelle page et la levee du voile : le temps que le
+  contenu soit pose. 60 ms suffisent a passer une frame, meme sur un appareil lent.
+*/
+const SETTLE = 60;
 
 export default function PageTransition({
   children,
@@ -103,6 +127,23 @@ export default function PageTransition({
     [pathname, router, contentY],
   );
 
+  /*
+    Prechargement pendant que le navigateur souffle : `requestIdleCallback` plutot qu'un
+    appel immediat, pour ne pas disputer la bande passante aux images de la page en cours.
+    Le `timeout` garantit qu'il part quand meme si l'appareil ne devient jamais inactif.
+  */
+  const prefetch = useCallback(
+    (href: string) => {
+      const run = () => router.prefetch(href);
+      if (typeof window.requestIdleCallback === "function") {
+        window.requestIdleCallback(run, { timeout: 3000 });
+        return;
+      }
+      window.setTimeout(run, 1500);
+    },
+    [router],
+  );
+
   const leave = useCallback((action?: () => void) => {
     setCovering(true);
     // Pas de contrepartie qui lèverait le voile : voir le contrat de `leave`.
@@ -132,13 +173,13 @@ export default function PageTransition({
     if (pendingRef.current && pendingRef.current === pathname) {
       pendingRef.current = null;
       contentY.set(0);
-      const t = window.setTimeout(() => setCovering(false), 100);
+      const t = window.setTimeout(() => setCovering(false), SETTLE);
       return () => window.clearTimeout(t);
     }
   }, [pathname, contentY]);
 
   return (
-    <TransitionContext.Provider value={{ navigate, leave }}>
+    <TransitionContext.Provider value={{ navigate, leave, prefetch }}>
       {/* Fond noir permanent derrière le contenu : quand le contenu glisse
           pendant une transition, l'espace découvert (en haut ou en bas) reste
           noir au lieu de laisser voir le fond blanc de la page. */}
@@ -156,7 +197,8 @@ export default function PageTransition({
 
       <div
         aria-hidden
-        className={`fixed inset-0 z-[100] bg-black transition-opacity duration-500 ease-in-out ${
+        style={{ transitionDuration: `${DURATION}ms` }}
+        className={`fixed inset-0 z-[100] bg-black transition-opacity ease-in-out ${
           covering ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       />

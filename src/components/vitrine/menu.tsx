@@ -1,5 +1,6 @@
 "use client";
 
+import { LogIn } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -249,7 +250,12 @@ export default function Menu() {
       </Link>
 
       {/* Coin haut droit : bouton Contacter + burger (au premier plan) */}
-      <div className="fixed right-8 top-8 z-50 flex items-center gap-3 sm:right-12 sm:top-12">
+      {/*
+        `gap-2` sur mobile et non `gap-3` : la barre porte desormais trois elements, et
+        sur un ecran de 360px le trio frolait le logo. Huit pixels regagnes suffisent,
+        l'espacement d'origine revient des `sm`.
+      */}
+      <div className="fixed right-8 top-8 z-50 flex items-center gap-2 sm:right-12 sm:top-12 sm:gap-3">
         {/* CTA Contacter, encadré, reste visible sur le panneau noir */}
         <Link
           href="#contact"
@@ -262,6 +268,30 @@ export default function Menu() {
           style={{ animationDelay: "0.9s" }}
         >
           Contactez nous
+        </Link>
+
+        {/*
+          Connexion. Meme destination et MEME sortie que « Acceder a mon espace » du
+          panneau : `/auth` vit hors du groupe (vitrine), `onExternal` pose donc le voile
+          noir et arme sa dissipation a l'arrivee. Un simple <Link> demonterait le
+          `PageTransition` et ferait sauter le voile d'un coup sec.
+
+          Le libelle est masque sous `sm` — `sr-only` plutot que `hidden`, pour qu'il
+          reste lu par les lecteurs d'ecran — et l'icone tient seule. En toutes lettres,
+          le bouton faisait 100px de plus et chevauchait le logo sur un petit telephone.
+        */}
+        <Link
+          href={AUTH_HREF}
+          onClick={(e) => onExternal(e, AUTH_HREF)}
+          className={`animate-fade-in flex items-center gap-2 rounded-full border p-2 text-xs font-semibold uppercase tracking-tight transition-colors duration-300 sm:px-4 sm:py-2 ${
+            dark
+              ? "border-white text-white hover:bg-white hover:text-black"
+              : "border-zinc-900 text-zinc-900 hover:bg-zinc-900 hover:text-white"
+          }`}
+          style={{ animationDelay: "1s" }}
+        >
+          <LogIn className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="sr-only sm:not-sr-only">Connexion</span>
         </Link>
 
         {/* Burger (se transforme en croix à l'ouverture) */}

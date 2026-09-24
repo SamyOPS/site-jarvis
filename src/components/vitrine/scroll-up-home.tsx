@@ -7,7 +7,13 @@ import { usePageTransition } from "@/components/vitrine/page-transition";
 // on repart vers l'accueil avec la même transition que le bouton (symétrique
 // du « scroll vers le bas » du hero).
 export default function ScrollUpHome() {
-  const { navigate } = usePageTransition();
+  const { navigate, prefetch } = usePageTransition();
+
+  // Meme raison qu'a l'aller : le retour vers l'accueil est la seule destination
+  // possible de ce geste, autant l'avoir deja sous la main.
+  useEffect(() => {
+    prefetch("/");
+  }, [prefetch]);
 
   useEffect(() => {
     let triggered = false;

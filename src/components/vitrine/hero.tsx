@@ -51,7 +51,7 @@ export default function Hero() {
   const [ignited, setIgnited] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
 
-  const { navigate } = usePageTransition();
+  const { navigate, prefetch } = usePageTransition();
 
   // Bascule sur l'image du réacteur allumé pour simuler un allumage constant.
   const ignite = () => setIgnited(true);
@@ -70,6 +70,16 @@ export default function Hero() {
     const timer = window.setTimeout(ignite, delay);
     return () => window.clearTimeout(timer);
   }, []);
+
+  /*
+    La destination est connue d'avance : c'est la SEULE que ce geste puisse atteindre. On
+    la precharge donc des que le navigateur est disponible, au lieu de decouvrir au moment
+    du `push` qu'il faut encore aller chercher le chunk — ce qui prolongeait le voile noir
+    de toute la duree du reseau, apres le fondu.
+  */
+  useEffect(() => {
+    prefetch("/decouvrir");
+  }, [prefetch]);
 
   // Sur l'accueil, scroller vers le bas déclenche la même transition que le
   // bouton « Nous découvrir » (le hero ne défile pas de lui-même).
