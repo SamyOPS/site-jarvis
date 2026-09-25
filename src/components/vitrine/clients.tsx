@@ -64,9 +64,16 @@ const logos: {
  */
 const MAX_LOGO_HEIGHT_PX = 48;
 
-const row1 = logos.slice(0, 7);
-const row2 = logos.slice(7, 14);
-const row3 = logos.slice(14);
+/*
+ * DEUX rangees, et non trois.
+ *
+ * La coupure est CALCULEE et non ecrite en dur : a 22 logos, les bornes 7 / 14 laissaient
+ * deja une derniere rangee plus fournie que les deux autres. Ajouter ou retirer un client
+ * rééquilibre desormais les rangees tout seul.
+ */
+const middle = Math.ceil(logos.length / 2);
+const row1 = logos.slice(0, middle);
+const row2 = logos.slice(middle);
 
 // Ouvre le cercle : (id du logo cliqué, nom, centre X, centre Y en px écran).
 type OpenFn = (id: string, name: string, cx: number, cy: number) => void;
@@ -212,11 +219,10 @@ export default function Clients() {
     offset: ["start end", "end start"],
   });
 
-  // Ligne 1 vers la gauche, ligne 2 vers la droite, ligne 3 vers la gauche
-  // (rangées doublées pour rester pleines sur les bords pendant le défilement).
+  // Ligne 1 vers la gauche, ligne 2 vers la droite : le sens oppose est ce qui donne
+  // l'impression de defilement (rangees doublees pour rester pleines sur les bords).
   const x1 = useTransform(scrollYProgress, [0, 1], ["0vw", "-16vw"]);
   const x2 = useTransform(scrollYProgress, [0, 1], ["-16vw", "0vw"]);
-  const x3 = useTransform(scrollYProgress, [0, 1], ["0vw", "-22vw"]);
 
   // Cercle du nom du client (au clic sur un logo).
   const [active, setActive] = useState<{
@@ -264,14 +270,13 @@ export default function Clients() {
       <div className="mt-3 sm:mt-10 lg:mt-12">
         {/* Défilement auto (scroll) + glisser à la main + clic = nom */}
         <Row x={x1} items={row1} onOpen={open} activeId={activeId} rowId="r1" />
-        <Row x={x2} items={row2} onOpen={open} activeId={activeId} rowId="r2" />
         <Row
-          x={x3}
-          items={row3}
+          x={x2}
+          items={row2}
           last
           onOpen={open}
           activeId={activeId}
-          rowId="r3"
+          rowId="r2"
         />
       </div>
 
