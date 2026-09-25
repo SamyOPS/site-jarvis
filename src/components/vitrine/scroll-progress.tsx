@@ -2,7 +2,10 @@
 
 import { motion, useScroll, useSpring } from "motion/react";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import {
+  usePageScrolls,
+  useDarkSectionAt,
+} from "@/features/vitrine/use-dark-section";
 
 // Barre de progression verticale personnalisée, à gauche, centrée et décollée
 // du bord. Elle remplace la scrollbar native (masquée en CSS). Sa couleur
@@ -18,39 +21,15 @@ export default function ScrollProgress() {
     mass: 0.3,
   });
 
-  const [dark, setDark] = useState(false); // fond sombre derrière → barre blanche
-  const [visible, setVisible] = useState(false); // masquée si la page ne défile pas
-
-  useEffect(() => {
-    let raf = 0;
-    const check = () => {
-      raf = 0;
-      // Barre affichée seulement si la page défile vraiment (donc pas sur
-      // l'accueil, qui tient sur un écran).
-      const doc = document.documentElement;
-      setVisible(doc.scrollHeight - window.innerHeight > 40);
-      // Détection du fond au niveau vertical de la barre (centre de l'écran).
-      const y = window.innerHeight / 2;
-      let over = false;
-      document.querySelectorAll("[data-nav-dark]").forEach((el) => {
-        const r = el.getBoundingClientRect();
-        if (r.top <= y && r.bottom >= y) over = true;
-      });
-      setDark(over);
-    };
-    const onScroll = () => {
-      if (!raf) raf = window.requestAnimationFrame(check);
-    };
-    // Premier calcul différé (évite un setState synchrone dans l'effet).
-    raf = window.requestAnimationFrame(check);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      if (raf) window.cancelAnimationFrame(raf);
-    };
-  }, [pathname]);
+  /*
+    Ces deux etats se recalculaient A CHAQUE FRAME de defilement, en lisant la position de
+    chaque section puis `scrollHeight` — deux mises en page forcees par image. Ils sont
+    desormais pousses par le navigateur, qui ne reveille le composant qu'au changement.
+  */
+  // Fond sombre derriere le milieu de l'ecran, la ou la barre est posee → barre blanche.
+  const dark = useDarkSectionAt("center", pathname);
+  // Barre affichee seulement si la page defile vraiment (donc pas sur l'accueil).
+  const visible = usePageScrolls(pathname);
 
   return (
     <div

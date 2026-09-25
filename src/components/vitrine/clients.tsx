@@ -253,7 +253,14 @@ export default function Clients() {
     <section
       ref={ref}
       id="clients"
-      className="bg-white pb-8 sm:pb-16 lg:pb-20 2xl:pb-32"
+      /*
+        `relative` n'est PAS decoratif ici : `useScroll({ target })` mesure la position de
+        cette section pour en deduire la progression, et ce calcul est faux tant que
+        l'element reste en `position: static` — c'est l'avertissement « ensure that the
+        container has a non-static position ». Le defilement des logos etait donc pilote
+        par une progression approximative.
+      */
+      className="relative bg-white pb-8 sm:pb-16 lg:pb-20 2xl:pb-32"
     >
       {/*
         `pt-2` sur mobile au lieu de `pt-6` : les bandes ayant double de hauteur, le

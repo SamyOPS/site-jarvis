@@ -66,7 +66,13 @@ export default function RootLayout({
       L'attribut n'ignore qu'UN SEUL niveau — les attributs de <html> — et rien de son
       contenu. C'est le motif documente par React pour les scripts de theme.
     */
-    <html lang="fr" suppressHydrationWarning>
+    /*
+      `data-scroll-behavior="smooth"` : le site declare `scroll-behavior: smooth` sur
+      <html> (globals.css). Sans cet attribut, Next neutralise le defilement doux pendant
+      ses changements de route pour eviter qu'un saut de page ne s'anime — et le signale
+      dans la console. L'attribut lui dit que ce reglage est deliberé et doit etre respecté.
+    */
+    <html lang="fr" data-scroll-behavior="smooth" suppressHydrationWarning>
       {/*
         Meme raison sur <body> : le script y pose `data-app="console"` sur les routes de la
         console. Sans cela l'ecart d'hydratation reapparaitrait des l'ouverture d'une page

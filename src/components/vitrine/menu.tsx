@@ -1,6 +1,6 @@
 "use client";
 
-import { LogIn } from "lucide-react";
+import { LogIn, Mail } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -15,6 +15,7 @@ import {
   mainLinks,
 } from "@/features/vitrine/nav";
 import { VITRINE_FONT_VARS } from "@/features/vitrine/fonts";
+import { useDarkSectionAt } from "@/features/vitrine/use-dark-section";
 import { armPageReveal } from "@/lib/page-reveal";
 
 // Révélation masquée lettre par lettre, pilotée par l'ouverture du panneau.
@@ -63,7 +64,6 @@ function RevealChars({
 
 export default function Menu() {
   const [open, setOpen] = useState(false);
-  const [onDark, setOnDark] = useState(false);
   // Thème figé à l'ouverture (clair si on ouvre au-dessus d'une section sombre)
   const [panelLight, setPanelLight] = useState(false);
   // Vrai tant que le panneau occupe l'écran (ouvert OU en cours de fermeture)
@@ -71,6 +71,15 @@ export default function Menu() {
   const close = () => setOpen(false);
   const pathname = usePathname();
   const { navigate, leave } = usePageTransition();
+
+  /*
+    Fond sombre sous la barre. Meme bascule qu'avant, mais poussee par le navigateur : la
+    version precedente relisait la position des douze sections a chaque frame, en meme
+    temps que la barre de progression faisait le meme travail de son cote.
+
+    48 px : un point situe DANS la barre, dont les enfants commencent a `top-8` (32 px).
+  */
+  const onDark = useDarkSectionAt(48, pathname);
 
   // Ouvre/ferme le panneau. À l'ouverture, on fige son thème selon le fond.
   const toggle = () =>
@@ -97,32 +106,6 @@ export default function Menu() {
   const onPanelTransitionEnd = (e: React.TransitionEvent) => {
     if (e.target === e.currentTarget && !open) setCovering(false);
   };
-
-  // La barre passe en blanc quand un panneau sombre (data-nav-dark) la recouvre.
-  useEffect(() => {
-    let raf = 0;
-    const check = () => {
-      raf = 0;
-      const navY = 48; // point situé dans la barre (haut de page)
-      let over = false;
-      document.querySelectorAll("[data-nav-dark]").forEach((el) => {
-        const r = el.getBoundingClientRect();
-        if (r.top <= navY && r.bottom >= navY) over = true;
-      });
-      setOnDark(over);
-    };
-    const onScroll = () => {
-      if (!raf) raf = window.requestAnimationFrame(check);
-    };
-    check();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      if (raf) window.cancelAnimationFrame(raf);
-    };
-  }, [pathname]);
 
   // Couleur des éléments de la barre : ils doivent contraster avec ce qu'il y a
   // derrière. Tant que le panneau recouvre l'écran (ouverture/fermeture), c'est
@@ -249,25 +232,30 @@ export default function Menu() {
         />
       </Link>
 
-      {/* Coin haut droit : bouton Contacter + burger (au premier plan) */}
       {/*
-        `gap-2` sur mobile et non `gap-3` : la barre porte desormais trois elements, et
-        sur un ecran de 360px le trio frolait le logo. Huit pixels regagnes suffisent,
-        l'espacement d'origine revient des `sm`.
+        Coin haut droit : contact, connexion, burger.
+
+        Les deux actions sont des PASTILLES A ICONE, au meme gabarit que le burger qui les
+        suit : trois ronds alignes plutot qu'un pave de texte suivi de deux boutons. Le
+        libelle n'est pas supprime mais passe en `sr-only` — invisible, toujours lu par
+        les lecteurs d'ecran — et `title` le restitue en infobulle au survol, faute de quoi
+        une icone seule laisse deviner sa fonction.
       */}
-      <div className="fixed right-8 top-8 z-50 flex items-center gap-2 sm:right-12 sm:top-12 sm:gap-3">
-        {/* CTA Contacter, encadré, reste visible sur le panneau noir */}
+      <div className="fixed right-8 top-8 z-50 flex items-center gap-3 sm:right-12 sm:top-12">
+        {/* Contact. Reste visible sur le panneau noir. */}
         <Link
           href="#contact"
           onClick={close}
-          className={`animate-fade-in rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-tight transition-colors duration-300 ${
+          title="Contactez nous"
+          className={`animate-fade-in flex h-10 w-10 items-center justify-center rounded-full border transition-colors duration-300 sm:h-12 sm:w-12 ${
             dark
               ? "border-white text-white hover:bg-white hover:text-black"
               : "border-zinc-900 text-zinc-900 hover:bg-zinc-900 hover:text-white"
           }`}
           style={{ animationDelay: "0.9s" }}
         >
-          Contactez nous
+          <Mail className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" aria-hidden />
+          <span className="sr-only">Contactez nous</span>
         </Link>
 
         {/*
@@ -275,23 +263,20 @@ export default function Menu() {
           panneau : `/auth` vit hors du groupe (vitrine), `onExternal` pose donc le voile
           noir et arme sa dissipation a l'arrivee. Un simple <Link> demonterait le
           `PageTransition` et ferait sauter le voile d'un coup sec.
-
-          Le libelle est masque sous `sm` — `sr-only` plutot que `hidden`, pour qu'il
-          reste lu par les lecteurs d'ecran — et l'icone tient seule. En toutes lettres,
-          le bouton faisait 100px de plus et chevauchait le logo sur un petit telephone.
         */}
         <Link
           href={AUTH_HREF}
           onClick={(e) => onExternal(e, AUTH_HREF)}
-          className={`animate-fade-in flex items-center gap-2 rounded-full border p-2 text-xs font-semibold uppercase tracking-tight transition-colors duration-300 sm:px-4 sm:py-2 ${
+          title="Connexion"
+          className={`animate-fade-in flex h-10 w-10 items-center justify-center rounded-full border transition-colors duration-300 sm:h-12 sm:w-12 ${
             dark
               ? "border-white text-white hover:bg-white hover:text-black"
               : "border-zinc-900 text-zinc-900 hover:bg-zinc-900 hover:text-white"
           }`}
           style={{ animationDelay: "1s" }}
         >
-          <LogIn className="h-4 w-4 shrink-0" aria-hidden />
-          <span className="sr-only sm:not-sr-only">Connexion</span>
+          <LogIn className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" aria-hidden />
+          <span className="sr-only">Connexion</span>
         </Link>
 
         {/* Burger (se transforme en croix à l'ouverture) */}
