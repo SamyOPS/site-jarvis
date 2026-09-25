@@ -164,9 +164,27 @@ export default function ExpertiseGallery() {
           className="flex h-full"
         >
           {items.map((it, i) => (
+            /*
+              `content-visibility: auto` : le navigateur saute entierement le rendu des
+              fiches hors champ. La piste fait quatre ecrans de large et transporte huit
+              photos, alors qu'une seule fiche est lue a la fois.
+
+              Le gain depend du cadrage : sur grand ecran, `panelVw` vaut 86 et laisse
+              deborder 7vw de chaque voisine — trois fiches restent donc partiellement
+              visibles, une seule est sautee. SUR MOBILE, ou la fiche occupe 100vw, deux a
+              trois fiches sur quatre sont sautees. C'est precisement la que ca manquait.
+
+              `contain-intrinsic-size` est une ceinture de securite : largeur et hauteur
+              sont deja imposees ici, la taille des fiches sautees ne depend donc pas de
+              leur contenu. Il evite qu'une fiche s'aplatisse si ces regles changent.
+            */
             <article
               key={it.index}
-              style={{ width: `${panelVw}vw` }}
+              style={{
+                width: `${panelVw}vw`,
+                contentVisibility: "auto",
+                containIntrinsicSize: `${panelVw}vw 100vh`,
+              }}
               className="flex h-full shrink-0 flex-col justify-center gap-6 px-4 sm:gap-8 sm:px-6"
             >
               {/* Duo d'images : la grande, cliquable (zoom plein écran), et une

@@ -190,14 +190,26 @@ function compile(gl: WebGLRenderingContext, type: number, src: string) {
 
 export default function FooterShader({
   variant = "dark",
+  overlapVh,
 }: {
   variant?: ShaderVariant;
+  /**
+   * Debordement au-dessus du conteneur, en vh. A defaut, celui du nuancier.
+   *
+   * Le pied de page sombre deborde de 55vh pour joindre la section qui le precede, et
+   * c'est ce debordement qui fournit sa dissolution du haut. Un conteneur qui occupe DEJA
+   * tout l'ecran — le panneau du menu — n'a personne a joindre : ce debordement n'y serait
+   * que du pixel calcule hors champ, soit plus de la moitie du travail du GPU pour rien.
+   * A zero, le flux tient dans le cadre et le `minFade` du nuancier reprend la dissolution.
+   */
+  overlapVh?: number;
 }) {
   const tone = TONES[variant];
+  const overlap = overlapVh ?? tone.overlapVh;
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const { overlapVh, minFade, ...ink } = TONES[variant];
+    const { minFade, ...ink } = TONES[variant];
 
     const canvas = ref.current;
     if (!canvas) return;
@@ -263,7 +275,7 @@ export default function FooterShader({
       // Le débordement est exprimé en vh : on en déduit la fraction de canvas à
       // dissoudre, quelle que soit la hauteur du footer. Sans débordement, le
       // plancher de la variante prend le relais.
-      const overlapPx = (window.innerHeight * overlapVh) / 100;
+      const overlapPx = (window.innerHeight * overlap) / 100;
       fade = Math.min(
         0.85,
         Math.max(minFade, overlapPx / Math.max(1, canvas.clientHeight)),
@@ -383,15 +395,15 @@ export default function FooterShader({
       // plus et le canvas resterait un buffer 300×150 jamais dessiné — donc
       // blanc. Le contexte est libéré avec le canvas par le ramasse-miettes.
     };
-  }, [variant]);
+  }, [variant, overlap]);
 
   return (
     <canvas
       ref={ref}
       aria-hidden
       style={{
-        top: `-${tone.overlapVh}vh`,
-        height: `calc(100% + ${tone.overlapVh}vh)`,
+        top: `-${overlap}vh`,
+        height: `calc(100% + ${overlap}vh)`,
       }}
       className="pointer-events-none absolute left-0 w-full"
     />

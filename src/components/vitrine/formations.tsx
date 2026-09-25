@@ -40,6 +40,20 @@ const TITLE_SHOW_AT = p(25);
 // largement dégagée, 20vh avant la fin de l'escalier.
 const NAV_DARK_UNTIL = BANDS_END - p(20);
 const BLEED = 0.5; // léger chevauchement vertical entre marches (anti-liseré)
+/*
+ * Largeur d'une moitie, en % du capot : 100 - 49.5, le demi pour-cent de trop etant le
+ * chevauchement central qui evite un lisere.
+ */
+const HALF = 50.5;
+/*
+ * Course d'ouverture, exprimee en % de la MOITIE et non du capot.
+ *
+ * Chaque moitie occupait auparavant tout l'ecran, masquee a ~90 % par un `clip-path` :
+ * dix calques plein ecran dont un dixieme seulement etait visible. Les boites epousent
+ * desormais leur bande, ce qui divise par dix la surface a peindre — mais un `-100%` n'y
+ * vaut plus une largeur d'ecran. Cette conversion retablit exactement la meme course.
+ */
+const SLIDE = (100 / HALF) * 100;
 // L'image étant opaque (assombrie via brightness), les recouvrements ne
 // cumulent aucune transparence : pas de couture visible entre les morceaux.
 
@@ -71,29 +85,60 @@ function Band({
   const fromBottom = BANDS - 1 - index; // 0 pour la marche du bas
   const start = OPEN_START + fromBottom * STAGGER;
   const end = start + DURATION;
-  const leftX = useTransform(progress, [start, end], ["0%", "-100%"]);
-  const rightX = useTransform(progress, [start, end], ["0%", "100%"]);
+  const leftX = useTransform(progress, [start, end], ["0%", `-${SLIDE}%`]);
+  const rightX = useTransform(progress, [start, end], ["0%", `${SLIDE}%`]);
 
   // Découpe verticale de la bande (avec un léger débord pour éviter un liseré).
   const top = index === 0 ? 0 : (index / BANDS) * 100 - BLEED;
   const bottom =
     index === BANDS - 1 ? 0 : ((BANDS - 1 - index) / BANDS) * 100 - BLEED;
 
+  /*
+    La boite EPOUSE la bande, au lieu d'occuper l'ecran entier sous un `clip-path`.
+    Le capot est alors replace a l'interieur, exprime dans le repere de cette boite :
+    l'image reste calee comme si la boite faisait tout l'ecran, mais le navigateur n'a
+    plus qu'un dixieme de surface a peindre et a deplacer par marche.
+  */
+  const height = 100 - top - bottom;
+  const coverHeight = (100 / height) * 100;
+  const coverTop = (-top / height) * 100;
+  const coverWidth = SLIDE;
+  const coverLeft = (-49.5 / HALF) * 100;
+
   return (
     <>
       {/* Moitié gauche (glisse vers la gauche) — recouvrement de 0,5 % au centre */}
       <motion.div
-        style={{ x: leftX, clipPath: `inset(${top}% 49.5% ${bottom}% 0)` }}
-        className="absolute inset-0 z-10"
+        style={{ x: leftX, top: `${top}%`, height: `${height}%`, width: `${HALF}%` }}
+        className="absolute left-0 z-10 overflow-hidden"
       >
-        <Cover />
+        <div
+          className="absolute left-0"
+          style={{
+            top: `${coverTop}%`,
+            width: `${coverWidth}%`,
+            height: `${coverHeight}%`,
+          }}
+        >
+          <Cover />
+        </div>
       </motion.div>
       {/* Moitié droite (glisse vers la droite) */}
       <motion.div
-        style={{ x: rightX, clipPath: `inset(${top}% 0 ${bottom}% 49.5%)` }}
-        className="absolute inset-0 z-10"
+        style={{ x: rightX, top: `${top}%`, height: `${height}%`, width: `${HALF}%` }}
+        className="absolute right-0 z-10 overflow-hidden"
       >
-        <Cover />
+        <div
+          className="absolute"
+          style={{
+            top: `${coverTop}%`,
+            left: `${coverLeft}%`,
+            width: `${coverWidth}%`,
+            height: `${coverHeight}%`,
+          }}
+        >
+          <Cover />
+        </div>
       </motion.div>
     </>
   );

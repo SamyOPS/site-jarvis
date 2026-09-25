@@ -7,7 +7,10 @@ import {
   type MotionValue,
 } from "motion/react";
 import { useRef } from "react";
+import { ArrowRight } from "lucide-react";
 import Image from "next/image";
+
+import { useVitrineExit } from "@/features/vitrine/use-vitrine-exit";
 
 interface Visual {
   src: string;
@@ -29,6 +32,13 @@ interface ZoomParallaxProps {
    *    scroll dézoome jusqu'à révéler la mosaïque complète.
    */
   direction?: "in" | "out";
+  /**
+   * Lien affiche sous le titre, qui s'efface avec lui.
+   *
+   * Pense pour les destinations hors vitrine (`/offres`) : la sortie passe donc par
+   * `useVitrineExit`, sans quoi le voile noir sauterait au demontage du PageTransition.
+   */
+  cta?: { label: string; href: string };
 }
 
 // Une lettre qui monte depuis sa ligne (comme les textes du menu), mais pilotée
@@ -38,13 +48,20 @@ function RevealLetter({
   progress,
   start,
   end,
+  exiting = false,
 }: {
   char: string;
   progress: MotionValue<number>;
   start: number;
   end: number;
+  /** Vrai : la lettre part vers le bas au lieu d'en monter. */
+  exiting?: boolean;
 }) {
-  const y = useTransform(progress, [start, end], ["120%", "0%"]);
+  const y = useTransform(
+    progress,
+    [start, end],
+    exiting ? ["0%", "120%"] : ["120%", "0%"],
+  );
   return (
     <span aria-hidden className="reveal-mask">
       <motion.span className="inline-block" style={{ y }}>
@@ -123,6 +140,29 @@ function maxVisibleWidthVw(tile: Tile) {
   return Math.min(100, Math.ceil(tile.width * visibleScale));
 }
 
+/**
+ * Valeur de `sizes` envoyee au navigateur pour une tuile.
+ *
+ * Elle reste celle de `maxVisibleWidthVw`. Quand elle vaut PILE 100vw — le cas des
+ * tuiles qui finissent par remplir l'ecran — elle est ecrite sous forme de condition
+ * toujours vraie : `(min-width: 0px) 100vw`. C'est STRICTEMENT la meme consigne, et le
+ * navigateur telecharge exactement la meme variante.
+ *
+ * Le detour ne sert qu'a taire un avertissement de developpement de `next/image`, qui
+ * ne se declenche que sur la chaine exacte "100vw". Il mesure la tuile AU CHARGEMENT,
+ * donc avant que le zoom l'ait agrandie, et conclut a tort que `sizes` est trop
+ * genereux.
+ *
+ * C'est un CONTOURNEMENT, pas une correction : la valeur etait deja juste. Il se
+ * justifie parce que trois tuiles le declenchaient a chaque rechargement — assez de
+ * bruit pour qu'un vrai avertissement, celui du conteneur de defilement statique, y
+ * soit passe inapercu deux tours durant.
+ */
+function tileSizes(tile: Tile) {
+  const vw = maxVisibleWidthVw(tile);
+  return vw === 100 ? "(min-width: 0px) 100vw" : `${vw}vw`;
+}
+
 /** Échelle d'une tuile : 1 → son pic au fil du scroll, ou l'inverse en mode `out`. */
 function useTileScale(progress: MotionValue<number>, peak: number, out: boolean) {
   return useTransform(progress, [0, 1], out ? [peak, 1] : [1, peak]);
@@ -133,7 +173,9 @@ export function ZoomParallax({
   title,
   eyebrow,
   direction = "in",
+  cta,
 }: ZoomParallaxProps) {
+  const exitVitrine = useVitrineExit();
   const container = useRef(null);
   const { scrollYProgress } = useScroll({
     target: container,
@@ -145,7 +187,24 @@ export function ZoomParallax({
 
   // Petit mot au-dessus du titre : monte depuis sa ligne (effet « volet »,
   // comme le titre) juste avant que les lettres du titre se dévoilent.
-  const eyebrowY = useTransform(scrollYProgress, [0.45, 0.6], ["120%", "0%"]);
+  /*
+    Sens du titre. En mode `in`, le zoom AMENE la section suivante : le titre monte et
+    reste. En mode `out`, on part d'une image plein ecran que le scroll dezoome — le titre
+    est donc la des le depart et s'en va, sans quoi il apparaitrait sur la mosaique.
+  */
+  const titleExits = out;
+  const eyebrowY = useTransform(
+    scrollYProgress,
+    titleExits ? [0.05, 0.22] : [0.45, 0.6],
+    titleExits ? ["0%", "120%"] : ["120%", "0%"],
+  );
+  /*
+    L'appel a l'action s'efface un peu apres les lettres. `pointerEvents` suit l'opacite :
+    un lien devenu invisible ne doit plus intercepter le clic, sinon il capture des clics
+    sur la mosaique qui a pris sa place.
+  */
+  const ctaOpacity = useTransform(scrollYProgress, [0.28, 0.44], [1, 0]);
+  const ctaPointer = useTransform(ctaOpacity, (v) => (v < 0.05 ? "none" : "auto"));
 
   // Une valeur animée par tuile, tirée de `TILES[i].peakScale`. Sept déclarations
   // explicites plutôt qu'une boucle : un hook ne se déclare pas dans un `map`. Les
@@ -195,7 +254,7 @@ export function ZoomParallax({
                   src={src}
                   alt={alt || `Image parallaxe ${index + 1}`}
                   fill
-                  sizes={`${maxVisibleWidthVw(tile)}vw`}
+                  sizes={tileSizes(tile)}
                   className="object-cover"
                 />
               </div>
@@ -211,18 +270,38 @@ export function ZoomParallax({
               {eyebrow && (
                 <span
                   aria-hidden
-                  className="reveal-mask mb-1 ml-[0.1em] px-[0.12em] font-quote text-[clamp(1.5rem,4.5vw,3.25rem)] italic leading-none text-white"
+                  className="reveal-mask mb-1 ml-[0.1em] px-[0.12em] font-quote text-[clamp(1.1rem,3.5vw,2.5rem)] italic leading-none text-white"
                 >
                   <motion.span className="inline-block" style={{ y: eyebrowY }}>
                     {eyebrow}
                   </motion.span>
                 </span>
               )}
-              <h2 className="font-sans text-[clamp(2.5rem,12vw,11rem)] font-bold uppercase leading-none tracking-tight text-white">
+              {/*
+                Memes tailles que le titre des formations : le triptyque n'a de sens que si
+                ses trois registres se retrouvent d'une section a l'autre. Ce reglage vaut
+                donc AUSSI pour « nos Expertises », qui partage ce composant.
+              */}
+              <h2 className="font-sans text-[clamp(2.5rem,9vw,8rem)] font-bold uppercase leading-[0.95] tracking-tight text-white">
                 <span aria-label={`${eyebrow ? eyebrow + " " : ""}${title}`}>
                   {letters.map((char, i) => {
-                    const start = 0.55 + (i / letters.length) * 0.3;
-                    const end = start + 0.15;
+                    /*
+                      L'espace ne peut pas traverser `reveal-mask` : cette classe est en
+                      `inline-block` avec `overflow: hidden`, ou un blanc se reduit a rien —
+                      « Offres d'emploi » s'afficherait « Offresd'emploi ». On le rend donc
+                      comme une chasse explicite, hors du masque. Le titre « Expertises »,
+                      sans espace, n'est pas concerne.
+                    */
+                    if (char === " ") {
+                      return (
+                        <span key={i} aria-hidden className="inline-block w-[0.24em]" />
+                      );
+                    }
+                    // Sortie : plus tot et plus serree, pour degager la mosaique.
+                    const start = titleExits
+                      ? 0.1 + (i / letters.length) * 0.22
+                      : 0.55 + (i / letters.length) * 0.3;
+                    const end = start + (titleExits ? 0.12 : 0.15);
                     return (
                       <RevealLetter
                         key={i}
@@ -230,11 +309,52 @@ export function ZoomParallax({
                         progress={scrollYProgress}
                         start={start}
                         end={end}
+                        exiting={titleExits}
                       />
                     );
                   })}
                 </span>
               </h2>
+
+              {/*
+                Troisieme ligne du titre, alignee a DROITE sous les capitales : c'est la
+                disposition en triptyque des sections du site — accroche italique en haut a
+                gauche, titre en capitales, note italique en bas a droite (cf. le titre des
+                formations, « nos / FORMATIONS / n modules »).
+
+                Une pastille bordee en petites capitales, comme la barre de navigation en
+                porte, sortait de ce registre : elle se lisait comme un element d'interface
+                pose sur le titre, et non comme la derniere ligne du titre lui-meme.
+
+                Le soulignement au survol et la fleche disent qu'on peut cliquer, ce que les
+                autres troisiemes lignes n'ont pas a dire — elles ne sont pas des liens. La
+                fleche est dimensionnee en `em` pour suivre le `clamp` du texte.
+              */}
+              {cta && (
+                <motion.a
+                  href={cta.href}
+                  onClick={(event) => exitVitrine(event, cta.href)}
+                  style={{ opacity: ctaOpacity, pointerEvents: ctaPointer }}
+                  className="group relative mr-[0.1em] mt-1 inline-flex items-center gap-[0.35em] self-end font-quote text-[clamp(1.1rem,3.5vw,2.5rem)] italic leading-none text-white/90 transition-colors duration-300 hover:text-white"
+                >
+                  {cta.label}
+                  <ArrowRight
+                    aria-hidden
+                    className="h-[0.62em] w-[0.62em] shrink-0 transition-transform duration-300 group-hover:translate-x-[0.15em]"
+                  />
+                  {/*
+                    Meme soulignement que « Nous contacter » dans les formations : une barre
+                    qui se deploie depuis la gauche au survol, plutot qu'un `text-decoration`
+                    qui apparait d'un bloc. Elle est ABSOLUE, donc hors du flux : elle ne
+                    compte pas comme troisieme enfant de l'`inline-flex` et passe sous le
+                    texte ET la fleche.
+                  */}
+                  <span
+                    aria-hidden
+                    className="absolute -bottom-1 left-0 h-[2px] w-full origin-left scale-x-0 bg-white transition-transform duration-500 ease-out group-hover:scale-x-100"
+                  />
+                </motion.a>
+              )}
             </div>
           </div>
         )}

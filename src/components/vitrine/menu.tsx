@@ -5,18 +5,37 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment, useEffect, useState } from "react";
+import FooterShader from "@/components/vitrine/footer-shader";
 import { usePageTransition } from "@/components/vitrine/page-transition";
 import { lockScroll, unlockScroll } from "@/features/vitrine/scroll-lock";
 import {
   AUTH_HREF,
   infoLinks,
   isInternalExit,
-  JOBS_HREF,
   mainLinks,
+  memberLinks,
 } from "@/features/vitrine/nav";
 import { VITRINE_FONT_VARS } from "@/features/vitrine/fonts";
 import { useDarkSectionAt } from "@/features/vitrine/use-dark-section";
 import { armPageReveal } from "@/lib/page-reveal";
+
+/*
+ * Cascade des liens « Membre de Jarvis ».
+ *
+ * `MEMBER_OFFSET` est plus court que la duree d'un libelle : les cascades se CHEVAUCHENT,
+ * ce qui fait paraitre le bloc plus vif qu'une succession bien rangee. Une entree ajoutee a
+ * `memberLinks` prend automatiquement le creneau suivant.
+ */
+const MEMBER_BASE = 510;
+const MEMBER_OFFSET = 110;
+const MEMBER_STEP = 10;
+
+/**
+ * Nombre de caracteres reellement animes par `RevealChars` : il decoupe le texte en mots
+ * et n'anime que leurs lettres, les espaces ne comptent donc pas. C'est ce nombre qui dit
+ * quand la cascade s'acheve, et donc quand la fleche doit suivre.
+ */
+const animatedChars = (label: string) => label.replace(/s/g, "").length;
 
 // Révélation masquée lettre par lettre, pilotée par l'ouverture du panneau.
 // Les mots restent insécables (pas de coupure au milieu d'un mot).
@@ -24,7 +43,7 @@ function RevealChars({
   text,
   open,
   base = 0,
-  step = 25,
+  step = 12,
 }: {
   text: string;
   open: boolean;
@@ -44,7 +63,7 @@ function RevealChars({
               return (
                 <span key={ci} aria-hidden className="reveal-mask">
                   <span
-                    className={`inline-block transition-transform duration-700 ease-out ${
+                    className={`inline-block transition-transform duration-420 ease-out ${
                       open ? "translate-y-0" : "translate-y-full"
                     }`}
                     style={{ transitionDelay: open ? `${delay}ms` : "0ms" }}
@@ -309,11 +328,25 @@ export default function Menu() {
       <aside
         aria-hidden={!open}
         onTransitionEnd={onPanelTransitionEnd}
-        className={`fixed inset-0 z-40 h-dvh w-full transition-transform duration-500 ease-out ${panel.bg} ${
+        className={`fixed inset-0 z-40 h-dvh w-full transition-transform duration-350 ease-out ${panel.bg} ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex h-full flex-col px-8 py-8 sm:px-12 sm:py-10">
+        {/*
+          Meme flux anime que le pied de page, dans le nuancier du panneau.
+
+          `overlapVh={0}` : le debordement de 55vh du nuancier sombre sert a joindre la
+          section qui precede le footer. Ici le panneau occupe tout l'ecran — ce
+          debordement ne serait calcule que hors champ.
+
+          Rien a eteindre a la fermeture : le panneau sort de l'ecran par `translate-x-full`,
+          l'observateur de visibilite du shader constate qu'il n'est plus visible et arrete
+          sa boucle de lui-meme.
+        */}
+        <FooterShader variant={panelLight ? "light" : "dark"} overlapVh={0} />
+
+        {/* `relative` : le contenu doit passer AU-DESSUS du canvas, qui est absolu. */}
+        <div className="relative flex h-full flex-col px-8 py-8 sm:px-12 sm:py-10">
           {/* Corps : gros liens à gauche + colonne d'infos à droite */}
           <div className="flex flex-1 items-center justify-between gap-8">
             <nav className="flex flex-col gap-1">
@@ -327,8 +360,8 @@ export default function Menu() {
                   <RevealChars
                     text={link.label}
                     open={open}
-                    base={200 + i * 90}
-                    step={35}
+                    base={90 + i * 40}
+                    step={18}
                   />
                 </Link>
               ))}
@@ -342,8 +375,8 @@ export default function Menu() {
                   <RevealChars
                     text="Contact"
                     open={open}
-                    base={700}
-                    step={22}
+                    base={320}
+                    step={12}
                   />
                 </span>
                 {infoLinks.map((link, k) => (
@@ -356,8 +389,8 @@ export default function Menu() {
                     <RevealChars
                       text={link.label}
                       open={open}
-                      base={760 + k * 60}
-                      step={14}
+                      base={340 + k * 28}
+                      step={10}
                     />
                   </Link>
                 ))}
@@ -370,82 +403,64 @@ export default function Menu() {
                   <RevealChars
                     text="Membre de Jarvis"
                     open={open}
-                    base={1040}
-                    step={22}
+                    base={470}
+                    step={12}
                   />
                 </span>
-                <a
-                  href={AUTH_HREF}
-                  onClick={(e) => onExternal(e, AUTH_HREF)}
-                  className={`inline-flex items-center gap-1 font-medium uppercase tracking-tight transition-colors ${panel.info}`}
-                >
-                  <RevealChars
-                    text="Accéder à mon espace"
-                    open={open}
-                    base={1120}
-                    step={14}
-                  />
-                  <span aria-hidden className="reveal-mask">
-                    <span
-                      className={`inline-block transition-transform duration-700 ease-out ${
-                        open ? "translate-y-0" : "translate-y-full"
-                      }`}
-                      style={{ transitionDelay: open ? "1360ms" : "0ms" }}
-                    >
-                      <svg
-                        className="h-4 w-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                      >
-                        <line x1="7" y1="17" x2="17" y2="7" />
-                        <polyline points="7 7 17 7 17 17" />
-                      </svg>
-                    </span>
-                  </span>
-                </a>
+                {/*
+                  Les deux liens etaient ecrits EN DOUBLE, libelles compris, alors que
+                  `memberLinks` les declare deja et que le pied de page, lui, les lit.
+                  C est ainsi qu un renommage n a touche qu un des deux endroits.
 
-                {/* Offres d'emploi : même traitement que le lien ci-dessus
-                    (révélation lettre par lettre puis la flèche), la cascade
-                    reprenant là où « Accéder à mon espace » s'arrête. */}
-                <a
-                  href={JOBS_HREF}
-                  onClick={(e) => onExternal(e, JOBS_HREF)}
-                  className={`inline-flex items-center gap-1 font-medium uppercase tracking-tight transition-colors ${panel.info}`}
-                >
-                  <RevealChars
-                    text="Offres d'emploi"
-                    open={open}
-                    base={1420}
-                    step={14}
-                  />
-                  <span aria-hidden className="reveal-mask">
-                    <span
-                      className={`inline-block transition-transform duration-700 ease-out ${
-                        open ? "translate-y-0" : "translate-y-full"
-                      }`}
-                      style={{ transitionDelay: open ? "1620ms" : "0ms" }}
+                  Le delai de la fleche se DEDUIT maintenant du libelle. Les deux valeurs
+                  qui y figuraient en dur dataient des anciens reglages : apres la
+                  compression du tempo du panneau, elles accusaient pres de 800 ms de
+                  retard sur leur propre texte, et la fleche arrivait longtemps apres lui.
+                */}
+                {memberLinks.map((link, k) => {
+                  const start = MEMBER_BASE + k * MEMBER_OFFSET;
+                  return (
+                    <a
+                      key={link.href}
+                      href={link.href}
+                      onClick={(e) => onExternal(e, link.href)}
+                      className={`inline-flex items-center gap-1 font-medium uppercase tracking-tight transition-colors ${panel.info}`}
                     >
-                      <svg
-                        className="h-4 w-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                      >
-                        <line x1="7" y1="17" x2="17" y2="7" />
-                        <polyline points="7 7 17 7 17 17" />
-                      </svg>
-                    </span>
-                  </span>
-                </a>
+                      <RevealChars
+                        text={link.label}
+                        open={open}
+                        base={start}
+                        step={MEMBER_STEP}
+                      />
+                      <span aria-hidden className="reveal-mask">
+                        <span
+                          className={`inline-block transition-transform duration-420 ease-out ${
+                            open ? "translate-y-0" : "translate-y-full"
+                          }`}
+                          style={{
+                            transitionDelay: open
+                              ? `${start + animatedChars(link.label) * MEMBER_STEP}ms`
+                              : "0ms",
+                          }}
+                        >
+                        <svg
+                          className="h-4 w-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <line x1="7" y1="17" x2="17" y2="7" />
+                          <polyline points="7 7 17 7 17 17" />
+                        </svg>
+                        </span>
+                      </span>
+                    </a>
+                  );
+                })}
               </div>
             </div>
           </div>

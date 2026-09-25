@@ -6,6 +6,16 @@ export const mainLinks = [
   { label: "Accueil", href: "/" },
   { label: "Expertises", href: "/decouvrir#expertises" },
   { label: "Formations", href: "/decouvrir#formations" },
+  /*
+   * Pointe la SECTION de /decouvrir, pas la page /offres — comme les autres entrees de
+   * cette liste. La page elle-meme reste atteignable par « Offres d'emploi » du bloc
+   * « Membre de Jarvis » ci-dessous, et par le lien pose sur la section.
+   *
+   * La distinction compte au clic : une entree vers /offres sortirait de la vitrine, ce que
+   * le pied de page sait traiter (il teste `leavesVitrine`) mais pas le menu, qui envoie
+   * toutes ses entrees principales dans `onNav`.
+   */
+  { label: "Offres d'emploi", href: "/decouvrir#offres" },
   { label: "FAQ", href: "/decouvrir#faq" },
 ];
 
@@ -32,7 +42,13 @@ export const JOBS_HREF = "/offres";
 
 export const memberLinks = [
   { label: "Accéder à mon espace", href: AUTH_HREF },
-  { label: "Offres d'emploi", href: JOBS_HREF },
+  /*
+   * « Voir toutes les offres » et non « Offres d'emploi » : ce libelle-la est desormais
+   * celui de l'entree de navigation principale, qui mene a la SECTION de /decouvrir. Deux
+   * liens homonymes vers deux destinations differentes cohabitaient dans le meme panneau.
+   * Le « toutes » dit ce qui les separe — la liste complete, par opposition a l'aperçu.
+   */
+  { label: "Voir toutes les offres", href: JOBS_HREF },
 ];
 
 // Quitte la vitrine : mérite le voile, et le voile doit rester posé jusqu'à ce
