@@ -136,12 +136,10 @@ body {
 html {
   scroll-behavior: smooth;
   /*
-    position: relative pour useScroll({ target }) de motion.
-
-    Le conteneur de defilement qu'il mesure est document.scrollingElement, donc <html>.
-    Statique, il l'empeche de situer une cible par rapport a lui — c'est l'avertissement
-    « ensure that the container has a non-static position », emis a chaque section pilotee
-    par le scroll : parallaxe, galerie, escalier, clients.
+    position: relative : pose a l'origine pour useScroll({ target }) de motion, qui
+    refusait de situer une cible dans un <html> statique. La vitrine ne s'en sert plus —
+    ses sections passent par `useSectionProgress`, qui mesure par `offsetTop` et ne
+    depend pas de cette regle. Elle reste pour tout usage futur de `useScroll`.
 
     Ne change rien au rendu : les elements absolus du site ont tous un ancetre positionne.
     Un element qui n'en aurait pas se calerait aujourd'hui sur le bloc conteneur initial,

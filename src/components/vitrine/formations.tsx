@@ -3,7 +3,6 @@
 import {
   motion,
   useMotionValueEvent,
-  useScroll,
   useTransform,
   type MotionValue,
 } from "motion/react";
@@ -11,6 +10,7 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import FormationsIndex, { formations } from "@/components/vitrine/formations-index";
 import { DEFENSE } from "@/features/vitrine/images";
+import { useSectionProgress } from "@/features/vitrine/use-section-progress";
 
 // Réglages. Le capot est épinglé sur 100vh : la section mesure SECTION_VH, donc
 // il reste SCROLL_VH de scroll utile, que `scrollYProgress` mappe sur 0 → 1.
@@ -98,6 +98,11 @@ function Band({
     Le capot est alors replace a l'interieur, exprime dans le repere de cette boite :
     l'image reste calee comme si la boite faisait tout l'ecran, mais le navigateur n'a
     plus qu'un dixieme de surface a peindre et a deplacer par marche.
+
+    `will-change: transform` sur chaque moitie : c'est ce qui en fait une couche que le
+    GPU fait glisser telle quelle. Sans lui, une translation pilotee par le scroll
+    repeignait a chaque image les dix copies de la photo, filtre `brightness` compris —
+    le gel a l'ouverture de l'escalier. Avec, la photo filtree est peinte une fois.
   */
   const height = 100 - top - bottom;
   const coverHeight = (100 / height) * 100;
@@ -109,7 +114,7 @@ function Band({
     <>
       {/* Moitié gauche (glisse vers la gauche) — recouvrement de 0,5 % au centre */}
       <motion.div
-        style={{ x: leftX, top: `${top}%`, height: `${height}%`, width: `${HALF}%` }}
+        style={{ x: leftX, top: `${top}%`, height: `${height}%`, width: `${HALF}%`, willChange: "transform" }}
         className="absolute left-0 z-10 overflow-hidden"
       >
         <div
@@ -125,7 +130,7 @@ function Band({
       </motion.div>
       {/* Moitié droite (glisse vers la droite) */}
       <motion.div
-        style={{ x: rightX, top: `${top}%`, height: `${height}%`, width: `${HALF}%` }}
+        style={{ x: rightX, top: `${top}%`, height: `${height}%`, width: `${HALF}%`, willChange: "transform" }}
         className="absolute right-0 z-10 overflow-hidden"
       >
         <div
@@ -204,10 +209,7 @@ export default function Formations() {
   // Section haute + capot épinglé (sticky) : le scroll efface le texte puis
   // écarte les marches.
   const sectionRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ["start start", "end end"],
-  });
+  const scrollYProgress = useSectionProgress(sectionRef, "pinned");
 
   return (
     <section

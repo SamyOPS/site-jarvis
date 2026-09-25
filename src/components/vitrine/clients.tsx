@@ -3,18 +3,30 @@
 import {
   AnimatePresence,
   motion,
-  useScroll,
   useTransform,
   type MotionValue,
 } from "motion/react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { useSectionProgress } from "@/features/vitrine/use-section-progress";
 
 // Logos clients (public/Image/logo_client).
-// invert=true  : logo blanc sur fond transparent -> `brightness-0` = noir.
-// invert=false : logo en couleur sur fond blanc opaque (ou .webp non vérifié)
-//                -> `mix-blend-multiply` fait disparaître le fond blanc et
-//                affiche le logo dans sa couleur d'origine (pas de carré noir).
+/*
+ * L'encre est dans les FICHIERS, pas dans la CSS. Les logos monochromes sont enregistres
+ * en noir sur fond transparent ; HP, Stihl et Uniqlo gardent leurs couleurs.
+ *
+ * Ils etaient livres blancs puis noircis par `brightness-0`, et les logos en couleur
+ * portaient un `mix-blend-multiply` — sans effet visible sur ce fond blanc pur, mais qui
+ * interdisait de mettre les rangees sur une couche GPU (un multiply isole dans une couche
+ * sans fond n'a plus le blanc derriere lui). Resultat : les 44 logos etaient re-rasterises
+ * a chaque image de defilement, et la section etait la plus lente de la page. Un logo
+ * ajoute se depose donc deja a l'encre voulue.
+ *
+ * Le suffixe `-noir` n'est pas decoratif : il donne aux fichiers noircis une URL neuve.
+ * Sous l'ancien nom, les variantes blanches restaient servies par le cache de Next et
+ * par celui des navigateurs (4 h) — du blanc sur blanc, donc des logos invisibles.
+ * Un fichier dont l'aspect change doit changer de nom.
+ */
 /*
  * `w` / `h` : dimensions INTRINSEQUES du fichier, relevees dans les PNG eux-memes.
  *
@@ -22,39 +34,42 @@ import { useEffect, useRef, useState } from "react";
  * largeur — mais `next/image` en a besoin pour tenir le bon rapport et surtout pour
  * generer les variantes. Sans elles, ces logos partaient BRUTS : 708 Ko, et surtout 50
  * millions de pixels a decoder, soit ~192 Mo de bitmaps en memoire pour 0,3 Mo reellement
- * utiles a 40 px de haut. `inli.png` fait a lui seul 8664x4104 pour une vignette de 84 px
- * de large : c'est le genre de decodage qui fait tousser un telephone d'entree de gamme.
+ * utiles a 40 px de haut.
+ *
+ * Les fichiers eux-memes sont desormais bornes a 600x240 (le double de la plus grande
+ * vignette) : `inli.png` faisait 8664x4104, et l'optimiseur de Next devait le decoder
+ * en entier a chaque variante — en dev, sur la machine meme qui fait tourner le navigateur.
+ * Un logo remplace se redimensionne avant d'etre depose, et ses `w` / `h` suivent.
  */
 const logos: {
   src: string;
   alt: string;
-  invert: boolean;
   w: number;
   h: number;
   big?: boolean;
 }[] = [
-  { src: "/Image/logo_client/3M.png", alt: "3M", invert: true, w: 257, h: 135 },
-  { src: "/Image/logo_client/barriere.png", alt: "Barrière", invert: true, w: 1226, h: 890 },
-  { src: "/Image/logo_client/bnp-paribas.png", alt: "BNP Paribas", invert: true, w: 1280, h: 510 },
-  { src: "/Image/logo_client/groupe-bpce.png", alt: "BPCE", invert: true, w: 1247, h: 208 },
-  { src: "/Image/logo_client/burberry.png", alt: "Burberry", invert: true, w: 1182, h: 284 },
-  { src: "/Image/logo_client/cgi.png", alt: "CGI", invert: true, w: 300, h: 140 },
-  { src: "/Image/logo_client/bureau_veritas.png", alt: "Bureau Veritas", invert: true, w: 1282, h: 1593 },
-  { src: "/Image/logo_client/engie.png", alt: "Engie", invert: true, w: 1552, h: 552 },
-  { src: "/Image/logo_client/ethypharm.png", alt: "Ethypharm", invert: true, w: 520, h: 102 },
-  { src: "/Image/logo_client/foncia.png", alt: "Foncia", invert: true, w: 1171, h: 456 },
-  { src: "/Image/logo_client/hp.png", alt: "HP", invert: false, w: 2400, h: 2400 },
-  { src: "/Image/logo_client/inli.png", alt: "In'li", invert: true, w: 8664, h: 4104 },
-  { src: "/Image/logo_client/les_mousquetaires.png", alt: "Les Mousquetaires", invert: true, w: 526, h: 387 },
-  { src: "/Image/logo_client/riccobono.png", alt: "Riccobono", invert: true, w: 300, h: 91 },
-  { src: "/Image/logo_client/lvmh.png", alt: "LVMH", invert: true, w: 1518, h: 354 },
-  { src: "/Image/logo_client/sisley.png", alt: "Sisley", invert: true, w: 878, h: 257 },
-  { src: "/Image/logo_client/sncf.png", alt: "SNCF", invert: true, w: 150, h: 150 },
-  { src: "/Image/logo_client/stihl.png", alt: "Stihl", invert: false, w: 746, h: 161 },
-  { src: "/Image/logo_client/tpicap.png", alt: "TP ICAP", invert: true, w: 604, h: 174 },
-  { src: "/Image/logo_client/uniqlo.png", alt: "Uniqlo", invert: false, w: 1280, h: 1276 },
-  { src: "/Image/logo_client/apprentis-auteuil.png", alt: "Apprentis d'Auteuil", invert: true, w: 400, h: 400, big: true },
-  { src: "/Image/logo_client/jacquemus.png", alt: "Jacquemus", invert: true, w: 320, h: 320, big: true },
+  { src: "/Image/logo_client/3M-noir.png", alt: "3M", w: 257, h: 135 },
+  { src: "/Image/logo_client/barriere-noir.png", alt: "Barrière", w: 331, h: 240 },
+  { src: "/Image/logo_client/bnp-paribas-noir.png", alt: "BNP Paribas", w: 600, h: 239 },
+  { src: "/Image/logo_client/groupe-bpce-noir.png", alt: "BPCE", w: 600, h: 100 },
+  { src: "/Image/logo_client/burberry-noir.png", alt: "Burberry", w: 1182, h: 284 },
+  { src: "/Image/logo_client/cgi-noir.png", alt: "CGI", w: 300, h: 140 },
+  { src: "/Image/logo_client/bureau_veritas-noir.png", alt: "Bureau Veritas", w: 193, h: 240 },
+  { src: "/Image/logo_client/engie-noir.png", alt: "Engie", w: 600, h: 213 },
+  { src: "/Image/logo_client/ethypharm-noir.png", alt: "Ethypharm", w: 520, h: 102 },
+  { src: "/Image/logo_client/foncia-noir.png", alt: "Foncia", w: 1171, h: 456 },
+  { src: "/Image/logo_client/hp.png", alt: "HP", w: 240, h: 240 },
+  { src: "/Image/logo_client/inli-noir.png", alt: "In'li", w: 507, h: 240 },
+  { src: "/Image/logo_client/les_mousquetaires-noir.png", alt: "Les Mousquetaires", w: 526, h: 387 },
+  { src: "/Image/logo_client/riccobono-noir.png", alt: "Riccobono", w: 300, h: 91 },
+  { src: "/Image/logo_client/lvmh-noir.png", alt: "LVMH", w: 600, h: 140 },
+  { src: "/Image/logo_client/sisley-noir.png", alt: "Sisley", w: 600, h: 176 },
+  { src: "/Image/logo_client/sncf-noir.png", alt: "SNCF", w: 150, h: 150 },
+  { src: "/Image/logo_client/stihl.png", alt: "Stihl", w: 746, h: 161 },
+  { src: "/Image/logo_client/tpicap-noir.png", alt: "TP ICAP", w: 604, h: 174 },
+  { src: "/Image/logo_client/uniqlo.png", alt: "Uniqlo", w: 241, h: 240 },
+  { src: "/Image/logo_client/apprentis-auteuil-noir.png", alt: "Apprentis d'Auteuil", w: 240, h: 240, big: true },
+  { src: "/Image/logo_client/jacquemus-noir.png", alt: "Jacquemus", w: 320, h: 320, big: true },
 ];
 
 /**
@@ -82,7 +97,6 @@ function Logo({
   id,
   src,
   alt,
-  invert,
   big,
   w,
   h,
@@ -92,7 +106,6 @@ function Logo({
   id: string;
   src: string;
   alt: string;
-  invert: boolean;
   big?: boolean;
   w: number;
   h: number;
@@ -118,10 +131,10 @@ function Logo({
         }`}
       >
         {/*
-          `next/image` et non `<img>` : les fichiers sources font jusqu'a 8664 px de large
-          pour un affichage de 40 px de haut. Servis bruts, ils coutaient 708 Ko de reseau
-          et surtout ~192 Mo de bitmaps decodes — la part qui fait reellement souffrir un
-          telephone. Next sert desormais une variante a la taille utile, en WebP/AVIF.
+          `next/image` et non `<img>` : les fichiers sources font encore jusqu'a 1182 px de
+          large pour un affichage de 40 px de haut. Servis bruts, ils couteraient du reseau
+          et surtout des bitmaps decodes bien plus grands qu'utile — la part qui fait
+          reellement souffrir un telephone. Next sert une variante a la taille utile.
 
           `sizes` est calcule et non fixe a 190 px : la largeur occupee depend du RAPPORT
           de chaque logo, un carre n'en prend que 48. Annoncer 190 px partout ferait
@@ -152,7 +165,7 @@ function Logo({
           */
           className={`w-auto max-w-[190px] object-contain ${
             big ? "h-14 lg:h-16 2xl:h-20" : "h-10 2xl:h-12"
-          } ${invert ? "brightness-0" : "mix-blend-multiply"}`}
+          }`}
         />
       </button>
     </span>
@@ -182,7 +195,10 @@ function Row({
       ref={wrapRef}
       className={`overflow-hidden border-zinc-900 ${last ? "border-y" : "border-t"}`}
     >
-      <motion.div style={{ x }}>
+      {/* `will-change` : la rangee devient une couche que le GPU fait glisser, au lieu
+          de re-rasteriser ses logos a chaque image. Possible depuis que les logos ne
+          portent plus ni filtre ni mode de fusion (voir en tete de fichier). */}
+      <motion.div style={{ x, willChange: "transform" }}>
         <motion.div
           drag="x"
           dragConstraints={wrapRef}
@@ -198,7 +214,6 @@ function Row({
               id={`${rowId}-${i}`}
               src={logo.src}
               alt={logo.alt}
-              invert={logo.invert}
               big={logo.big}
               w={logo.w}
               h={logo.h}
@@ -213,11 +228,8 @@ function Row({
 }
 
 export default function Clients() {
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "end start"],
-  });
+  const ref = useRef<HTMLElement>(null);
+  const scrollYProgress = useSectionProgress(ref, "crossing");
 
   // Ligne 1 vers la gauche, ligne 2 vers la droite : le sens oppose est ce qui donne
   // l'impression de defilement (rangees doublees pour rester pleines sur les bords).
@@ -253,13 +265,6 @@ export default function Clients() {
     <section
       ref={ref}
       id="clients"
-      /*
-        `relative` n'est PAS decoratif ici : `useScroll({ target })` mesure la position de
-        cette section pour en deduire la progression, et ce calcul est faux tant que
-        l'element reste en `position: static` — c'est l'avertissement « ensure that the
-        container has a non-static position ». Le defilement des logos etait donc pilote
-        par une progression approximative.
-      */
       className="relative bg-white pb-8 sm:pb-16 lg:pb-20 2xl:pb-32"
     >
       {/*

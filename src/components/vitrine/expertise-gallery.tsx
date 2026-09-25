@@ -3,13 +3,13 @@
 import {
   AnimatePresence,
   motion,
-  useScroll,
   useTransform,
 } from "motion/react";
 import { X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { lockScroll, unlockScroll } from "@/features/vitrine/scroll-lock";
+import { useSectionProgress } from "@/features/vitrine/use-section-progress";
 import {
   CARTE_MERE,
   DEFENSE,
@@ -90,11 +90,8 @@ const items = [
 const IMG_TRANSITION = { duration: 0.65, ease: [0.83, 0, 0.17, 1] as const };
 
 export default function ExpertiseGallery() {
-  const container = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: container,
-    offset: ["start start", "end end"],
-  });
+  const container = useRef<HTMLElement>(null);
+  const scrollYProgress = useSectionProgress(container, "pinned");
 
   // Largeur d'une fiche (en vw), responsive : 86vw sur grand écran (avec un
   // aperçu des voisines), pleine largeur sur mobile (fiches moins resserrées).
@@ -159,32 +156,31 @@ export default function ExpertiseGallery() {
       className="relative bg-white text-zinc-900"
     >
       <div className="sticky top-0 h-screen overflow-hidden">
+        {/* `will-change` : la piste devient une couche que le GPU deplace telle
+            quelle. Sans lui, chaque image de defilement re-rasterisait les photos
+            qu'elle transporte. */}
         <motion.div
-          style={{ x, paddingLeft: `${peek}vw`, paddingRight: `${peek}vw` }}
+          style={{
+            x,
+            paddingLeft: `${peek}vw`,
+            paddingRight: `${peek}vw`,
+            willChange: "transform",
+          }}
           className="flex h-full"
         >
           {items.map((it, i) => (
             /*
-              `content-visibility: auto` : le navigateur saute entierement le rendu des
-              fiches hors champ. La piste fait quatre ecrans de large et transporte huit
-              photos, alors qu'une seule fiche est lue a la fois.
-
-              Le gain depend du cadrage : sur grand ecran, `panelVw` vaut 86 et laisse
-              deborder 7vw de chaque voisine — trois fiches restent donc partiellement
-              visibles, une seule est sautee. SUR MOBILE, ou la fiche occupe 100vw, deux a
-              trois fiches sur quatre sont sautees. C'est precisement la que ca manquait.
-
-              `contain-intrinsic-size` est une ceinture de securite : largeur et hauteur
-              sont deja imposees ici, la taille des fiches sautees ne depend donc pas de
-              leur contenu. Il evite qu'une fiche s'aplatisse si ces regles changent.
+              PAS de `content-visibility: auto` ici, meme si la piste fait quatre ecrans de
+              large. Une fiche sautee n'est pas mise en page : ses images `lazy` ne sont
+              donc meme pas reclamees. Tout arrivait alors dans la MEME image, au moment ou
+              la fiche glissait dans le champ — mise en page, requete, decodage et premier
+              dessin de deux photos, en plein geste de defilement. C'etait un gel a chaque
+              fiche, pour economiser le rendu de trois blocs que le navigateur sait tres
+              bien ignorer une fois peints.
             */
             <article
               key={it.index}
-              style={{
-                width: `${panelVw}vw`,
-                contentVisibility: "auto",
-                containIntrinsicSize: `${panelVw}vw 100vh`,
-              }}
+              style={{ width: `${panelVw}vw` }}
               className="flex h-full shrink-0 flex-col justify-center gap-6 px-4 sm:gap-8 sm:px-6"
             >
               {/* Duo d'images : la grande, cliquable (zoom plein écran), et une
@@ -209,10 +205,14 @@ export default function ExpertiseGallery() {
                       openIndex === i ? "opacity-0" : ""
                     }`}
                   >
+                    {/* `eager` : la piste defile a l'horizontale, hors de la marge
+                        de prechargement du `lazy`. Les fiches lointaines n'etaient
+                        demandees qu'en entrant dans le champ. */}
                     <Image
                       src={it.image}
                       alt={it.title}
                       fill
+                      loading="eager"
                       sizes="(max-width: 1024px) 100vw, 60vw"
                       draggable={false}
                       className="object-cover"
@@ -227,6 +227,7 @@ export default function ExpertiseGallery() {
                     alt=""
                     aria-hidden="true"
                     fill
+                    loading="eager"
                     sizes="(max-width: 1024px) 30vw, 22vw"
                     draggable={false}
                     className="object-cover"

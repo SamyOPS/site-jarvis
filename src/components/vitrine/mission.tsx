@@ -126,8 +126,8 @@ export default function Mission() {
         <Image
           src="/Image/signature.png"
           alt="Signature"
-          width={2508}
-          height={627}
+          width={1000}
+          height={250}
           className={`mt-6 ml-auto block h-auto w-48 -rotate-[12deg] invert transition-all duration-700 ease-out sm:mt-8 sm:w-64 lg:w-80 2xl:w-96 ${
             shown ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
           }`}

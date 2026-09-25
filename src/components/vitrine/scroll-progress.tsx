@@ -1,7 +1,8 @@
 "use client";
 
-import { motion, useScroll, useSpring } from "motion/react";
+import { motion, useSpring } from "motion/react";
 import { usePathname } from "next/navigation";
+import { usePageProgress } from "@/features/vitrine/use-section-progress";
 import {
   usePageScrolls,
   useDarkSectionAt,
@@ -13,7 +14,7 @@ import {
 // sombre (détecté via l'attribut data-nav-dark, comme la navbar).
 export default function ScrollProgress() {
   const pathname = usePathname();
-  const { scrollYProgress } = useScroll();
+  const scrollYProgress = usePageProgress();
   // Léger lissage du remplissage pour un rendu plus doux.
   const scaleY = useSpring(scrollYProgress, {
     stiffness: 120,

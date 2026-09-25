@@ -2,7 +2,6 @@
 
 import {
   motion,
-  useScroll,
   useTransform,
   type MotionValue,
 } from "motion/react";
@@ -10,6 +9,7 @@ import { useRef } from "react";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 
+import { useSectionProgress } from "@/features/vitrine/use-section-progress";
 import { useVitrineExit } from "@/features/vitrine/use-vitrine-exit";
 
 interface Visual {
@@ -116,6 +116,18 @@ function exitScale(center: number, size: number) {
 }
 
 /**
+ * Échelle la plus forte à laquelle la tuile est encore visible : son pic, ou plus tôt
+ * l'échelle à laquelle elle quitte le cadre.
+ */
+function visibleScale(tile: Tile) {
+  return Math.min(
+    tile.peakScale,
+    exitScale(tile.left, tile.width),
+    exitScale(tile.top, tile.height),
+  );
+}
+
+/**
  * Largeur maximale, en vw, à laquelle la tuile est RÉELLEMENT affichée à l'écran.
  *
  * C'est ce que `sizes` doit porter. Cet attribut décide quelle variante du `srcset`
@@ -132,12 +144,7 @@ function exitScale(center: number, size: number) {
  *     passeraient alors de 1920 à 3840 px.
  */
 function maxVisibleWidthVw(tile: Tile) {
-  const visibleScale = Math.min(
-    tile.peakScale,
-    exitScale(tile.left, tile.width),
-    exitScale(tile.top, tile.height),
-  );
-  return Math.min(100, Math.ceil(tile.width * visibleScale));
+  return Math.min(100, Math.ceil(tile.width * visibleScale(tile)));
 }
 
 /**
@@ -163,9 +170,89 @@ function tileSizes(tile: Tile) {
   return vw === 100 ? "(min-width: 0px) 100vw" : `${vw}vw`;
 }
 
-/** Échelle d'une tuile : 1 → son pic au fil du scroll, ou l'inverse en mode `out`. */
-function useTileScale(progress: MotionValue<number>, peak: number, out: boolean) {
-  return useTransform(progress, [0, 1], out ? [peak, 1] : [1, peak]);
+/**
+ * Une tuile de la mosaïque.
+ *
+ * Elle est posée à la taille qu'elle atteint au plus fort de sa visibilité
+ * (`visibleScale`), puis RÉDUITE par `scale` — jamais agrandie tant qu'elle est à
+ * l'écran. C'est ce qui rend le zoom supportable :
+ *
+ *  - agrandir une couche au fil du scroll force Chrome à la re-rastériser à chaque
+ *    changement d'échelle, donc à chaque image — sept photos rééchantillonnées jusqu'à
+ *    ×9, deux fois par page : c'était le gel au passage des mosaïques ;
+ *  - posée grande et marquée `will-change: transform`, la couche est rastérisée UNE
+ *    fois, à sa taille de mise en page, et le GPU ne fait plus que la réduire. Réduire
+ *    ne coûte rien et reste net.
+ *
+ * La mise en page s'arrête à l'échelle de sortie, pas au pic : au-delà, la tuile est
+ * hors cadre, et la rastériser à ×8 coûterait des centaines de Mo de mémoire graphique
+ * pour des pixels que personne ne voit.
+ *
+ * Le rendu est identique à l'ancien : décalages et tailles sont multipliés par
+ * `layout`, l'échelle divisée d'autant, autour du même centre.
+ */
+function ZoomTile({
+  src,
+  alt,
+  tile,
+  progress,
+  out,
+}: {
+  src: string;
+  alt: string;
+  tile: Tile;
+  progress: MotionValue<number>;
+  out: boolean;
+}) {
+  const layout = visibleScale(tile);
+  // 1 → pic au fil du scroll (ou l'inverse en mode `out`), ramené au repère de la
+  // tuile posée grande : l'échelle vaut 1 quand la tuile atteint sa taille de pose.
+  const scale = useTransform(
+    progress,
+    [0, 1],
+    out
+      ? [tile.peakScale / layout, 1 / layout]
+      : [1 / layout, tile.peakScale / layout],
+  );
+  /*
+    Pas de `visibility: hidden` une fois la tuile sortie du cadre, bien que ce soit
+    tentant : hors ecran, une couche n'est de toute facon ni rasterisee ni composee. Et en
+    mode `out`, ou les tuiles ENTRENT dans le cadre, la masquer jusqu'au dernier instant
+    empechait Chrome de la preparer en avance — elle surgissait avec une image de retard.
+  */
+  return (
+    <motion.div
+      style={{ scale, willChange: "transform" }}
+      className="absolute top-0 flex h-full w-full items-center justify-center"
+    >
+      {/* `shrink-0` : posee grande, une tuile peut depasser la largeur de l'ecran
+          (35vw × 3,33 pour celle du haut). Enfant d'un conteneur flex, elle y serait
+          sinon retrecie a 100vw — et recadree autrement qu'a l'origine. */}
+      <div
+        className="relative shrink-0"
+        style={{
+          top: `${tile.top * layout}vh`,
+          left: `${tile.left * layout}vw`,
+          height: `${tile.height * layout}vh`,
+          width: `${tile.width * layout}vw`,
+        }}
+      >
+        {/* `sizes` décrit la taille ANIMÉE, pas celle au repos : le
+            navigateur choisit sa variante au chargement et n'y revient
+            jamais. Next, lui, mesure la tuile à cet instant précis — donc
+            avant que le zoom l'ait agrandie — et peut avertir que `sizes`
+            est trop généreux. C'est un faux positif : la tuile atteint
+            bien cette largeur, un peu plus tard. */}
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          sizes={tileSizes(tile)}
+          className="object-cover"
+        />
+      </div>
+    </motion.div>
+  );
 }
 
 export function ZoomParallax({
@@ -176,11 +263,8 @@ export function ZoomParallax({
   cta,
 }: ZoomParallaxProps) {
   const exitVitrine = useVitrineExit();
-  const container = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: container,
-    offset: ["start start", "end end"],
-  });
+  const container = useRef<HTMLDivElement>(null);
+  const scrollYProgress = useSectionProgress(container, "pinned");
   // En mode `out`, les mêmes échelles sont simplement parcourues à l'envers :
   // on part de l'agrandissement maximal pour revenir à la mosaïque (scale 1).
   const out = direction === "out";
@@ -206,61 +290,21 @@ export function ZoomParallax({
   const ctaOpacity = useTransform(scrollYProgress, [0.28, 0.44], [1, 0]);
   const ctaPointer = useTransform(ctaOpacity, (v) => (v < 0.05 ? "none" : "auto"));
 
-  // Une valeur animée par tuile, tirée de `TILES[i].peakScale`. Sept déclarations
-  // explicites plutôt qu'une boucle : un hook ne se déclare pas dans un `map`. Les
-  // échelles ne vivent plus dans un second tableau, qui pouvait se désaligner de la
-  // géométrie qu'il accompagne.
-  const scale0 = useTileScale(scrollYProgress, TILES[0].peakScale, out);
-  const scale1 = useTileScale(scrollYProgress, TILES[1].peakScale, out);
-  const scale2 = useTileScale(scrollYProgress, TILES[2].peakScale, out);
-  const scale3 = useTileScale(scrollYProgress, TILES[3].peakScale, out);
-  const scale4 = useTileScale(scrollYProgress, TILES[4].peakScale, out);
-  const scale5 = useTileScale(scrollYProgress, TILES[5].peakScale, out);
-  const scale6 = useTileScale(scrollYProgress, TILES[6].peakScale, out);
-
-  const scales = [scale0, scale1, scale2, scale3, scale4, scale5, scale6];
-
   const letters = title ? [...title] : [];
 
   return (
     <div ref={container} className="relative h-[300vh]">
       <div className="sticky top-0 h-screen overflow-hidden">
-        {images.map(({ src, alt }, index) => {
-          const tile = TILES[index % TILES.length];
-          const scale = scales[index % scales.length];
-
-          return (
-            <motion.div
-              key={index}
-              style={{ scale }}
-              className="absolute top-0 flex h-full w-full items-center justify-center"
-            >
-              <div
-                className="relative"
-                style={{
-                  top: `${tile.top}vh`,
-                  left: `${tile.left}vw`,
-                  height: `${tile.height}vh`,
-                  width: `${tile.width}vw`,
-                }}
-              >
-                {/* `sizes` décrit la taille ANIMÉE, pas celle au repos : le
-                    navigateur choisit sa variante au chargement et n'y revient
-                    jamais. Next, lui, mesure la tuile à cet instant précis — donc
-                    avant que le zoom l'ait agrandie — et peut avertir que `sizes`
-                    est trop généreux. C'est un faux positif : la tuile atteint
-                    bien cette largeur, un peu plus tard. */}
-                <Image
-                  src={src}
-                  alt={alt || `Image parallaxe ${index + 1}`}
-                  fill
-                  sizes={tileSizes(tile)}
-                  className="object-cover"
-                />
-              </div>
-            </motion.div>
-          );
-        })}
+        {images.map(({ src, alt }, index) => (
+          <ZoomTile
+            key={index}
+            src={src}
+            alt={alt || `Image parallaxe ${index + 1}`}
+            tile={TILES[index % TILES.length]}
+            progress={scrollYProgress}
+            out={out}
+          />
+        ))}
 
         {/* Titre révélé progressivement pendant le zoom (transition vers la
             section expertises) */}

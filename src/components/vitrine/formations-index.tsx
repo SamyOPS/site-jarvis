@@ -377,7 +377,12 @@ export default function FormationsIndex({
 
   return (
     <>
-      <motion.div style={{ scale }} className="absolute inset-0 bg-white">
+      {/* `will-change` : sans lui, chaque pas du zoom arriere re-rasterisait l'index
+          entier pendant que l'escalier s'ouvre par-dessus. */}
+      <motion.div
+        style={{ scale, willChange: "transform" }}
+        className="absolute inset-0 bg-white"
+      >
         <div
           ref={listRef}
           onMouseMove={(e) => {

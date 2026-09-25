@@ -4,7 +4,7 @@ import { LogIn, Mail } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, memo, useEffect, useState } from "react";
 import FooterShader from "@/components/vitrine/footer-shader";
 import { usePageTransition } from "@/components/vitrine/page-transition";
 import { lockScroll, unlockScroll } from "@/features/vitrine/scroll-lock";
@@ -39,7 +39,12 @@ const animatedChars = (label: string) => label.replace(/s/g, "").length;
 
 // Révélation masquée lettre par lettre, pilotée par l'ouverture du panneau.
 // Les mots restent insécables (pas de coupure au milieu d'un mot).
-function RevealChars({
+//
+// `memo` : le menu se re-rend chaque fois que la barre change d'encre en passant sur une
+// section sombre, donc en plein defilement. Ces libelles, une <span> par lettre, n'en
+// dependent pas — ils ne bougent qu'a l'ouverture. Sans `memo`, ce re-rendu coutait une
+// image entiere a chaque bascule.
+const RevealChars = memo(function RevealChars({
   text,
   open,
   base = 0,
@@ -79,7 +84,7 @@ function RevealChars({
       ))}
     </span>
   );
-}
+});
 
 export default function Menu() {
   const [open, setOpen] = useState(false);
