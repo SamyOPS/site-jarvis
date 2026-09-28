@@ -1,19 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { browserSupabase } from "@/lib/supabase-browser";
-import { AlertCircle, CheckCircle2, LogIn, UserPlus } from "lucide-react";
+import { CircleAlert, CircleCheck } from "lucide-react";
 
 import { resolveLandingPath } from "@/features/account/landing";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { VITRINE_FONT_VARS } from "@/features/vitrine/fonts";
+import { FIELD, KICKER, LABEL, MESSAGE, PILL_PRIMARY } from "@/components/auth/auth-styles";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -26,6 +21,20 @@ import {
 import { safeGetClientSession } from "@/lib/client-auth";
 
 const supabase = browserSupabase;
+
+// `Input` porte un cadre arrondi et un anneau de focus par defaut : FIELD les remplace
+// par un filet bas, l'anneau est retire.
+const INPUT = `${FIELD} focus-visible:ring-0 focus-visible:ring-offset-0`;
+const TAB =
+  "-mb-px border-b-2 pb-3 text-xs font-semibold uppercase tracking-[0.2em] transition-colors duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900";
+const TAB_ACTIVE = "border-zinc-900 text-zinc-900";
+const TAB_INACTIVE = "border-transparent text-zinc-900/40 hover:text-zinc-900";
+// Geist en style direct : l'utilitaire `font-sans` est fige sur Inter par `@theme inline`.
+// La liste du select est rendue dans un portail, hors de l'enveloppe : elle le repose.
+const GEIST = { fontFamily: "var(--font-geist-sans)" };
+const SELECT_ITEM = "rounded-none focus:bg-zinc-100 focus:text-zinc-900";
+const SPINNER =
+  "h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white motion-reduce:animate-none";
 
 type Status =
   | { type: "idle" }
@@ -345,79 +354,67 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
   };
 
   return (
-    <>
-      <div className="min-h-screen bg-[#eaedf0] text-[#2f3b42]">
-        <div className="mx-auto flex min-h-[calc(100vh-120px)] max-w-5xl items-center justify-center px-4 py-16">
-          <Card className="w-full max-w-2xl border border-[#d5d9dc] bg-white text-[#2f3b42] shadow-xl">
-            <CardHeader className="space-y-3">
-              <div className="flex items-center gap-2 text-sm uppercase tracking-wide text-[#2f3b42]/70">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0A1A2F]/5 text-[#0A1A2F]">
-                {mode === "login" ? (
-                  <LogIn className="h-4 w-4" />
-                ) : (
-                  <UserPlus className="h-4 w-4" />
-                )}
-                </span>
-                <span>Compte Jarvis</span>
-              </div>
-              <CardTitle className="text-3xl font-semibold text-[#2f3b42]">
-                {mode === "login" ? "Connexion" : "Inscription"}
-              </CardTitle>
-              <CardDescription className="text-[#4f5e66]">
-                Un seul ecran pour se connecter ou creer un compte (candidat, salarie, RH ou pro).
-              </CardDescription>
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                <Button
-                  type="button"
-                  onClick={() => handleModeChange("login")}
-                  variant={mode === "login" ? "default" : "outline"}
-                  className={`flex items-center justify-center gap-2 ${
-                    mode === "login"
-                      ? "bg-[#0A1A2F] text-white hover:bg-[#0d2a4b]"
-                      : "border-[#0A1A2F]/20 text-[#2f3b42] hover:bg-black/5"
-                  }`}
-                >
-                  <LogIn className="h-4 w-4" />
-                  Connexion
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => handleModeChange("register")}
-                  variant={mode === "register" ? "default" : "outline"}
-                  className={`flex items-center justify-center gap-2 ${
-                    mode === "register"
-                      ? "bg-[#0A1A2F] text-white hover:bg-[#0d2a4b]"
-                      : "border-[#0A1A2F]/20 text-[#2f3b42] hover:bg-black/5"
-                  }`}
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Inscription
-                </Button>
-              </div>
-            </CardHeader>
+    <div
+      className={`${VITRINE_FONT_VARS} min-h-dvh bg-white text-zinc-900`}
+      style={GEIST}
+    >
+      <div className="fixed left-8 top-8 z-50 sm:left-12 sm:top-12">
+        <Image
+          src="/logo-jarvis-noir.png"
+          alt="Jarvis"
+          width={256}
+          height={195}
+          sizes="64px"
+          priority
+          className="h-10 w-auto object-contain sm:h-12"
+        />
+      </div>
 
-            <CardContent className="space-y-6">
-              {status.type !== "idle" && (
-                <div
-                  className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
-                    status.type === "error"
-                      ? "border-red-300 bg-red-50 text-red-900"
-                      : "border-emerald-300 bg-emerald-50 text-emerald-900"
-                  }`}
-                >
-                  {status.type === "error" ? (
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  ) : (
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                  )}
-                  <p className="leading-relaxed">{status.message}</p>
-                </div>
-              )}
+      <main className="px-6 pb-16 pt-32 sm:px-12 sm:pb-20 sm:pt-40 lg:pb-24">
+        <div className="mx-auto w-full max-w-md">
+          <h1>
+            <span className={KICKER}>Compte Jarvis</span>
+            <span className="mt-4 block text-[clamp(1.75rem,4vw,2.75rem)] font-bold uppercase leading-[0.95] tracking-tight">
+              {mode === "login" ? "Connexion" : "Inscription"}
+            </span>
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-zinc-500 sm:text-base">
+            Un seul ecran pour se connecter ou creer un compte (candidat, salarie, RH ou pro).
+          </p>
+
+          <div className="mb-10 mt-10 flex gap-8 border-b border-zinc-900/25">
+            <button
+              type="button"
+              onClick={() => handleModeChange("login")}
+              className={`${TAB} ${mode === "login" ? TAB_ACTIVE : TAB_INACTIVE}`}
+            >
+              Connexion
+            </button>
+            <button
+              type="button"
+              onClick={() => handleModeChange("register")}
+              className={`${TAB} ${mode === "register" ? TAB_ACTIVE : TAB_INACTIVE}`}
+            >
+              Inscription
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            {status.type !== "idle" && (
+              <div className={MESSAGE}>
+                {status.type === "error" ? (
+                  <CircleAlert aria-hidden className="mt-1 h-4 w-4 shrink-0" />
+                ) : (
+                  <CircleCheck aria-hidden className="mt-1 h-4 w-4 shrink-0" />
+                )}
+                <span>{status.message}</span>
+              </div>
+            )}
 
             {mode === "login" ? (
-              <form onSubmit={handleLoginSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="loginEmail" className="text-[#2f3b42]/80">
+              <form onSubmit={handleLoginSubmit} className="space-y-6">
+                <div>
+                  <Label htmlFor="loginEmail" className={LABEL}>
                     Email
                   </Label>
                   <Input
@@ -426,14 +423,14 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
                     required
                     value={loginEmail}
                     onChange={(event) => setLoginEmail(event.target.value)}
-                    className="border-[#d5d9dc] bg-white text-[#2f3b42] placeholder:text-[#8a8f94] focus-visible:ring-[#0A1A2F]"
+                    className={INPUT}
                     placeholder="admin@exemple.com"
                     autoComplete="email"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="loginPassword" className="text-[#2f3b42]/80">
+                <div>
+                  <Label htmlFor="loginPassword" className={LABEL}>
                     Mot de passe
                   </Label>
                   <Input
@@ -442,45 +439,43 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
                     required
                     value={loginPassword}
                     onChange={(event) => setLoginPassword(event.target.value)}
-                    className="border-[#d5d9dc] bg-white text-[#2f3b42] placeholder:text-[#8a8f94] focus-visible:ring-[#0A1A2F]"
-                    placeholder="Mot de passe admin"
+                    className={INPUT}
                     autoComplete="current-password"
                   />
                 </div>
 
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-[#0A1A2F] text-white hover:bg-[#0d2a4b]"
-                >
+                <button type="submit" disabled={loading} className={`${PILL_PRIMARY} w-full`}>
+                  {loading && <span aria-hidden className={SPINNER} />}
                   {loading ? "Connexion en cours..." : "Se connecter"}
-                </Button>
+                </button>
               </form>
             ) : (
-              <form onSubmit={handleRegisterSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-[#2f3b42]/80">Type de compte</Label>
+              <form onSubmit={handleRegisterSubmit} className="space-y-6">
+                <div>
+                  <Label className={LABEL}>Type de compte</Label>
                   <Select
                     value={roleChoice}
                     onValueChange={(val: RoleChoice) => setRoleChoice(val)}
                   >
-                    <SelectTrigger className="border-[#d5d9dc] bg-white text-[#2f3b42] focus:ring-[#0A1A2F]">
+                    <SelectTrigger
+                      className={`${FIELD} text-left focus:ring-0 focus:ring-offset-0 data-[placeholder]:text-zinc-900/40 [&>svg]:opacity-100`}
+                    >
                       <SelectValue placeholder="Selectionne un type" />
                     </SelectTrigger>
-                    <SelectContent className="border-[#d5d9dc] bg-white text-[#2f3b42]">
-                      <SelectItem value="candidate">Candidat</SelectItem>
-                      <SelectItem value="salarie">Salarie</SelectItem>
-                      <SelectItem value="rh">RH</SelectItem>
-                      <SelectItem value="professional">Entreprise / Pro</SelectItem>
+                    <SelectContent
+                      className={`${VITRINE_FONT_VARS} rounded-none border-zinc-900 bg-white text-zinc-900 shadow-none`}
+                      style={GEIST}
+                    >
+                      <SelectItem value="candidate" className={SELECT_ITEM}>Candidat</SelectItem>
+                      <SelectItem value="salarie" className={SELECT_ITEM}>Salarie</SelectItem>
+                      <SelectItem value="rh" className={SELECT_ITEM}>RH</SelectItem>
+                      <SelectItem value="professional" className={SELECT_ITEM}>Entreprise / Pro</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-[#4f5e66]">
-                    Pro = role professional (pending). Salarie = role salarie (pending). RH = role rh (pending). Candidat = role candidate (none).
-                  </p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="fullName" className="text-[#2f3b42]/80">
+                <div>
+                  <Label htmlFor="fullName" className={LABEL}>
                     Nom complet (optionnel)
                   </Label>
                   <Input
@@ -488,16 +483,16 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
                     type="text"
                     value={fullName}
                     onChange={(event) => setFullName(event.target.value)}
-                    className="border-[#d5d9dc] bg-white text-[#2f3b42] placeholder:text-[#8a8f94] focus-visible:ring-[#0A1A2F]"
+                    className={INPUT}
                     placeholder="Jean Dupont"
                     autoComplete="name"
                   />
                 </div>
 
                 {isPro && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="company" className="text-[#2f3b42]/80">
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    <div>
+                      <Label htmlFor="company" className={LABEL}>
                         Nom de l&apos;entreprise
                       </Label>
                       <Input
@@ -506,13 +501,13 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
                         required={isPro}
                         value={company}
                         onChange={(event) => setCompany(event.target.value)}
-                        className="border-[#d5d9dc] bg-white text-[#2f3b42] placeholder:text-[#8a8f94] focus-visible:ring-[#0A1A2F]"
+                        className={INPUT}
                         placeholder="Ma societe"
                         autoComplete="organization"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="website" className="text-[#2f3b42]/80">
+                    <div>
+                      <Label htmlFor="website" className={LABEL}>
                         Site web (optionnel)
                       </Label>
                       <Input
@@ -520,16 +515,16 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
                         type="url"
                         value={website}
                         onChange={(event) => setWebsite(event.target.value)}
-                        className="border-[#d5d9dc] bg-white text-[#2f3b42] placeholder:text-[#8a8f94] focus-visible:ring-[#0A1A2F]"
+                        className={INPUT}
                         placeholder="https://exemple.com"
                         autoComplete="url"
                       />
                     </div>
-                  </>
+                  </div>
                 )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="signupEmail" className="text-[#2f3b42]/80">
+                <div>
+                  <Label htmlFor="signupEmail" className={LABEL}>
                     Email
                   </Label>
                   <Input
@@ -538,14 +533,14 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
                     required
                     value={signupEmail}
                     onChange={(event) => setSignupEmail(event.target.value)}
-                    className="border-[#d5d9dc] bg-white text-[#2f3b42] placeholder:text-[#8a8f94] focus-visible:ring-[#0A1A2F]"
+                    className={INPUT}
                     placeholder="utilisateur@exemple.com"
                     autoComplete="email"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="signupPassword" className="text-[#2f3b42]/80">
+                <div>
+                  <Label htmlFor="signupPassword" className={LABEL}>
                     Mot de passe
                   </Label>
                   <Input
@@ -554,46 +549,26 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
                     required
                     value={signupPassword}
                     onChange={(event) => setSignupPassword(event.target.value)}
-                    className="border-[#d5d9dc] bg-white text-[#2f3b42] placeholder:text-[#8a8f94] focus-visible:ring-[#0A1A2F]"
+                    className={INPUT}
                     placeholder="Choisis un mot de passe"
                     autoComplete="new-password"
                     minLength={6}
                   />
                 </div>
 
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-[#0A1A2F] text-white hover:bg-[#0d2a4b]"
-                >
+                <button type="submit" disabled={loading} className={`${PILL_PRIMARY} w-full`}>
+                  {loading && <span aria-hidden className={SPINNER} />}
                   {loading
                     ? "Creation du compte..."
                     : isPro
                       ? "Creer le compte pro"
                       : "Creer le compte"}
-                </Button>
-
-                <div className="rounded-md border border-[#d5d9dc] bg-[#f7f8fa] p-4 text-xs leading-relaxed text-[#4f5e66]">
-                  <p className="mb-2 font-semibold text-[#2f3b42]">A savoir :</p>
-                  <ul className="list-disc space-y-1 pl-4">
-                    <li>
-                      Role envoye : <code>{mappedRole}</code> | Statut pro : <code>{mappedStatus}</code>
-                      {" "} (pending pour salarie/pro/rh).
-                    </li>
-                    <li>
-                      Verifie les policies RLS d&apos;insert sur <code>profiles</code> (auth.uid() = id) ou garde le trigger cote base.
-                    </li>
-                    <li>
-                      Les comptes admin se creent directement dans Supabase.
-                    </li>
-                  </ul>
-                </div>
+                </button>
               </form>
             )}
-          </CardContent>
-          </Card>
+          </div>
         </div>
-      </div>
-    </>
+      </main>
+    </div>
   );
 }
