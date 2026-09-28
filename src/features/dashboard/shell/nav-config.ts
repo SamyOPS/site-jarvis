@@ -289,6 +289,7 @@ export const RH_NAV_CONFIG: ConsoleNavConfig = {
   ],
   resolveLeafLabel(pathname) {
     if (pathname === "/dashboard/rh/parametres") return "Paramètres";
+    if (pathname === "/dashboard/rh/aide") return "Centre d'aide";
     if (
       pathname.startsWith("/dashboard/rh/collaborateurs/") &&
       !pathname.endsWith("/actifs") &&
@@ -401,7 +402,9 @@ export const SALARIE_NAV_CONFIG: ConsoleNavConfig = {
     },
   ],
   resolveLeafLabel(pathname) {
-    return pathname === "/dashboard/salarie/parametres" ? "Paramètres" : null;
+    if (pathname === "/dashboard/salarie/parametres") return "Paramètres";
+    if (pathname === "/dashboard/salarie/aide") return "Centre d'aide";
+    return null;
   },
 };
 
