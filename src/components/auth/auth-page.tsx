@@ -32,6 +32,29 @@ const TAB_INACTIVE = "border-transparent text-zinc-900/40 hover:text-zinc-900";
 // Geist en style direct : l'utilitaire `font-sans` est fige sur Inter par `@theme inline`.
 // La liste du select est rendue dans un portail, hors de l'enveloppe : elle le repose.
 const GEIST = { fontFamily: "var(--font-geist-sans)" };
+const FIELD_DECOR =
+  "pointer-events-none absolute inset-y-0 right-0 flex items-center text-sm text-zinc-900/40";
+
+// Arguments de la colonne de presentation.
+const PITCH = [
+  {
+    title: "Offres d'emploi",
+    text: "Consulte les offres ouvertes et suis l'avancement de tes candidatures.",
+  },
+  {
+    title: "Documents",
+    text: "Dépose et retrouve tes documents, partagés avec ton équipe RH.",
+  },
+  {
+    title: "Messagerie",
+    text: "Échange directement avec l'équipe RH depuis ton espace.",
+  },
+  {
+    title: "Espace RH",
+    text: "Gère tes collaborateurs, leurs documents et tes offres.",
+  },
+];
+
 const SELECT_ITEM = "rounded-none focus:bg-zinc-100 focus:text-zinc-900";
 const SPINNER =
   "h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white motion-reduce:animate-none";
@@ -371,201 +394,227 @@ export default function AuthPage({ defaultMode = "login" }: AuthPageProps) {
       </div>
 
       <main className="px-6 pb-16 pt-32 sm:px-12 sm:pb-20 sm:pt-40 lg:pb-24">
-        <div className="mx-auto w-full max-w-md">
-          <h1>
-            <span className={KICKER}>Compte Jarvis</span>
-            <span className="mt-4 block text-[clamp(1.75rem,4vw,2.75rem)] font-bold uppercase leading-[0.95] tracking-tight">
+        <div className="mx-auto grid w-full max-w-6xl gap-16 lg:grid-cols-[1.1fr_0.9fr] lg:gap-24">
+          <section>
+            <h1>
+              <span className={KICKER}>Compte Jarvis · Espace personnel</span>
+              <span className="mt-4 block text-[clamp(2rem,4.5vw,3.75rem)] font-bold uppercase leading-[0.95] tracking-tight">
+                Tes offres, tes documents et ton équipe RH au même endroit.
+              </span>
+            </h1>
+            <p className="mt-8 max-w-xl font-quote text-xl leading-snug text-zinc-500 sm:text-2xl">
+              Candidats, salariés et RH se retrouvent dans un seul espace : suis tes
+              candidatures, retrouve tes documents et échange avec l&apos;équipe Jarvis Connect.
+            </p>
+            <ul className="mt-10 grid border-t border-zinc-900 sm:grid-cols-2">
+              {PITCH.map((item, index) => (
+                <li
+                  key={item.title}
+                  className={`border-b border-zinc-900/25 py-4 ${index % 2 === 0 ? "sm:pr-6" : "sm:pl-6"}`}
+                >
+                  <p className="text-sm font-bold uppercase tracking-tight">{item.title}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-zinc-500">{item.text}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <div className="w-full max-w-md">
+            <div className="mb-10 flex gap-8 border-b border-zinc-900/25">
+              <button
+                type="button"
+                onClick={() => handleModeChange("login")}
+                className={`${TAB} ${mode === "login" ? TAB_ACTIVE : TAB_INACTIVE}`}
+              >
+                Connexion
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModeChange("register")}
+                className={`${TAB} ${mode === "register" ? TAB_ACTIVE : TAB_INACTIVE}`}
+              >
+                Inscription
+              </button>
+            </div>
+
+            <h2 className="mb-10 text-[clamp(1.75rem,4vw,2.75rem)] font-bold uppercase leading-[0.95] tracking-tight">
               {mode === "login" ? "Connexion" : "Inscription"}
-            </span>
-          </h1>
-          <p className="mt-3 text-sm leading-relaxed text-zinc-500 sm:text-base">
-            Un seul ecran pour se connecter ou creer un compte (candidat, salarie, RH ou pro).
-          </p>
+            </h2>
 
-          <div className="mb-10 mt-10 flex gap-8 border-b border-zinc-900/25">
-            <button
-              type="button"
-              onClick={() => handleModeChange("login")}
-              className={`${TAB} ${mode === "login" ? TAB_ACTIVE : TAB_INACTIVE}`}
-            >
-              Connexion
-            </button>
-            <button
-              type="button"
-              onClick={() => handleModeChange("register")}
-              className={`${TAB} ${mode === "register" ? TAB_ACTIVE : TAB_INACTIVE}`}
-            >
-              Inscription
-            </button>
-          </div>
-
-          <div className="space-y-6">
-            {status.type !== "idle" && (
-              <div className={MESSAGE}>
-                {status.type === "error" ? (
-                  <CircleAlert aria-hidden className="mt-1 h-4 w-4 shrink-0" />
-                ) : (
-                  <CircleCheck aria-hidden className="mt-1 h-4 w-4 shrink-0" />
-                )}
-                <span>{status.message}</span>
-              </div>
-            )}
-
-            {mode === "login" ? (
-              <form onSubmit={handleLoginSubmit} className="space-y-6">
-                <div>
-                  <Label htmlFor="loginEmail" className={LABEL}>
-                    Email
-                  </Label>
-                  <Input
-                    id="loginEmail"
-                    type="email"
-                    required
-                    value={loginEmail}
-                    onChange={(event) => setLoginEmail(event.target.value)}
-                    className={INPUT}
-                    placeholder="admin@exemple.com"
-                    autoComplete="email"
-                  />
+            <div className="space-y-6">
+              {status.type !== "idle" && (
+                <div className={MESSAGE}>
+                  {status.type === "error" ? (
+                    <CircleAlert aria-hidden className="mt-1 h-4 w-4 shrink-0" />
+                  ) : (
+                    <CircleCheck aria-hidden className="mt-1 h-4 w-4 shrink-0" />
+                  )}
+                  <span>{status.message}</span>
                 </div>
+              )}
 
-                <div>
-                  <Label htmlFor="loginPassword" className={LABEL}>
-                    Mot de passe
-                  </Label>
-                  <Input
-                    id="loginPassword"
-                    type="password"
-                    required
-                    value={loginPassword}
-                    onChange={(event) => setLoginPassword(event.target.value)}
-                    className={INPUT}
-                    autoComplete="current-password"
-                  />
-                </div>
-
-                <button type="submit" disabled={loading} className={`${PILL_PRIMARY} w-full`}>
-                  {loading && <span aria-hidden className={SPINNER} />}
-                  {loading ? "Connexion en cours..." : "Se connecter"}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleRegisterSubmit} className="space-y-6">
-                <div>
-                  <Label className={LABEL}>Type de compte</Label>
-                  <Select
-                    value={roleChoice}
-                    onValueChange={(val: RoleChoice) => setRoleChoice(val)}
-                  >
-                    <SelectTrigger
-                      className={`${FIELD} text-left focus:ring-0 focus:ring-offset-0 data-[placeholder]:text-zinc-900/40 [&>svg]:opacity-100`}
-                    >
-                      <SelectValue placeholder="Selectionne un type" />
-                    </SelectTrigger>
-                    <SelectContent
-                      className={`${VITRINE_FONT_VARS} rounded-none border-zinc-900 bg-white text-zinc-900 shadow-none`}
-                      style={GEIST}
-                    >
-                      <SelectItem value="candidate" className={SELECT_ITEM}>Candidat</SelectItem>
-                      <SelectItem value="salarie" className={SELECT_ITEM}>Salarie</SelectItem>
-                      <SelectItem value="rh" className={SELECT_ITEM}>RH</SelectItem>
-                      <SelectItem value="professional" className={SELECT_ITEM}>Entreprise / Pro</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="fullName" className={LABEL}>
-                    Nom complet (optionnel)
-                  </Label>
-                  <Input
-                    id="fullName"
-                    type="text"
-                    value={fullName}
-                    onChange={(event) => setFullName(event.target.value)}
-                    className={INPUT}
-                    placeholder="Jean Dupont"
-                    autoComplete="name"
-                  />
-                </div>
-
-                {isPro && (
-                  <div className="grid gap-6 sm:grid-cols-2">
-                    <div>
-                      <Label htmlFor="company" className={LABEL}>
-                        Nom de l&apos;entreprise
-                      </Label>
+              {mode === "login" ? (
+                <form onSubmit={handleLoginSubmit} className="space-y-6">
+                  <div>
+                    <Label htmlFor="loginEmail" className={LABEL}>
+                      Email
+                    </Label>
+                    <div className="relative">
                       <Input
-                        id="company"
-                        type="text"
-                        required={isPro}
-                        value={company}
-                        onChange={(event) => setCompany(event.target.value)}
-                        className={INPUT}
-                        placeholder="Ma societe"
-                        autoComplete="organization"
+                        id="loginEmail"
+                        type="email"
+                        required
+                        value={loginEmail}
+                        onChange={(event) => setLoginEmail(event.target.value)}
+                        className={`${INPUT} pr-6`}
+                        autoComplete="email"
                       />
-                    </div>
-                    <div>
-                      <Label htmlFor="website" className={LABEL}>
-                        Site web (optionnel)
-                      </Label>
-                      <Input
-                        id="website"
-                        type="url"
-                        value={website}
-                        onChange={(event) => setWebsite(event.target.value)}
-                        className={INPUT}
-                        placeholder="https://exemple.com"
-                        autoComplete="url"
-                      />
+                      <span aria-hidden className={FIELD_DECOR}>@</span>
                     </div>
                   </div>
-                )}
 
-                <div>
-                  <Label htmlFor="signupEmail" className={LABEL}>
-                    Email
-                  </Label>
-                  <Input
-                    id="signupEmail"
-                    type="email"
-                    required
-                    value={signupEmail}
-                    onChange={(event) => setSignupEmail(event.target.value)}
-                    className={INPUT}
-                    placeholder="utilisateur@exemple.com"
-                    autoComplete="email"
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="loginPassword" className={LABEL}>
+                      Mot de passe
+                    </Label>
+                    <Input
+                      id="loginPassword"
+                      type="password"
+                      required
+                      value={loginPassword}
+                      onChange={(event) => setLoginPassword(event.target.value)}
+                      className={INPUT}
+                      autoComplete="current-password"
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="signupPassword" className={LABEL}>
-                    Mot de passe
-                  </Label>
-                  <Input
-                    id="signupPassword"
-                    type="password"
-                    required
-                    value={signupPassword}
-                    onChange={(event) => setSignupPassword(event.target.value)}
-                    className={INPUT}
-                    placeholder="Choisis un mot de passe"
-                    autoComplete="new-password"
-                    minLength={6}
-                  />
-                </div>
+                  <button type="submit" disabled={loading} className={`${PILL_PRIMARY} w-full`}>
+                    {loading && <span aria-hidden className={SPINNER} />}
+                    {loading ? "Connexion en cours..." : "Se connecter"}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleRegisterSubmit} className="space-y-6">
+                  <div>
+                    <Label className={LABEL}>Type de compte</Label>
+                    <Select
+                      value={roleChoice}
+                      onValueChange={(val: RoleChoice) => setRoleChoice(val)}
+                    >
+                      <SelectTrigger
+                        className={`${FIELD} text-left focus:ring-0 focus:ring-offset-0 data-[placeholder]:text-zinc-900/40 [&>svg]:opacity-100`}
+                      >
+                        <SelectValue placeholder="Selectionne un type" />
+                      </SelectTrigger>
+                      <SelectContent
+                        className={`${VITRINE_FONT_VARS} rounded-none border-zinc-900 bg-white text-zinc-900 shadow-none`}
+                        style={GEIST}
+                      >
+                        <SelectItem value="candidate" className={SELECT_ITEM}>Candidat</SelectItem>
+                        <SelectItem value="salarie" className={SELECT_ITEM}>Salarie</SelectItem>
+                        <SelectItem value="rh" className={SELECT_ITEM}>RH</SelectItem>
+                        <SelectItem value="professional" className={SELECT_ITEM}>Entreprise / Pro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <button type="submit" disabled={loading} className={`${PILL_PRIMARY} w-full`}>
-                  {loading && <span aria-hidden className={SPINNER} />}
-                  {loading
-                    ? "Creation du compte..."
-                    : isPro
-                      ? "Creer le compte pro"
-                      : "Creer le compte"}
-                </button>
-              </form>
-            )}
+                  <div>
+                    <Label htmlFor="fullName" className={LABEL}>
+                      Nom complet (optionnel)
+                    </Label>
+                    <Input
+                      id="fullName"
+                      type="text"
+                      value={fullName}
+                      onChange={(event) => setFullName(event.target.value)}
+                      className={INPUT}
+                      placeholder="Jean Dupont"
+                      autoComplete="name"
+                    />
+                  </div>
+
+                  {isPro && (
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      <div>
+                        <Label htmlFor="company" className={LABEL}>
+                          Nom de l&apos;entreprise
+                        </Label>
+                        <Input
+                          id="company"
+                          type="text"
+                          required={isPro}
+                          value={company}
+                          onChange={(event) => setCompany(event.target.value)}
+                          className={INPUT}
+                          placeholder="Ma societe"
+                          autoComplete="organization"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="website" className={LABEL}>
+                          Site web (optionnel)
+                        </Label>
+                        <Input
+                          id="website"
+                          type="url"
+                          value={website}
+                          onChange={(event) => setWebsite(event.target.value)}
+                          className={INPUT}
+                          placeholder="https://exemple.com"
+                          autoComplete="url"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <Label htmlFor="signupEmail" className={LABEL}>
+                      Email
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="signupEmail"
+                        type="email"
+                        required
+                        value={signupEmail}
+                        onChange={(event) => setSignupEmail(event.target.value)}
+                        className={`${INPUT} pr-6`}
+                        placeholder="utilisateur@exemple.com"
+                        autoComplete="email"
+                      />
+                      <span aria-hidden className={FIELD_DECOR}>@</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="signupPassword" className={LABEL}>
+                      Mot de passe
+                    </Label>
+                    <Input
+                      id="signupPassword"
+                      type="password"
+                      required
+                      value={signupPassword}
+                      onChange={(event) => setSignupPassword(event.target.value)}
+                      className={INPUT}
+                      placeholder="Choisis un mot de passe"
+                      autoComplete="new-password"
+                      minLength={6}
+                    />
+                    <p className="mt-2 text-xs leading-relaxed text-zinc-500">Minimum 6 caractères.</p>
+                  </div>
+
+                  <button type="submit" disabled={loading} className={`${PILL_PRIMARY} w-full`}>
+                    {loading && <span aria-hidden className={SPINNER} />}
+                    {loading
+                      ? "Creation du compte..."
+                      : isPro
+                        ? "Creer le compte pro"
+                        : "Creer le compte"}
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       </main>
