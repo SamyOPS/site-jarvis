@@ -78,6 +78,12 @@ export type ConsoleNavConfig = {
    */
   documentationHref?: string;
   /**
+   * Centre d'aide de l'espace : la FAQ de la console. Alimente l'entree « Centre
+   * d'aide » du pied de la barre laterale. Propre au role, comme le guide : chaque
+   * espace a sa page, dans son propre shell.
+   */
+  helpHref: string;
+  /**
    * Libelle du dernier fil d'Ariane pour les routes qui n'ont pas d'entree
    * de navigation dediee (fiche collaborateur, parametres...).
    */
@@ -140,7 +146,9 @@ export const CONSOLE_FOOTER: ConsoleFooter = {
     description: "Écrivez à vos interlocuteurs directement depuis la console.",
     linkLabel: "Ouvrir la messagerie",
   },
-  links: [{ label: "Centre d'aide", href: "mailto:am@jarvis-connect.fr", icon: CircleHelp, external: true }],
+  // Les deux entrees du pied (« Centre d'aide », « Documentation ») dependent du role :
+  // `getConsoleFooter` les ajoute.
+  links: [],
   // Sans annee calculee : `new Date()` au chargement du module ferait diverger le rendu
   // serveur et le rendu client.
   legal: "Jarvis Connect - Tous droits réservés",
@@ -149,9 +157,10 @@ export const CONSOLE_FOOTER: ConsoleFooter = {
 /**
  * Pied de barre laterale pour un espace donne.
  *
- * Deux elements dependent du role, et c'est tout : l'encart d'annonce, qui mene a la
- * messagerie de l'espace courant, et l'entree « Documentation », qui ouvre le guide du
- * role. Sans `documentationHref`, cette derniere reste affichee mais grisee —
+ * Trois elements dependent du role, et c'est tout : l'encart d'annonce, qui mene a la
+ * messagerie de l'espace courant, l'entree « Centre d'aide », qui ouvre la FAQ de
+ * l'espace, et l'entree « Documentation », qui ouvre le guide du role. Sans
+ * `documentationHref`, cette derniere reste affichee mais grisee —
  * l'emplacement ne disparait pas de l'interface parce qu'un guide manque.
  */
 export function getConsoleFooter(config: ConsoleNavConfig): ConsoleFooter {
@@ -162,6 +171,7 @@ export function getConsoleFooter(config: ConsoleNavConfig): ConsoleFooter {
       : undefined,
     links: [
       ...CONSOLE_FOOTER.links,
+      { label: "Centre d'aide", href: config.helpHref, icon: CircleHelp },
       {
         label: "Documentation",
         href: config.documentationHref,
@@ -185,6 +195,7 @@ export const RH_NAV_CONFIG: ConsoleNavConfig = {
   settingsLabel: "Paramètres",
   messagesHref: "/dashboard/rh/messages",
   documentationHref: "/docs/guide-espace-rh.pdf",
+  helpHref: "/dashboard/rh/aide",
   groups: [
     {
       label: "Vue d'ensemble",
@@ -314,6 +325,7 @@ export const SALARIE_NAV_CONFIG: ConsoleNavConfig = {
   settingsLabel: "Paramètres",
   messagesHref: "/dashboard/salarie/messages",
   documentationHref: "/docs/guide-espace-salarie.pdf",
+  helpHref: "/dashboard/salarie/aide",
   groups: [
     {
       label: "Vue d'ensemble",

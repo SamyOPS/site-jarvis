@@ -289,11 +289,23 @@ export function ConsoleSidebar({
           <ul className="space-y-1">
             {footer.links.map((link) => {
               const Icon = link.icon;
-              const rowClass =
-                "flex h-9 items-center gap-3 rounded-app-control px-3 text-app-sm text-app-text-secondary transition-colors hover:bg-app-surface-hover hover:text-app-text focus-visible:outline-app";
+              // Actif comme une entree de navigation : seul un lien interne peut l'etre.
+              const active = !link.external && link.href === pathname;
+              const rowClass = cn(
+                "flex h-9 items-center gap-3 rounded-app-control px-3 text-app-sm transition-colors focus-visible:outline-app",
+                active
+                  ? "bg-app-surface-hover font-medium text-app-text"
+                  : "text-app-text-secondary hover:bg-app-surface-hover hover:text-app-text",
+              );
               const rowContent = (
                 <>
-                  <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-app-text-muted" />
+                  <Icon
+                    aria-hidden="true"
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      active ? "text-app-text" : "text-app-text-muted",
+                    )}
+                  />
                   <span className="truncate">{link.label}</span>
                 </>
               );
@@ -327,7 +339,12 @@ export function ConsoleSidebar({
                       <span className="sr-only">(nouvel onglet)</span>
                     </a>
                   ) : (
-                    <Link href={link.href} onClick={onNavigate} className={rowClass}>
+                    <Link
+                      href={link.href}
+                      onClick={onNavigate}
+                      aria-current={active ? "page" : undefined}
+                      className={rowClass}
+                    >
                       {rowContent}
                     </Link>
                   )}
