@@ -317,7 +317,7 @@ export default function RhWorkspace({
       supabase.from("profiles").select("id,email,full_name,phone,role,professional_status,employment_status,company_name,esn_partenaire,avatar_url").eq("role", "salarie").order("email", { ascending: true }),
       supabase.from("document_types").select("id,label,requires_period,allowed_uploader_roles").eq("active", true).order("label", { ascending: true }),
       supabase.from("employee_documents").select("id,status,file_name,period_month,created_at,updated_at,size_bytes,review_comment,uploader_role,uploaded_by,storage_bucket,storage_path,source_kind,folder_id,deleted_at,document_type:document_types(id,label,code),employee:profiles!employee_documents_employee_id_fkey(id,full_name,email,role),uploader:profiles!employee_documents_uploaded_by_fkey(full_name,email)").order("created_at", { ascending: false }),
-      supabase.from("document_requests").select("id,status,due_at,period_month,note,document_type:document_types(id,label),employee:profiles!document_requests_employee_id_fkey(id,full_name,email)").order("created_at", { ascending: false }),
+      supabase.from("document_requests").select("id,status,due_at,period_month,note,document_type:document_types(id,label),employee:profiles!document_requests_employee_id_fkey(id,full_name,email)").neq("status", "cancelled").order("created_at", { ascending: false }),
       supabase.from("job_offers").select("id,title,status,location").order("created_at", { ascending: false }),
       supabase.from("applications").select("id,candidate_id,status,job:job_offers(title),candidate:profiles!applications_candidate_id_fkey(full_name,email)").order("created_at", { ascending: false }),
       fetch("/api/rh/collaborators/activity", {
@@ -1543,7 +1543,6 @@ export default function RhWorkspace({
   }, [callRhDocumentsApi, refreshDashboardData, requestForm]);
 
   const handleCancelRequest = useCallback(async (request: RequestRow) => {
-    if (!supabase) return;
     if (!["pending", "uploaded", "rejected", "expired"].includes(request.status)) {
       setSaveMessage("Cette demande ne peut plus etre annulee.");
       return;
@@ -1552,21 +1551,21 @@ export default function RhWorkspace({
     setCancellingRequestId(request.id);
     setSaveMessage(null);
 
-    const { error: updateError } = await supabase
-      .from("document_requests")
-      .update({ status: "cancelled", updated_at: new Date().toISOString() })
-      .eq("id", request.id);
-
-    if (updateError) {
-      setSaveMessage(updateError.message);
+    // Via le serveur : la RLS de `document_requests` n'autorise que la lecture, un update
+    // direct depuis le navigateur ne modifiait rien sans pour autant signaler d'erreur.
+    try {
+      await callRhDocumentsApi(
+        `/api/rh/document-requests/${encodeURIComponent(request.id)}/cancel`,
+        { method: "POST" },
+      );
+      setSaveMessage("Demande documentaire annulee.");
+      await refreshDashboardData();
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "Annulation de la demande impossible.");
+    } finally {
       setCancellingRequestId(null);
-      return;
     }
-
-    setCancellingRequestId(null);
-    setSaveMessage("Demande documentaire annulee.");
-    await refreshDashboardData();
-  }, [refreshDashboardData]);
+  }, [callRhDocumentsApi, refreshDashboardData]);
 
   /**
    * Depose le lot en appelant la route unitaire existante, un appel par fichier.

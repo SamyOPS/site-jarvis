@@ -189,6 +189,7 @@ export default function SalarieWorkspace({
         .from("document_requests")
         .select("id,status,due_at,period_month,note,document_type:document_types(id,label)")
         .eq("employee_id", profileId)
+        .neq("status", "cancelled")
         .order("created_at", { ascending: false }),
       supabase
         .from("employee_documents")
