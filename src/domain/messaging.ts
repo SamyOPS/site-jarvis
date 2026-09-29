@@ -84,5 +84,7 @@ export const MESSAGE_MAX_LENGTH = 4000;
 /** Extrait d'un message pour la liste des conversations. */
 export function messagePreview(body: string, maxLength = 90) {
   const flat = body.replace(/\s+/g, " ").trim();
-  return flat.length > maxLength ? `${flat.slice(0, maxLength - 1)}…` : flat;
+  // Decoupe par point de code : slice() couperait un emoji en deux et afficherait « � ».
+  const chars = Array.from(flat);
+  return chars.length > maxLength ? `${chars.slice(0, maxLength - 1).join("")}…` : flat;
 }

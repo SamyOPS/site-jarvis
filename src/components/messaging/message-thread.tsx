@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { MESSAGE_MAX_LENGTH, type MessageItem } from "@/domain/messaging";
 import { dayKey, formatDaySeparator, formatMessageTime } from "@/features/messaging/format";
+import { EmojiPicker } from "@/components/messaging/emoji-picker";
 
 type MessageThreadProps = {
   messages: MessageItem[];
@@ -44,6 +45,7 @@ export function MessageThread({
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -79,6 +81,22 @@ export function MessageThread({
     [messages],
   );
 
+  /** Insere l'emoji a la position du curseur (ou remplace la selection), pas en fin de texte. */
+  const insertEmoji = (emoji: string) => {
+    const input = inputRef.current;
+    const start = input?.selectionStart ?? draft.length;
+    const end = input?.selectionEnd ?? draft.length;
+    const next = draft.slice(0, start) + emoji + draft.slice(end);
+    // Pas d'insertion partielle : un emoji tronque a la limite deviendrait un caractere invalide.
+    if (next.length > MESSAGE_MAX_LENGTH) return;
+    setDraft(next);
+    const caret = start + emoji.length;
+    requestAnimationFrame(() => {
+      input?.focus();
+      input?.setSelectionRange(caret, caret);
+    });
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     // Entree envoie, Maj+Entree passe a la ligne. Convention des messageries.
     if (event.key === "Enter" && !event.shiftKey) {
@@ -113,10 +131,11 @@ export function MessageThread({
                   <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
                     <div
                       className={cn(
-                        "max-w-[78%] rounded-app-card px-3 py-2",
+                        // Bulle arrondie, coin cote expediteur plus serre : repere visuel de qui parle.
+                        "max-w-[78%] rounded-2xl px-3.5 py-2",
                         mine
-                          ? "bg-app-accent text-app-on-accent"
-                          : "border border-app-line bg-app-surface text-app-text",
+                          ? "rounded-br-md bg-app-accent text-app-on-accent"
+                          : "rounded-bl-md border border-app-line bg-app-surface text-app-text",
                       )}
                     >
                       <p className="whitespace-pre-wrap break-words text-app-sm">
@@ -145,7 +164,9 @@ export function MessageThread({
         className="shrink-0 border-t border-app-line bg-app-surface p-3"
       >
         <div className="flex items-end gap-2">
+          <EmojiPicker onSelect={insertEmoji} disabled={disabled} />
           <textarea
+            ref={inputRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value.slice(0, MESSAGE_MAX_LENGTH))}
             onKeyDown={handleKeyDown}
