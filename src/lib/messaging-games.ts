@@ -2,7 +2,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { ApiError, unwrap } from "@/lib/api-handler";
 import { assertConversationParticipant } from "@/lib/messaging-access";
-import type { ChessState, GameItem, GameResult, GameStatus, GameType } from "@/domain/games";
+import type {
+  BattleshipShip,
+  GameItem,
+  GamePrivate,
+  GameResult,
+  GameState,
+  GameStatus,
+  GameType,
+} from "@/domain/games";
+import { initialChessState } from "@/lib/chess-game";
+import { initialBattleshipState } from "@/lib/battleship-game";
 
 /**
  * Accès aux parties de la messagerie, côté serveur.
@@ -22,13 +32,17 @@ export type GameRow = {
   created_by: string | null;
   player_one_id: string | null;
   player_two_id: string | null;
-  state: ChessState;
+  state: GameState;
   result: GameResult | null;
   result_reason: string | null;
   updated_at: string;
 };
 
-export function toGameItem(row: GameRow): GameItem {
+export function initialGameState(type: GameType): GameState {
+  return type === "battleship" ? initialBattleshipState() : initialChessState();
+}
+
+export function toGameItem(row: GameRow, privateData?: GamePrivate): GameItem {
   return {
     id: row.id,
     conversationId: row.conversation_id,
@@ -41,7 +55,39 @@ export function toGameItem(row: GameRow): GameItem {
     result: row.result,
     resultReason: row.result_reason,
     updatedAt: row.updated_at,
+    ...(privateData ? { private: privateData } : {}),
   };
+}
+
+/** Flotte secrète d'un joueur, ou null s'il ne l'a pas encore validée. */
+export async function loadShips(
+  adminClient: SupabaseClient,
+  gameId: string,
+  profileId: string | null,
+): Promise<BattleshipShip[] | null> {
+  if (!profileId) return null;
+  const row = unwrap(
+    await adminClient
+      .from("game_secrets")
+      .select("data")
+      .eq("game_id", gameId)
+      .eq("profile_id", profileId)
+      .maybeSingle(),
+  ) as { data: { ships?: BattleshipShip[] } } | null;
+  return row?.data?.ships ?? null;
+}
+
+/**
+ * La partie telle que l'appelant a le droit de la voir : la ligne publique, plus ses
+ * propres données cachées. Jamais celles de l'adversaire.
+ */
+export async function gameForActor(adminClient: SupabaseClient, row: GameRow, actorId: string) {
+  if (row.game_type !== "battleship") return toGameItem(row);
+  const ships = await loadShips(adminClient, row.id, actorId);
+  if (row.status !== "finished") return toGameItem(row, { ships });
+
+  const opponentId = row.player_one_id === actorId ? row.player_two_id : row.player_one_id;
+  return toGameItem(row, { ships, opponentShips: await loadShips(adminClient, row.id, opponentId) });
 }
 
 /** Charge une partie et vérifie que l'appelant participe à sa conversation. */

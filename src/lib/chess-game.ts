@@ -75,13 +75,3 @@ export function applyChessMove(state: ChessState, input: ChessMoveInput): ChessM
   }
   return { state: next, finished: false, result: null, resultReason: null };
 }
-
-export const CHESS_RESULT_REASONS: Record<string, string> = {
-  checkmate: "échec et mat",
-  stalemate: "pat",
-  repetition: "triple répétition",
-  insufficient_material: "matériel insuffisant",
-  fifty_moves: "règle des 50 coups",
-  resign: "abandon",
-  cancelled: "invitation annulée",
-};

@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 import { ApiError, withActor } from "@/lib/api-handler";
 import { MESSAGING_ROLES } from "@/domain/messaging";
 import {
+  gameForActor,
   loadGameForActor,
   resolveGameId,
-  toGameItem,
   updateGameIfUnchanged,
 } from "@/lib/messaging-games";
 
@@ -27,7 +27,7 @@ export const POST = withActor<RouteContext>(
 
     const seated = row.player_one_id === profile.id || row.player_two_id === profile.id;
     if (seated || row.status !== "pending") {
-      return NextResponse.json({ game: toGameItem(row) });
+      return NextResponse.json({ game: await gameForActor(adminClient, row, profile.id) });
     }
     if (row.player_two_id) throw new ApiError("La partie est déjà complète.", 409);
 
@@ -35,7 +35,7 @@ export const POST = withActor<RouteContext>(
       player_two_id: profile.id,
       status: "active",
     });
-    return NextResponse.json({ game: toGameItem(updated) });
+    return NextResponse.json({ game: await gameForActor(adminClient, updated, profile.id) });
   },
   { missingSession: "Session manquante." },
 );

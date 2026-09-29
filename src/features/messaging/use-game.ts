@@ -6,7 +6,7 @@ import { createAuthorizedFetch } from "@/lib/dashboard-api";
 import { browserSupabase } from "@/lib/supabase-browser";
 import { safeGetClientSession } from "@/lib/client-auth";
 import { applyChessMove, type ChessMoveInput } from "@/lib/chess-game";
-import type { GameItem } from "@/domain/games";
+import type { BattleshipShip, ChessState, GameItem } from "@/domain/games";
 
 /**
  * Etat d'une partie ouverte : chargement, arrivee des coups adverses, envoi des siens.
@@ -67,13 +67,14 @@ export function useGame(gameId: string | null) {
   */
   const accept = useCallback((next: GameItem | null | undefined) => {
     if (!next) return;
-    setGame((current) =>
+    setGame((current) => {
+      if (!current || current.id !== next.id) return next;
       // Comparaison en dates et non en chaines : Realtime et PostgREST ne formatent pas
       // forcement l'horodatage de la meme facon.
-      current && current.id === next.id && Date.parse(current.updatedAt) > Date.parse(next.updatedAt)
-        ? current
-        : next,
-    );
+      if (Date.parse(current.updatedAt) > Date.parse(next.updatedAt)) return current;
+      // Un evenement Realtime ne porte pas les donnees privees : on garde les dernieres.
+      return next.private ? next : { ...next, private: current.private };
+    });
   }, []);
 
   const call = useCallback(
@@ -174,29 +175,29 @@ export function useGame(gameId: string | null) {
   }, [game]);
 
   /**
-   * Joue un coup. La piece bouge tout de suite (le coup est rejoue localement), puis le
-   * serveur tranche : en cas de refus, on revient a la position qu'il fait foi.
+   * Envoie un coup. `optimistic` applique le coup localement pour qu'il se voie tout de
+   * suite ; le serveur tranche ensuite, et en cas de refus on revient a sa version.
    */
-  const playMove = useCallback(
-    async (move: ChessMoveInput) => {
+  const submitMove = useCallback(
+    async (body: Record<string, unknown>, optimistic?: (game: GameItem) => GameItem | null) => {
       const current = gameRef.current;
       if (!current || pending) return;
 
-      try {
-        const outcome = applyChessMove(current.state, move);
-        setGame({ ...current, state: outcome.state });
-      } catch {
-        return;
+      if (optimistic) {
+        const next = optimistic(current);
+        if (!next) return;
+        setGame(next);
       }
 
       setPending(true);
       try {
-        const next = await call(`/api/messages/games/${encodeURIComponent(current.id)}/move`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(move),
-        });
-        if (next) setGame(next);
+        accept(
+          await call(`/api/messages/games/${encodeURIComponent(current.id)}/move`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }),
+        );
         setError(null);
       } catch (caught) {
         setGame(current);
@@ -206,8 +207,29 @@ export function useGame(gameId: string | null) {
         setPending(false);
       }
     },
-    [call, pending, refresh],
+    [accept, call, pending, refresh],
   );
+
+  /** Echecs : la piece bouge tout de suite, le coup etant rejoue localement. */
+  const playMove = useCallback(
+    (move: ChessMoveInput) =>
+      submitMove({ ...move }, (current) => {
+        try {
+          const outcome = applyChessMove(current.state as ChessState, move);
+          return { ...current, state: outcome.state };
+        } catch {
+          return null;
+        }
+      }),
+    [submitMove],
+  );
+
+  /** Bataille navale : pas d'optimisme pour le tir — seul le serveur sait si ca touche. */
+  const placeFleet = useCallback(
+    (ships: BattleshipShip[]) => submitMove({ action: "place", ships }),
+    [submitMove],
+  );
+  const fire = useCallback((cell: number) => submitMove({ action: "fire", cell }), [submitMove]);
 
   const resign = useCallback(async () => {
     const current = gameRef.current;
@@ -227,5 +249,5 @@ export function useGame(gameId: string | null) {
     }
   }, [accept, call]);
 
-  return { game, loading, pending, error, realtimeReady, playMove, resign };
+  return { game, loading, pending, error, realtimeReady, playMove, placeFleet, fire, resign };
 }

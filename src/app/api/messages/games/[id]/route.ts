@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { withActor } from "@/lib/api-handler";
 import { MESSAGING_ROLES } from "@/domain/messaging";
-import { loadGameForActor, resolveGameId, toGameItem } from "@/lib/messaging-games";
+import { gameForActor, loadGameForActor, resolveGameId } from "@/lib/messaging-games";
 
 export const runtime = "nodejs";
 
@@ -14,7 +14,7 @@ export const GET = withActor<RouteContext>(
   async ({ adminClient, profile }, context) => {
     const gameId = resolveGameId((await context.params).id);
     const row = await loadGameForActor(adminClient, profile.id, gameId);
-    return NextResponse.json({ game: toGameItem(row) });
+    return NextResponse.json({ game: await gameForActor(adminClient, row, profile.id) });
   },
   { missingSession: "Session manquante." },
 );

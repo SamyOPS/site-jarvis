@@ -9,8 +9,7 @@ import {
   toMessageItem,
   type MessageRow,
 } from "@/lib/messaging-access";
-import { GAME_COLUMNS, toGameItem, type GameRow } from "@/lib/messaging-games";
-import { initialChessState } from "@/lib/chess-game";
+import { GAME_COLUMNS, initialGameState, toGameItem, type GameRow } from "@/lib/messaging-games";
 
 export const runtime = "nodejs";
 
@@ -21,7 +20,8 @@ type RouteContext = { params: Promise<{ id: string }> };
  *
  * Crée la partie PUIS le message d'invitation qui la désigne : c'est ce message qui la
  * fait apparaître chez l'autre participant, par le même flux Realtime que les messages
- * ordinaires. Le créateur prend la première place (les blancs aux échecs).
+ * ordinaires. Le créateur prend la première place (les blancs aux échecs, le premier tir à la
+ * bataille navale).
  */
 export const POST = withActor<RouteContext>(
   [...MESSAGING_ROLES],
@@ -43,7 +43,7 @@ export const POST = withActor<RouteContext>(
           game_type: entry.type,
           created_by: profile.id,
           player_one_id: profile.id,
-          state: initialChessState(),
+          state: initialGameState(entry.type),
         })
         .select(GAME_COLUMNS)
         .single(),
