@@ -85,6 +85,7 @@ export function BattleshipPanel({
         <BattleshipGrid
           label={`Flotte de ${opponentName} · ${state.sunkShips[opponent].length}/${BATTLESHIP_FLEET.length} coulés`}
           ships={revealed}
+          revealed
           sunkShips={state.sunkShips[opponent]}
           shots={state.shotsAt[opponent]}
           lastShot={state.lastShot?.by === seat ? state.lastShot.cell : null}
@@ -172,7 +173,7 @@ function FleetEditor({
       <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
         <BattleshipGrid
           label="Votre flotte"
-          ships={ships.filter((ship): ship is BattleshipShip => !!ship)}
+          ships={ships}
           onCellClick={handleCell}
           preview={candidate}
         />
@@ -196,7 +197,7 @@ function FleetEditor({
                     {Array.from({ length: ship.size }, (_, part) => (
                       <span
                         key={part}
-                        className={cn("h-2 w-2 rounded-[1px]", ships[index] ? "bg-[#475569]" : "bg-app-line")}
+                        className={cn("h-2 w-2 rounded-[1px]", ships[index] ? "bg-[#94a3b8]" : "bg-app-line")}
                       />
                     ))}
                     {ships[index] && <Check className="ml-1 h-3 w-3 text-emerald-500" />}
