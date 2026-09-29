@@ -79,7 +79,7 @@ export function BattleshipGrid({
   }, [revealed, ships, sunkShips]);
 
   return (
-    <div className="w-full select-none">
+    <div className="@container mx-auto w-full max-w-[calc(100dvh-17rem)] select-none">
       <p className="mb-1.5 text-app-xs font-medium text-app-text-secondary">{label}</p>
       <div className="grid grid-cols-[1.1rem_1fr] gap-x-1 gap-y-0.5">
         <span />
@@ -148,7 +148,7 @@ export function BattleshipGrid({
                   )}
                 >
                   {shot === true && (
-                    <span className="flex h-[62%] w-[62%] items-center justify-center rounded-full bg-orange-500 text-[0.65rem] font-black leading-none text-white shadow-[0_0_6px_rgba(249,115,22,0.9)]">
+                    <span className="flex h-[62%] w-[62%] items-center justify-center rounded-full bg-orange-500 text-[4.5cqw] font-black leading-none text-white shadow-[0_0_6px_rgba(249,115,22,0.9)]">
                       ✕
                     </span>
                   )}

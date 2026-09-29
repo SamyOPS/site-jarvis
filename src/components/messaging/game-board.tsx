@@ -115,8 +115,15 @@ export function GameBoard({ game, seat, opponentName, interactive, pending, send
   }
 }
 
-/** Largeur de la fenêtre : les jeux à deux planches demandent plus de place. */
+/**
+ * Largeur de la fenêtre, proportionnelle à l'écran : les jeux à deux planches demandent
+ * plus de place. La HAUTEUR, elle, est bornée par chaque plateau (voir leurs `max-w`
+ * calculés sur `100dvh`) : un plateau carré qui suivrait seulement la largeur déborderait
+ * sur un écran large et peu haut.
+ */
 export function gameDialogWidth(type: GameItem["gameType"] | undefined) {
-  if (type === "battleship" || type === "guess_who" || type === "mastermind") return "max-w-3xl";
-  return "max-w-xl";
+  if (type === "battleship" || type === "guess_who" || type === "mastermind") {
+    return "max-w-[min(96vw,80rem)]";
+  }
+  return "max-w-[min(94vw,54rem)]";
 }

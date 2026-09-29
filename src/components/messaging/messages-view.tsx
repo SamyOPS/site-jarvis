@@ -191,6 +191,11 @@ export function MessagesView({
         currentUserId={currentUserId}
         opponentName={contactName}
         onClose={() => setOpenGameId(null)}
+        onRematch={async (gameType) => {
+          // Nouvelle invitation dans le meme fil ; la fenetre bascule sur la nouvelle partie.
+          const gameId = await startGame(gameType);
+          if (gameId) setOpenGameId(gameId);
+        }}
       />
     </div>
   );

@@ -14,15 +14,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { GameBoard, gameDialogWidth } from "@/components/messaging/game-board";
+import { GameResultDialog, type GameOutcome } from "@/components/messaging/game-result-dialog";
 import { useGame } from "@/features/messaging/use-game";
 import { activeStatus, isSeatToPlay } from "@/lib/game-turns";
-import { GAME_RESULT_REASONS, gameCatalogEntry, seatOf, type GameItem } from "@/domain/games";
+import { GAME_RESULT_REASONS, gameCatalogEntry, seatOf, type GameItem, type GameType } from "@/domain/games";
 
 type GameDialogProps = {
   gameId: string | null;
   currentUserId: string;
   opponentName: string;
   onClose: () => void;
+  /** Relance une partie du meme jeu depuis l'annonce de fin. */
+  onRematch?: (gameType: GameType) => void;
 };
 
 /** Phrase d'etat sous le titre : a qui le tour, ou comment la partie s'est terminee. */
@@ -50,7 +53,7 @@ function describe(game: GameItem, currentUserId: string, opponentName: string) {
  * Ouvrir la fenetre suffit a rejoindre la partie (voir use-game) : l'invite clique sur
  * l'invitation, le plateau s'affiche et la partie commence.
  */
-export function GameDialog({ gameId, currentUserId, opponentName, onClose }: GameDialogProps) {
+export function GameDialog({ gameId, currentUserId, opponentName, onClose, onRematch }: GameDialogProps) {
   const { game, loading, pending, error, sendMove, playMove, resign } = useGame(gameId);
 
   const seat = game ? seatOf(game, currentUserId) : null;
@@ -58,7 +61,21 @@ export function GameDialog({ gameId, currentUserId, opponentName, onClose }: Gam
   const myTurn = !!game && !!seat && isSeatToPlay(game, seat);
   const entry = gameCatalogEntry(game?.gameType);
 
-/** Fenetre de confirmation avant d'abandonner ou d'annuler : l'action est definitive. */
+  /*
+    Annonce de fin de partie : seulement quand la partie se termine SOUS LES YEUX de
+    l'utilisateur (passage de « en cours » a « terminee »). Rouvrir une partie finie depuis
+    le fil ne relance ni les confettis ni la pluie.
+  */
+  const [outcome, setOutcome] = useState<GameOutcome | null>(null);
+  const [seen, setSeen] = useState<{ id: string; status: GameItem["status"] } | null>(null);
+  if (game && (seen?.id !== game.id || seen.status !== game.status)) {
+    if (seen?.id === game.id && seen.status === "active" && game.status === "finished" && seat) {
+      setOutcome(game.result === "draw" || !game.result ? "draw" : game.result === seat ? "win" : "lose");
+    }
+    setSeen({ id: game.id, status: game.status });
+  }
+
+  /** Fenetre de confirmation avant d'abandonner ou d'annuler : l'action est definitive. */
   const [confirming, setConfirming] = useState(false);
   const cancelling = game?.status === "pending";
 
@@ -68,7 +85,15 @@ export function GameDialog({ gameId, currentUserId, opponentName, onClose }: Gam
   };
 
   return (
-    <Dialog open={!!gameId} onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open={!!gameId}
+      onOpenChange={(open) => {
+        if (open) return;
+        // Le composant reste monte une fois ferme : l'annonce ne doit pas lui survivre.
+        setOutcome(null);
+        onClose();
+      }}
+    >
       <DialogContent className={cn("border-app-line bg-app-surface text-app-text", gameDialogWidth(game?.gameType))}>
         <DialogHeader>
           <DialogTitle className="text-app-md">
@@ -155,6 +180,21 @@ export function GameDialog({ gameId, currentUserId, opponentName, onClose }: Gam
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <GameResultDialog
+        outcome={outcome}
+        reason={game?.resultReason ?? null}
+        opponentName={opponentName}
+        onClose={() => setOutcome(null)}
+        onRematch={
+          onRematch && game
+            ? () => {
+                setOutcome(null);
+                onRematch(game.gameType);
+              }
+            : undefined
+        }
+      />
     </Dialog>
   );
 }

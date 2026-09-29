@@ -49,8 +49,8 @@ export function GuessWhoPanel({ game, seat, opponentName, interactive, onAsk, on
   const history = [...state.questions].reverse();
 
   return (
-    <div className="grid gap-4 md:grid-cols-[1fr_15rem]">
-      <div>
+    <div className="grid gap-4 md:grid-cols-[1fr_16rem]">
+      <div className="mx-auto w-full max-w-[calc((100dvh-17rem)*1.45)]">
         <p className="mb-1.5 text-app-xs font-medium text-app-text-secondary">
           Personnage de {opponentName} · {remaining.size} possibilité{remaining.size > 1 ? "s" : ""}
         </p>

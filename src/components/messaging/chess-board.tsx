@@ -101,7 +101,7 @@ export function ChessBoard({ state, orientation, interactive, onMove }: ChessBoa
   };
 
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[min(28rem,calc(100dvh-16rem))] select-none overflow-hidden rounded-app-control border border-app-line">
+    <div className="@container relative mx-auto aspect-square w-full max-w-[min(46rem,calc(100dvh-15rem))] select-none overflow-hidden rounded-app-control border border-app-line">
       <div className="grid h-full w-full grid-cols-8 grid-rows-8">
         {rows.map((row, rowIndex) =>
           row.map((_, colIndex) => {
@@ -133,7 +133,7 @@ export function ChessBoard({ state, orientation, interactive, onMove }: ChessBoa
                 {cell && (
                   <span
                     className={cn(
-                      "relative text-[min(8.5vw,2.6rem)] leading-none",
+                      "relative text-[10cqw] leading-none",
                       cell.color === "w"
                         ? "text-white [text-shadow:0_0_1px_#000,0_0_1px_#000,0_1px_2px_rgba(0,0,0,0.6)]"
                         : "text-neutral-900 [text-shadow:0_1px_1px_rgba(255,255,255,0.25)]",
@@ -153,7 +153,7 @@ export function ChessBoard({ state, orientation, interactive, onMove }: ChessBoa
                 {colIndex === 0 && (
                   <span
                     className={cn(
-                      "absolute left-0.5 top-0 text-[0.6rem] font-semibold",
+                      "absolute left-0.5 top-0 text-[max(0.6rem,1.6cqw)] font-semibold",
                       dark ? "text-[#f0d9b5]" : "text-[#b58863]",
                     )}
                   >
@@ -163,7 +163,7 @@ export function ChessBoard({ state, orientation, interactive, onMove }: ChessBoa
                 {rowIndex === 7 && (
                   <span
                     className={cn(
-                      "absolute bottom-0 right-0.5 text-[0.6rem] font-semibold",
+                      "absolute bottom-0 right-0.5 text-[max(0.6rem,1.6cqw)] font-semibold",
                       dark ? "text-[#f0d9b5]" : "text-[#b58863]",
                     )}
                   >

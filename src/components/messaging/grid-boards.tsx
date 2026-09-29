@@ -35,7 +35,7 @@ export function ConnectFourBoard({ state, seat, interactive, onPlay }: GridBoard
   const preview = hovered !== null && interactive ? connectFourLanding(state.board, hovered) : null;
 
   return (
-    <div className="mx-auto w-full max-w-md select-none">
+    <div className="mx-auto w-full max-w-[min(44rem,calc((100dvh-17rem)*7/6))] select-none">
       {/* Jeton en attente au-dessus de la colonne survolée. */}
       <div className="mb-1 grid grid-cols-7 gap-1.5 px-2">
         {Array.from({ length: CONNECT_FOUR_COLUMNS }, (_, column) => (
@@ -106,7 +106,7 @@ export function TicTacToeBoard({ state, seat, interactive, onPlay }: GridBoardPr
   const winning = new Set(state.winLine ?? []);
 
   return (
-    <div className="mx-auto w-full max-w-xs select-none">
+    <div className="@container mx-auto w-full max-w-[min(30rem,calc(100dvh-17rem))] select-none">
       <div className="grid grid-cols-3 gap-1.5 rounded-app-card bg-app-line p-1.5">
         {state.board.map((owner, cell) => (
           <button
@@ -116,7 +116,7 @@ export function TicTacToeBoard({ state, seat, interactive, onPlay }: GridBoardPr
             onClick={() => onPlay(cell)}
             aria-label={`Case ${cell + 1}`}
             className={cn(
-              "group flex aspect-square items-center justify-center rounded-app-control bg-app-surface text-5xl font-bold leading-none transition-colors",
+              "group flex aspect-square items-center justify-center rounded-app-control bg-app-surface text-[20cqw] font-bold leading-none transition-colors",
               interactive && !owner && "cursor-pointer hover:bg-app-surface-hover",
               winning.has(cell) && "bg-app-accent-soft",
             )}

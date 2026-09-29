@@ -72,7 +72,7 @@ export function CheckersBoard({ state, seat, interactive, onMove }: CheckersBoar
   const captureRequired = legal.some((move) => move.captured.length > 0);
 
   return (
-    <div className="mx-auto w-full max-w-[min(30rem,calc(100dvh-16rem))] select-none">
+    <div className="@container mx-auto w-full max-w-[min(46rem,calc(100dvh-15rem))] select-none">
       <div className="grid aspect-square grid-cols-10 overflow-hidden rounded-app-control border border-app-line">
         {Array.from({ length: CELLS }, (_, index) => {
           const cell = flipped ? CELLS - 1 - index : index;
@@ -108,7 +108,7 @@ export function CheckersBoard({ state, seat, interactive, onMove }: CheckersBoar
                     interactive && path.length === 0 && movable.has(cell) && "ring-2 ring-emerald-400/80",
                   )}
                 >
-                  {piece.king && <span className="text-[min(4vw,1.1rem)] leading-none">♛</span>}
+                  {piece.king && <span className="text-[4.2cqw] leading-none">♛</span>}
                 </span>
               )}
               {isNext && <span className="absolute h-[30%] w-[30%] rounded-full bg-emerald-400/80" />}
