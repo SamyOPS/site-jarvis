@@ -182,6 +182,41 @@ export function useMessaging({
     [callApi, refreshConversations],
   );
 
+  /**
+   * Propose une partie dans le fil ouvert. Rend l'identifiant de la partie, pour que
+   * l'appelant l'ouvre aussitot : le createur attend son adversaire devant l'echiquier.
+   */
+  const startGame = useCallback(
+    async (gameType: string) => {
+      const conversationId = activeConversationIdRef.current;
+      if (!conversationId) return null;
+      try {
+        const payload = (await callApi(
+          `/api/messages/conversations/${encodeURIComponent(conversationId)}/games`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ gameType }),
+          },
+        )) as { message?: MessageItem; game?: { id: string } } | null;
+
+        if (payload?.message) {
+          const sent = payload.message;
+          setMessages((current) =>
+            current.some((item) => item.id === sent.id) ? current : [...current, sent],
+          );
+        }
+        await refreshConversations();
+        setError(null);
+        return payload?.game?.id ?? null;
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "Lancement de la partie impossible.");
+        return null;
+      }
+    },
+    [callApi, refreshConversations],
+  );
+
   // Chargement initial.
   useEffect(() => {
     if (!enabled) return;
@@ -242,6 +277,7 @@ export function useMessaging({
               sender_id: string | null;
               body: string;
               created_at: string;
+              game_id: string | null;
             };
 
             // Le fil ouvert se complete en place ; les autres ne touchent que la liste.
@@ -257,6 +293,7 @@ export function useMessaging({
                         senderId: row.sender_id,
                         body: row.body,
                         createdAt: row.created_at,
+                        gameId: row.game_id ?? null,
                       },
                     ],
               );
@@ -306,6 +343,7 @@ export function useMessaging({
     openConversation,
     startConversationWith,
     sendMessage,
+    startGame,
     refreshConversations,
     closeConversation: useCallback(() => {
       setActiveConversationId(null);

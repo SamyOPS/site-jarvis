@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { ApiError } from "@/lib/api-handler";
-import { displayContactName, type MessagingContact } from "@/domain/messaging";
+import { displayContactName, type MessageItem, type MessagingContact } from "@/domain/messaging";
 import { avatarPublicUrl } from "@/lib/avatars";
 
 /**
@@ -241,4 +241,26 @@ export async function assertConversationParticipant(
     .maybeSingle();
   if (error) throw new ApiError(error.message, 400);
   if (!data) throw new ApiError("Conversation introuvable.", 404);
+}
+
+export const MESSAGE_COLUMNS = "id,conversation_id,sender_id,body,created_at,game_id";
+
+export type MessageRow = {
+  id: string;
+  conversation_id: string;
+  sender_id: string | null;
+  body: string;
+  created_at: string;
+  game_id: string | null;
+};
+
+export function toMessageItem(row: MessageRow): MessageItem {
+  return {
+    id: row.id,
+    conversationId: row.conversation_id,
+    senderId: row.sender_id,
+    body: row.body,
+    createdAt: row.created_at,
+    gameId: row.game_id ?? null,
+  };
 }

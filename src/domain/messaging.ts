@@ -64,6 +64,8 @@ export type MessageItem = {
   senderId: string | null;
   body: string;
   createdAt: string;
+  /** Partie a laquelle ce message invite, s'il s'agit d'une invitation. */
+  gameId: string | null;
 };
 
 /** Nom affichable d'un profil, avec repli sur l'e-mail puis sur un libelle neutre. */

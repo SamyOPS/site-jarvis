@@ -17,6 +17,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@supabase/supabase-js": "^2.102.0",
     "@types/nodemailer": "^8.0.0",
+    "chess.js": "^1.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

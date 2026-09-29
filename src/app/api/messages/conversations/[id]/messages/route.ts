@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { ApiError, unwrap, withActor } from "@/lib/api-handler";
-import { MESSAGING_ROLES, MESSAGE_MAX_LENGTH, type MessageItem } from "@/domain/messaging";
-import { assertConversationParticipant } from "@/lib/messaging-access";
+import { MESSAGING_ROLES, MESSAGE_MAX_LENGTH } from "@/domain/messaging";
+import {
+  assertConversationParticipant,
+  MESSAGE_COLUMNS,
+  toMessageItem as toItem,
+  type MessageRow,
+} from "@/lib/messaging-access";
 
 export const runtime = "nodejs";
 
@@ -22,23 +27,6 @@ async function resolveConversationId(context: RouteContext) {
   return conversationId;
 }
 
-type MessageRow = {
-  id: string;
-  conversation_id: string;
-  sender_id: string | null;
-  body: string;
-  created_at: string;
-};
-
-function toItem(row: MessageRow): MessageItem {
-  return {
-    id: row.id,
-    conversationId: row.conversation_id,
-    senderId: row.sender_id,
-    body: row.body,
-    createdAt: row.created_at,
-  };
-}
 
 /**
  * Fil d'une conversation, du plus ancien au plus recent.
@@ -60,7 +48,7 @@ export const GET = withActor<RouteContext>(
 
     let query = adminClient
       .from("messages")
-      .select("id,conversation_id,sender_id,body,created_at")
+      .select(MESSAGE_COLUMNS)
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false })
       .limit(PAGE_SIZE);
@@ -105,7 +93,7 @@ export const POST = withActor<RouteContext>(
       await adminClient
         .from("messages")
         .insert({ conversation_id: conversationId, sender_id: profile.id, body: text })
-        .select("id,conversation_id,sender_id,body,created_at")
+        .select(MESSAGE_COLUMNS)
         .single(),
     ) as MessageRow;
 

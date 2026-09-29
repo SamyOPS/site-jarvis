@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { ConversationList } from "@/components/messaging/conversation-list";
 import { ContactPicker } from "@/components/messaging/contact-picker";
 import { MessageThread } from "@/components/messaging/message-thread";
+import { GameDialog } from "@/components/messaging/game-dialog";
 import { StatusNotice } from "@/components/dashboard/status-notice";
 import { messagingRoleLabel } from "@/domain/messaging";
 import { AvatarBubble } from "@/components/console/avatar-bubble";
@@ -55,8 +56,12 @@ export function MessagesView({
     openConversation,
     startConversationWith,
     sendMessage,
+    startGame,
     closeConversation,
   } = useMessaging();
+
+  /** Partie affichee par-dessus le fil, ouverte depuis une invitation ou a sa creation. */
+  const [openGameId, setOpenGameId] = useState<string | null>(null);
 
   /*
     Ouverture initiale, une seule fois par identifiant. Sans cette garde, revenir a la
@@ -164,6 +169,11 @@ export function MessagesView({
                 loading={loadingMessages}
                 sending={sending}
                 onSend={sendMessage}
+                onStartGame={async (gameType) => {
+                  const gameId = await startGame(gameType);
+                  if (gameId) setOpenGameId(gameId);
+                }}
+                onOpenGame={setOpenGameId}
               />
             </>
           ) : (
@@ -175,6 +185,13 @@ export function MessagesView({
           )}
         </div>
       </div>
+
+      <GameDialog
+        gameId={openGameId}
+        currentUserId={currentUserId}
+        opponentName={contactName}
+        onClose={() => setOpenGameId(null)}
+      />
     </div>
   );
 }

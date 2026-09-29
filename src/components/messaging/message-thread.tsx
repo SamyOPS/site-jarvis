@@ -8,13 +8,15 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { SendHorizonal } from "lucide-react";
+import { Play, SendHorizonal } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { MESSAGE_MAX_LENGTH, type MessageItem } from "@/domain/messaging";
 import { dayKey, formatDaySeparator, formatMessageTime } from "@/features/messaging/format";
 import { EmojiPicker } from "@/components/messaging/emoji-picker";
+import { GamePicker } from "@/components/messaging/game-picker";
+import type { GameType } from "@/domain/games";
 
 type MessageThreadProps = {
   messages: MessageItem[];
@@ -22,6 +24,10 @@ type MessageThreadProps = {
   loading: boolean;
   sending: boolean;
   onSend: (body: string) => void | Promise<unknown>;
+  /** Propose une partie dans le fil. Sans lui, le menu « Jeux » n'est pas affiche. */
+  onStartGame?: (gameType: GameType) => void;
+  /** Ouvre la partie d'une invitation. */
+  onOpenGame?: (gameId: string) => void;
   /** Desactive la saisie : aucune conversation ouverte. */
   disabled?: boolean;
   className?: string;
@@ -39,6 +45,8 @@ export function MessageThread({
   loading,
   sending,
   onSend,
+  onStartGame,
+  onOpenGame,
   disabled = false,
   className,
 }: MessageThreadProps) {
@@ -141,6 +149,21 @@ export function MessageThread({
                       <p className="whitespace-pre-wrap break-words text-app-sm">
                         {message.body}
                       </p>
+                      {message.gameId && onOpenGame && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenGame(message.gameId!)}
+                          className={cn(
+                            "mt-2 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-1.5 text-app-sm font-medium transition-colors focus-visible:outline-app",
+                            mine
+                              ? "bg-app-on-accent/15 text-app-on-accent hover:bg-app-on-accent/25"
+                              : "bg-app-accent text-app-on-accent hover:opacity-90",
+                          )}
+                        >
+                          <Play className="h-3.5 w-3.5" />
+                          {mine ? "Ouvrir la partie" : "Rejoindre la partie"}
+                        </button>
+                      )}
                       <p
                         className={cn(
                           "mt-1 text-app-2xs",
@@ -165,6 +188,7 @@ export function MessageThread({
       >
         <div className="flex items-end gap-2">
           <EmojiPicker onSelect={insertEmoji} disabled={disabled} />
+          {onStartGame && <GamePicker onSelect={onStartGame} disabled={disabled} />}
           <textarea
             ref={inputRef}
             value={draft}
