@@ -2,16 +2,26 @@
  * Jeux proposés dans la messagerie.
  *
  * Le catalogue est la seule liste à tenir côté front : le menu « Jeux » l'affiche tel
- * quel. Un jeu ne s'y ajoute qu'une fois sa validation écrite côté serveur et son type
- * autorisé par la contrainte `games.game_type` (voir 20260929000000_messaging_games.sql).
+ * quel. Un jeu ne s'y ajoute qu'une fois son moteur écrit côté serveur
+ * (src/lib/game-engines.ts) et son type autorisé par la contrainte `games.game_type`.
  */
 
-export type GameType = "chess" | "battleship";
+export type GameType =
+  | "chess"
+  | "battleship"
+  | "connect_four"
+  | "tic_tac_toe"
+  | "checkers"
+  | "guess_who"
+  | "mastermind";
 
 export type GameStatus = "pending" | "active" | "finished";
 
 /** Issue d'une partie, exprimée en joueurs et non en couleurs. */
 export type GameResult = "player_one" | "player_two" | "draw";
+
+/** Joueur, désigné par sa place et non par son identifiant. */
+export type GameSeat = "player_one" | "player_two";
 
 export type GameCatalogEntry = {
   type: GameType;
@@ -24,8 +34,26 @@ export const GAME_CATALOG: GameCatalogEntry[] = [
   {
     type: "chess",
     name: "Échecs",
-    description: "Une partie à deux, les coups se jouent chacun son tour.",
+    description: "Le grand classique, chacun son tour.",
     icon: "♟️",
+  },
+  {
+    type: "checkers",
+    name: "Dames",
+    description: "Règles internationales sur 10 × 10, prise obligatoire.",
+    icon: "⚪",
+  },
+  {
+    type: "connect_four",
+    name: "Puissance 4",
+    description: "Alignez quatre jetons avant l'adversaire.",
+    icon: "🔴",
+  },
+  {
+    type: "tic_tac_toe",
+    name: "Morpion",
+    description: "Trois symboles alignés, une partie en une minute.",
+    icon: "❌",
   },
   {
     type: "battleship",
@@ -33,11 +61,27 @@ export const GAME_CATALOG: GameCatalogEntry[] = [
     description: "Placez votre flotte, puis coulez celle de l'adversaire.",
     icon: "🚢",
   },
+  {
+    type: "guess_who",
+    name: "Qui est-ce ?",
+    description: "Posez des questions pour démasquer le personnage adverse.",
+    icon: "🕵️",
+  },
+  {
+    type: "mastermind",
+    name: "Mastermind",
+    description: "Composez un code secret, percez celui de l'adversaire.",
+    icon: "🎯",
+  },
 ];
 
 export function gameCatalogEntry(type: string | null | undefined) {
   return GAME_CATALOG.find((entry) => entry.type === type) ?? null;
 }
+
+// ---------------------------------------------------------------------------
+// Échecs
+// ---------------------------------------------------------------------------
 
 /** État d'une partie d'échecs, tel que stocké dans `games.state`. */
 export type ChessState = {
@@ -47,11 +91,12 @@ export type ChessState = {
   lastMove: { from: string; to: string } | null;
 };
 
-/** Joueur, désigné par sa place et non par son identifiant. */
-export type GameSeat = "player_one" | "player_two";
+// ---------------------------------------------------------------------------
+// Bataille navale
+// ---------------------------------------------------------------------------
 
 /**
- * Bataille navale : grille de 10 × 10, cases numérotées de 0 à 99 (ligne × 10 + colonne).
+ * Grille de 10 × 10, cases numérotées de 0 à 99 (ligne × 10 + colonne).
  * Flotte classique de cinq bateaux, 17 cases en tout.
  */
 export const BATTLESHIP_SIZE = 10;
@@ -86,15 +131,111 @@ export type BattleshipState = {
   lastShot: { by: GameSeat; cell: number; hit: boolean; sunk: boolean } | null;
 };
 
-export type GameState = ChessState | BattleshipState;
+export type BattleshipSecret = { ships: BattleshipShip[] };
+
+// ---------------------------------------------------------------------------
+// Puissance 4 et morpion : grilles de cases, occupées par un joueur ou vides
+// ---------------------------------------------------------------------------
+
+export const CONNECT_FOUR_COLUMNS = 7;
+export const CONNECT_FOUR_ROWS = 6;
+
+/** Grille lue ligne par ligne, du haut vers le bas : case = ligne × colonnes + colonne. */
+export type GridState = {
+  board: (GameSeat | null)[];
+  turn: GameSeat;
+  lastMove: number | null;
+  /** Cases de l'alignement gagnant, pour le surligner. */
+  winLine: number[] | null;
+};
+
+export type ConnectFourState = GridState;
+export type TicTacToeState = GridState;
+
+// ---------------------------------------------------------------------------
+// Dames
+// ---------------------------------------------------------------------------
+
+export const CHECKERS_SIZE = 10;
+
+export type CheckersPiece = { seat: GameSeat; king: boolean };
 
 /**
- * Données propres à l'appelant, jamais diffusées à l'adversaire : sa flotte. La flotte
- * adverse n'y figure qu'une fois la partie terminée, pour montrer ce qu'on a manqué.
+ * Damier de 10 × 10, case = ligne × 10 + colonne, ligne 0 en haut. Le premier joueur a
+ * les blancs, en bas, et monte ; il joue en premier, comme le veut la règle.
+ */
+export type CheckersState = {
+  board: (CheckersPiece | null)[];
+  turn: GameSeat;
+  /** Chemin du dernier coup, case de départ comprise. */
+  lastMove: number[] | null;
+  /** Cases des pièces prises au dernier coup. */
+  lastCaptured: number[];
+  /** Coups de dames consécutifs sans prise ni mouvement de pion : nulle à 25. */
+  quietKingMoves: number;
+};
+
+// ---------------------------------------------------------------------------
+// Qui est-ce ?
+// ---------------------------------------------------------------------------
+
+export type GuessWhoQuestion = { by: GameSeat; questionId: string; answer: boolean };
+export type GuessWhoGuess = { by: GameSeat; characterId: string; correct: boolean };
+
+/**
+ * Les questions et leurs réponses sont publiques, comme autour d'une vraie table. Seul
+ * le personnage de chacun est secret (`game_secrets`), et c'est le serveur qui répond :
+ * personne ne peut mentir.
+ */
+export type GuessWhoState = {
+  questions: GuessWhoQuestion[];
+  guesses: GuessWhoGuess[];
+  turn: GameSeat;
+};
+
+export type GuessWhoSecret = { characterId: string };
+
+// ---------------------------------------------------------------------------
+// Mastermind
+// ---------------------------------------------------------------------------
+
+export const MASTERMIND_COLORS = 6;
+export const MASTERMIND_LENGTH = 4;
+export const MASTERMIND_ROUNDS = 10;
+
+/** Proposition et réponse : pions bien placés, et bonnes couleurs mal placées. */
+export type MastermindGuess = { code: number[]; exact: number; misplaced: number };
+
+export type MastermindState = {
+  phase: "setup" | "play";
+  ready: Record<GameSeat, boolean>;
+  /** Propositions de chaque joueur, faites sur le code de l'AUTRE. */
+  guesses: Record<GameSeat, MastermindGuess[]>;
+  turn: GameSeat;
+};
+
+export type MastermindSecret = { code: number[] };
+
+// ---------------------------------------------------------------------------
+// Partie
+// ---------------------------------------------------------------------------
+
+export type GameState =
+  | ChessState
+  | BattleshipState
+  | GridState
+  | CheckersState
+  | GuessWhoState
+  | MastermindState;
+
+/**
+ * Données cachées : celles de l'appelant (sa flotte, son personnage, son code), jamais
+ * celles de l'adversaire — sauf une fois la partie terminée, pour montrer ce qu'on
+ * cherchait. Leur forme dépend du jeu (`BattleshipSecret`, `GuessWhoSecret`...).
  */
 export type GamePrivate = {
-  ships: BattleshipShip[] | null;
-  opponentShips?: BattleshipShip[] | null;
+  secret: unknown;
+  opponentSecret?: unknown;
 };
 
 /** Raisons de fin de partie, telles qu'affichées (« gagné par … »). */
@@ -105,6 +246,15 @@ export const GAME_RESULT_REASONS: Record<string, string> = {
   insufficient_material: "matériel insuffisant",
   fifty_moves: "règle des 50 coups",
   fleet_sunk: "flotte coulée",
+  line: "alignement",
+  board_full: "grille pleine",
+  no_moves: "blocage",
+  all_captured: "prise de toutes les pièces",
+  quiet_kings: "25 coups de dames sans prise",
+  guessed: "bonne réponse",
+  wrong_guess: "mauvaise réponse",
+  code_broken: "code percé",
+  rounds_exhausted: "essais épuisés",
   resign: "abandon",
   cancelled: "invitation annulée",
 };
@@ -115,9 +265,8 @@ export type GameItem = {
   gameType: GameType;
   status: GameStatus;
   createdBy: string | null;
-  /** Aux échecs : les blancs. */
+  /** Le joueur qui a lancé l'invitation : blancs aux échecs et aux dames, premier à jouer. */
   playerOneId: string | null;
-  /** Aux échecs : les noirs. */
   playerTwoId: string | null;
   state: GameState;
   result: GameResult | null;

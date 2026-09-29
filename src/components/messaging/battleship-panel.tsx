@@ -10,6 +10,7 @@ import { randomFleet, shipCells } from "@/lib/battleship-game";
 import {
   BATTLESHIP_FLEET,
   otherSeat,
+  type BattleshipSecret,
   type BattleshipShip,
   type BattleshipState,
   type GameItem,
@@ -41,15 +42,7 @@ export function BattleshipPanel({
 }: BattleshipPanelProps) {
   const state = game.state as BattleshipState;
   const opponent = otherSeat(seat);
-  const myShips = game.private?.ships ?? null;
-
-  if (game.status === "pending") {
-    return (
-      <div className="flex aspect-[2/1] items-center justify-center rounded-app-card bg-[#1e5a8a]/10 p-6 text-center text-app-sm text-app-text-secondary">
-        🚢 Vous placerez votre flotte dès que {opponentName} aura rejoint la partie.
-      </div>
-    );
-  }
+  const myShips = (game.private?.secret as BattleshipSecret | null | undefined)?.ships ?? null;
 
   if (game.status === "active" && state.phase === "placement" && !state.ready[seat]) {
     return <FleetEditor pending={pending} onConfirm={onPlace} />;
@@ -58,7 +51,7 @@ export function BattleshipPanel({
   const alreadyShot = new Set(state.shotsAt[opponent].map((shot) => shot.cell));
   const canFire = game.status === "active" && state.phase === "battle" && state.turn === seat && !pending;
   // En fin de partie, la flotte adverse est revelee par le serveur.
-  const revealed = game.private?.opponentShips ?? [];
+  const revealed = (game.private?.opponentSecret as BattleshipSecret | null | undefined)?.ships ?? [];
 
   return (
     <div className="space-y-3">

@@ -13,18 +13,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChessBoard } from "@/components/messaging/chess-board";
-import { BattleshipPanel } from "@/components/messaging/battleship-panel";
+import { GameBoard, gameDialogWidth } from "@/components/messaging/game-board";
 import { useGame } from "@/features/messaging/use-game";
-import { replayChess } from "@/lib/chess-game";
-import {
-  GAME_RESULT_REASONS,
-  gameCatalogEntry,
-  seatOf,
-  type BattleshipState,
-  type ChessState,
-  type GameItem,
-} from "@/domain/games";
+import { activeStatus, isSeatToPlay } from "@/lib/game-turns";
+import { GAME_RESULT_REASONS, gameCatalogEntry, seatOf, type GameItem } from "@/domain/games";
 
 type GameDialogProps = {
   gameId: string | null;
@@ -32,19 +24,6 @@ type GameDialogProps = {
   opponentName: string;
   onClose: () => void;
 };
-
-/** Vrai quand la partie attend un geste de l'utilisateur. */
-function isMyTurn(game: GameItem, currentUserId: string) {
-  if (game.status !== "active") return false;
-  const seat = seatOf(game, currentUserId);
-  if (!seat) return false;
-  if (game.gameType === "battleship") {
-    const state = game.state as BattleshipState;
-    return state.phase === "placement" ? !state.ready[seat] : state.turn === seat;
-  }
-  const turn = replayChess(game.state as ChessState).turn();
-  return (turn === "w" ? "player_one" : "player_two") === seat;
-}
 
 /** Phrase d'etat sous le titre : a qui le tour, ou comment la partie s'est terminee. */
 function describe(game: GameItem, currentUserId: string, opponentName: string) {
@@ -62,37 +41,24 @@ function describe(game: GameItem, currentUserId: string, opponentName: string) {
     const won = game.result === mySide;
     return `${won ? "Vous avez gagné" : `${opponentName} a gagné`}${reason ? ` par ${reason}` : ""}.`;
   }
-
-  const myTurn = isMyTurn(game, currentUserId);
-
-  if (game.gameType === "battleship") {
-    const state = game.state as BattleshipState;
-    if (state.phase === "placement") {
-      return myTurn ? "Placez votre flotte." : `${opponentName} place sa flotte…`;
-    }
-    return myTurn ? "À vous de tirer." : `Au tour de ${opponentName}.`;
-  }
-
-  const check = replayChess(game.state as ChessState).inCheck() ? " Échec !" : "";
-  return myTurn ? `À vous de jouer.${check}` : `Au tour de ${opponentName}.${check}`;
+  return mySide ? activeStatus(game, mySide, opponentName) : "Partie en cours.";
 }
 
 /**
- * Partie ouverte depuis une invitation du fil : echecs ou bataille navale.
+ * Partie ouverte depuis une invitation du fil, quel que soit le jeu.
  *
  * Ouvrir la fenetre suffit a rejoindre la partie (voir use-game) : l'invite clique sur
- * l'invitation, l'echiquier s'affiche et la partie commence.
+ * l'invitation, le plateau s'affiche et la partie commence.
  */
 export function GameDialog({ gameId, currentUserId, opponentName, onClose }: GameDialogProps) {
-  const { game, loading, pending, error, playMove, placeFleet, fire, resign } = useGame(gameId);
+  const { game, loading, pending, error, sendMove, playMove, resign } = useGame(gameId);
 
   const seat = game ? seatOf(game, currentUserId) : null;
   const isPlayer = !!seat;
-  const orientation = seat === "player_two" ? "b" : "w";
-  const myTurn = !!game && isMyTurn(game, currentUserId);
+  const myTurn = !!game && !!seat && isSeatToPlay(game, seat);
   const entry = gameCatalogEntry(game?.gameType);
 
-  /** Fenetre de confirmation avant d'abandonner ou d'annuler : l'action est definitive. */
+/** Fenetre de confirmation avant d'abandonner ou d'annuler : l'action est definitive. */
   const [confirming, setConfirming] = useState(false);
   const cancelling = game?.status === "pending";
 
@@ -103,13 +69,7 @@ export function GameDialog({ gameId, currentUserId, opponentName, onClose }: Gam
 
   return (
     <Dialog open={!!gameId} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className={cn(
-          "border-app-line bg-app-surface text-app-text",
-          // Deux grilles cote a cote demandent plus de largeur qu'un echiquier.
-          game?.gameType === "battleship" ? "max-w-3xl" : "max-w-xl",
-        )}
-      >
+      <DialogContent className={cn("border-app-line bg-app-surface text-app-text", gameDialogWidth(game?.gameType))}>
         <DialogHeader>
           <DialogTitle className="text-app-md">
             {entry ? `${entry.icon} ${entry.name}` : "Partie"}
@@ -125,41 +85,23 @@ export function GameDialog({ gameId, currentUserId, opponentName, onClose }: Gam
         </DialogHeader>
 
         {loading && !game ? (
-          <div className="flex aspect-square w-full items-center justify-center">
+          <div className="flex aspect-[2/1] w-full items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-app-text-muted" />
           </div>
-        ) : game?.gameType === "battleship" ? (
-          seat ? (
-            <BattleshipPanel
-              game={game}
-              seat={seat}
-              opponentName={opponentName}
-              pending={pending}
-              onPlace={(ships) => void placeFleet(ships)}
-              onFire={(cell) => void fire(cell)}
-            />
-          ) : null
-        ) : game ? (
-          <>
-            <div className="flex items-center justify-between text-app-xs text-app-text-muted">
-              <span>
-                {opponentName} · {orientation === "w" ? "Noirs" : "Blancs"}
-              </span>
-            </div>
-            <ChessBoard
-              state={game.state as ChessState}
-              orientation={orientation}
-              interactive={myTurn && !pending}
-              onMove={(move) => void playMove(move)}
-            />
-            <div className="flex items-center justify-between gap-3 text-app-xs text-app-text-muted">
-              <span>Vous · {orientation === "w" ? "Blancs" : "Noirs"}</span>
-              <span>
-                {(game.state as ChessState).moves.length} coup
-                {(game.state as ChessState).moves.length > 1 ? "s" : ""}
-              </span>
-            </div>
-          </>
+        ) : game && seat && game.status === "pending" ? (
+          <div className="flex aspect-[2/1] items-center justify-center rounded-app-card bg-app-surface-hover p-6 text-center text-app-sm text-app-text-secondary">
+            {entry?.icon} La partie commencera dès que {opponentName} l&apos;aura rejointe.
+          </div>
+        ) : game && seat ? (
+          <GameBoard
+            game={game}
+            seat={seat}
+            opponentName={opponentName}
+            interactive={myTurn && !pending}
+            pending={pending}
+            sendMove={(body) => void sendMove(body)}
+            playChessMove={(move) => void playMove(move)}
+          />
         ) : null}
 
         {error && <p className="text-app-sm text-red-500">{error}</p>}

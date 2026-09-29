@@ -6,7 +6,7 @@ import { createAuthorizedFetch } from "@/lib/dashboard-api";
 import { browserSupabase } from "@/lib/supabase-browser";
 import { safeGetClientSession } from "@/lib/client-auth";
 import { applyChessMove, type ChessMoveInput } from "@/lib/chess-game";
-import type { BattleshipShip, ChessState, GameItem } from "@/domain/games";
+import type { ChessState, GameItem } from "@/domain/games";
 
 /**
  * Etat d'une partie ouverte : chargement, arrivee des coups adverses, envoi des siens.
@@ -224,13 +224,6 @@ export function useGame(gameId: string | null) {
     [submitMove],
   );
 
-  /** Bataille navale : pas d'optimisme pour le tir — seul le serveur sait si ca touche. */
-  const placeFleet = useCallback(
-    (ships: BattleshipShip[]) => submitMove({ action: "place", ships }),
-    [submitMove],
-  );
-  const fire = useCallback((cell: number) => submitMove({ action: "fire", cell }), [submitMove]);
-
   const resign = useCallback(async () => {
     const current = gameRef.current;
     if (!current) return;
@@ -249,5 +242,15 @@ export function useGame(gameId: string | null) {
     }
   }, [accept, call]);
 
-  return { game, loading, pending, error, realtimeReady, playMove, placeFleet, fire, resign };
+  return {
+    game,
+    loading,
+    pending,
+    error,
+    realtimeReady,
+    /** Coup quelconque, dans le format attendu par le moteur du jeu. */
+    sendMove: submitMove,
+    playMove,
+    resign,
+  };
 }

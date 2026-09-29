@@ -6,8 +6,10 @@ import {
   gameForActor,
   loadGameForActor,
   resolveGameId,
+  saveSecret,
   updateGameIfUnchanged,
 } from "@/lib/messaging-games";
+import { GAME_ENGINES } from "@/lib/game-engines";
 
 export const runtime = "nodejs";
 
@@ -30,6 +32,16 @@ export const POST = withActor<RouteContext>(
       return NextResponse.json({ game: await gameForActor(adminClient, row, profile.id) });
     }
     if (row.player_two_id) throw new ApiError("La partie est déjà complète.", 409);
+
+    // Secrets tires au sort (personnages de Qui est-ce ?) : distribues AVANT de lancer la
+    // partie, pour qu'aucun coup ne puisse etre joue sans eux.
+    const engine = GAME_ENGINES[row.game_type];
+    if (engine.onStart) {
+      const seats = { player_one: row.player_one_id, player_two: profile.id };
+      await engine.onStart({
+        saveSecret: (seat, data) => saveSecret(adminClient, row.id, seats[seat], data),
+      });
+    }
 
     const updated = await updateGameIfUnchanged(adminClient, row, {
       player_two_id: profile.id,

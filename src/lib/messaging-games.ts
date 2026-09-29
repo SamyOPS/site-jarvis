@@ -3,16 +3,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ApiError, unwrap } from "@/lib/api-handler";
 import { assertConversationParticipant } from "@/lib/messaging-access";
 import type {
-  BattleshipShip,
   GameItem,
   GamePrivate,
   GameResult,
+  GameSeat,
   GameState,
   GameStatus,
   GameType,
 } from "@/domain/games";
-import { initialChessState } from "@/lib/chess-game";
-import { initialBattleshipState } from "@/lib/battleship-game";
+import { GAME_ENGINES } from "@/lib/game-engines";
 
 /**
  * Accès aux parties de la messagerie, côté serveur.
@@ -39,7 +38,7 @@ export type GameRow = {
 };
 
 export function initialGameState(type: GameType): GameState {
-  return type === "battleship" ? initialBattleshipState() : initialChessState();
+  return GAME_ENGINES[type].initial();
 }
 
 export function toGameItem(row: GameRow, privateData?: GamePrivate): GameItem {
@@ -59,12 +58,16 @@ export function toGameItem(row: GameRow, privateData?: GamePrivate): GameItem {
   };
 }
 
-/** Flotte secrète d'un joueur, ou null s'il ne l'a pas encore validée. */
-export async function loadShips(
+export function profileAtSeat(row: GameRow, seat: GameSeat) {
+  return seat === "player_one" ? row.player_one_id : row.player_two_id;
+}
+
+/** Donnees cachees d'un joueur, ou null s'il n'en a pas encore. */
+export async function loadSecret<T>(
   adminClient: SupabaseClient,
   gameId: string,
   profileId: string | null,
-): Promise<BattleshipShip[] | null> {
+): Promise<T | null> {
   if (!profileId) return null;
   const row = unwrap(
     await adminClient
@@ -73,21 +76,31 @@ export async function loadShips(
       .eq("game_id", gameId)
       .eq("profile_id", profileId)
       .maybeSingle(),
-  ) as { data: { ships?: BattleshipShip[] } } | null;
-  return row?.data?.ships ?? null;
+  ) as { data: T } | null;
+  return row?.data ?? null;
+}
+
+export async function saveSecret(
+  adminClient: SupabaseClient,
+  gameId: string,
+  profileId: string | null,
+  data: unknown,
+) {
+  if (!profileId) throw new ApiError("Joueur introuvable.", 409);
+  unwrap(await adminClient.from("game_secrets").upsert({ game_id: gameId, profile_id: profileId, data }));
 }
 
 /**
  * La partie telle que l'appelant a le droit de la voir : la ligne publique, plus ses
- * propres données cachées. Jamais celles de l'adversaire.
+ * propres donnees cachees. Celles de l'adversaire seulement une fois la partie terminee.
  */
 export async function gameForActor(adminClient: SupabaseClient, row: GameRow, actorId: string) {
-  if (row.game_type !== "battleship") return toGameItem(row);
-  const ships = await loadShips(adminClient, row.id, actorId);
-  if (row.status !== "finished") return toGameItem(row, { ships });
+  if (!GAME_ENGINES[row.game_type].hasSecrets) return toGameItem(row);
+  const secret = await loadSecret(adminClient, row.id, actorId);
+  if (row.status !== "finished") return toGameItem(row, { secret });
 
   const opponentId = row.player_one_id === actorId ? row.player_two_id : row.player_one_id;
-  return toGameItem(row, { ships, opponentShips: await loadShips(adminClient, row.id, opponentId) });
+  return toGameItem(row, { secret, opponentSecret: await loadSecret(adminClient, row.id, opponentId) });
 }
 
 /** Charge une partie et vérifie que l'appelant participe à sa conversation. */
