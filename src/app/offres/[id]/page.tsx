@@ -1,13 +1,25 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CalendarClock, MapPin, Tag } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import {
+  KICKER,
+  LABEL,
+  PILL_SECONDARY,
+  TEXT_LINK,
+  TRACE,
+} from "@/components/auth/auth-styles";
 import { JobApplicationDialog } from "@/components/offres/job-application-dialog";
 import Footer from "@/components/vitrine/footer";
 import Menu from "@/components/vitrine/menu";
+import { VITRINE_FONT_VARS } from "@/features/vitrine/fonts";
 import { getCvSupabaseClient } from "@/lib/cv-supabase";
+
+// Intertitre d'une rubrique de la description, et ligne de liste a puces.
+const SECTION_TITLE =
+  "border-t border-zinc-900 pt-4 text-sm font-bold uppercase tracking-tight";
+const BULLET_ROW = "flex items-start gap-4 border-b border-zinc-900/25 py-3";
+const BULLET_MARK = "mt-3 h-px w-3 shrink-0 bg-zinc-900";
 
 export const revalidate = 60;
 
@@ -103,95 +115,80 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
     descriptionSections.profil.length > 0 ||
     descriptionSections.avantages.length > 0;
 
+
   return (
     <>
-      <div className="min-h-screen bg-white text-[#0A1A2F]">
+      {/*
+        Geist en style direct : l'utilitaire `font-sans` est fige sur Inter par
+        `@theme inline` (globals.css). VITRINE_FONT_VARS declare les familles.
+      */}
+      <div
+        className={`${VITRINE_FONT_VARS} min-h-dvh bg-white text-zinc-900`}
+        style={{ fontFamily: "var(--font-geist-sans)" }}
+      >
         {/* Barre : logo + Contactez nous + burger + panneau */}
         <Menu />
 
         {/* Meme marge haute que la liste : la barre fixe ne reserve rien. */}
-        <main className="container mx-auto px-6 pb-8 pt-32 sm:pt-40 lg:px-10 xl:px-16">
-          <div className="mb-6 flex items-center gap-3 text-sm">
-            <Button variant="link" className="p-0 text-[#0A1A2F] hover:text-[#0A1A2F]" asChild>
-              <Link href="/offres" className="inline-flex items-center gap-2">
-                <ArrowLeft className="h-4 w-4" /> Retour aux offres
+        <main className="px-6 pb-16 pt-32 sm:px-12 sm:pb-20 sm:pt-40 lg:pb-24">
+          <div className="mx-auto w-full max-w-6xl">
+            <div className="mb-12 flex flex-wrap items-center gap-3 text-sm sm:mb-16">
+              <Link href="/offres" className={TEXT_LINK}>
+                <ArrowLeft aria-hidden className="h-4 w-4" />
+                <span>Retour aux offres</span>
+                <span aria-hidden className={TRACE} />
               </Link>
-            </Button>
-            <span className="text-[#0A1A2F]/50">|</span>
-            <span className="uppercase tracking-[0.18em] text-[#0A1A2F]">Carrières</span>
-          </div>
+              <span className="text-zinc-900/25">|</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-900/50">Carrières</span>
+            </div>
 
-          <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-            <div className="space-y-6">
-              <div className="bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm font-medium text-[#0A1A2F] uppercase tracking-wide">Offre d&apos;emploi</span>
-                      {offer.status && (
-                        <Badge variant="outline" className="border-green-200 text-green-700 bg-green-50">
-                          {offer.status}
-                        </Badge>
-                      )}
-                    </div>
-                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#0A1A2F] mb-2">
-                      {offer.title}
-                    </h1>
-                  </div>
+            <div className="grid gap-16 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-24">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className={KICKER}>Offre d&apos;emploi</span>
+                  {offer.status && (
+                    <span className="rounded-full border border-zinc-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em]">
+                      {offer.status}
+                    </span>
+                  )}
                 </div>
+                <h1 className="mt-4 break-words text-[clamp(2rem,4.5vw,3.75rem)] font-bold uppercase leading-[0.95] tracking-tight">
+                  {offer.title}
+                </h1>
 
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pt-6 border-t border-gray-100">
+                <div className="mt-10 grid border-t border-zinc-900 sm:grid-cols-3">
                   {offer.location && (
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-[#0A1A2F]/10 flex items-center justify-center">
-                        <MapPin className="h-5 w-5 text-[#0A1A2F]" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Localisation</p>
-                        <p className="text-sm font-semibold text-[#0A1A2F]">{offer.location}</p>
-                      </div>
+                    <div className="border-b border-zinc-900/25 py-4 sm:pr-6">
+                      <p className={LABEL}>Localisation</p>
+                      <p className="mt-1 break-words text-base font-semibold">{offer.location}</p>
                     </div>
                   )}
 
                   {offer.contract_type && (
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-[#0A1A2F]/10 flex items-center justify-center">
-                        <Tag className="h-5 w-5 text-[#0A1A2F]" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Type de contrat</p>
-                        <p className="text-sm font-semibold text-[#0A1A2F]">{offer.contract_type}</p>
-                      </div>
+                    <div className="border-b border-zinc-900/25 py-4 sm:pr-6">
+                      <p className={LABEL}>Type de contrat</p>
+                      <p className="mt-1 break-words text-base font-semibold">{offer.contract_type}</p>
                     </div>
                   )}
 
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-[#0A1A2F]/10 flex items-center justify-center">
-                      <CalendarClock className="h-5 w-5 text-[#0A1A2F]" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Publiée le</p>
-                      <p className="text-sm font-semibold text-[#0A1A2F]">
-                        {new Date(offer.created_at).toLocaleDateString("fr-FR")}
-                      </p>
-                    </div>
+                  <div className="border-b border-zinc-900/25 py-4">
+                    <p className={LABEL}>Publiée le</p>
+                    <p className="mt-1 text-base font-semibold">
+                      {new Date(offer.created_at).toLocaleDateString("fr-FR")}
+                    </p>
                   </div>
-
                 </div>
-              </div>
 
-              <div className="bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
-                <h2 className="text-2xl font-bold text-[#0A1A2F] mb-8">Description du poste</h2>
-                <div className="space-y-8">
+                <h2 className="mt-16 text-[clamp(1.75rem,4vw,2.75rem)] font-bold uppercase leading-[0.95] tracking-tight">
+                  Description du poste
+                </h2>
+                <div className="mt-10 space-y-12">
                   {offer.description && hasAnyDescriptionSection ? (
                     <>
                       {descriptionSections.contexte.length > 0 && (
                         <div>
-                          <h3 className="text-lg font-semibold text-[#0A1A2F] mb-4 flex items-center gap-2">
-                            <div className="w-1 h-6 bg-[#0A1A2F] rounded-full"></div>
-                            Contexte et enjeux
-                          </h3>
-                          <div className="space-y-4 text-[#0A1A2F]/80 leading-relaxed pl-6">
+                          <h3 className={SECTION_TITLE}>Contexte et enjeux</h3>
+                          <div className="mt-4 max-w-2xl space-y-4 leading-relaxed text-zinc-600">
                             {descriptionSections.contexte.map((paragraph, index) => (
                               <p key={index}>{paragraph}</p>
                             ))}
@@ -200,15 +197,12 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                       )}
                       {descriptionSections.missions.length > 0 && (
                         <div>
-                          <h3 className="text-lg font-semibold text-[#0A1A2F] mb-4 flex items-center gap-2">
-                            <div className="w-1 h-6 bg-[#0A1A2F] rounded-full"></div>
-                            Missions principales
-                          </h3>
-                          <div className="space-y-3 pl-6">
+                          <h3 className={SECTION_TITLE}>Missions principales</h3>
+                          <div className="mt-2">
                             {descriptionSections.missions.map((item, index) => (
-                              <div key={index} className="flex items-start gap-3">
-                                <div className="w-2 h-2 rounded-full bg-[#0A1A2F] mt-2 flex-shrink-0"></div>
-                                <p className="text-[#0A1A2F]/80 leading-relaxed">{item}</p>
+                              <div key={index} className={BULLET_ROW}>
+                                <span aria-hidden className={BULLET_MARK} />
+                                <p className="leading-relaxed text-zinc-600">{item}</p>
                               </div>
                             ))}
                           </div>
@@ -216,15 +210,12 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                       )}
                       {descriptionSections.profil.length > 0 && (
                         <div>
-                          <h3 className="text-lg font-semibold text-[#0A1A2F] mb-4 flex items-center gap-2">
-                            <div className="w-1 h-6 bg-[#0A1A2F] rounded-full"></div>
-                            Profil recherché
-                          </h3>
-                          <div className="space-y-3 pl-6">
+                          <h3 className={SECTION_TITLE}>Profil recherché</h3>
+                          <div className="mt-2">
                             {descriptionSections.profil.map((item, index) => (
-                              <div key={index} className="flex items-start gap-3">
-                                <div className="w-2 h-2 rounded-full bg-[#0A1A2F] mt-2 flex-shrink-0"></div>
-                                <p className="text-[#0A1A2F]/80 leading-relaxed">{item}</p>
+                              <div key={index} className={BULLET_ROW}>
+                                <span aria-hidden className={BULLET_MARK} />
+                                <p className="leading-relaxed text-zinc-600">{item}</p>
                               </div>
                             ))}
                           </div>
@@ -232,15 +223,12 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                       )}
                       {descriptionSections.avantages.length > 0 && (
                         <div>
-                          <h3 className="text-lg font-semibold text-[#0A1A2F] mb-4 flex items-center gap-2">
-                            <div className="w-1 h-6 bg-[#0A1A2F] rounded-full"></div>
-                            Avantages et perspectives
-                          </h3>
-                          <div className="space-y-3 pl-6">
+                          <h3 className={SECTION_TITLE}>Avantages et perspectives</h3>
+                          <div className="mt-2">
                             {descriptionSections.avantages.map((item, index) => (
-                              <div key={index} className="flex items-start gap-3">
-                                <div className="w-2 h-2 rounded-full bg-[#0A1A2F] mt-2 flex-shrink-0"></div>
-                                <p className="text-[#0A1A2F]/80 leading-relaxed">{item}</p>
+                              <div key={index} className={BULLET_ROW}>
+                                <span aria-hidden className={BULLET_MARK} />
+                                <p className="leading-relaxed text-zinc-600">{item}</p>
                               </div>
                             ))}
                           </div>
@@ -248,45 +236,51 @@ export default async function OffresDetailPage({ params }: { params: Promise<{ i
                       )}
                     </>
                   ) : (
-                    <div className="text-[#0A1A2F]/80 leading-relaxed whitespace-pre-line">
+                    <div className="max-w-2xl whitespace-pre-line leading-relaxed text-zinc-600">
                       {offer.description ?? "Les détails de cette mission seront bientôt partagés."}
                     </div>
                   )}
                 </div>
               </div>
-            </div>
 
-            <div className="space-y-6">
-              {/*
-                `top-28 sm:top-32` et non `top-6` : la barre de navigation est
-                fixe, et le burger occupe le coin haut droit — exactement la
-                colonne de cette carte. A 24px du haut, elle serait passee
-                dessous au defilement.
-              */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm sticky top-28 sm:top-32">
-                <h3 className="text-lg font-semibold text-[#0A1A2F] mb-4">Intéressé ?</h3>
-                <p className="text-sm text-[#0A1A2F]/70 mb-6">
-                  Partagez-nous votre profil ou posez vos questions. Nous vous recontactons rapidement.
-                </p>
+              <div className="min-w-0">
+                {/*
+                  `top-28 sm:top-32` et non `top-6` : la barre de navigation est
+                  fixe, et le burger occupe le coin haut droit — exactement la
+                  colonne de ce bloc. A 24px du haut, il serait passe dessous au
+                  defilement.
+                */}
+                <div className="space-y-10 lg:sticky lg:top-32">
+                  <div className="border-t border-zinc-900 pt-6">
+                    <h3 className="text-[clamp(1.5rem,3vw,2rem)] font-bold uppercase leading-[0.95] tracking-tight">
+                      Intéressé ?
+                    </h3>
+                    <p className="mt-4 font-quote text-lg leading-snug text-zinc-500 sm:text-xl">
+                      Partagez-nous votre profil ou posez vos questions. Nous vous recontactons rapidement.
+                    </p>
 
-                <div className="space-y-3">
-                  <JobApplicationDialog jobId={offer.id} jobTitle={offer.title} />
-                  <Button variant="outline" className="w-full border-[#0A1A2F] text-[#0A1A2F] hover:bg-[#0A1A2F]/10 font-semibold py-3" asChild>
-                    <a href="mailto:am@jarvis-connect.fr">Contacter l&apos;équipe</a>
-                  </Button>
-                  <Button variant="ghost" className="w-full text-[#0A1A2F] hover:bg-gray-100 font-medium" asChild>
-                    <Link href="/offres" className="inline-flex items-center gap-2">
-                      <ArrowLeft className="h-4 w-4" /> Retour aux offres
-                    </Link>
-                  </Button>
+                    <div className="mt-8 space-y-3">
+                      <JobApplicationDialog jobId={offer.id} jobTitle={offer.title} />
+                      <a href="mailto:am@jarvis-connect.fr" className={`${PILL_SECONDARY} w-full`}>
+                        Contacter l&apos;équipe
+                      </a>
+                      <div className="pt-3 text-center">
+                        <Link href="/offres" className={TEXT_LINK}>
+                          <ArrowLeft aria-hidden className="h-4 w-4" />
+                          <span>Retour aux offres</span>
+                          <span aria-hidden className={TRACE} />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-zinc-900/25 pt-6">
+                    <h4 className={LABEL}>À propos de Jarvis Connect</h4>
+                    <p className="mt-3 font-quote text-base italic leading-relaxed text-zinc-500 sm:text-lg">
+                      Nous accompagnons les entreprises dans leur transformation digitale avec des solutions innovantes et sur mesure.
+                    </p>
+                  </div>
                 </div>
-              </div>
-
-              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-                <h4 className="font-semibold text-[#0A1A2F] mb-4">À propos de Jarvis Connect</h4>
-                <p className="text-sm text-[#0A1A2F]/70 leading-relaxed">
-                  Nous accompagnons les entreprises dans leur transformation digitale avec des solutions innovantes et sur mesure.
-                </p>
               </div>
             </div>
           </div>

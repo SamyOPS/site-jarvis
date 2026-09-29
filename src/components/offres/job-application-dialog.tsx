@@ -1,9 +1,15 @@
 "use client";
 
 import { useRef, useState, type DragEvent, type ReactNode, type RefObject } from "react";
-import { ArrowRight, CheckCircle2, FileText, UploadCloud } from "lucide-react";
+import { ArrowRight, CircleAlert, CircleCheck, FileText, UploadCloud } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import {
+  FIELD,
+  LABEL,
+  MESSAGE,
+  PILL_PRIMARY,
+  PILL_SECONDARY,
+} from "@/components/auth/auth-styles";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +19,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { VITRINE_FONT_VARS } from "@/features/vitrine/fonts";
 
+// `Input` porte un cadre arrondi et un anneau de focus par defaut : FIELD les remplace
+// par un filet bas, l'anneau est retire.
+const INPUT = `${FIELD} focus-visible:ring-0 focus-visible:ring-offset-0`;
+const SPINNER =
+  "h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white motion-reduce:animate-none";
 type JobApplicationDialogProps = {
   jobId: string;
   jobTitle: string;
@@ -127,6 +139,7 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
     }
   };
 
+
   return (
     <Dialog
       open={open}
@@ -136,42 +149,53 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
       }}
     >
       <DialogTrigger asChild>
-        <Button className="w-full rounded-full bg-[#0A1A2F] py-6 text-base font-semibold text-white hover:bg-[#0d2a4b]">
+        <button type="button" className={`${PILL_PRIMARY} w-full`}>
           Postuler à cette offre
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
+          <ArrowRight aria-hidden className="h-4 w-4" />
+        </button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl rounded-[28px] border-[#0A1A2F]/10 p-0">
-        <div className="overflow-hidden rounded-[28px]">
-          <div className="bg-[#0A1A2F] px-6 py-6 text-white sm:px-8">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold">Candidater simplement</DialogTitle>
-              <DialogDescription className="text-white/75">
+      {/*
+        Le dialogue est rendu dans un portail, hors de l'enveloppe de la page : il repose
+        lui-meme les polices de la vitrine, et Geist en style direct (`font-sans` est fige
+        sur Inter par `@theme inline`).
+      */}
+      <DialogContent
+        className={`${VITRINE_FONT_VARS} max-w-3xl rounded-none border-zinc-900 bg-white p-0 text-zinc-900 shadow-none sm:p-0`}
+        style={{ fontFamily: "var(--font-geist-sans)" }}
+      >
+        <div>
+          <div className="border-b border-zinc-900/25 px-6 pb-6 pt-8 sm:px-10 sm:pt-10">
+            <DialogHeader className="text-left">
+              <DialogTitle className="pr-8 text-[clamp(1.75rem,4vw,2.75rem)] font-bold uppercase leading-[0.95] tracking-tight">
+                Candidater simplement
+              </DialogTitle>
+              <DialogDescription className="mt-3 text-sm leading-relaxed text-zinc-500 sm:text-base">
                 Envoyez votre dossier pour {jobTitle}. Les documents sont transmis de manière sécurisée.
               </DialogDescription>
             </DialogHeader>
           </div>
 
-          <div className="space-y-6 bg-white px-6 py-6 sm:px-8">
+          <div className="space-y-8 px-6 py-8 sm:px-10">
             {status === "success" && (
-              <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                <CheckCircle2 className="mt-0.5 h-5 w-5" />
+              <div className={MESSAGE}>
+                <CircleCheck aria-hidden className="mt-1 h-4 w-4 shrink-0" />
                 <p>{serverMessage}</p>
               </div>
             )}
 
             {status === "error" && (
-              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
-                {serverMessage}
+              <div className={MESSAGE}>
+                <CircleAlert aria-hidden className="mt-1 h-4 w-4 shrink-0" />
+                <span>{serverMessage}</span>
               </div>
             )}
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2">
               <Field label="Nom" error={errors.lastName}>
-                <Input value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Dupont" />
+                <Input value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Dupont" className={INPUT} />
               </Field>
               <Field label="Prénom" error={errors.firstName}>
-                <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="Camille" />
+                <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="Camille" className={INPUT} />
               </Field>
               <Field label="Adresse e-mail" error={errors.email}>
                 <Input
@@ -179,10 +203,11 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="camille@exemple.fr"
+                  className={INPUT}
                 />
               </Field>
               <Field label="Numéro de téléphone">
-                <Input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+33 6 00 00 00 00" />
+                <Input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+33 6 00 00 00 00" className={INPUT} />
               </Field>
               <Field label="Prétention salariale annuelle (€ brut / an)" error={errors.salaryExpectation}>
                 <Input
@@ -193,6 +218,7 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
                   value={salaryExpectation}
                   onChange={(event) => setSalaryExpectation(event.target.value)}
                   placeholder="Ex : 45000"
+                  className={INPUT}
                 />
               </Field>
             </div>
@@ -222,7 +248,7 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
               />
             </div>
 
-            <div className="mt-8">
+            <div>
               <UploadZone
                 title="Déposer votre CV"
                 file={cv}
@@ -233,14 +259,15 @@ export function JobApplicationDialog({ jobId, jobTitle }: JobApplicationDialogPr
               />
             </div>
 
-            <Button
+            <button
               type="button"
               disabled={status === "submitting"}
               onClick={handleSubmit}
-              className="w-full rounded-full bg-[#0A1A2F] py-6 text-base font-bold text-white hover:bg-[#0d2a4b] disabled:opacity-60"
+              className={`${PILL_PRIMARY} w-full`}
             >
+              {status === "submitting" && <span aria-hidden className={SPINNER} />}
               {status === "submitting" ? "Envoi en cours..." : "Envoyer ma candidature"}
-            </Button>
+            </button>
           </div>
         </div>
       </DialogContent>
@@ -258,10 +285,15 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <label className="space-y-2 text-sm font-semibold text-[#0A1A2F]">
-      <span>{label}</span>
+    <label className="block">
+      <span className={LABEL}>{label}</span>
       {children}
-      {error && <span className="block text-xs font-medium text-red-600">{error}</span>}
+      {error && (
+        <span className="mt-2 flex items-center gap-2 text-xs font-semibold text-zinc-900">
+          <CircleAlert aria-hidden className="h-3 w-3 shrink-0" />
+          {error}
+        </span>
+      )}
     </label>
   );
 }
@@ -285,7 +317,7 @@ function UploadZone({
     <div
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
-      className="rounded-[24px] border border-dashed border-[#0A1A2F]/25 bg-[#F4F7FA] p-5 transition hover:border-[#0A1A2F]/60"
+      className="border border-dashed border-zinc-900/25 p-6 transition-colors duration-300 hover:border-zinc-900"
     >
       <input
         ref={inputRef}
@@ -294,24 +326,32 @@ function UploadZone({
         className="hidden"
         onChange={(event) => onSelect(event.target.files?.item(0) ?? null)}
       />
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0A1A2F] text-white">
-          {file ? <FileText className="h-5 w-5" /> : <UploadCloud className="h-5 w-5" />}
+      <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-zinc-900">
+          {file ? <FileText aria-hidden className="h-5 w-5" /> : <UploadCloud aria-hidden className="h-5 w-5" />}
         </div>
         <div>
-          <p className="font-bold text-[#0A1A2F]">{title}</p>
-          <p className="mt-1 text-xs text-[#0A1A2F]/60">PDF, DOC ou DOCX, glisser-déposer ou sélection.</p>
+          <p className="text-sm font-bold uppercase tracking-tight">{title}</p>
+          <p className="mt-1 text-xs text-zinc-500">PDF, DOC ou DOCX, glisser-déposer ou sélection.</p>
         </div>
-        {file && <p className="max-w-full truncate rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#0A1A2F]">{file.name}</p>}
-        <Button
+        {file && (
+          <p className="max-w-full truncate rounded-full border border-zinc-900/25 px-3 py-1 text-xs font-semibold">
+            {file.name}
+          </p>
+        )}
+        <button
           type="button"
-          variant="outline"
-          className="rounded-full border-[#0A1A2F] text-[#0A1A2F] hover:bg-[#0A1A2F]/10"
+          className={PILL_SECONDARY}
           onClick={() => inputRef.current?.click()}
         >
           Choisir un fichier
-        </Button>
-        {error && <p className="text-xs font-medium text-red-600">{error}</p>}
+        </button>
+        {error && (
+          <p className="flex items-center gap-2 text-xs font-semibold text-zinc-900">
+            <CircleAlert aria-hidden className="h-3 w-3 shrink-0" />
+            {error}
+          </p>
+        )}
       </div>
     </div>
   );
