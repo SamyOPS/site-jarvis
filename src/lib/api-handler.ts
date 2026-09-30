@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   getAccessTokenFromRequest,
   getAuthorizedActor,
   isAuthorizedActorError,
+  type ActorUser,
   type AuthorizedProfile,
 } from "@/lib/server-supabase";
 
@@ -25,7 +26,7 @@ export class ApiError extends Error {
 
 export type ActorContext = {
   adminClient: SupabaseClient;
-  user: User;
+  user: ActorUser;
   profile: AuthorizedProfile;
   request: Request;
 };

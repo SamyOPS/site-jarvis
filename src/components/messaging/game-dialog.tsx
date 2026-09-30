@@ -124,7 +124,7 @@ export function GameDialog({ gameId, currentUserId, opponentName, onClose, onRem
             opponentName={opponentName}
             interactive={myTurn && !pending}
             pending={pending}
-            sendMove={(body) => void sendMove(body)}
+            sendMove={(body, optimistic) => void sendMove(body, optimistic)}
             playChessMove={(move) => void playMove(move)}
           />
         ) : null}

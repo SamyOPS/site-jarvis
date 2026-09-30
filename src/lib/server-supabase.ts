@@ -33,16 +33,38 @@ export function getServerSupabaseClients() {
   };
 }
 
+/**
+ * Identite de l'appelant, lue dans son jeton verifie. Volontairement reduite a ce que
+ * porte le JWT : une route qui a besoin du compte complet (derniere connexion, dates...)
+ * le demande elle-meme a l'API admin.
+ */
+export type ActorUser = {
+  id: string;
+  email: string | null;
+};
+
 export async function getAuthorizedActor(accessToken: string, allowedRoles: string[]) {
   const { authClient, adminClient } = getServerSupabaseClients();
-  const {
-    data: { user },
-    error: authError,
-  } = await authClient.auth.getUser(accessToken);
+  /*
+    `getClaims` et non `getUser` : avec des cles de signature asymetriques, le jeton se
+    verifie localement (cles publiques mises en cache) au lieu d'un aller-retour vers le
+    serveur d'authentification a CHAQUE appel d'API. Avec un secret symetrique, la
+    bibliotheque retombe d'elle-meme sur `getUser`.
+    Contrepartie assumee : une session fermee reste acceptee jusqu'a l'expiration de son
+    jeton (une heure au plus). Le profil, lu juste apres, reste la source du role et du
+    statut : un compte desactive ou retrograde est refuse immediatement.
+  */
+  const { data: claimsData, error: authError } = await authClient.auth.getClaims(accessToken);
+  const claims = claimsData?.claims;
 
-  if (authError || !user) {
+  if (authError || !claims?.sub) {
     return { error: authError?.message ?? "Utilisateur non authentifie.", status: 401 as const };
   }
+
+  const user: ActorUser = {
+    id: claims.sub,
+    email: typeof claims.email === "string" ? claims.email : null,
+  };
 
   const { data: profile, error: profileError } = await adminClient
     .from("profiles")

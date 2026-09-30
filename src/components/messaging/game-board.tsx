@@ -7,6 +7,8 @@ import { CheckersBoard } from "@/components/messaging/checkers-board";
 import { GuessWhoPanel } from "@/components/messaging/guess-who-panel";
 import { MastermindPanel } from "@/components/messaging/mastermind-panel";
 import type { ChessMoveInput } from "@/lib/chess-game";
+import { playConnectFour, playTicTacToe } from "@/lib/grid-games";
+import { playCheckers } from "@/lib/checkers-game";
 import type {
   BattleshipShip,
   CheckersState,
@@ -23,9 +25,25 @@ type GameBoardProps = {
   /** Vrai quand c'est à l'utilisateur d'agir et qu'aucun coup n'est en vol. */
   interactive: boolean;
   pending: boolean;
-  sendMove: (body: Record<string, unknown>) => void;
+  /** `optimistic` rejoue le coup localement pour l'afficher sans attendre le serveur. */
+  sendMove: (body: Record<string, unknown>, optimistic?: (game: GameItem) => GameItem | null) => void;
   playChessMove: (move: ChessMoveInput) => void;
 };
+
+/**
+ * Coup rejoue en local avec les regles du moteur. Le serveur reste seul juge : s'il
+ * refuse, la partie revient a sa version. Un coup que les regles locales refusent n'est
+ * pas envoye du tout.
+ */
+function locally<S>(apply: (state: S) => { state: S }) {
+  return (current: GameItem): GameItem | null => {
+    try {
+      return { ...current, state: apply(current.state as S).state as GameItem["state"] };
+    } catch {
+      return null;
+    }
+  };
+}
 
 /**
  * Aiguillage vers le plateau du jeu. Chaque plateau parle le format de coup de son
@@ -68,7 +86,9 @@ export function GameBoard({ game, seat, opponentName, interactive, pending, send
           state={game.state as GridState}
           seat={seat}
           interactive={interactive}
-          onPlay={(column) => sendMove({ column })}
+          onPlay={(column) =>
+            sendMove({ column }, locally<GridState>((state) => playConnectFour(state, seat, column)))
+          }
         />
       );
     case "tic_tac_toe":
@@ -77,7 +97,9 @@ export function GameBoard({ game, seat, opponentName, interactive, pending, send
           state={game.state as GridState}
           seat={seat}
           interactive={interactive}
-          onPlay={(cell) => sendMove({ cell })}
+          onPlay={(cell) =>
+            sendMove({ cell }, locally<GridState>((state) => playTicTacToe(state, seat, cell)))
+          }
         />
       );
     case "checkers":
@@ -86,7 +108,9 @@ export function GameBoard({ game, seat, opponentName, interactive, pending, send
           state={game.state as CheckersState}
           seat={seat}
           interactive={interactive}
-          onMove={(path) => sendMove({ path })}
+          onMove={(path) =>
+            sendMove({ path }, locally<CheckersState>((state) => playCheckers(state, seat, path)))
+          }
         />
       );
     case "guess_who":

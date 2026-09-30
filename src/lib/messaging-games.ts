@@ -96,11 +96,17 @@ export async function saveSecret(
  */
 export async function gameForActor(adminClient: SupabaseClient, row: GameRow, actorId: string) {
   if (!GAME_ENGINES[row.game_type].hasSecrets) return toGameItem(row);
-  const secret = await loadSecret(adminClient, row.id, actorId);
-  if (row.status !== "finished") return toGameItem(row, { secret });
+  if (row.status !== "finished") {
+    return toGameItem(row, { secret: await loadSecret(adminClient, row.id, actorId) });
+  }
 
+  // Les deux lectures sont independantes : en parallele, un aller-retour de moins.
   const opponentId = row.player_one_id === actorId ? row.player_two_id : row.player_one_id;
-  return toGameItem(row, { secret, opponentSecret: await loadSecret(adminClient, row.id, opponentId) });
+  const [secret, opponentSecret] = await Promise.all([
+    loadSecret(adminClient, row.id, actorId),
+    loadSecret(adminClient, row.id, opponentId),
+  ]);
+  return toGameItem(row, { secret, opponentSecret });
 }
 
 /** Charge une partie et vérifie que l'appelant participe à sa conversation. */

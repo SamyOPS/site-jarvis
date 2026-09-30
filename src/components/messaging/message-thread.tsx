@@ -141,6 +141,8 @@ export function MessageThread({
                       className={cn(
                         // Bulle arrondie, coin cote expediteur plus serre : repere visuel de qui parle.
                         "max-w-[78%] rounded-2xl px-3.5 py-2",
+                        // En vol : affiche d'avance, estompe jusqu'a la confirmation du serveur.
+                        message.pending && "opacity-60",
                         mine
                           ? "rounded-br-md bg-app-accent text-app-on-accent"
                           : "rounded-bl-md border border-app-line bg-app-surface text-app-text",

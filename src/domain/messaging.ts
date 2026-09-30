@@ -66,6 +66,8 @@ export type MessageItem = {
   createdAt: string;
   /** Partie a laquelle ce message invite, s'il s'agit d'une invitation. */
   gameId: string | null;
+  /** Vrai tant que le serveur n'a pas confirme l'envoi : le message est affiche d'avance. */
+  pending?: boolean;
 };
 
 /** Nom affichable d'un profil, avec repli sur l'e-mail puis sur un libelle neutre. */

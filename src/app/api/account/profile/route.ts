@@ -78,15 +78,19 @@ function toAccountProfile(row: ProfileRow, avatarUrl: string | null): AccountPro
 /**
  * Profil de l'utilisateur courant, et sa derniere connexion.
  *
- * La date vient du jeton d'authentification (`last_sign_in_at`), pas d'une table : c'est
- * Supabase qui la tient, et la recopier ailleurs creerait deux verites.
+ * La date vient du compte d'authentification (`last_sign_in_at`), pas d'une table : c'est
+ * Supabase qui la tient, et la recopier ailleurs creerait deux verites. Le jeton verifie
+ * ne la porte pas : elle est demandee a l'API admin, en parallele du profil.
  */
 export const GET = withActor([...ACCOUNT_ROLES], async ({ adminClient, profile, user }) => {
-  const row = await readProfile(adminClient, profile.id);
+  const [row, account] = await Promise.all([
+    readProfile(adminClient, profile.id),
+    adminClient.auth.admin.getUserById(user.id),
+  ]);
 
   return NextResponse.json({
     profile: toAccountProfile(row, avatarPublicUrl(adminClient, row.avatar_url)),
-    lastSignInAt: user.last_sign_in_at ?? null,
+    lastSignInAt: account.data.user?.last_sign_in_at ?? null,
   });
 }, SESSION);
 

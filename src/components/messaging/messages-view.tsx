@@ -58,7 +58,7 @@ export function MessagesView({
     sendMessage,
     startGame,
     closeConversation,
-  } = useMessaging();
+  } = useMessaging({ currentUserId });
 
   /** Partie affichee par-dessus le fil, ouverte depuis une invitation ou a sa creation. */
   const [openGameId, setOpenGameId] = useState<string | null>(null);
@@ -86,6 +86,31 @@ export function MessagesView({
     startedRef.current = initialContactId;
     void startConversationWith(initialContactId);
   }, [initialContactId, startConversationWith]);
+
+  /*
+    Sans fil designe par l'URL, on ouvre la conversation la plus recente des que la liste
+    arrive. Une seule fois : fermer le fil ensuite (retour mobile) doit laisser la liste.
+  */
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (autoOpenedRef.current || initialConversationId || initialContactId) return;
+    if (activeConversationId) {
+      autoOpenedRef.current = true;
+      return;
+    }
+    if (!conversations.length) return;
+    autoOpenedRef.current = true;
+    const latest = conversations.reduce((best, item) =>
+      item.lastMessageAt > best.lastMessageAt ? item : best,
+    );
+    void openConversation(latest.id);
+  }, [
+    activeConversationId,
+    conversations,
+    initialContactId,
+    initialConversationId,
+    openConversation,
+  ]);
 
   const contactName = activeConversation?.contact?.name ?? "Compte supprimé";
 

@@ -26,7 +26,7 @@ import type {
  */
 
 /** Rythme du repli quand Realtime n'a pas pris la main. */
-const POLL_INTERVAL_MS = 15_000;
+const POLL_INTERVAL_MS = 5_000;
 /** Rythme de secours une fois Realtime etabli : filet, pas mecanisme principal. */
 const POLL_INTERVAL_REALTIME_MS = 60_000;
 
@@ -39,11 +39,31 @@ type UseMessagingOptions = {
    * de la console.
    */
   loadContacts?: boolean;
+  /**
+   * Auteur des messages envoyes. Connu, il permet d'afficher un message des l'appui sur
+   * Entree, sans attendre l'aller-retour serveur.
+   */
+  currentUserId?: string;
 };
+
+/**
+ * Remplace le fil par la version serveur en gardant les messages encore en vol : un
+ * rafraichissement ne doit pas faire disparaitre ce que l'on vient d'ecrire.
+ */
+function mergeWithPending(server: MessageItem[], current: MessageItem[]) {
+  // Un message en vol deja present cote serveur (POST pas encore revenu) n'est pas double.
+  const pending = current.filter(
+    (item) =>
+      item.pending &&
+      !server.some((sent) => sent.senderId === item.senderId && sent.body === item.body),
+  );
+  return pending.length ? [...server, ...pending] : server;
+}
 
 export function useMessaging({
   enabled = true,
   loadContacts = true,
+  currentUserId,
 }: UseMessagingOptions = {}) {
   const callApi = useMemo(() => createAuthorizedFetch("messagerie"), []);
   /*
@@ -149,6 +169,28 @@ export function useMessaging({
       const text = body.trim();
       if (!conversationId || !text) return false;
 
+      /*
+        Le message s'affiche AVANT la reponse du serveur : l'aller-retour (authentification,
+        controle de participation, insertion) se sent a chaque envoi. Il porte un
+        identifiant provisoire, remplace par le vrai a la confirmation — ou retire si
+        l'envoi echoue, la saisie etant alors rendue a l'utilisateur.
+      */
+      const tempId = `pending:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+      if (currentUserId) {
+        setMessages((current) => [
+          ...current,
+          {
+            id: tempId,
+            conversationId,
+            senderId: currentUserId,
+            body: text,
+            createdAt: new Date().toISOString(),
+            gameId: null,
+            pending: true,
+          },
+        ]);
+      }
+
       setSending(true);
       try {
         const payload = (await callApi(
@@ -160,26 +202,31 @@ export function useMessaging({
           },
         )) as { message?: MessageItem } | null;
 
-        // Ajout immediat plutot que rechargement du fil : le message doit apparaitre au
-        // moment ou l'on relache la touche. La garde sur l'identifiant evite le doublon
-        // si Realtime a devance la reponse.
-        if (payload?.message) {
-          const sent = payload.message;
-          setMessages((current) =>
-            current.some((item) => item.id === sent.id) ? current : [...current, sent],
-          );
-        }
-        await refreshConversations();
+        // La garde sur l'identifiant evite le doublon si Realtime a devance la reponse.
+        const sent = payload?.message;
+        setMessages((current) => {
+          const withoutTemp = current.filter((item) => item.id !== tempId);
+          if (!sent || withoutTemp.some((item) => item.id === sent.id)) return withoutTemp;
+          const index = current.findIndex((item) => item.id === tempId);
+          if (index === -1) return [...withoutTemp, sent];
+          const next = [...current];
+          next[index] = sent;
+          return next;
+        });
+        // La liste se met a jour en arriere-plan : l'envoi est deja termine pour
+        // l'utilisateur, inutile de le faire attendre.
+        void refreshConversations();
         setError(null);
         return true;
       } catch (caught) {
+        setMessages((current) => current.filter((item) => item.id !== tempId));
         setError(caught instanceof Error ? caught.message : "Envoi impossible.");
         return false;
       } finally {
         setSending(false);
       }
     },
-    [callApi, refreshConversations],
+    [callApi, currentUserId, refreshConversations],
   );
 
   /**
@@ -282,21 +329,27 @@ export function useMessaging({
 
             // Le fil ouvert se complete en place ; les autres ne touchent que la liste.
             if (row.conversation_id === activeConversationIdRef.current) {
-              setMessages((current) =>
-                current.some((item) => item.id === row.id)
-                  ? current
-                  : [
-                      ...current,
-                      {
-                        id: row.id,
-                        conversationId: row.conversation_id,
-                        senderId: row.sender_id,
-                        body: row.body,
-                        createdAt: row.created_at,
-                        gameId: row.game_id ?? null,
-                      },
-                    ],
-              );
+              const incoming: MessageItem = {
+                id: row.id,
+                conversationId: row.conversation_id,
+                senderId: row.sender_id,
+                body: row.body,
+                createdAt: row.created_at,
+                gameId: row.game_id ?? null,
+              };
+              setMessages((current) => {
+                if (current.some((item) => item.id === row.id)) return current;
+                // Notre propre message revenu par Realtime avant la reponse du POST : il
+                // prend la place de sa version provisoire au lieu de s'afficher en double.
+                const tempIndex = current.findIndex(
+                  (item) =>
+                    item.pending && item.senderId === row.sender_id && item.body === row.body,
+                );
+                if (tempIndex === -1) return [...current, incoming];
+                const next = [...current];
+                next[tempIndex] = incoming;
+                return next;
+              });
             }
             void refreshConversations();
           },
@@ -313,15 +366,32 @@ export function useMessaging({
     };
   }, [channelName, enabled, refreshConversations]);
 
-  // Repli periodique. L'intervalle s'allonge une fois Realtime etabli.
+  /*
+    Repli periodique. L'intervalle s'allonge une fois Realtime etabli. Sans Realtime, le
+    fil ouvert est recharge lui aussi : rafraichir la seule liste laissait les messages
+    recus hors du fil jusqu'a sa reouverture.
+  */
   useEffect(() => {
     if (!enabled) return;
     const interval = window.setInterval(
-      () => void refreshConversations(),
+      () => {
+        void refreshConversations();
+        const conversationId = activeConversationIdRef.current;
+        if (realtimeReady || !conversationId) return;
+        void loadMessages(conversationId)
+          .then((items) => {
+            // Le fil a pu changer pendant la requete : on n'ecrase pas un autre fil.
+            if (activeConversationIdRef.current !== conversationId) return;
+            setMessages((current) => mergeWithPending(items, current));
+          })
+          .catch(() => {
+            // Le prochain tour reessaiera ; l'erreur de la liste suffit a signaler un souci.
+          });
+      },
       realtimeReady ? POLL_INTERVAL_REALTIME_MS : POLL_INTERVAL_MS,
     );
     return () => window.clearInterval(interval);
-  }, [enabled, realtimeReady, refreshConversations]);
+  }, [enabled, loadMessages, realtimeReady, refreshConversations]);
 
   const activeConversation = useMemo(
     () => conversations.find((item) => item.id === activeConversationId) ?? null,
