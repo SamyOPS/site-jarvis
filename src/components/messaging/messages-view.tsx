@@ -10,8 +10,9 @@ import { MessageThread } from "@/components/messaging/message-thread";
 import { GameDialog } from "@/components/messaging/game-dialog";
 import { StatusNotice } from "@/components/dashboard/status-notice";
 import { messagingRoleLabel } from "@/domain/messaging";
-import { AvatarBubble } from "@/components/console/avatar-bubble";
+import { ContactAvatar } from "@/components/messaging/contact-avatar";
 import { useMessaging } from "@/features/messaging/use-messaging";
+import { useIsOnline } from "@/features/messaging/presence-store";
 
 type MessagesViewProps = {
   currentUserId: string;
@@ -113,6 +114,7 @@ export function MessagesView({
   ]);
 
   const contactName = activeConversation?.contact?.name ?? "Compte supprimé";
+  const contactOnline = useIsOnline(activeConversation?.contact?.id);
 
   return (
     <div className="space-y-2">
@@ -172,7 +174,8 @@ export function MessagesView({
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
-                <AvatarBubble
+                <ContactAvatar
+                  profileId={activeConversation?.contact?.id}
                   avatarUrl={activeConversation?.contact?.avatarUrl}
                   name={contactName}
                   email={activeConversation?.contact?.email}
@@ -183,6 +186,12 @@ export function MessagesView({
                     {contactName}
                   </p>
                   <p className="truncate text-app-xs text-app-text-muted">
+                    {contactOnline ? (
+                      <span className="text-validated">En ligne</span>
+                    ) : (
+                      "Hors ligne"
+                    )}
+                    {" · "}
                     {messagingRoleLabel(activeConversation?.contact?.role)}
                   </p>
                 </div>

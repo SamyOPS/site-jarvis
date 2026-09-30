@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { sidebarCollapsedPreference } from "@/lib/console-preferences";
 import { hydrateAppearance } from "@/features/account/appearance-store";
+import { startConsolePresence } from "@/features/messaging/presence-store";
 import {
   accountIdentityStore,
   hydrateAccountIdentity,
@@ -94,6 +95,9 @@ export function ConsoleShell({
     void hydrateAppearance();
     void hydrateAccountIdentity();
   }, []);
+
+  // Presence en ligne : annoncee depuis le shell, donc depuis tout ecran de la console.
+  useEffect(() => startConsolePresence(), []);
 
   /*
     Identite affichee dans la barre superieure.

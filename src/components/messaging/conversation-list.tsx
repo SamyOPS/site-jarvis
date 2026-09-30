@@ -5,7 +5,7 @@ import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { messagingRoleLabel, type ConversationSummary } from "@/domain/messaging";
 import { formatRelativeTime } from "@/features/messaging/format";
-import { AvatarBubble } from "@/components/console/avatar-bubble";
+import { ContactAvatar } from "@/components/messaging/contact-avatar";
 
 type ConversationListProps = {
   conversations: ConversationSummary[];
@@ -72,7 +72,8 @@ export function ConversationList({
                 active ? "bg-app-surface-hover" : "hover:bg-app-surface-hover",
               )}
             >
-              <AvatarBubble
+              <ContactAvatar
+                profileId={conversation.contact?.id}
                 avatarUrl={conversation.contact?.avatarUrl}
                 name={name}
                 email={conversation.contact?.email}
