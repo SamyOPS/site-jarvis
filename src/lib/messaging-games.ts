@@ -2,14 +2,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { ApiError, unwrap } from "@/lib/api-handler";
 import { assertConversationParticipant } from "@/lib/messaging-access";
-import type {
-  GameItem,
-  GamePrivate,
-  GameResult,
-  GameSeat,
-  GameState,
-  GameStatus,
-  GameType,
+import {
+  gameCatalogEntry,
+  gameResultBody,
+  type GameItem,
+  type GameResultMeta,
+  type GamePrivate,
+  type GameResult,
+  type GameSeat,
+  type GameState,
+  type GameStatus,
+  type GameType,
 } from "@/domain/games";
 import { GAME_ENGINES } from "@/lib/game-engines";
 
@@ -154,4 +157,78 @@ export function resolveGameId(value: unknown) {
   const gameId = String(value ?? "").trim();
   if (!gameId) throw new ApiError("Partie introuvable.", 400);
   return gameId;
+}
+
+function winnerOf(row: Pick<GameRow, "result" | "player_one_id" | "player_two_id">) {
+  if (row.result === "player_one") return row.player_one_id;
+  if (row.result === "player_two") return row.player_two_id;
+  return null;
+}
+
+/**
+ * Poste le résultat d'une partie qui vient de se terminer, avec le score cumulé des deux
+ * participants à ce jeu dans cette conversation.
+ *
+ * Le score est RECALCULÉ depuis l'historique des parties plutôt que tenu dans un
+ * compteur : aucune valeur à maintenir, donc rien qui puisse diverger des parties
+ * réellement jouées.
+ *
+ * Le message n'a pas d'auteur et naît marqué comme notifié : ce n'est pas un message à
+ * lire, il ne doit ni compter comme non lu ni déclencher de rappel par e-mail.
+ *
+ * Un échec est journalisé sans remonter : la partie est déjà close, refuser la réponse au
+ * joueur pour un message de fil manquant serait pire que le message manquant.
+ */
+export async function postGameResult(adminClient: SupabaseClient, row: GameRow) {
+  if (row.status !== "finished") return;
+  const entry = gameCatalogEntry(row.game_type);
+  if (!entry) return;
+
+  try {
+    const history = unwrap(
+      await adminClient
+        .from("games")
+        .select("result,player_one_id,player_two_id")
+        .eq("conversation_id", row.conversation_id)
+        .eq("game_type", row.game_type)
+        .eq("status", "finished")
+        .not("result", "is", null),
+    ) as Pick<GameRow, "result" | "player_one_id" | "player_two_id">[] | null;
+
+    const wins: Record<string, number> = {};
+    let draws = 0;
+    for (const game of history ?? []) {
+      if (game.result === "draw") {
+        draws += 1;
+        continue;
+      }
+      const winner = winnerOf(game);
+      if (winner) wins[winner] = (wins[winner] ?? 0) + 1;
+    }
+
+    const cancelled = row.result === null;
+    const meta: GameResultMeta = {
+      gameType: row.game_type,
+      outcome: cancelled ? "cancelled" : row.result === "draw" ? "draw" : "win",
+      winnerId: winnerOf(row),
+      reason: row.result_reason,
+      players: [row.player_one_id, row.player_two_id],
+      wins,
+      draws,
+    };
+
+    unwrap(
+      await adminClient.from("messages").insert({
+        conversation_id: row.conversation_id,
+        sender_id: null,
+        body: gameResultBody(entry, cancelled),
+        game_id: row.id,
+        kind: "game_result",
+        meta,
+        email_notified_at: new Date().toISOString(),
+      }),
+    );
+  } catch (error) {
+    console.error("[jeux] resultat non poste", row.id, error);
+  }
 }

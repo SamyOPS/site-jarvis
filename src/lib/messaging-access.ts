@@ -243,7 +243,7 @@ export async function assertConversationParticipant(
   if (!data) throw new ApiError("Conversation introuvable.", 404);
 }
 
-export const MESSAGE_COLUMNS = "id,conversation_id,sender_id,body,created_at,game_id";
+export const MESSAGE_COLUMNS = "id,conversation_id,sender_id,body,created_at,game_id,kind,meta";
 
 export type MessageRow = {
   id: string;
@@ -252,6 +252,8 @@ export type MessageRow = {
   body: string;
   created_at: string;
   game_id: string | null;
+  kind: MessageItem["kind"];
+  meta: MessageItem["meta"];
 };
 
 export function toMessageItem(row: MessageRow): MessageItem {
@@ -262,5 +264,7 @@ export function toMessageItem(row: MessageRow): MessageItem {
     body: row.body,
     createdAt: row.created_at,
     gameId: row.game_id ?? null,
+    kind: row.kind ?? "message",
+    meta: row.meta ?? null,
   };
 }

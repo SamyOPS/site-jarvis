@@ -186,6 +186,8 @@ export function useMessaging({
             body: text,
             createdAt: new Date().toISOString(),
             gameId: null,
+            kind: "message",
+            meta: null,
             pending: true,
           },
         ]);
@@ -325,6 +327,8 @@ export function useMessaging({
               body: string;
               created_at: string;
               game_id: string | null;
+              kind?: MessageItem["kind"];
+              meta?: MessageItem["meta"];
             };
 
             // Le fil ouvert se complete en place ; les autres ne touchent que la liste.
@@ -336,6 +340,8 @@ export function useMessaging({
                 body: row.body,
                 createdAt: row.created_at,
                 gameId: row.game_id ?? null,
+                kind: row.kind ?? "message",
+                meta: row.meta ?? null,
               };
               setMessages((current) => {
                 if (current.some((item) => item.id === row.id)) return current;

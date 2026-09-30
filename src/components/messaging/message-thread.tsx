@@ -16,7 +16,13 @@ import { MESSAGE_MAX_LENGTH, type MessageItem } from "@/domain/messaging";
 import { dayKey, formatDaySeparator, formatMessageTime } from "@/features/messaging/format";
 import { EmojiPicker } from "@/components/messaging/emoji-picker";
 import { GamePicker } from "@/components/messaging/game-picker";
-import type { GameType } from "@/domain/games";
+import {
+  GAME_RESULT_REASONS,
+  gameCatalogEntry,
+  gameResultHeadline,
+  gameScoreLine,
+  type GameType,
+} from "@/domain/games";
 
 type MessageThreadProps = {
   messages: MessageItem[];
@@ -89,6 +95,21 @@ export function MessageThread({
     [messages],
   );
 
+  /*
+    Parties terminees, reperees par leur message de resultat : leur invitation perd son
+    bouton. Le resultat est toujours posterieur a l'invitation, donc present dans le fil
+    des que l'invitation l'est.
+  */
+  const finishedGameIds = useMemo(
+    () =>
+      new Set(
+        messages
+          .filter((message) => message.kind === "game_result" && message.gameId)
+          .map((message) => message.gameId as string),
+      ),
+    [messages],
+  );
+
   /** Insere l'emoji a la position du curseur (ou remplace la selection), pas en fin de texte. */
   const insertEmoji = (emoji: string) => {
     const input = inputRef.current;
@@ -128,14 +149,43 @@ export function MessageThread({
           <ul className="space-y-2">
             {rows.map(({ message, showDay }) => {
               const mine = message.senderId === currentUserId;
+              const daySeparator = showDay && (
+                <p className="my-3 text-center text-app-2xs uppercase tracking-wider text-app-text-muted">
+                  {formatDaySeparator(message.createdAt)}
+                </p>
+              );
+
+              // Resultat de partie : ni a gauche ni a droite, il n'a pas d'auteur.
+              if (message.kind === "game_result" && message.meta) {
+                const meta = message.meta;
+                const entry = gameCatalogEntry(meta.gameType);
+                const headline = gameResultHeadline(meta, currentUserId);
+                const reason = meta.reason ? GAME_RESULT_REASONS[meta.reason] : null;
+                return (
+                  <li key={message.id}>
+                    {daySeparator}
+                    <div className="flex justify-center">
+                      <div className="rounded-2xl border border-app-line bg-app-surface-hover px-4 py-2 text-center">
+                        <p className="text-app-sm font-medium text-app-text">
+                          {entry?.icon} {entry?.name} · {headline}
+                          {reason && meta.outcome !== "cancelled" && (
+                            <span className="font-normal text-app-text-muted"> ({reason})</span>
+                          )}
+                        </p>
+                        {meta.outcome !== "cancelled" && (
+                          <p className="mt-0.5 text-app-xs text-app-text-secondary">
+                            {gameScoreLine(meta, currentUserId)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              }
 
               return (
                 <li key={message.id}>
-                  {showDay && (
-                    <p className="my-3 text-center text-app-2xs uppercase tracking-wider text-app-text-muted">
-                      {formatDaySeparator(message.createdAt)}
-                    </p>
-                  )}
+                  {daySeparator}
                   <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
                     <div
                       className={cn(
@@ -151,7 +201,7 @@ export function MessageThread({
                       <p className="whitespace-pre-wrap break-words text-app-sm">
                         {message.body}
                       </p>
-                      {message.gameId && onOpenGame && (
+                      {message.gameId && onOpenGame && !finishedGameIds.has(message.gameId) && (
                         <button
                           type="button"
                           onClick={() => onOpenGame(message.gameId!)}

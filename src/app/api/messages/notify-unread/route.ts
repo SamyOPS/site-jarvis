@@ -78,6 +78,8 @@ export async function POST(request: Request) {
     .from("messages")
     .select("id,conversation_id,sender_id,created_at")
     .is("email_notified_at", null)
+    // Les resultats de partie ne sont pas des messages a lire : pas de rappel.
+    .eq("kind", "message")
     .lt("created_at", cutoff)
     .order("created_at", { ascending: true })
     .limit(BATCH_SIZE);

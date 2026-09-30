@@ -5,6 +5,7 @@ import { MESSAGING_ROLES } from "@/domain/messaging";
 import {
   loadGameForActor,
   gameForActor,
+  postGameResult,
   resolveGameId,
   updateGameIfUnchanged,
 } from "@/lib/messaging-games";
@@ -35,6 +36,7 @@ export const POST = withActor<RouteContext>(
       result: pending ? null : isPlayerOne ? "player_two" : "player_one",
       result_reason: pending ? "cancelled" : "resign",
     });
+    await postGameResult(adminClient, updated);
     return NextResponse.json({ game: await gameForActor(adminClient, updated, profile.id) });
   },
   { missingSession: "Session manquante." },

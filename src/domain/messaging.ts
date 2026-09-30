@@ -5,6 +5,8 @@
  * affectations RH, donc il a besoin d'un client Supabase et n'a rien a faire ici.
  */
 
+import type { GameResultMeta } from "@/domain/games";
+
 /** Roles ayant acces a la messagerie. Les autres n'ont pas de console. */
 export const MESSAGING_ROLES = ["rh", "salarie", "admin"] as const;
 
@@ -66,9 +68,15 @@ export type MessageItem = {
   createdAt: string;
   /** Partie a laquelle ce message invite, s'il s'agit d'une invitation. */
   gameId: string | null;
+  /** `game_result` : fin de partie postee par le serveur, sans auteur. */
+  kind: MessageKind;
+  /** Resultat et score, pour un message `game_result`. */
+  meta: GameResultMeta | null;
   /** Vrai tant que le serveur n'a pas confirme l'envoi : le message est affiche d'avance. */
   pending?: boolean;
 };
+
+export type MessageKind = "message" | "game_result";
 
 /** Nom affichable d'un profil, avec repli sur l'e-mail puis sur un libelle neutre. */
 export function displayContactName(

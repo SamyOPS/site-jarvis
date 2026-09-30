@@ -8,6 +8,7 @@ import {
   loadGameForActor,
   loadSecret,
   profileAtSeat,
+  postGameResult,
   resolveGameId,
   saveSecret,
   updateGameIfUnchanged,
@@ -51,6 +52,7 @@ export const POST = withActor<RouteContext>(
         ? { status: "finished" as const, result: outcome.result ?? null, result_reason: outcome.reason ?? null }
         : {}),
     });
+    await postGameResult(adminClient, updated);
     return NextResponse.json({ game: await gameForActor(adminClient, updated, profile.id) });
   },
   { missingSession: "Session manquante." },

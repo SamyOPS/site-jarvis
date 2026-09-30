@@ -290,6 +290,48 @@ export function otherSeat(seat: GameSeat): GameSeat {
   return seat === "player_one" ? "player_two" : "player_one";
 }
 
+/**
+ * Contenu d'un message de résultat (`messages.meta`), posté dans le fil à la fin d'une
+ * partie. Le score est celui des deux participants à CE jeu, figé au moment de la partie.
+ * Les compteurs sont indexés par profil et non par place : la place change d'une partie
+ * à l'autre (le créateur joue en premier), le joueur non.
+ */
+export type GameResultMeta = {
+  gameType: GameType;
+  outcome: "win" | "draw" | "cancelled";
+  winnerId: string | null;
+  reason: string | null;
+  players: (string | null)[];
+  wins: Record<string, number>;
+  draws: number;
+};
+
+/** Aperçu du résultat dans la liste des conversations. Neutre : il est lu par les deux. */
+export function gameResultBody(entry: GameCatalogEntry, cancelled: boolean) {
+  return `${entry.icon} Partie de ${entry.name} ${cancelled ? "annulée" : "terminée"}`;
+}
+
+function plural(count: number, singular: string, pluralForm: string) {
+  return `${count} ${count > 1 ? pluralForm : singular}`;
+}
+
+/** Score vu par `viewerId` : « 3 victoires · 1 défaite · 2 nuls ». */
+export function gameScoreLine(meta: GameResultMeta, viewerId: string) {
+  const opponentId = meta.players.find((id) => id && id !== viewerId) ?? null;
+  const wins = meta.wins[viewerId] ?? 0;
+  const losses = opponentId ? (meta.wins[opponentId] ?? 0) : 0;
+  const parts = [plural(wins, "victoire", "victoires"), plural(losses, "défaite", "défaites")];
+  if (meta.draws > 0) parts.push(plural(meta.draws, "nul", "nuls"));
+  return parts.join(" · ");
+}
+
+/** Titre du résultat vu par `viewerId`. */
+export function gameResultHeadline(meta: GameResultMeta, viewerId: string) {
+  if (meta.outcome === "cancelled") return "Invitation annulée";
+  if (meta.outcome === "draw") return "Match nul";
+  return meta.winnerId === viewerId ? "Victoire" : "Défaite";
+}
+
 /** Texte du message d'invitation : c'est aussi ce qu'affichent l'aperçu et l'e-mail de rappel. */
 export function gameInvitationBody(entry: GameCatalogEntry) {
   return `${entry.icon} Invitation à une partie : ${entry.name}`;
