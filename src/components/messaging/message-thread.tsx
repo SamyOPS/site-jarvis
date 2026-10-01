@@ -58,11 +58,16 @@ export function MessageThread({
 }: MessageThreadProps) {
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  /*
+    Defilement de la SEULE zone du fil. `scrollIntoView` ferait aussi defiler tous les
+    ancetres : dans la fenetre de partie, chaque message ramenerait la fenetre entiere sur
+    le chat, loin du plateau.
+  */
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
+    const zone = scrollRef.current;
+    if (zone) zone.scrollTop = zone.scrollHeight;
   }, [messages]);
 
   const submit = async (event?: FormEvent) => {
@@ -231,7 +236,6 @@ export function MessageThread({
             })}
           </ul>
         )}
-        <div ref={endRef} />
       </div>
 
       <form

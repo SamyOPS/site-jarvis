@@ -42,7 +42,7 @@ export const GET = withActor<RouteContext>(
   [...MESSAGING_ROLES],
   async ({ adminClient, profile, request }, context) => {
     const conversationId = await resolveConversationId(context);
-    await assertConversationParticipant(adminClient, profile.id, conversationId);
+    const { clearedAt } = await assertConversationParticipant(adminClient, profile.id, conversationId);
 
     const before = new URL(request.url).searchParams.get("before");
 
@@ -55,6 +55,10 @@ export const GET = withActor<RouteContext>(
 
     if (before) {
       query = query.lt("created_at", before);
+    }
+    // Discussion supprimee par l'appelant : l'historique d'avant ne lui est plus rendu.
+    if (clearedAt) {
+      query = query.gt("created_at", clearedAt);
     }
 
     const rows = (unwrap(await query) as MessageRow[] | null) ?? [];

@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { messagingRoleLabel, type ConversationSummary } from "@/domain/messaging";
@@ -11,6 +11,8 @@ type ConversationListProps = {
   conversations: ConversationSummary[];
   activeConversationId: string | null;
   onSelect: (conversationId: string) => void;
+  /** Demande la suppression d'une discussion. Sans lui, pas de bouton de suppression. */
+  onDelete?: (conversation: ConversationSummary) => void;
   loading: boolean;
   /** Message affiche quand la liste est vide. */
   emptyHint: string;
@@ -27,6 +29,7 @@ export function ConversationList({
   conversations,
   activeConversationId,
   onSelect,
+  onDelete,
   loading,
   emptyHint,
   className,
@@ -62,7 +65,7 @@ export function ConversationList({
         const unread = conversation.unreadCount;
 
         return (
-          <li key={conversation.id}>
+          <li key={conversation.id} className="group relative">
             <button
               type="button"
               onClick={() => onSelect(conversation.id)}
@@ -70,6 +73,9 @@ export function ConversationList({
               className={cn(
                 "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors focus-visible:outline-app",
                 active ? "bg-app-surface-hover" : "hover:bg-app-surface-hover",
+                // Place reservee au bouton de suppression, pour qu'il ne couvre ni l'heure
+                // ni le compteur de non-lus.
+                onDelete && "pr-11",
               )}
             >
               <ContactAvatar
@@ -110,6 +116,22 @@ export function ConversationList({
                 </span>
               </span>
             </button>
+            {/*
+              Frere du bouton de la ligne, pas enfant : un bouton dans un bouton est invalide.
+              Visible au survol ou au clavier sur ordinateur ; toujours visible sur ecran
+              tactile, ou le survol n'existe pas.
+            */}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(conversation)}
+                aria-label={`Supprimer la discussion avec ${name}`}
+                title="Supprimer la discussion"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-app-control p-1.5 text-app-text-muted transition-[color,opacity] hover:text-red-500 focus-visible:opacity-100 focus-visible:outline-app md:opacity-0 md:group-hover:opacity-100"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
           </li>
         );
       })}

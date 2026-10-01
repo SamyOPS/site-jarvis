@@ -11,6 +11,7 @@ import { GameDialog } from "@/components/messaging/game-dialog";
 import { StatusNotice } from "@/components/dashboard/status-notice";
 import { messagingRoleLabel } from "@/domain/messaging";
 import { ContactAvatar } from "@/components/messaging/contact-avatar";
+import { DeleteConversationDialog } from "@/components/messaging/delete-conversation-dialog";
 import { useMessaging } from "@/features/messaging/use-messaging";
 import { useIsOnline } from "@/features/messaging/presence-store";
 
@@ -59,10 +60,13 @@ export function MessagesView({
     sendMessage,
     startGame,
     closeConversation,
+    deleteConversation,
   } = useMessaging({ currentUserId });
 
   /** Partie affichee par-dessus le fil, ouverte depuis une invitation ou a sa creation. */
   const [openGameId, setOpenGameId] = useState<string | null>(null);
+  /** Discussion dont la suppression attend confirmation. */
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 
   /*
     Ouverture initiale, une seule fois par identifiant. Sans cette garde, revenir a la
@@ -150,6 +154,12 @@ export function MessagesView({
               conversations={conversations}
               activeConversationId={activeConversationId}
               onSelect={openConversation}
+              onDelete={(conversation) =>
+                setPendingDelete({
+                  id: conversation.id,
+                  name: conversation.contact?.name ?? "Compte supprimé",
+                })
+              }
               loading={loadingConversations}
               emptyHint={emptyHint}
             />
@@ -225,11 +235,20 @@ export function MessagesView({
         currentUserId={currentUserId}
         opponentName={contactName}
         onClose={() => setOpenGameId(null)}
+        chat={{ messages, sending, onSend: sendMessage }}
         onRematch={async (gameType) => {
           // Nouvelle invitation dans le meme fil ; la fenetre bascule sur la nouvelle partie.
           const gameId = await startGame(gameType);
           if (gameId) setOpenGameId(gameId);
         }}
+      />
+
+      <DeleteConversationDialog
+        contactName={pendingDelete?.name ?? null}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() =>
+          pendingDelete ? deleteConversation(pendingDelete.id) : Promise.resolve(true)
+        }
       />
     </div>
   );

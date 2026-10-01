@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { GameBoard, gameDialogWidth } from "@/components/messaging/game-board";
 import { GameResultDialog, type GameOutcome } from "@/components/messaging/game-result-dialog";
+import { MessageThread } from "@/components/messaging/message-thread";
+import type { MessageItem } from "@/domain/messaging";
 import { useGame } from "@/features/messaging/use-game";
 import { activeStatus, isSeatToPlay } from "@/lib/game-turns";
 import { GAME_RESULT_REASONS, gameCatalogEntry, seatOf, type GameItem, type GameType } from "@/domain/games";
@@ -26,6 +28,12 @@ type GameDialogProps = {
   onClose: () => void;
   /** Relance une partie du meme jeu depuis l'annonce de fin. */
   onRematch?: (gameType: GameType) => void;
+  /** Fil de la conversation, affiche a cote du plateau pour discuter pendant la partie. */
+  chat?: {
+    messages: MessageItem[];
+    sending: boolean;
+    onSend: (body: string) => Promise<boolean>;
+  };
 };
 
 /** Phrase d'etat sous le titre : a qui le tour, ou comment la partie s'est terminee. */
@@ -53,7 +61,7 @@ function describe(game: GameItem, currentUserId: string, opponentName: string) {
  * Ouvrir la fenetre suffit a rejoindre la partie (voir use-game) : l'invite clique sur
  * l'invitation, le plateau s'affiche et la partie commence.
  */
-export function GameDialog({ gameId, currentUserId, opponentName, onClose, onRematch }: GameDialogProps) {
+export function GameDialog({ gameId, currentUserId, opponentName, onClose, onRematch, chat }: GameDialogProps) {
   const { game, loading, pending, error, sendMove, playMove, resign } = useGame(gameId);
 
   const seat = game ? seatOf(game, currentUserId) : null;
@@ -94,7 +102,7 @@ export function GameDialog({ gameId, currentUserId, opponentName, onClose, onRem
         onClose();
       }}
     >
-      <DialogContent className={cn("border-app-line bg-app-surface text-app-text", gameDialogWidth(game?.gameType))}>
+      <DialogContent className={cn("border-app-line bg-app-surface text-app-text", gameDialogWidth(game?.gameType, !!chat))}>
         <DialogHeader>
           <DialogTitle className="text-app-md">
             {entry ? `${entry.icon} ${entry.name}` : "Partie"}
@@ -109,39 +117,62 @@ export function GameDialog({ gameId, currentUserId, opponentName, onClose, onRem
           </DialogDescription>
         </DialogHeader>
 
-        {loading && !game ? (
-          <div className="flex aspect-[2/1] w-full items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-app-text-muted" />
-          </div>
-        ) : game && seat && game.status === "pending" ? (
-          <div className="flex aspect-[2/1] items-center justify-center rounded-app-card bg-app-surface-hover p-6 text-center text-app-sm text-app-text-secondary">
-            {entry?.icon} La partie commencera dès que {opponentName} l&apos;aura rejointe.
-          </div>
-        ) : game && seat ? (
-          <GameBoard
-            game={game}
-            seat={seat}
-            opponentName={opponentName}
-            interactive={myTurn && !pending}
-            pending={pending}
-            sendMove={(body, optimistic) => void sendMove(body, optimistic)}
-            playChessMove={(move) => void playMove(move)}
-          />
-        ) : null}
+        <div className="flex min-w-0 flex-col gap-4 lg:flex-row">
+          <div className="flex min-w-0 flex-1 flex-col gap-4">
+            {loading && !game ? (
+              <div className="flex aspect-[2/1] w-full items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-app-text-muted" />
+              </div>
+            ) : game && seat && game.status === "pending" ? (
+              <div className="flex aspect-[2/1] items-center justify-center rounded-app-card bg-app-surface-hover p-6 text-center text-app-sm text-app-text-secondary">
+                {entry?.icon} La partie commencera dès que {opponentName} l&apos;aura rejointe.
+              </div>
+            ) : game && seat ? (
+              <GameBoard
+                game={game}
+                seat={seat}
+                opponentName={opponentName}
+                interactive={myTurn && !pending}
+                pending={pending}
+                sendMove={(body, optimistic) => void sendMove(body, optimistic)}
+                playChessMove={(move) => void playMove(move)}
+              />
+            ) : null}
 
-        {error && <p className="text-app-sm text-red-500">{error}</p>}
+            {error && <p className="text-app-sm text-red-500">{error}</p>}
 
-        {game && isPlayer && game.status !== "finished" && (
-          <div className="flex justify-end">
-            {/* Annuler une invitation n'appartient qu'a son auteur ; abandonner, aux deux joueurs. */}
-            {(game.status === "active" || game.createdBy === currentUserId) && (
-              <Button type="button" variant="outline" size="sm" onClick={() => setConfirming(true)} disabled={pending}>
-                <Flag className="mr-2 h-4 w-4" />
-                {game.status === "pending" ? "Annuler l'invitation" : "Abandonner"}
-              </Button>
+            {game && isPlayer && game.status !== "finished" && (
+              <div className="flex justify-end">
+                {/* Annuler une invitation n'appartient qu'a son auteur ; abandonner, aux deux joueurs. */}
+                {(game.status === "active" || game.createdBy === currentUserId) && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => setConfirming(true)} disabled={pending}>
+                    <Flag className="mr-2 h-4 w-4" />
+                    {game.status === "pending" ? "Annuler l'invitation" : "Abandonner"}
+                  </Button>
+                )}
+              </div>
             )}
           </div>
-        )}
+
+          {/*
+            Le fil de la conversation, pour discuter sans quitter la partie. A cote du plateau
+            sur ecran large, dessous sinon. Hauteur bornee : le fil defile dans sa zone.
+          */}
+          {chat && (
+            <aside
+              aria-label={`Discussion avec ${opponentName}`}
+              className="flex h-80 min-h-0 flex-col overflow-hidden rounded-app-card border border-app-line lg:h-auto lg:max-h-[75dvh] lg:min-h-[26rem] lg:w-80 lg:shrink-0"
+            >
+              <MessageThread
+                messages={chat.messages}
+                currentUserId={currentUserId}
+                loading={false}
+                sending={chat.sending}
+                onSend={chat.onSend}
+              />
+            </aside>
+          )}
+        </div>
       </DialogContent>
 
       {/* Imbriquee dans la fenetre de partie : Radix empile les deux et rend le focus a la premiere. */}

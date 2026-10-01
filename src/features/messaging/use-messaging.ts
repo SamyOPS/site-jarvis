@@ -83,6 +83,12 @@ export function useMessaging({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [realtimeReady, setRealtimeReady] = useState(false);
+  /*
+    Interlocuteur des fils ouverts depuis l'annuaire. Un fil sans message — tout neuf, ou
+    supprime puis rouvert — n'est pas dans la liste : sans cette table, son en-tete ne
+    saurait pas a qui l'on ecrit.
+  */
+  const [startedWith, setStartedWith] = useState<Record<string, string>>({});
 
   /*
     L'identifiant du fil ouvert est aussi garde dans une ref : l'abonnement Realtime est
@@ -151,6 +157,7 @@ export function useMessaging({
 
         const conversationId = payload?.conversation?.id;
         if (!conversationId) throw new Error("Conversation introuvable.");
+        setStartedWith((current) => ({ ...current, [conversationId]: contactId }));
 
         await refreshConversations();
         await openConversation(conversationId);
@@ -399,9 +406,47 @@ export function useMessaging({
     return () => window.clearInterval(interval);
   }, [enabled, loadMessages, realtimeReady, refreshConversations]);
 
-  const activeConversation = useMemo(
-    () => conversations.find((item) => item.id === activeConversationId) ?? null,
-    [activeConversationId, conversations],
+  const activeConversation = useMemo((): ConversationSummary | null => {
+    if (!activeConversationId) return null;
+    const listed = conversations.find((item) => item.id === activeConversationId);
+    if (listed) return listed;
+    const contactId = startedWith[activeConversationId];
+    const contact = contacts.find((item) => item.id === contactId);
+    if (!contact) return null;
+    return {
+      id: activeConversationId,
+      contact,
+      lastMessageAt: new Date(0).toISOString(),
+      lastMessagePreview: null,
+      lastMessageFromMe: false,
+      unreadCount: 0,
+    };
+  }, [activeConversationId, contacts, conversations, startedWith]);
+
+  /**
+   * Supprime la discussion pour l'utilisateur seulement : l'autre la garde. Elle quitte
+   * la liste tout de suite, sans attendre le rafraichissement.
+   */
+  const deleteConversation = useCallback(
+    async (conversationId: string) => {
+      try {
+        await callApi(`/api/messages/conversations/${encodeURIComponent(conversationId)}`, {
+          method: "DELETE",
+        });
+        setConversations((current) => current.filter((item) => item.id !== conversationId));
+        if (activeConversationIdRef.current === conversationId) {
+          setActiveConversationId(null);
+          setMessages([]);
+        }
+        void refreshConversations();
+        setError(null);
+        return true;
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "Suppression impossible.");
+        return false;
+      }
+    },
+    [callApi, refreshConversations],
   );
 
   return {
@@ -421,6 +466,7 @@ export function useMessaging({
     sendMessage,
     startGame,
     refreshConversations,
+    deleteConversation,
     closeConversation: useCallback(() => {
       setActiveConversationId(null);
       setMessages([]);

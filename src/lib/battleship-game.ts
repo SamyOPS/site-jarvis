@@ -139,7 +139,8 @@ export function applyShot(
       ...state,
       shotsAt: { ...state.shotsAt, [target]: shots },
       sunkShips: { ...state.sunkShips, [target]: sunkShips },
-      turn: target,
+      // Touché : le tireur rejoue. Dans l'eau : la main passe à l'adversaire.
+      turn: hit ? shooter : target,
       lastShot: { by: shooter, cell, hit, sunk },
     },
     finished,

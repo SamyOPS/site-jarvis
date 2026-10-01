@@ -235,12 +235,14 @@ export async function assertConversationParticipant(
 ) {
   const { data, error } = await adminClient
     .from("conversation_participants")
-    .select("conversation_id")
+    .select("conversation_id,cleared_at")
     .eq("conversation_id", conversationId)
     .eq("profile_id", actorId)
     .maybeSingle();
   if (error) throw new ApiError(error.message, 400);
   if (!data) throw new ApiError("Conversation introuvable.", 404);
+  // Date sous laquelle l'appelant a supprime le fil pour lui (null s'il ne l'a pas fait).
+  return { clearedAt: (data.cleared_at as string | null) ?? null };
 }
 
 export const MESSAGE_COLUMNS = "id,conversation_id,sender_id,body,created_at,game_id,kind,meta";

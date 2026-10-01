@@ -58,7 +58,7 @@ export const GAME_CATALOG: GameCatalogEntry[] = [
   {
     type: "battleship",
     name: "Bataille navale",
-    description: "Placez votre flotte, puis coulez celle de l'adversaire.",
+    description: "Placez votre flotte, puis coulez celle de l'adversaire. Touché, vous rejouez.",
     icon: "🚢",
   },
   {

@@ -46,7 +46,10 @@ export function activeStatus(game: GameItem, seat: GameSeat, opponentName: strin
     case "battleship": {
       const state = game.state as BattleshipState;
       if (state.phase === "placement") return mine ? "Placez votre flotte." : `${opponentName} place sa flotte…`;
-      return mine ? "À vous de tirer." : `Au tour de ${opponentName}.`;
+      // Un tir réussi donne un tir de plus : on le dit, sinon garder la main surprend.
+      const replay = state.lastShot?.hit === true;
+      if (mine) return replay ? "Touché ! Vous rejouez." : "À vous de tirer.";
+      return replay ? `${opponentName} a touché et rejoue…` : `Au tour de ${opponentName}.`;
     }
     case "mastermind": {
       const state = game.state as MastermindState;
