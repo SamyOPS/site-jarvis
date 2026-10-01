@@ -47,11 +47,26 @@ export type MessagingContact = {
   avatarUrl: string | null;
 };
 
+/** Groupe de discussion : nom, gestionnaire et membres (l'utilisateur courant exclu). */
+export type ConversationGroup = {
+  title: string;
+  /** Seul a pouvoir renommer, ajouter et retirer. `null` si son compte a ete supprime. */
+  createdBy: string | null;
+  members: MessagingContact[];
+};
+
 /** Ligne de la liste des conversations. */
 export type ConversationSummary = {
   id: string;
-  /** L'autre participant. `null` si son compte a ete supprime. */
+  /**
+   * L'autre participant d'une discussion a deux. `null` si son compte a ete supprime, et
+   * toujours `null` pour un groupe.
+   */
   contact: MessagingContact | null;
+  /** Renseigne pour un groupe, `null` pour une discussion a deux. */
+  group: ConversationGroup | null;
+  /** Auteur du dernier message : un groupe prefixe l'apercu de son nom. */
+  lastMessageSenderId: string | null;
   lastMessageAt: string;
   lastMessagePreview: string | null;
   /** Vrai si le dernier message vient de l'utilisateur courant. */
@@ -76,7 +91,36 @@ export type MessageItem = {
   pending?: boolean;
 };
 
-export type MessageKind = "message" | "game_result";
+/**
+ * `game_result` : fin de partie. `system` : evenement d'un groupe (creation, ajout,
+ * retrait, depart, renommage). Ni l'un ni l'autre n'est un message a lire.
+ */
+export type MessageKind = "message" | "game_result" | "system";
+
+/** Longueur maximale du nom d'un groupe. Bornee aussi en base. */
+export const GROUP_TITLE_MAX_LENGTH = 80;
+/** Membres au plus par groupe, createur compris. */
+export const GROUP_MAX_MEMBERS = 50;
+
+/**
+ * Prefixe de l'apercu : « Vous : » pour son propre message ; dans un groupe, le prenom de
+ * l'auteur, sans quoi l'on ne saurait pas qui parle. Rien pour un evenement sans auteur.
+ */
+export function previewPrefix(
+  conversation: Pick<ConversationSummary, "group" | "lastMessageFromMe" | "lastMessageSenderId">,
+) {
+  if (conversation.lastMessageFromMe) return "Vous : ";
+  if (!conversation.group || !conversation.lastMessageSenderId) return "";
+  const author = conversation.group.members.find(
+    (member) => member.id === conversation.lastMessageSenderId,
+  );
+  return author ? `${author.name.split(" ")[0]} : ` : "";
+}
+
+/** Nom affiche d'une conversation : celui du groupe, ou de l'interlocuteur. */
+export function conversationTitle(conversation: Pick<ConversationSummary, "contact" | "group">) {
+  return conversation.group?.title ?? conversation.contact?.name ?? "Compte supprimé";
+}
 
 /** Nom affichable d'un profil, avec repli sur l'e-mail puis sur un libelle neutre. */
 export function displayContactName(

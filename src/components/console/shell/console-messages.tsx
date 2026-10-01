@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 import { useDismissable } from "@/components/console/shell/use-dismissable";
 import { useMessaging } from "@/features/messaging/use-messaging";
 import { formatRelativeTime } from "@/features/messaging/format";
-import { AvatarBubble } from "@/components/console/avatar-bubble";
+import { ConversationAvatar } from "@/components/messaging/contact-avatar";
+import { conversationTitle, previewPrefix } from "@/domain/messaging";
 
 type ConsoleMessagesProps = {
   /** Page de messagerie de l'espace courant. */
@@ -85,7 +86,7 @@ export function ConsoleMessages({ messagesHref }: ConsoleMessagesProps) {
           ) : (
             <ul className="max-h-80 overflow-y-auto py-1">
               {conversations.slice(0, 6).map((conversation) => {
-                const name = conversation.contact?.name ?? "Compte supprimé";
+                const name = conversationTitle(conversation);
                 const unread = conversation.unreadCount;
 
                 return (
@@ -95,12 +96,7 @@ export function ConsoleMessages({ messagesHref }: ConsoleMessagesProps) {
                       onClick={close}
                       className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-app-surface-hover focus-visible:outline-app"
                     >
-                      <AvatarBubble
-                        avatarUrl={conversation.contact?.avatarUrl}
-                        name={name}
-                        email={conversation.contact?.email}
-                        size={32}
-                      />
+                      <ConversationAvatar conversation={conversation} size={32} />
 
                       <span className="min-w-0 flex-1">
                         <span className="flex items-baseline gap-2">
@@ -118,7 +114,7 @@ export function ConsoleMessages({ messagesHref }: ConsoleMessagesProps) {
                         </span>
                         {conversation.lastMessagePreview && (
                           <span className="mt-1 block truncate text-app-xs text-app-text-secondary">
-                            {conversation.lastMessageFromMe ? "Vous : " : ""}
+                            {previewPrefix(conversation)}
                             {conversation.lastMessagePreview}
                           </span>
                         )}

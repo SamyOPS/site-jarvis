@@ -416,12 +416,82 @@ export function useMessaging({
     return {
       id: activeConversationId,
       contact,
+      group: null,
       lastMessageAt: new Date(0).toISOString(),
       lastMessagePreview: null,
       lastMessageFromMe: false,
+      lastMessageSenderId: null,
       unreadCount: 0,
     };
   }, [activeConversationId, contacts, conversations, startedWith]);
+
+  /** Cree un groupe puis l'ouvre. Rend son identifiant, ou `null` en cas d'echec. */
+  const createGroup = useCallback(
+    async (title: string, memberIds: string[]) => {
+      try {
+        const payload = (await callApi("/api/messages/groups", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, memberIds }),
+        })) as { conversation?: { id: string } } | null;
+        const conversationId = payload?.conversation?.id;
+        if (!conversationId) throw new Error("Groupe introuvable.");
+        await refreshConversations();
+        await openConversation(conversationId);
+        setError(null);
+        return conversationId;
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "Création du groupe impossible.");
+        return null;
+      }
+    },
+    [callApi, openConversation, refreshConversations],
+  );
+
+  /**
+   * Modifie un groupe (createur seulement). L'erreur est RENDUE plutot que posee dans
+   * l'etat commun : elle s'affiche dans la fenetre de gestion, ouverte par-dessus le fil.
+   */
+  const updateGroup = useCallback(
+    async (
+      conversationId: string,
+      patch: { title?: string; addMemberIds?: string[]; removeMemberIds?: string[] },
+    ): Promise<string | null> => {
+      try {
+        await callApi(`/api/messages/conversations/${encodeURIComponent(conversationId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+        await refreshConversations();
+        return null;
+      } catch (caught) {
+        return caught instanceof Error ? caught.message : "Modification impossible.";
+      }
+    },
+    [callApi, refreshConversations],
+  );
+
+  /** Quitte un groupe : il disparait de la liste, le fil se ferme. */
+  const leaveGroup = useCallback(
+    async (conversationId: string): Promise<string | null> => {
+      try {
+        await callApi(`/api/messages/conversations/${encodeURIComponent(conversationId)}/leave`, {
+          method: "POST",
+        });
+        setConversations((current) => current.filter((item) => item.id !== conversationId));
+        if (activeConversationIdRef.current === conversationId) {
+          setActiveConversationId(null);
+          setMessages([]);
+        }
+        void refreshConversations();
+        return null;
+      } catch (caught) {
+        return caught instanceof Error ? caught.message : "Impossible de quitter le groupe.";
+      }
+    },
+    [callApi, refreshConversations],
+  );
 
   /**
    * Supprime la discussion pour l'utilisateur seulement : l'autre la garde. Elle quitte
@@ -467,6 +537,9 @@ export function useMessaging({
     startGame,
     refreshConversations,
     deleteConversation,
+    createGroup,
+    updateGroup,
+    leaveGroup,
     closeConversation: useCallback(() => {
       setActiveConversationId(null);
       setMessages([]);

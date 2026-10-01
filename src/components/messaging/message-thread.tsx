@@ -36,6 +36,10 @@ type MessageThreadProps = {
   onOpenGame?: (gameId: string) => void;
   /** Desactive la saisie : aucune conversation ouverte. */
   disabled?: boolean;
+  /** Fil d'un groupe : le nom de l'auteur s'affiche au-dessus des messages des autres. */
+  isGroup?: boolean;
+  /** Nom d'un participant, pour les auteurs de groupe et les resultats de partie. */
+  nameOf?: (profileId: string) => string;
   className?: string;
 };
 
@@ -54,6 +58,8 @@ export function MessageThread({
   onStartGame,
   onOpenGame,
   disabled = false,
+  isGroup = false,
+  nameOf = () => "Utilisateur",
   className,
 }: MessageThreadProps) {
   const [draft, setDraft] = useState("");
@@ -95,6 +101,13 @@ export function MessageThread({
         // porte toujours son separateur, les suivants seulement au changement de jour.
         showDay:
           index === 0 ||
+          dayKey(message.createdAt) !== dayKey(messages[index - 1].createdAt),
+        // Nom de l'auteur seulement en tete d'une serie : repete a chaque bulle, il
+        // noierait le fil.
+        showSender:
+          index === 0 ||
+          messages[index - 1].senderId !== message.senderId ||
+          messages[index - 1].kind !== "message" ||
           dayKey(message.createdAt) !== dayKey(messages[index - 1].createdAt),
       })),
     [messages],
@@ -152,7 +165,7 @@ export function MessageThread({
           </p>
         ) : (
           <ul className="space-y-2">
-            {rows.map(({ message, showDay }) => {
+            {rows.map(({ message, showDay, showSender }) => {
               const mine = message.senderId === currentUserId;
               const daySeparator = showDay && (
                 <p className="my-3 text-center text-app-2xs uppercase tracking-wider text-app-text-muted">
@@ -160,11 +173,21 @@ export function MessageThread({
                 </p>
               );
 
+              // Evenement d'un groupe : une ligne discrete au centre.
+              if (message.kind === "system") {
+                return (
+                  <li key={message.id}>
+                    {daySeparator}
+                    <p className="py-1 text-center text-app-xs text-app-text-muted">{message.body}</p>
+                  </li>
+                );
+              }
+
               // Resultat de partie : ni a gauche ni a droite, il n'a pas d'auteur.
               if (message.kind === "game_result" && message.meta) {
                 const meta = message.meta;
                 const entry = gameCatalogEntry(meta.gameType);
-                const headline = gameResultHeadline(meta, currentUserId);
+                const headline = gameResultHeadline(meta, currentUserId, nameOf);
                 const reason = meta.reason ? GAME_RESULT_REASONS[meta.reason] : null;
                 return (
                   <li key={message.id}>
@@ -179,7 +202,7 @@ export function MessageThread({
                         </p>
                         {meta.outcome !== "cancelled" && (
                           <p className="mt-0.5 text-app-xs text-app-text-secondary">
-                            {gameScoreLine(meta, currentUserId)}
+                            {gameScoreLine(meta, currentUserId, nameOf)}
                           </p>
                         )}
                       </div>
@@ -191,6 +214,11 @@ export function MessageThread({
               return (
                 <li key={message.id}>
                   {daySeparator}
+                  {isGroup && !mine && showSender && message.senderId && (
+                    <p className="mb-0.5 ml-1 text-app-2xs font-medium text-app-text-secondary">
+                      {nameOf(message.senderId)}
+                    </p>
+                  )}
                   <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
                     <div
                       className={cn(

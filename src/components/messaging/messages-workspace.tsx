@@ -110,9 +110,7 @@ export function MessagesWorkspace({ role }: MessagesWorkspaceProps) {
       email={profile?.email ?? user?.email ?? "-"}
       onSignOut={handleSignOut}
       pageDescription={
-        role === "rh"
-          ? "Échanges avec vos collaborateurs et les autres gestionnaires RH."
-          : "Échanges avec le service RH."
+        "Échanges avec l'ensemble des collaborateurs et du service RH."
       }
     >
       {loading || !profile ? (
@@ -123,9 +121,7 @@ export function MessagesWorkspace({ role }: MessagesWorkspaceProps) {
           initialConversationId={searchParams.get("c")}
           initialContactId={searchParams.get("to")}
           emptyHint={
-            role === "rh"
-              ? "Écrivez à un collaborateur ou à un collègue."
-              : "Écrivez au service RH qui vous suit."
+            "Écrivez à un collègue ou au service RH, ou créez un groupe."
           }
         />
       )}

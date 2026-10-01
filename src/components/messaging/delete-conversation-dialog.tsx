@@ -16,6 +16,8 @@ import {
 type DeleteConversationDialogProps = {
   /** Interlocuteur de la discussion a supprimer ; `null` ferme la fenetre. */
   contactName: string | null;
+  /** Un groupe : le texte parle de ses membres, pas d'un interlocuteur. */
+  isGroup?: boolean;
   onCancel: () => void;
   /** Rend `false` si la suppression a echoue : la fenetre reste alors ouverte. */
   onConfirm: () => Promise<boolean>;
@@ -30,6 +32,7 @@ type DeleteConversationDialogProps = {
  */
 export function DeleteConversationDialog({
   contactName,
+  isGroup = false,
   onCancel,
   onConfirm,
 }: DeleteConversationDialogProps) {
@@ -50,10 +53,21 @@ export function DeleteConversationDialog({
         <DialogHeader>
           <DialogTitle className="text-app-lg">Supprimer la discussion ?</DialogTitle>
           <DialogDescription className="text-app-sm text-app-text-secondary">
-            La discussion avec <strong className="text-app-text">{contactName}</strong> disparaîtra
-            de votre liste, avec tout son historique. {contactName} la conservera de son côté.
-            Si l&apos;un de vous écrit à nouveau, elle réapparaîtra avec les nouveaux messages
-            seulement.
+            {isGroup ? (
+              <>
+                Le groupe <strong className="text-app-text">{contactName}</strong> disparaîtra de votre
+                liste, avec tout son historique. Vous en restez membre : il réapparaîtra au prochain
+                message, avec les nouveaux messages seulement. Pour ne plus le recevoir, quittez-le
+                depuis ses réglages.
+              </>
+            ) : (
+              <>
+                La discussion avec <strong className="text-app-text">{contactName}</strong> disparaîtra
+                de votre liste, avec tout son historique. {contactName} la conservera de son côté.
+                Si l&apos;un de vous écrit à nouveau, elle réapparaîtra avec les nouveaux messages
+                seulement.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2 sm:gap-0">

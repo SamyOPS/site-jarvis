@@ -6,7 +6,7 @@ import { listMessagingContacts } from "@/lib/messaging-access";
 
 export const runtime = "nodejs";
 
-/** Annuaire de l'utilisateur : ceux a qui il peut ouvrir une conversation. */
+/** Annuaire de l'utilisateur : toute la console, a deux comme en groupe. */
 export const GET = withActor(
   [...MESSAGING_ROLES],
   async ({ adminClient, profile }) => {

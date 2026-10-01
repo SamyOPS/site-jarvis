@@ -100,3 +100,14 @@ export function useIsOnline(profileId: string | null | undefined) {
     () => false,
   );
 }
+
+/** Nombre de profils de la liste qui ont un onglet ouvert : « 2 en ligne » d'un groupe. */
+export function useOnlineCount(profileIds: string[]) {
+  // Cle stable plutot que le tableau : le store ne relit pas a chaque nouveau rendu.
+  const key = profileIds.join(",");
+  return useSyncExternalStore(
+    subscribe,
+    () => (key ? key.split(",").filter((id) => onlineIds.has(id)).length : 0),
+    () => 0,
+  );
+}

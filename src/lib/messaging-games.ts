@@ -167,7 +167,7 @@ function winnerOf(row: Pick<GameRow, "result" | "player_one_id" | "player_two_id
 
 /**
  * Poste le résultat d'une partie qui vient de se terminer, avec le score cumulé des deux
- * participants à ce jeu dans cette conversation.
+ * joueurs à ce jeu, toutes conversations confondues (discussion à deux et groupes).
  *
  * Le score est RECALCULÉ depuis l'historique des parties plutôt que tenu dans un
  * compteur : aucune valeur à maintenir, donc rien qui puisse diverger des parties
@@ -185,19 +185,31 @@ export async function postGameResult(adminClient: SupabaseClient, row: GameRow) 
   if (!entry) return;
 
   try {
-    const history = unwrap(
-      await adminClient
-        .from("games")
-        .select("result,player_one_id,player_two_id")
-        .eq("conversation_id", row.conversation_id)
-        .eq("game_type", row.game_type)
-        .eq("status", "finished")
-        .not("result", "is", null),
-    ) as Pick<GameRow, "result" | "player_one_id" | "player_two_id">[] | null;
+    /*
+      Score entre ces DEUX joueurs, quelle que soit la conversation : une partie jouee
+      dans un groupe compte comme une partie jouee a deux. Les identifiants viennent de la
+      base (uuid), pas du client : ils peuvent entrer tels quels dans le filtre.
+    */
+    const [a, b] = [row.player_one_id, row.player_two_id];
+    let history: Pick<GameRow, "result" | "player_one_id" | "player_two_id">[] = [];
+    if (a && b) {
+      history =
+        (unwrap(
+          await adminClient
+            .from("games")
+            .select("result,player_one_id,player_two_id")
+            .eq("game_type", row.game_type)
+            .eq("status", "finished")
+            .not("result", "is", null)
+            .or(
+              `and(player_one_id.eq.${a},player_two_id.eq.${b}),and(player_one_id.eq.${b},player_two_id.eq.${a})`,
+            ),
+        ) as Pick<GameRow, "result" | "player_one_id" | "player_two_id">[] | null) ?? [];
+    }
 
     const wins: Record<string, number> = {};
     let draws = 0;
-    for (const game of history ?? []) {
+    for (const game of history) {
       if (game.result === "draw") {
         draws += 1;
         continue;

@@ -3,9 +3,14 @@
 import { MessageSquare, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { messagingRoleLabel, type ConversationSummary } from "@/domain/messaging";
+import {
+  conversationTitle,
+  messagingRoleLabel,
+  previewPrefix,
+  type ConversationSummary,
+} from "@/domain/messaging";
 import { formatRelativeTime } from "@/features/messaging/format";
-import { ContactAvatar } from "@/components/messaging/contact-avatar";
+import { ConversationAvatar } from "@/components/messaging/contact-avatar";
 
 type ConversationListProps = {
   conversations: ConversationSummary[];
@@ -60,7 +65,7 @@ export function ConversationList({
   return (
     <ul className={cn("divide-y divide-app-line", className)}>
       {conversations.map((conversation) => {
-        const name = conversation.contact?.name ?? "Compte supprimé";
+        const name = conversationTitle(conversation);
         const active = conversation.id === activeConversationId;
         const unread = conversation.unreadCount;
 
@@ -78,13 +83,7 @@ export function ConversationList({
                 onDelete && "pr-11",
               )}
             >
-              <ContactAvatar
-                profileId={conversation.contact?.id}
-                avatarUrl={conversation.contact?.avatarUrl}
-                name={name}
-                email={conversation.contact?.email}
-                size={32}
-              />
+              <ConversationAvatar conversation={conversation} size={32} />
 
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline gap-2">
@@ -104,8 +103,10 @@ export function ConversationList({
                 <span className="mt-0.5 flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate text-app-xs text-app-text-secondary">
                     {conversation.lastMessagePreview
-                      ? `${conversation.lastMessageFromMe ? "Vous : " : ""}${conversation.lastMessagePreview}`
-                      : messagingRoleLabel(conversation.contact?.role)}
+                      ? `${previewPrefix(conversation)}${conversation.lastMessagePreview}`
+                      : conversation.group
+                        ? `${conversation.group.members.length + 1} membres`
+                        : messagingRoleLabel(conversation.contact?.role)}
                   </span>
                   {unread > 0 && (
                     <span className="shrink-0 rounded-full bg-app-accent px-1.5 py-0.5 text-app-2xs font-semibold text-app-on-accent">

@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 
 import { ApiError, unwrap, withActor } from "@/lib/api-handler";
-import { MESSAGING_ROLES } from "@/domain/messaging";
+import { MESSAGING_ROLES, displayContactName } from "@/domain/messaging";
 import { assertConversationParticipant } from "@/lib/messaging-access";
+import {
+  assertCanAddMembers,
+  assertGroupSize,
+  joinNames,
+  loadGroupForActor,
+  normalizeGroupTitle,
+  normalizeIds,
+  postSystemMessage,
+} from "@/lib/messaging-groups";
 
 export const runtime = "nodejs";
 
@@ -37,6 +46,80 @@ export const DELETE = withActor<RouteContext>(
         .eq("conversation_id", conversationId)
         .eq("profile_id", profile.id),
     );
+
+    return NextResponse.json({ success: true });
+  },
+  { missingSession: "Session manquante." },
+);
+
+/**
+ * Modifie un groupe : nom, membres ajoutes, membres retires. Reserve a son createur.
+ *
+ * Les trois changements sont independants et facultatifs ; chacun laisse sa trace dans le
+ * fil, pour que les membres sachent qui a fait quoi.
+ */
+export const PATCH = withActor<RouteContext>(
+  [...MESSAGING_ROLES],
+  async ({ adminClient, profile, request }, context) => {
+    const { id } = await context.params;
+    const conversationId = String(id ?? "").trim();
+    if (!conversationId) throw new ApiError("Groupe introuvable.", 400);
+
+    const group = await loadGroupForActor(adminClient, profile.id, conversationId);
+    if (group.created_by !== profile.id) {
+      throw new ApiError("Seul le créateur du groupe peut le modifier.", 403);
+    }
+
+    const body = (await request.json().catch(() => null)) as
+      | { title?: unknown; addMemberIds?: unknown; removeMemberIds?: unknown }
+      | null;
+    const actorName = displayContactName(profile);
+
+    const title = body?.title === undefined ? null : normalizeGroupTitle(body.title);
+    const toAdd = normalizeIds(body?.addMemberIds).filter((memberId) => !group.memberIds.includes(memberId));
+    // Le createur ne se retire pas : il quitte le groupe, ce qui transmet la gestion.
+    const toRemove = normalizeIds(body?.removeMemberIds).filter(
+      (memberId) => memberId !== profile.id && group.memberIds.includes(memberId),
+    );
+
+    assertGroupSize(group.memberIds.length + toAdd.length - toRemove.length);
+    const added = await assertCanAddMembers(adminClient, profile, toAdd);
+
+    if (title && title !== group.title) {
+      unwrap(await adminClient.from("conversations").update({ title }).eq("id", conversationId));
+      await postSystemMessage(adminClient, conversationId, `${actorName} a renommé le groupe en « ${title} »`);
+    }
+
+    if (added.length) {
+      unwrap(
+        await adminClient.from("conversation_participants").insert(
+          added.map((contact) => ({ conversation_id: conversationId, profile_id: contact.id })),
+        ),
+      );
+      await postSystemMessage(
+        adminClient,
+        conversationId,
+        `${actorName} a ajouté ${joinNames(added.map((contact) => contact.name))}`,
+      );
+    }
+
+    if (toRemove.length) {
+      const removed = unwrap(
+        await adminClient.from("profiles").select("id,full_name,email").in("id", toRemove),
+      ) as { id: string; full_name: string | null; email: string }[] | null;
+      unwrap(
+        await adminClient
+          .from("conversation_participants")
+          .delete()
+          .eq("conversation_id", conversationId)
+          .in("profile_id", toRemove),
+      );
+      await postSystemMessage(
+        adminClient,
+        conversationId,
+        `${actorName} a retiré ${joinNames((removed ?? []).map((row) => displayContactName(row)))}`,
+      );
+    }
 
     return NextResponse.json({ success: true });
   },

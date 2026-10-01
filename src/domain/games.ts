@@ -315,20 +315,32 @@ function plural(count: number, singular: string, pluralForm: string) {
   return `${count} ${count > 1 ? pluralForm : singular}`;
 }
 
-/** Score vu par `viewerId` : « 3 victoires · 1 défaite · 2 nuls ». */
-export function gameScoreLine(meta: GameResultMeta, viewerId: string) {
+/**
+ * Score vu par `viewerId`. Joueur : « 3 victoires · 1 défaite · 2 nuls ». Membre d'un
+ * groupe qui regardait : « Selin 3 – 1 Alex · 2 nuls ».
+ */
+export function gameScoreLine(meta: GameResultMeta, viewerId: string, nameOf: (id: string) => string) {
+  const [first, second] = meta.players;
+  const draws = meta.draws > 0 ? ` · ${plural(meta.draws, "nul", "nuls")}` : "";
+
+  if (!meta.players.includes(viewerId)) {
+    if (!first || !second) return "";
+    return `${nameOf(first)} ${meta.wins[first] ?? 0} – ${meta.wins[second] ?? 0} ${nameOf(second)}${draws}`;
+  }
+
   const opponentId = meta.players.find((id) => id && id !== viewerId) ?? null;
   const wins = meta.wins[viewerId] ?? 0;
   const losses = opponentId ? (meta.wins[opponentId] ?? 0) : 0;
-  const parts = [plural(wins, "victoire", "victoires"), plural(losses, "défaite", "défaites")];
-  if (meta.draws > 0) parts.push(plural(meta.draws, "nul", "nuls"));
-  return parts.join(" · ");
+  return `${plural(wins, "victoire", "victoires")} · ${plural(losses, "défaite", "défaites")}${draws}`;
 }
 
 /** Titre du résultat vu par `viewerId`. */
-export function gameResultHeadline(meta: GameResultMeta, viewerId: string) {
+export function gameResultHeadline(meta: GameResultMeta, viewerId: string, nameOf: (id: string) => string) {
   if (meta.outcome === "cancelled") return "Invitation annulée";
   if (meta.outcome === "draw") return "Match nul";
+  if (!meta.players.includes(viewerId)) {
+    return meta.winnerId ? `Victoire de ${nameOf(meta.winnerId)}` : "Partie terminée";
+  }
   return meta.winnerId === viewerId ? "Victoire" : "Défaite";
 }
 

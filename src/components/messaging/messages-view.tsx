@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Settings, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { ConversationList } from "@/components/messaging/conversation-list";
@@ -9,11 +9,12 @@ import { ContactPicker } from "@/components/messaging/contact-picker";
 import { MessageThread } from "@/components/messaging/message-thread";
 import { GameDialog } from "@/components/messaging/game-dialog";
 import { StatusNotice } from "@/components/dashboard/status-notice";
-import { messagingRoleLabel } from "@/domain/messaging";
-import { ContactAvatar } from "@/components/messaging/contact-avatar";
+import { conversationTitle, messagingRoleLabel } from "@/domain/messaging";
+import { ConversationAvatar } from "@/components/messaging/contact-avatar";
+import { GroupDialog } from "@/components/messaging/group-dialog";
 import { DeleteConversationDialog } from "@/components/messaging/delete-conversation-dialog";
 import { useMessaging } from "@/features/messaging/use-messaging";
-import { useIsOnline } from "@/features/messaging/presence-store";
+import { useIsOnline, useOnlineCount } from "@/features/messaging/presence-store";
 
 type MessagesViewProps = {
   currentUserId: string;
@@ -61,12 +62,24 @@ export function MessagesView({
     startGame,
     closeConversation,
     deleteConversation,
+    createGroup,
+    updateGroup,
+    leaveGroup,
   } = useMessaging({ currentUserId });
 
   /** Partie affichee par-dessus le fil, ouverte depuis une invitation ou a sa creation. */
   const [openGameId, setOpenGameId] = useState<string | null>(null);
   /** Discussion dont la suppression attend confirmation. */
-  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<
+    { id: string; name: string; isGroup: boolean } | null
+  >(null);
+  /** Fenetre de groupe : creation, ou gestion du groupe designe par son identifiant. */
+  const [groupTarget, setGroupTarget] = useState<"create" | string | null>(null);
+  // Lu dans la liste VIVANTE : apres un ajout ou un renommage, la fenetre se met a jour.
+  const groupDialogTarget =
+    groupTarget === "create"
+      ? "create"
+      : (conversations.find((item) => item.id === groupTarget && item.group) ?? null);
 
   /*
     Ouverture initiale, une seule fois par identifiant. Sans cette garde, revenir a la
@@ -117,8 +130,24 @@ export function MessagesView({
     openConversation,
   ]);
 
-  const contactName = activeConversation?.contact?.name ?? "Compte supprimé";
+  const activeGroup = activeConversation?.group ?? null;
+  const contactName = activeConversation ? conversationTitle(activeConversation) : "Compte supprimé";
   const contactOnline = useIsOnline(activeConversation?.contact?.id);
+  const membersOnline = useOnlineCount(activeGroup?.members.map((member) => member.id) ?? []);
+
+  /*
+    Nom d'un participant du fil ouvert : auteurs de groupe, joueurs, resultats. Un ancien
+    membre parti du groupe n'est plus dans la liste — ses messages restent, sans nom.
+  */
+  const namesById = useMemo(() => {
+    const names = new Map<string, string>([[currentUserId, "Vous"]]);
+    for (const member of activeConversation?.group?.members ?? []) names.set(member.id, member.name);
+    if (activeConversation?.contact) {
+      names.set(activeConversation.contact.id, activeConversation.contact.name);
+    }
+    return names;
+  }, [activeConversation, currentUserId]);
+  const nameOf = useCallback((profileId: string) => namesById.get(profileId) ?? "Ancien membre", [namesById]);
 
   return (
     <div className="space-y-2">
@@ -146,7 +175,18 @@ export function MessagesView({
                 </p>
               )}
             </div>
-            <ContactPicker contacts={contacts} onSelect={startConversationWith} compact />
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setGroupTarget("create")}
+                aria-label="Nouveau groupe"
+                title="Nouveau groupe"
+                className="inline-flex h-9 items-center justify-center rounded-md border border-input px-3 text-app-text-secondary transition-colors hover:bg-app-surface-hover hover:text-app-text focus-visible:outline-app"
+              >
+                <Users className="h-4 w-4" />
+              </button>
+              <ContactPicker contacts={contacts} onSelect={startConversationWith} compact />
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -157,7 +197,8 @@ export function MessagesView({
               onDelete={(conversation) =>
                 setPendingDelete({
                   id: conversation.id,
-                  name: conversation.contact?.name ?? "Compte supprimé",
+                  name: conversationTitle(conversation),
+                  isGroup: !!conversation.group,
                 })
               }
               loading={loadingConversations}
@@ -184,27 +225,47 @@ export function MessagesView({
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
-                <ContactAvatar
-                  profileId={activeConversation?.contact?.id}
-                  avatarUrl={activeConversation?.contact?.avatarUrl}
-                  name={contactName}
-                  email={activeConversation?.contact?.email}
-                  size={32}
-                />
-                <div className="min-w-0">
+                {activeConversation ? (
+                  <ConversationAvatar conversation={activeConversation} size={32} />
+                ) : (
+                  <ConversationAvatar conversation={{ contact: null, group: null }} size={32} />
+                )}
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-app-sm font-medium text-app-text">
                     {contactName}
                   </p>
                   <p className="truncate text-app-xs text-app-text-muted">
-                    {contactOnline ? (
-                      <span className="text-validated">En ligne</span>
+                    {activeGroup ? (
+                      <>
+                        {activeGroup.members.length + 1} membres
+                        {membersOnline > 0 && (
+                          <span className="text-validated"> · {membersOnline} en ligne</span>
+                        )}
+                      </>
                     ) : (
-                      "Hors ligne"
+                      <>
+                        {contactOnline ? (
+                          <span className="text-validated">En ligne</span>
+                        ) : (
+                          "Hors ligne"
+                        )}
+                        {" · "}
+                        {messagingRoleLabel(activeConversation?.contact?.role)}
+                      </>
                     )}
-                    {" · "}
-                    {messagingRoleLabel(activeConversation?.contact?.role)}
                   </p>
                 </div>
+                {activeGroup && activeConversation && (
+                  <button
+                    type="button"
+                    onClick={() => setGroupTarget(activeConversation.id)}
+                    aria-label="Membres et réglages du groupe"
+                    title="Membres et réglages du groupe"
+                    className="rounded-app-control p-1.5 text-app-text-muted transition-colors hover:text-app-text focus-visible:outline-app"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </button>
+                )}
               </div>
 
               <MessageThread
@@ -218,6 +279,8 @@ export function MessagesView({
                   if (gameId) setOpenGameId(gameId);
                 }}
                 onOpenGame={setOpenGameId}
+                isGroup={!!activeGroup}
+                nameOf={nameOf}
               />
             </>
           ) : (
@@ -234,6 +297,7 @@ export function MessagesView({
         gameId={openGameId}
         currentUserId={currentUserId}
         opponentName={contactName}
+        nameOf={activeGroup ? nameOf : undefined}
         onClose={() => setOpenGameId(null)}
         chat={{ messages, sending, onSend: sendMessage }}
         onRematch={async (gameType) => {
@@ -243,8 +307,19 @@ export function MessagesView({
         }}
       />
 
+      <GroupDialog
+        target={groupDialogTarget}
+        currentUserId={currentUserId}
+        contacts={contacts}
+        onClose={() => setGroupTarget(null)}
+        onCreate={createGroup}
+        onUpdate={updateGroup}
+        onLeave={leaveGroup}
+      />
+
       <DeleteConversationDialog
         contactName={pendingDelete?.name ?? null}
+        isGroup={pendingDelete?.isGroup ?? false}
         onCancel={() => setPendingDelete(null)}
         onConfirm={() =>
           pendingDelete ? deleteConversation(pendingDelete.id) : Promise.resolve(true)

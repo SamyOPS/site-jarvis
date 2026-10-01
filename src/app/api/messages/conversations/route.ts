@@ -23,14 +23,17 @@ type OverviewRow = {
   last_message_at: string;
   last_message_sender_id: string | null;
   unread_count: number | string;
+  is_group: boolean | null;
+  title: string | null;
+  created_by: string | null;
 };
 
 /**
  * Liste des conversations de l'utilisateur, la plus recente en tete.
  *
  * Le gros du travail est fait par la fonction `messaging_overview` : autre participant,
- * dernier message et non-lus en une seule requete. Il ne reste ici qu'a resoudre les
- * noms.
+ * dernier message et non-lus en une seule requete. Il reste ici a resoudre les noms — de
+ * l'interlocuteur pour une discussion a deux, des membres pour un groupe.
  */
 export const GET = withActor(
   [...MESSAGING_ROLES],
@@ -40,12 +43,34 @@ export const GET = withActor(
     ) as OverviewRow[] | null;
 
     const overview = rows ?? [];
+
+    // Membres des groupes : une requete pour tous, plutot qu'une par groupe.
+    const groupIds = overview.filter((row) => row.is_group).map((row) => row.conversation_id);
+    const membersByGroup = new Map<string, string[]>();
+    if (groupIds.length) {
+      const memberships = unwrap(
+        await adminClient
+          .from("conversation_participants")
+          .select("conversation_id,profile_id,joined_at")
+          .in("conversation_id", groupIds)
+          .neq("profile_id", profile.id)
+          .order("joined_at", { ascending: true }),
+      ) as { conversation_id: string; profile_id: string }[] | null;
+      for (const row of memberships ?? []) {
+        membersByGroup.set(row.conversation_id, [
+          ...(membersByGroup.get(row.conversation_id) ?? []),
+          row.profile_id,
+        ]);
+      }
+    }
+
     const contactIds = Array.from(
-      new Set(
-        overview
+      new Set([
+        ...overview
           .map((row) => row.other_profile_id)
           .filter((value): value is string => Boolean(value)),
-      ),
+        ...Array.from(membersByGroup.values()).flat(),
+      ]),
     );
 
     const contactsById = new Map<string, MessagingContact>();
@@ -77,9 +102,19 @@ export const GET = withActor(
     const items: ConversationSummary[] = overview.map((row) => ({
       id: row.conversation_id,
       contact: row.other_profile_id ? (contactsById.get(row.other_profile_id) ?? null) : null,
+      group: row.is_group
+        ? {
+            title: row.title ?? "Groupe",
+            createdBy: row.created_by,
+            members: (membersByGroup.get(row.conversation_id) ?? [])
+              .map((id) => contactsById.get(id))
+              .filter((value): value is MessagingContact => Boolean(value)),
+          }
+        : null,
       lastMessageAt: row.last_message_at,
       lastMessagePreview: row.last_message_body ? messagePreview(row.last_message_body) : null,
       lastMessageFromMe: row.last_message_sender_id === profile.id,
+      lastMessageSenderId: row.last_message_sender_id,
       unreadCount: Number(row.unread_count) || 0,
     }));
 

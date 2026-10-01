@@ -28,6 +28,11 @@ type GameDialogProps = {
   onClose: () => void;
   /** Relance une partie du meme jeu depuis l'annonce de fin. */
   onRematch?: (gameType: GameType) => void;
+  /**
+   * Partie d'un groupe : nom d'un membre. L'adversaire n'est alors pas l'interlocuteur
+   * du fil mais l'autre joueur assis, et ceux qui ne jouent pas regardent.
+   */
+  nameOf?: (profileId: string) => string;
   /** Fil de la conversation, affiche a cote du plateau pour discuter pendant la partie. */
   chat?: {
     messages: MessageItem[];
@@ -61,10 +66,34 @@ function describe(game: GameItem, currentUserId: string, opponentName: string) {
  * Ouvrir la fenetre suffit a rejoindre la partie (voir use-game) : l'invite clique sur
  * l'invitation, le plateau s'affiche et la partie commence.
  */
-export function GameDialog({ gameId, currentUserId, opponentName, onClose, onRematch, chat }: GameDialogProps) {
+export function GameDialog({
+  gameId,
+  currentUserId,
+  opponentName: conversationName,
+  nameOf,
+  onClose,
+  onRematch,
+  chat,
+}: GameDialogProps) {
   const { game, loading, pending, error, sendMove, playMove, resign } = useGame(gameId);
 
   const seat = game ? seatOf(game, currentUserId) : null;
+  /*
+    Adversaire. A deux, c'est l'interlocuteur du fil. Dans un groupe, c'est l'autre joueur
+    assis — tant que personne n'a rejoint, « quelqu'un ».
+  */
+  const otherPlayerId = game
+    ? seat === "player_two"
+      ? game.playerOneId
+      : seat === "player_one"
+        ? game.playerTwoId
+        : null
+    : null;
+  const opponentName = nameOf
+    ? otherPlayerId
+      ? nameOf(otherPlayerId)
+      : "quelqu'un"
+    : conversationName;
   const isPlayer = !!seat;
   const myTurn = !!game && !!seat && isSeatToPlay(game, seat);
   const entry = gameCatalogEntry(game?.gameType);
@@ -127,6 +156,16 @@ export function GameDialog({ gameId, currentUserId, opponentName, onClose, onRem
               <div className="flex aspect-[2/1] items-center justify-center rounded-app-card bg-app-surface-hover p-6 text-center text-app-sm text-app-text-secondary">
                 {entry?.icon} La partie commencera dès que {opponentName} l&apos;aura rejointe.
               </div>
+            ) : game && !seat ? (
+              // Membre du groupe qui ne joue pas : il suit la partie par le fil.
+              <div className="flex aspect-[2/1] items-center justify-center rounded-app-card bg-app-surface-hover p-6 text-center text-app-sm text-app-text-secondary">
+                {entry?.icon}{" "}
+                {game.status === "finished"
+                  ? "Cette partie est terminée."
+                  : game.playerOneId && game.playerTwoId && nameOf
+                    ? `Partie en cours entre ${nameOf(game.playerOneId)} et ${nameOf(game.playerTwoId)}.`
+                    : "Cette partie est déjà complète."}
+              </div>
             ) : game && seat ? (
               <GameBoard
                 game={game}
@@ -169,6 +208,8 @@ export function GameDialog({ gameId, currentUserId, opponentName, onClose, onRem
                 loading={false}
                 sending={chat.sending}
                 onSend={chat.onSend}
+                isGroup={!!nameOf}
+                nameOf={nameOf}
               />
             </aside>
           )}
@@ -184,7 +225,7 @@ export function GameDialog({ gameId, currentUserId, opponentName, onClose, onRem
             </DialogTitle>
             <DialogDescription className="text-app-sm text-app-text-secondary">
               {cancelling
-                ? `${opponentName} ne pourra plus rejoindre cette partie.`
+                ? `${opponentName.charAt(0).toUpperCase()}${opponentName.slice(1)} ne pourra plus rejoindre cette partie.`
                 : `La partie sera perdue et ${opponentName} sera déclaré(e) vainqueur. Cette action est définitive.`}
             </DialogDescription>
           </DialogHeader>
