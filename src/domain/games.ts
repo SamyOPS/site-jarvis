@@ -341,6 +341,8 @@ export type UnoEvent = {
   card?: UnoCard;
   /** Cartes piochées par le joueur suivant (+2, +4). */
   penalty?: { to: number; count: number };
+  /** Pioche ou passe faite par le serveur : le joueur n'avait aucune carte jouable. */
+  auto?: boolean;
 };
 
 /**
@@ -357,6 +359,8 @@ export type UnoState = MultiplayerTurnState & {
   /** Le joueur qui a la main a déjà pioché ce tour-ci : il peut poser ou passer. */
   hasDrawn: boolean;
   lastEvent: UnoEvent | null;
+  /** Derniers coups, du plus ancien au plus récent (absent des parties plus anciennes). */
+  recent?: UnoEvent[];
 };
 
 export type UnoSecret = { hand: UnoCard[] };

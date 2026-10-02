@@ -1,4 +1,4 @@
-import type { UnoCard, UnoColor, UnoState, UnoValue } from "@/domain/games";
+import type { UnoCard, UnoColor, UnoEvent, UnoState, UnoValue } from "@/domain/games";
 import { activePlayers, nextPlayer } from "@/lib/multiplayer-turns";
 
 /**
@@ -71,6 +71,14 @@ export function startUno(count: number, rand: Rand): { state: UnoState; hands: U
   };
 }
 
+/** Coups gardés dans l'historique affiché. */
+const RECENT_EVENTS = 6;
+
+/** Enregistre un coup : dernier coup et historique court. */
+function withEvent(state: UnoState, event: UnoEvent): UnoState {
+  return { ...state, lastEvent: event, recent: [...(state.recent ?? []), event].slice(-RECENT_EVENTS) };
+}
+
 export type UnoPlayOutcome = {
   state: UnoState;
   hand: UnoCard[];
@@ -126,21 +134,23 @@ export function playUno(
   const played: UnoCard = isWild(card) ? { color: chosen, value: card.value } : card;
 
   return {
-    state: {
-      ...state,
-      top: played,
-      color: (played.color ?? state.color) as UnoColor,
-      direction,
-      handCounts,
-      hasDrawn: false,
-      turn: finished ? player : nextPlayer(player, count, state.out, direction, skip),
-      lastEvent: {
+    state: withEvent(
+      {
+        ...state,
+        top: played,
+        color: (played.color ?? state.color) as UnoColor,
+        direction,
+        handCounts,
+        hasDrawn: false,
+        turn: finished ? player : nextPlayer(player, count, state.out, direction, skip),
+      },
+      {
         by: player,
         kind: "play",
         card: played,
         ...(penalty ? { penalty: { to: penalty.to, count: penalty.cards.length } } : {}),
       },
-    },
+    ),
     hand: nextHand,
     penalty,
     finished,
@@ -148,25 +158,41 @@ export function playUno(
 }
 
 /** Pioche une carte. Une fois par tour : ensuite, poser ou passer. */
-export function drawUno(state: UnoState, player: number, hand: UnoCard[], rand: Rand) {
+export function drawUno(state: UnoState, player: number, hand: UnoCard[], rand: Rand, auto = false) {
   assertTurn(state, player);
   if (state.hasDrawn) throw new Error("Vous avez déjà pioché : posez une carte ou passez.");
   const handCounts = [...state.handCounts];
   handCounts[player] += 1;
   return {
-    state: { ...state, handCounts, hasDrawn: true, lastEvent: { by: player, kind: "draw" as const } },
+    state: withEvent({ ...state, handCounts, hasDrawn: true }, { by: player, kind: "draw", ...(auto ? { auto } : {}) }),
     hand: [...hand, drawCard(rand)],
   };
 }
 
 /** Passe son tour, après avoir pioché. */
-export function passUno(state: UnoState, player: number): UnoState {
+export function passUno(state: UnoState, player: number, auto = false): UnoState {
   assertTurn(state, player);
   if (!state.hasDrawn) throw new Error("Piochez d'abord une carte.");
-  return {
-    ...state,
-    hasDrawn: false,
-    turn: nextPlayer(player, state.handCounts.length, state.out, state.direction),
-    lastEvent: { by: player, kind: "pass" },
-  };
+  return withEvent(
+    {
+      ...state,
+      hasDrawn: false,
+      turn: nextPlayer(player, state.handCounts.length, state.out, state.direction),
+    },
+    { by: player, kind: "pass", ...(auto ? { auto } : {}) },
+  );
+}
+
+/**
+ * Pioche automatique : le joueur qui a la main n'a AUCUNE carte jouable. Il pioche ;
+ * si la carte piochée se pose, il garde la main pour la jouer (ou passer), sinon il
+ * passe. Rend `null` quand il n'y a rien à faire — une carte jouable, ou déjà pioché.
+ */
+export function autoDrawUno(state: UnoState, hand: UnoCard[], rand: Rand) {
+  const player = state.turn;
+  if (state.hasDrawn || hand.some((card) => canPlayUno(card, state))) return null;
+  const drawn = drawUno(state, player, hand, rand, true);
+  const card = drawn.hand[drawn.hand.length - 1];
+  if (canPlayUno(card, drawn.state)) return { state: drawn.state, hand: drawn.hand };
+  return { state: passUno(drawn.state, player, true), hand: drawn.hand };
 }

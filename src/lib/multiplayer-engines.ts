@@ -16,7 +16,7 @@ import type {
 } from "@/domain/games";
 import { forfeitPlayer, nextPlayer } from "@/lib/multiplayer-turns";
 import { initialTicTacToe3State, playTicTacToe3 } from "@/lib/tic-tac-toe-3-game";
-import { UNO_COLORS, drawUno, passUno, playUno, startUno } from "@/lib/uno-game";
+import { UNO_COLORS, autoDrawUno, drawUno, passUno, playUno, startUno } from "@/lib/uno-game";
 import { moveLudo, rollLudo, startLudo } from "@/lib/ludo-game";
 import { markQuizAnswered, quizRoundComplete, resolveQuizRound, startQuiz } from "@/lib/quiz-game";
 import { QUIZ_BANK } from "@/lib/quiz-bank";
@@ -53,7 +53,7 @@ export type MultiplayerResult = {
 export type MultiplayerEngine = {
   hasSecrets?: boolean;
   /** Lance la partie une fois les joueurs réunis : état initial, secrets distribués. */
-  start: (ctx: Pick<MultiplayerContext, "gameId" | "count" | "saveSecret">) => Promise<GameState>;
+  start: (ctx: Pick<MultiplayerContext, "gameId" | "count" | "loadSecret" | "saveSecret">) => Promise<GameState>;
   play: (ctx: MultiplayerContext) => Promise<MultiplayerResult>;
   /** Abandon d'un joueur. Par défaut : il sort du tour. */
   forfeit?: (ctx: MultiplayerContext) => Promise<MultiplayerResult>;
@@ -96,16 +96,42 @@ const ticTacToe3: MultiplayerEngine = {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Fait piocher, puis passer s'il le faut, chaque joueur qui reçoit la main sans carte
+ * jouable — en chaîne : celui qui suit peut être dans le même cas. Borné à un tour de
+ * table complet (deux par joueur) : si personne ne peut jouer, la main reste au dernier,
+ * qui piochera lui-même.
+ */
+async function settleUnoTurn(
+  state: UnoState,
+  ctx: Pick<MultiplayerContext, "count" | "loadSecret" | "saveSecret">,
+): Promise<UnoState> {
+  let current = state;
+  for (let guard = 0; guard < ctx.count * 2; guard += 1) {
+    const player = current.turn;
+    const hand = (await ctx.loadSecret<UnoSecret>(player))?.hand;
+    if (!hand) return current;
+    const step = autoDrawUno(current, hand, rand);
+    if (!step) return current;
+    await ctx.saveSecret(player, { hand: step.hand } satisfies UnoSecret);
+    current = step.state;
+    // La carte piochée se joue : le joueur garde la main pour la poser.
+    if (current.hasDrawn) return current;
+  }
+  return current;
+}
+
 const uno: MultiplayerEngine = {
   hasSecrets: true,
-  async start({ count, saveSecret }) {
-    const { state, hands } = startUno(count, rand);
+  async start(ctx) {
+    const { state, hands } = startUno(ctx.count, rand);
     for (const [player, hand] of hands.entries()) {
-      await saveSecret(player, { hand } satisfies UnoSecret);
+      await ctx.saveSecret(player, { hand } satisfies UnoSecret);
     }
-    return state;
+    // Le premier joueur peut déjà n'avoir rien à poser.
+    return settleUnoTurn(state, ctx);
   },
-  async play({ state, player, payload, loadSecret, saveSecret }) {
+  async play({ state, player, count, payload, loadSecret, saveSecret }) {
     const current = state as UnoState;
     const hand = (await loadSecret<UnoSecret>(player))?.hand;
     if (!hand) throw new ApiError("Main introuvable.", 409);
@@ -124,7 +150,7 @@ const uno: MultiplayerEngine = {
       }
       return outcome.finished
         ? { state: outcome.state, finished: true, winner: player, reason: "empty_hand" }
-        : { state: outcome.state };
+        : { state: await settleUnoTurn(outcome.state, { count, loadSecret, saveSecret }) };
     }
 
     if (payload?.action === "draw") {
@@ -134,7 +160,7 @@ const uno: MultiplayerEngine = {
     }
 
     if (payload?.action === "pass") {
-      return { state: rule(() => passUno(current, player)) };
+      return { state: await settleUnoTurn(rule(() => passUno(current, player)), { count, loadSecret, saveSecret }) };
     }
 
     throw new ApiError("Action inconnue.", 400);
@@ -146,11 +172,10 @@ const uno: MultiplayerEngine = {
     if (result.finished || current.turn !== ctx.player) return result;
     const next = result.state as UnoState;
     return {
-      state: {
-        ...next,
-        hasDrawn: false,
-        turn: nextPlayer(ctx.player, ctx.count, next.out, current.direction),
-      },
+      state: await settleUnoTurn(
+        { ...next, hasDrawn: false, turn: nextPlayer(ctx.player, ctx.count, next.out, current.direction) },
+        ctx,
+      ),
     };
   },
 };

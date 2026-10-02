@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowLeftRight, ArrowRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import type { UnoCard, UnoColor, UnoSecret, UnoState } from "@/domain/games";
-import { UNO_COLORS, canPlayUno, isWild } from "@/lib/uno-game";
-import { PlayerStrip, type MultiplayerBoardProps } from "@/components/messaging/multiplayer-common";
+import type { GameItem, UnoCard, UnoColor, UnoEvent, UnoSecret, UnoState } from "@/domain/games";
+import { UNO_COLORS, canPlayUno, isWild, playUno } from "@/lib/uno-game";
+import { PLAYER_COLORS, type MultiplayerBoardProps } from "@/components/messaging/multiplayer-common";
 
 /** Couleurs du jeu en boîte, hors thème. */
 const COLOR: Record<UnoColor, { bg: string; label: string }> = {
@@ -65,12 +65,144 @@ function CardFace({ card, size = "md" }: { card: UnoCard; size?: "md" | "lg" }) 
   );
 }
 
-/** Table d'UNO : pile, pioche, et la main de l'utilisateur. */
+/** Dos de carte, pour les mains adverses. */
+function CardBack({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex h-12 w-8 items-center justify-center rounded-md border-2 border-white bg-[#111827] text-[0.5rem] font-black text-[#facc15] shadow",
+        className,
+      )}
+    >
+      UNO
+    </span>
+  );
+}
+
+/**
+ * Mains des adversaires, face cachée : on voit d'un coup d'œil qui est près de gagner.
+ * Au-delà de dix cartes, l'éventail s'arrête et le nombre suffit.
+ */
+function OpponentHands({
+  game,
+  player,
+  nameOf,
+}: {
+  game: GameItem;
+  player: number;
+  nameOf: (profileId: string) => string;
+}) {
+  const state = game.state as UnoState;
+  const opponents = game.players.map((id, index) => ({ id, index })).filter(({ index }) => index !== player);
+
+  return (
+    <ul className="flex flex-wrap justify-center gap-3">
+      {opponents.map(({ id, index }) => {
+        const count = state.handCounts[index] ?? 0;
+        const out = state.out.includes(index);
+        const turn = game.status === "active" && state.turn === index;
+        return (
+          <li
+            key={id}
+            className={cn(
+              "flex min-w-[7rem] flex-col items-center gap-1.5 rounded-app-card border px-3 py-2",
+              turn ? "border-app-accent bg-app-accent-soft" : "border-app-line",
+              out && "opacity-50",
+            )}
+          >
+            <span className="flex items-center gap-1.5 text-app-xs font-medium text-app-text">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: PLAYER_COLORS[index] }} />
+              {nameOf(id)}
+              {out && <span className="text-app-text-muted">(parti)</span>}
+            </span>
+            <span className="flex h-12 items-center pl-4" aria-hidden>
+              {/* Une carte gagnée arrive d'en haut ; une carte posée s'envole vers la pile. */}
+              <AnimatePresence initial={false}>
+                {Array.from({ length: Math.min(count, 10) }, (_, card) => (
+                  <motion.span
+                    key={card}
+                    className="-ml-4"
+                    initial={{ y: -24, opacity: 0, scale: 0.6 }}
+                    animate={{ y: 0, opacity: 1, scale: 1 }}
+                    exit={{ y: 36, opacity: 0, scale: 0.6, rotate: 12 }}
+                    transition={{ type: "spring", stiffness: 420, damping: 28 }}
+                  >
+                    <CardBack />
+                  </motion.span>
+                ))}
+              </AnimatePresence>
+            </span>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-app-xs font-semibold",
+                count === 1 ? "bg-[#dc2626] text-white" : "bg-app-surface-hover text-app-text",
+              )}
+            >
+              {count} carte{count > 1 ? "s" : ""}
+              {count === 1 ? " · UNO !" : ""}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Phrase d'un coup, pour l'historique. */
+function describeEvent(event: UnoEvent, game: GameItem, nameOf: (profileId: string) => string) {
+  const who = nameOf(game.players[event.by]);
+  if (event.kind === "play" && event.card) {
+    const penalty = event.penalty ? ` : ${nameOf(game.players[event.penalty.to])} pioche ${event.penalty.count}` : "";
+    return `${who} pose ${unoCardName(event.card)}${penalty}`;
+  }
+  if (event.kind === "draw") return event.auto ? `${who} n'a rien à jouer et pioche` : `${who} pioche`;
+  return event.auto ? `${who} passe (carte piochée injouable)` : `${who} passe`;
+}
+
+/**
+ * Clés stables des cartes d'une main. La main n'a pas d'identifiants : on numérote les
+ * exemplaires identiques (« le 2e 7 rouge »). Poser une carte ne renumérote donc pas les
+ * autres, et seule la carte posée joue son animation de départ.
+ */
+function handKeys(hand: UnoCard[]) {
+  const seen = new Map<string, number>();
+  return hand.map((card) => {
+    const base = `${card.color ?? "wild"}-${card.value}`;
+    const nth = (seen.get(base) ?? 0) + 1;
+    seen.set(base, nth);
+    return `${base}-${nth}`;
+  });
+}
+
+/** Table d'UNO : mains adverses, pile, pioche, et la main de l'utilisateur. */
 export function UnoBoard({ game, player, interactive, nameOf, sendMove }: MultiplayerBoardProps) {
   const state = game.state as UnoState;
   const hand = (game.private?.secret as UnoSecret | null | undefined)?.hand ?? [];
   // Joker choisi, en attente de sa couleur.
   const [choosing, setChoosing] = useState<number | null>(null);
+  const reduceMotion = useReducedMotion();
+
+  /*
+    Carte posée tout de suite, sans attendre le serveur : la main et la pile bougent au
+    clic. Les cartes de pénalité (+2, +4) sont tirées au hasard côté serveur, et la
+    réponse remplace cette version locale.
+  */
+  const play = (index: number, color?: UnoColor) =>
+    sendMove({ action: "play", card: index, ...(color ? { color } : {}) }, (current: GameItem) => {
+      const mine = (current.private?.secret as UnoSecret | null | undefined)?.hand;
+      if (!mine) return null;
+      try {
+        const outcome = playUno(current.state as UnoState, player, mine, index, color ?? null, () => 0);
+        return {
+          ...current,
+          state: outcome.state,
+          private: { ...current.private!, secret: { hand: outcome.hand } satisfies UnoSecret },
+        };
+      } catch {
+        return null;
+      }
+    });
 
   const playCard = (index: number) => {
     const card = hand[index];
@@ -79,45 +211,63 @@ export function UnoBoard({ game, player, interactive, nameOf, sendMove }: Multip
       setChoosing(index);
       return;
     }
-    sendMove({ action: "play", card: index });
+    play(index);
   };
 
   const last = state.lastEvent;
-  const lastText = last
-    ? last.kind === "play" && last.card
-      ? `${nameOf(game.players[last.by])} a posé ${unoCardName(last.card)}${
-          last.penalty ? ` : ${nameOf(game.players[last.penalty.to])} pioche ${last.penalty.count}` : ""
-        }.`
-      : last.kind === "draw"
-        ? `${nameOf(game.players[last.by])} a pioché.`
-        : `${nameOf(game.players[last.by])} a passé.`
-    : null;
+  // Identité du dernier coup : change à chaque coup, même deux fois la même carte.
+  const eventKey = `${JSON.stringify(last)}|${state.handCounts.join(",")}`;
+  const keys = handKeys(hand);
+  // Parties d'avant l'historique : on retombe sur le seul dernier coup.
+  const recent = state.recent ?? (last ? [last] : []);
 
   return (
     <div className="space-y-4">
-      <PlayerStrip
-        game={game}
-        nameOf={nameOf}
-        detail={(index) => `${state.handCounts[index]} carte${state.handCounts[index] > 1 ? "s" : ""}${state.handCounts[index] === 1 ? " · UNO !" : ""}`}
-      />
+      <OpponentHands game={game} player={player} nameOf={nameOf} />
 
       <div className="flex items-center justify-center gap-6">
         {/* Pioche : infinie, d'où son dos toujours présent. */}
-        <button
-          type="button"
-          onClick={() => sendMove({ action: "draw" })}
-          disabled={!interactive || state.hasDrawn}
-          aria-label="Piocher une carte"
-          className="relative flex h-28 w-20 items-center justify-center rounded-lg border-2 border-white bg-[#111827] text-app-sm font-bold text-[#facc15] shadow-md transition-transform enabled:hover:-translate-y-1 disabled:opacity-60"
-        >
-          UNO
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => sendMove({ action: "draw" })}
+            disabled={!interactive || state.hasDrawn}
+            aria-label="Piocher une carte"
+            className="relative flex h-28 w-20 items-center justify-center rounded-lg border-2 border-white bg-[#111827] text-app-sm font-bold text-[#facc15] shadow-md transition-transform enabled:hover:-translate-y-1 disabled:opacity-60"
+          >
+            UNO
+          </button>
+          {/*
+            Carte qui quitte la pioche à chaque pioche (manuelle, automatique ou pénalité) :
+            vers le bas pour soi, vers le haut pour un adversaire.
+          */}
+          {!reduceMotion && last && (last.kind === "draw" || last.penalty) && (
+            <motion.span
+              key={eventKey}
+              aria-hidden
+              className="pointer-events-none absolute inset-0 rounded-lg border-2 border-white bg-[#111827]"
+              initial={{ opacity: 1, y: 0, rotate: 0 }}
+              animate={{
+                opacity: 0,
+                y: (last.penalty ? last.penalty.to : last.by) === player ? 140 : -140,
+                rotate: (last.penalty ? last.penalty.to : last.by) === player ? 8 : -8,
+              }}
+              transition={{ duration: 0.55, ease: "easeOut" }}
+            />
+          )}
+        </div>
 
         <div className="flex flex-col items-center gap-2">
+          {/* Carte posée : arrive de sa main (en bas pour soi, en haut pour un adversaire). */}
           <motion.div
-            key={`${state.top.value}-${state.top.color}-${last?.by ?? ""}-${state.handCounts.join(",")}`}
-            initial={{ scale: 0.85, rotate: -8, opacity: 0.6 }}
-            animate={{ scale: 1, rotate: 0, opacity: 1 }}
+            key={last?.kind === "play" ? eventKey : "pile"}
+            initial={
+              reduceMotion || last?.kind !== "play"
+                ? false
+                : { y: last.by === player ? 160 : -160, rotate: last.by === player ? -25 : 25, scale: 0.8, opacity: 0.4 }
+            }
+            animate={{ y: 0, rotate: 0, scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 24 }}
           >
             <CardFace card={state.top} size="lg" />
           </motion.div>
@@ -133,7 +283,15 @@ export function UnoBoard({ game, player, interactive, nameOf, sendMove }: Multip
         </div>
       </div>
 
-      {lastText && <p className="text-center text-app-xs text-app-text-muted">{lastText}</p>}
+      {recent.length > 0 && (
+        <ol aria-label="Derniers coups" className="mx-auto max-w-sm space-y-0.5 text-center text-app-xs text-app-text-muted">
+          {recent.slice(-4).map((event, index, shown) => (
+            <li key={index} className={cn(index === shown.length - 1 && "font-medium text-app-text-secondary")}>
+              {describeEvent(event, game, nameOf)}
+            </li>
+          ))}
+        </ol>
+      )}
 
       {player >= 0 && (
         <div className="space-y-2">
@@ -145,7 +303,7 @@ export function UnoBoard({ game, player, interactive, nameOf, sendMove }: Multip
                   key={color}
                   type="button"
                   onClick={() => {
-                    sendMove({ action: "play", card: choosing, color });
+                    play(choosing, color);
                     setChoosing(null);
                   }}
                   className="rounded-full px-3 py-1 text-app-sm font-medium text-white focus-visible:outline-app"
@@ -170,11 +328,23 @@ export function UnoBoard({ game, player, interactive, nameOf, sendMove }: Multip
           )}
 
           <p className="text-center text-app-xs text-app-text-muted">Votre main · {hand.length} carte{hand.length > 1 ? "s" : ""}</p>
-          <ul className="flex flex-wrap justify-center gap-1.5">
+          <ul className="relative flex flex-wrap justify-center gap-1.5">
+            {/*
+              Carte piochée : glisse depuis la pioche. Carte posée : s'envole vers la pile.
+              `layout` resserre la main sans à-coup.
+            */}
+            <AnimatePresence initial={false} mode="popLayout">
             {hand.map((card, index) => {
               const playable = interactive && canPlayUno(card, state);
               return (
-                <li key={`${index}-${card.color}-${card.value}`}>
+                <motion.li
+                  key={keys[index]}
+                  layout={!reduceMotion}
+                  initial={reduceMotion ? false : { y: -140, x: -60, opacity: 0, rotate: -15, scale: 0.7 }}
+                  animate={{ y: 0, x: 0, opacity: 1, rotate: 0, scale: 1 }}
+                  exit={reduceMotion ? { opacity: 0 } : { y: -160, opacity: 0, rotate: 20, scale: 0.8 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                >
                   <button
                     type="button"
                     onClick={() => playCard(index)}
@@ -188,9 +358,10 @@ export function UnoBoard({ game, player, interactive, nameOf, sendMove }: Multip
                   >
                     <CardFace card={card} />
                   </button>
-                </li>
+                </motion.li>
               );
             })}
+            </AnimatePresence>
           </ul>
         </div>
       )}

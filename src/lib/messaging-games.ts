@@ -316,6 +316,7 @@ export async function startMultiplayerGame(adminClient: SupabaseClient, row: Gam
   const state = await MULTIPLAYER_ENGINES[row.game_type].start({
     gameId: row.id,
     count: players.length,
+    loadSecret: (player) => loadSecret(adminClient, row.id, players[player] ?? null),
     saveSecret: (player, data) => saveSecret(adminClient, row.id, players[player] ?? null, data),
   });
   return updateGameIfUnchanged(adminClient, row, { players, state, status: "active" });
