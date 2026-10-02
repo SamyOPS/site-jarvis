@@ -14,12 +14,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { GameBoard, gameDialogWidth } from "@/components/messaging/game-board";
+import { MultiplayerBoard } from "@/components/messaging/multiplayer-board";
 import { GameResultDialog, type GameOutcome } from "@/components/messaging/game-result-dialog";
 import { MessageThread } from "@/components/messaging/message-thread";
 import type { MessageItem } from "@/domain/messaging";
 import { useGame } from "@/features/messaging/use-game";
 import { activeStatus, isSeatToPlay } from "@/lib/game-turns";
-import { GAME_RESULT_REASONS, gameCatalogEntry, seatOf, type GameItem, type GameType } from "@/domain/games";
+import { isPlayerToPlay, multiplayerStatus } from "@/lib/multiplayer-status";
+import {
+  GAME_RESULT_REASONS,
+  gameCatalogEntry,
+  isMultiplayerGame,
+  seatOf,
+  type GameItem,
+  type GameType,
+  type MultiplayerTurnState,
+} from "@/domain/games";
 
 type GameDialogProps = {
   gameId: string | null;
@@ -60,6 +70,24 @@ function describe(game: GameItem, currentUserId: string, opponentName: string) {
   return mySide ? activeStatus(game, mySide, opponentName) : "Partie en cours.";
 }
 
+/** Même phrase d'état, pour un jeu à plusieurs. */
+function describeMultiplayer(game: GameItem, currentUserId: string, nameOf: (id: string) => string) {
+  const player = game.players.indexOf(currentUserId);
+  if (game.status === "pending") {
+    const seats = `${game.players.length} joueur${game.players.length > 1 ? "s" : ""} à la table`;
+    return game.createdBy === currentUserId ? `${seats} : lancez quand tout le monde est là.` : `${seats}…`;
+  }
+  if (game.status === "finished") {
+    const reason = game.resultReason ? GAME_RESULT_REASONS[game.resultReason] ?? "" : "";
+    if (!game.result) return `Partie close${reason ? ` (${reason})` : ""}.`;
+    if (game.result === "draw") return "Égalité : personne ne l'emporte.";
+    const won = game.winnerId === currentUserId;
+    const winner = game.winnerId ? nameOf(game.winnerId) : "Un joueur";
+    return `${won ? "Vous avez gagné" : `${winner} a gagné`}${reason ? ` (${reason})` : ""}.`;
+  }
+  return multiplayerStatus(game, player, nameOf);
+}
+
 /**
  * Partie ouverte depuis une invitation du fil, quel que soit le jeu.
  *
@@ -75,7 +103,15 @@ export function GameDialog({
   onRematch,
   chat,
 }: GameDialogProps) {
-  const { game, loading, pending, error, sendMove, playMove, resign } = useGame(gameId);
+  const { game, loading, pending, error, sendMove, playMove, start, resign } = useGame(gameId);
+
+  // Jeu à plusieurs : joueurs désignés par leur rang, plateau et règles à part.
+  const multiplayer = isMultiplayerGame(game?.gameType);
+  const playerIndex = game && multiplayer ? game.players.indexOf(currentUserId) : -1;
+  const hasLeft =
+    multiplayer && playerIndex >= 0 && ((game?.state as MultiplayerTurnState | undefined)?.out ?? []).includes(playerIndex);
+  // A deux, hors groupe, le seul autre nom possible est celui de l'interlocuteur.
+  const resolveName = nameOf ?? ((id: string) => (id === currentUserId ? "Vous" : conversationName));
 
   const seat = game ? seatOf(game, currentUserId) : null;
   /*
@@ -94,8 +130,8 @@ export function GameDialog({
       ? nameOf(otherPlayerId)
       : "quelqu'un"
     : conversationName;
-  const isPlayer = !!seat;
-  const myTurn = !!game && !!seat && isSeatToPlay(game, seat);
+  const isPlayer = multiplayer ? playerIndex >= 0 : !!seat;
+  const myTurn = !!game && (multiplayer ? isPlayerToPlay(game, playerIndex) : !!seat && isSeatToPlay(game, seat));
   const entry = gameCatalogEntry(game?.gameType);
 
   /*
@@ -106,8 +142,9 @@ export function GameDialog({
   const [outcome, setOutcome] = useState<GameOutcome | null>(null);
   const [seen, setSeen] = useState<{ id: string; status: GameItem["status"] } | null>(null);
   if (game && (seen?.id !== game.id || seen.status !== game.status)) {
-    if (seen?.id === game.id && seen.status === "active" && game.status === "finished" && seat) {
-      setOutcome(game.result === "draw" || !game.result ? "draw" : game.result === seat ? "win" : "lose");
+    if (seen?.id === game.id && seen.status === "active" && game.status === "finished" && isPlayer) {
+      const won = multiplayer ? game.winnerId === currentUserId : game.result === seat;
+      setOutcome(game.result === "draw" || !game.result ? "draw" : won ? "win" : "lose");
     }
     setSeen({ id: game.id, status: game.status });
   }
@@ -115,6 +152,32 @@ export function GameDialog({
   /** Fenetre de confirmation avant d'abandonner ou d'annuler : l'action est definitive. */
   const [confirming, setConfirming] = useState(false);
   const cancelling = game?.status === "pending";
+  // Jeu à plusieurs en salle d'attente : seul le créateur annule, les autres quittent la table.
+  const leavingTable = multiplayer && cancelling && game?.createdBy !== currentUserId;
+  const confirmCopy = leavingTable
+    ? {
+        title: "Quitter la table ?",
+        body: "Vous ne jouerez pas cette partie. Vous pourrez la rejoindre à nouveau tant qu'elle n'a pas commencé.",
+        keep: "Rester",
+        act: "Quitter la table",
+      }
+    : cancelling
+      ? {
+          title: "Annuler l'invitation ?",
+          body: multiplayer
+            ? "Personne ne pourra plus rejoindre cette partie."
+            : `${opponentName.charAt(0).toUpperCase()}${opponentName.slice(1)} ne pourra plus rejoindre cette partie.`,
+          keep: "Garder l'invitation",
+          act: "Annuler l'invitation",
+        }
+      : {
+          title: "Abandonner la partie ?",
+          body: multiplayer
+            ? "Vous quitterez la partie, qui continuera sans vous. Cette action est définitive."
+            : `La partie sera perdue et ${opponentName} sera déclaré(e) vainqueur. Cette action est définitive.`,
+          keep: "Continuer la partie",
+          act: "Abandonner",
+        };
 
   const confirmResign = async () => {
     await resign();
@@ -142,7 +205,11 @@ export function GameDialog({
               myTurn ? "font-medium text-app-text" : "text-app-text-secondary",
             )}
           >
-            {game ? describe(game, currentUserId, opponentName) : "Ouverture de la partie…"}
+            {game
+              ? multiplayer
+                ? describeMultiplayer(game, currentUserId, resolveName)
+                : describe(game, currentUserId, opponentName)
+              : "Ouverture de la partie…"}
           </DialogDescription>
         </DialogHeader>
 
@@ -152,6 +219,18 @@ export function GameDialog({
               <div className="flex aspect-[2/1] w-full items-center justify-center">
                 <Loader2 className="h-6 w-6 animate-spin text-app-text-muted" />
               </div>
+            ) : game && multiplayer ? (
+              // Les spectateurs voient le plateau public, sans pouvoir agir.
+              <MultiplayerBoard
+                game={game}
+                player={playerIndex}
+                interactive={myTurn && !pending}
+                pending={pending}
+                isCreator={game.createdBy === currentUserId}
+                nameOf={resolveName}
+                sendMove={(body, optimistic) => void sendMove(body, optimistic)}
+                onStart={() => void start()}
+              />
             ) : game && seat && game.status === "pending" ? (
               <div className="flex aspect-[2/1] items-center justify-center rounded-app-card bg-app-surface-hover p-6 text-center text-app-sm text-app-text-secondary">
                 {entry?.icon} La partie commencera dès que {opponentName} l&apos;aura rejointe.
@@ -180,13 +259,16 @@ export function GameDialog({
 
             {error && <p className="text-app-sm text-red-500">{error}</p>}
 
-            {game && isPlayer && game.status !== "finished" && (
+            {game && isPlayer && !hasLeft && game.status !== "finished" && (
               <div className="flex justify-end">
-                {/* Annuler une invitation n'appartient qu'a son auteur ; abandonner, aux deux joueurs. */}
-                {(game.status === "active" || game.createdBy === currentUserId) && (
+                {/*
+                  Annuler une invitation n'appartient qu'a son auteur ; abandonner, aux joueurs.
+                  A plusieurs, un joueur assis peut aussi quitter la table avant le lancement.
+                */}
+                {(game.status === "active" || game.createdBy === currentUserId || multiplayer) && (
                   <Button type="button" variant="outline" size="sm" onClick={() => setConfirming(true)} disabled={pending}>
                     <Flag className="mr-2 h-4 w-4" />
-                    {game.status === "pending" ? "Annuler l'invitation" : "Abandonner"}
+                    {confirmCopy.act}
                   </Button>
                 )}
               </div>
@@ -220,14 +302,8 @@ export function GameDialog({
       <Dialog open={confirming} onOpenChange={(open) => !pending && setConfirming(open)}>
         <DialogContent className="sm:max-w-md border-app-line bg-app-surface text-app-text">
           <DialogHeader>
-            <DialogTitle className="text-app-md">
-              {cancelling ? "Annuler l'invitation ?" : "Abandonner la partie ?"}
-            </DialogTitle>
-            <DialogDescription className="text-app-sm text-app-text-secondary">
-              {cancelling
-                ? `${opponentName.charAt(0).toUpperCase()}${opponentName.slice(1)} ne pourra plus rejoindre cette partie.`
-                : `La partie sera perdue et ${opponentName} sera déclaré(e) vainqueur. Cette action est définitive.`}
-            </DialogDescription>
+            <DialogTitle className="text-app-md">{confirmCopy.title}</DialogTitle>
+            <DialogDescription className="text-app-sm text-app-text-secondary">{confirmCopy.body}</DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
@@ -237,7 +313,7 @@ export function GameDialog({
               onClick={() => setConfirming(false)}
               disabled={pending}
             >
-              {cancelling ? "Garder l'invitation" : "Continuer la partie"}
+              {confirmCopy.keep}
             </Button>
             <Button
               type="button"
@@ -247,7 +323,7 @@ export function GameDialog({
               disabled={pending}
             >
               {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {cancelling ? "Annuler l'invitation" : "Abandonner"}
+              {confirmCopy.act}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -256,7 +332,14 @@ export function GameDialog({
       <GameResultDialog
         outcome={outcome}
         reason={game?.resultReason ?? null}
-        opponentName={opponentName}
+        // A plusieurs : « vous battez vos adversaires », ou le nom de celui qui gagne.
+        opponentName={
+          multiplayer
+            ? outcome === "lose" && game?.winnerId
+              ? resolveName(game.winnerId)
+              : "vos adversaires"
+            : opponentName
+        }
         onClose={() => setOutcome(null)}
         onRematch={
           onRematch && game

@@ -1,6 +1,6 @@
 import { Chess } from "chess.js";
 
-import type { ChessState, GameResult } from "@/domain/games";
+import type { ChessState, TwoPlayerResult } from "@/domain/games";
 
 /**
  * Règles des échecs, partagées entre l'API et l'échiquier.
@@ -30,7 +30,7 @@ export type ChessMoveInput = { from: string; to: string; promotion?: string };
 export type ChessMoveOutcome = {
   state: ChessState;
   finished: boolean;
-  result: GameResult | null;
+  result: TwoPlayerResult | null;
   resultReason: string | null;
 };
 

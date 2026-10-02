@@ -6,10 +6,10 @@ import {
   type BattleshipState,
   type CheckersState,
   type ChessState,
-  type GameResult,
   type GameSeat,
   type GameState,
-  type GameType,
+  type TwoPlayerGameType,
+  type TwoPlayerResult,
   type GridState,
   type GuessWhoSecret,
   type GuessWhoState,
@@ -61,7 +61,7 @@ export type EngineContext = {
 export type EngineResult = {
   state: GameState;
   finished?: boolean;
-  result?: GameResult | null;
+  result?: TwoPlayerResult | null;
   reason?: string | null;
 };
 
@@ -230,7 +230,7 @@ const mastermind: GameEngine = {
   },
 };
 
-export const GAME_ENGINES: Record<GameType, GameEngine> = {
+export const GAME_ENGINES: Record<TwoPlayerGameType, GameEngine> = {
   chess,
   battleship,
   connect_four: gridEngine(initialConnectFourState, playConnectFour, "column"),

@@ -6,7 +6,7 @@ import { createAuthorizedFetch } from "@/lib/dashboard-api";
 import { browserSupabase } from "@/lib/supabase-browser";
 import { safeGetClientSession } from "@/lib/client-auth";
 import { applyChessMove, type ChessMoveInput } from "@/lib/chess-game";
-import type { ChessState, GameItem } from "@/domain/games";
+import { isMultiplayerGame, type ChessState, type GameItem } from "@/domain/games";
 
 /**
  * Etat d'une partie ouverte : chargement, arrivee des coups adverses, envoi des siens.
@@ -28,6 +28,8 @@ type GameRealtimeRow = {
   created_by: string | null;
   player_one_id: string | null;
   player_two_id: string | null;
+  players: string[] | null;
+  winner_id: string | null;
   state: GameItem["state"];
   result: GameItem["result"];
   result_reason: string | null;
@@ -43,6 +45,11 @@ function fromRealtime(row: GameRealtimeRow): GameItem {
     createdBy: row.created_by,
     playerOneId: row.player_one_id,
     playerTwoId: row.player_two_id,
+    // Même reconstitution que le serveur (`playersOf`) : une liste, quel que soit le jeu.
+    players: isMultiplayerGame(row.game_type)
+      ? (row.players ?? [])
+      : [row.player_one_id, row.player_two_id].filter((id): id is string => Boolean(id)),
+    winnerId: row.winner_id ?? null,
     state: row.state,
     result: row.result,
     resultReason: row.result_reason,
@@ -94,6 +101,12 @@ export function useGame(gameId: string | null) {
     }
   }, [accept, call, gameId]);
 
+  // Lue par l'abonnement Realtime, pose une seule fois : la ref lui donne la version a jour.
+  const refreshRef = useRef(refresh);
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
+
   /*
     Ouverture = tentative de rejoindre. La route est idempotente : pour un joueur deja
     assis, ou une partie deja lancee, elle rend simplement l'etat courant. Cliquer sur
@@ -144,7 +157,15 @@ export function useGame(gameId: string | null) {
         .on(
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${gameId}` },
-          (payload) => accept(fromRealtime(payload.new as GameRealtimeRow)),
+          (payload) => {
+            const row = payload.new as GameRealtimeRow;
+            accept(fromRealtime(row));
+            /*
+              UNO : le coup d'un autre a pu changer NOTRE main (+2, +4), et un évènement
+              Realtime ne porte que la ligne publique. On relit alors la partie complète.
+            */
+            if (row.game_type === "uno") void refreshRef.current();
+          },
         )
         .subscribe((status) => {
           if (!cancelled) setRealtimeReady(status === "SUBSCRIBED");
@@ -224,6 +245,21 @@ export function useGame(gameId: string | null) {
     [submitMove],
   );
 
+  /** Lance une partie à plusieurs avant que la table soit pleine (créateur seulement). */
+  const start = useCallback(async () => {
+    const current = gameRef.current;
+    if (!current) return;
+    setPending(true);
+    try {
+      accept(await call(`/api/messages/games/${encodeURIComponent(current.id)}/start`, { method: "POST" }));
+      setError(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Lancement impossible.");
+    } finally {
+      setPending(false);
+    }
+  }, [accept, call]);
+
   const resign = useCallback(async () => {
     const current = gameRef.current;
     if (!current) return;
@@ -251,6 +287,7 @@ export function useGame(gameId: string | null) {
     /** Coup quelconque, dans le format attendu par le moteur du jeu. */
     sendMove: submitMove,
     playMove,
+    start,
     resign,
   };
 }

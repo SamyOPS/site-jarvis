@@ -32,6 +32,8 @@ type MessageThreadProps = {
   onSend: (body: string) => void | Promise<unknown>;
   /** Propose une partie dans le fil. Sans lui, le menu « Jeux » n'est pas affiche. */
   onStartGame?: (gameType: GameType) => void;
+  /** Membres de la conversation, pour griser les jeux qui en demandent plus. */
+  memberCount?: number;
   /** Ouvre la partie d'une invitation. */
   onOpenGame?: (gameId: string) => void;
   /** Desactive la saisie : aucune conversation ouverte. */
@@ -56,6 +58,7 @@ export function MessageThread({
   sending,
   onSend,
   onStartGame,
+  memberCount = 2,
   onOpenGame,
   disabled = false,
   isGroup = false,
@@ -272,7 +275,7 @@ export function MessageThread({
       >
         <div className="flex items-end gap-2">
           <EmojiPicker onSelect={insertEmoji} disabled={disabled} />
-          {onStartGame && <GamePicker onSelect={onStartGame} disabled={disabled} />}
+          {onStartGame && <GamePicker onSelect={onStartGame} disabled={disabled} memberCount={memberCount} />}
           <textarea
             ref={inputRef}
             value={draft}

@@ -3,10 +3,12 @@
  *
  * Le catalogue est la seule liste à tenir côté front : le menu « Jeux » l'affiche tel
  * quel. Un jeu ne s'y ajoute qu'une fois son moteur écrit côté serveur
- * (src/lib/game-engines.ts) et son type autorisé par la contrainte `games.game_type`.
+ * (src/lib/game-engines.ts pour les jeux à deux, src/lib/multiplayer-engines.ts pour les
+ * jeux à plusieurs) et son type autorisé par la contrainte `games.game_type`.
  */
 
-export type GameType =
+/** Jeux à deux places : `player_one_id` et `player_two_id`. */
+export type TwoPlayerGameType =
   | "chess"
   | "battleship"
   | "connect_four"
@@ -15,10 +17,35 @@ export type GameType =
   | "guess_who"
   | "mastermind";
 
+/**
+ * Jeux à plusieurs : les joueurs sont une liste ordonnée (`games.players`), désignés par
+ * leur rang dans cette liste. Jouables à deux aussi quand le jeu le permet.
+ */
+export type MultiplayerGameType = "uno" | "tic_tac_toe_3" | "ludo" | "quiz";
+
+export type GameType = TwoPlayerGameType | MultiplayerGameType;
+
+export const MULTIPLAYER_GAME_TYPES: readonly MultiplayerGameType[] = [
+  "uno",
+  "tic_tac_toe_3",
+  "ludo",
+  "quiz",
+];
+
+export function isMultiplayerGame(type: string | null | undefined): type is MultiplayerGameType {
+  return MULTIPLAYER_GAME_TYPES.includes(type as MultiplayerGameType);
+}
+
 export type GameStatus = "pending" | "active" | "finished";
 
-/** Issue d'une partie, exprimée en joueurs et non en couleurs. */
-export type GameResult = "player_one" | "player_two" | "draw";
+/**
+ * Issue d'une partie, exprimée en joueurs et non en couleurs. `winner` : jeu à plusieurs,
+ * le gagnant est alors dans `winnerId`.
+ */
+export type GameResult = "player_one" | "player_two" | "draw" | "winner";
+
+/** Issue d'un jeu à deux : jamais `winner`. */
+export type TwoPlayerResult = Exclude<GameResult, "winner">;
 
 /** Joueur, désigné par sa place et non par son identifiant. */
 export type GameSeat = "player_one" | "player_two";
@@ -28,6 +55,9 @@ export type GameCatalogEntry = {
   name: string;
   description: string;
   icon: string;
+  /** Nombre de joueurs. Absent : deux exactement. */
+  minPlayers?: number;
+  maxPlayers?: number;
 };
 
 export const GAME_CATALOG: GameCatalogEntry[] = [
@@ -73,7 +103,50 @@ export const GAME_CATALOG: GameCatalogEntry[] = [
     description: "Composez un code secret, percez celui de l'adversaire.",
     icon: "🎯",
   },
+  {
+    type: "uno",
+    name: "UNO",
+    description: "Videz votre main le premier. +2, inversion, joker…",
+    icon: "🃏",
+    minPlayers: 2,
+    maxPlayers: 4,
+  },
+  {
+    type: "ludo",
+    name: "Petits chevaux",
+    description: "Un 6 pour sortir, rentrez vos quatre chevaux avant les autres.",
+    icon: "🐎",
+    minPlayers: 2,
+    maxPlayers: 4,
+  },
+  {
+    type: "tic_tac_toe_3",
+    name: "Morpion à 3",
+    description: "Grille 6 × 6, alignez quatre symboles. Trois joueurs.",
+    icon: "🔺",
+    minPlayers: 3,
+    maxPlayers: 3,
+  },
+  {
+    type: "quiz",
+    name: "Quiz",
+    description: "Dix questions de culture générale, le meilleur score gagne.",
+    icon: "🧠",
+    minPlayers: 2,
+    maxPlayers: 8,
+  },
 ];
+
+/** Bornes du nombre de joueurs d'un jeu. */
+export function playerRange(entry: Pick<GameCatalogEntry, "minPlayers" | "maxPlayers">) {
+  return { min: entry.minPlayers ?? 2, max: entry.maxPlayers ?? 2 };
+}
+
+/** « 2 joueurs », « 3 joueurs », « 2 à 4 joueurs ». */
+export function playerRangeLabel(entry: Pick<GameCatalogEntry, "minPlayers" | "maxPlayers">) {
+  const { min, max } = playerRange(entry);
+  return min === max ? `${min} joueurs` : `${min} à ${max} joueurs`;
+}
 
 export function gameCatalogEntry(type: string | null | undefined) {
   return GAME_CATALOG.find((entry) => entry.type === type) ?? null;
@@ -217,6 +290,141 @@ export type MastermindState = {
 export type MastermindSecret = { code: number[] };
 
 // ---------------------------------------------------------------------------
+// Jeux à plusieurs : socle commun
+// ---------------------------------------------------------------------------
+
+/**
+ * Tout état de jeu à plusieurs porte le rang du joueur qui a la main et les rangs des
+ * joueurs sortis (abandon) : ceux-ci ne jouent plus, le tour les saute.
+ */
+export type MultiplayerTurnState = {
+  turn: number;
+  out: number[];
+};
+
+/** Salle d'attente : partie créée, joueurs en train de rejoindre. */
+export type LobbyState = { lobby: true };
+
+// ---------------------------------------------------------------------------
+// Morpion à 3
+// ---------------------------------------------------------------------------
+
+export const TIC_TAC_TOE_3_SIZE = 6;
+export const TIC_TAC_TOE_3_ALIGN = 4;
+
+/** Grille de 6 × 6, case = ligne × 6 + colonne, occupée par le rang d'un joueur. */
+export type TicTacToe3State = MultiplayerTurnState & {
+  board: (number | null)[];
+  lastMove: number | null;
+  winLine: number[] | null;
+};
+
+// ---------------------------------------------------------------------------
+// UNO
+// ---------------------------------------------------------------------------
+
+export type UnoColor = "red" | "yellow" | "green" | "blue";
+export type UnoValue =
+  | "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+  | "skip"
+  | "reverse"
+  | "draw2"
+  | "wild"
+  | "wild4";
+
+/** Carte. Un joker n'a pas de couleur tant qu'il n'est pas posé. */
+export type UnoCard = { color: UnoColor | null; value: UnoValue };
+
+export type UnoEvent = {
+  by: number;
+  kind: "play" | "draw" | "pass";
+  card?: UnoCard;
+  /** Cartes piochées par le joueur suivant (+2, +4). */
+  penalty?: { to: number; count: number };
+};
+
+/**
+ * État PUBLIC d'une partie d'UNO. Les mains sont secrètes (`game_secrets`), seul leur
+ * nombre de cartes est public. La pioche est infinie, tirée au hasard selon la
+ * composition d'un vrai jeu : il n'y a donc pas de pioche à cacher.
+ */
+export type UnoState = MultiplayerTurnState & {
+  top: UnoCard;
+  /** Couleur à suivre : celle de la carte du dessus, ou celle choisie pour un joker. */
+  color: UnoColor;
+  direction: 1 | -1;
+  handCounts: number[];
+  /** Le joueur qui a la main a déjà pioché ce tour-ci : il peut poser ou passer. */
+  hasDrawn: boolean;
+  lastEvent: UnoEvent | null;
+};
+
+export type UnoSecret = { hand: UnoCard[] };
+
+// ---------------------------------------------------------------------------
+// Petits chevaux
+// ---------------------------------------------------------------------------
+
+export const LUDO_TRACK_LENGTH = 40;
+export const LUDO_PAWNS = 4;
+/** Avancée d'un cheval : -1 à l'écurie, 0 à 39 sur la piste, 40 à 43 dans la maison. */
+export const LUDO_HOME_START = 40;
+export const LUDO_FINISH = 43;
+
+export type LudoState = MultiplayerTurnState & {
+  /**
+   * Couleur (0 rouge, 1 bleu, 2 vert, 3 jaune) de chaque joueur, qui fixe aussi sa case
+   * de départ. À deux, les joueurs se font face : rouge et vert.
+   */
+  colors: number[];
+  /** Avancée de chaque cheval, par joueur. */
+  pawns: number[][];
+  /** `roll` : il faut lancer le dé. `move` : il faut choisir un cheval. */
+  phase: "roll" | "move";
+  die: number | null;
+  lastEvent: {
+    by: number;
+    die: number;
+    pawn: number | null;
+    /** Cheval adverse renvoyé à l'écurie. */
+    captured: { player: number; pawn: number } | null;
+  } | null;
+};
+
+// ---------------------------------------------------------------------------
+// Quiz
+// ---------------------------------------------------------------------------
+
+export const QUIZ_ROUNDS = 10;
+
+export type QuizQuestion = { text: string; choices: string[]; category: string };
+
+export type QuizRound = QuizQuestion & {
+  correct: number;
+  /** Réponse de chaque joueur, par rang ; null s'il n'a pas répondu. */
+  answers: (number | null)[];
+};
+
+/**
+ * La bonne réponse et les réponses des joueurs ne sont rendues publiques qu'une fois la
+ * question close : jusque-là, chacun répond en secret (`game_secrets`) et la bonne
+ * réponse reste côté serveur.
+ */
+export type QuizState = MultiplayerTurnState & {
+  round: number;
+  total: number;
+  question: QuizQuestion;
+  /** Rangs des joueurs qui ont répondu à la question en cours. */
+  answered: number[];
+  /** Questions déjà posées (rangs dans la banque, qui reste côté serveur). */
+  asked: number[];
+  scores: number[];
+  history: QuizRound[];
+};
+
+export type QuizSecret = { answers: Record<string, number> };
+
+// ---------------------------------------------------------------------------
 // Partie
 // ---------------------------------------------------------------------------
 
@@ -226,7 +434,12 @@ export type GameState =
   | GridState
   | CheckersState
   | GuessWhoState
-  | MastermindState;
+  | MastermindState
+  | LobbyState
+  | TicTacToe3State
+  | UnoState
+  | LudoState
+  | QuizState;
 
 /**
  * Données cachées : celles de l'appelant (sa flotte, son personnage, son code), jamais
@@ -257,6 +470,10 @@ export const GAME_RESULT_REASONS: Record<string, string> = {
   rounds_exhausted: "essais épuisés",
   resign: "abandon",
   cancelled: "invitation annulée",
+  empty_hand: "plus de cartes en main",
+  all_home: "tous les chevaux rentrés",
+  best_score: "meilleur score",
+  last_standing: "abandon des autres joueurs",
 };
 
 export type GameItem = {
@@ -268,6 +485,13 @@ export type GameItem = {
   /** Le joueur qui a lancé l'invitation : blancs aux échecs et aux dames, premier à jouer. */
   playerOneId: string | null;
   playerTwoId: string | null;
+  /**
+   * Joueurs dans l'ordre du tour. Jeu à plusieurs : la source de vérité. Jeu à deux :
+   * reconstituée depuis les deux places, pour que l'interface n'ait qu'une liste à lire.
+   */
+  players: string[];
+  /** Gagnant d'un jeu à plusieurs (`result = "winner"`). */
+  winnerId: string | null;
   state: GameState;
   result: GameResult | null;
   resultReason: string | null;
@@ -290,6 +514,11 @@ export function otherSeat(seat: GameSeat): GameSeat {
   return seat === "player_one" ? "player_two" : "player_one";
 }
 
+/** Rang de l'utilisateur dans un jeu à plusieurs, ou -1 s'il n'y joue pas. */
+export function playerIndexOf(game: Pick<GameItem, "players">, userId: string) {
+  return game.players.indexOf(userId);
+}
+
 /**
  * Contenu d'un message de résultat (`messages.meta`), posté dans le fil à la fin d'une
  * partie. Le score est celui des deux participants à CE jeu, figé au moment de la partie.
@@ -304,6 +533,8 @@ export type GameResultMeta = {
   players: (string | null)[];
   wins: Record<string, number>;
   draws: number;
+  /** Jeu à plusieurs : `wins` est le classement de la conversation à ce jeu. */
+  multiplayer?: boolean;
 };
 
 /** Aperçu du résultat dans la liste des conversations. Neutre : il est lu par les deux. */
@@ -322,6 +553,15 @@ function plural(count: number, singular: string, pluralForm: string) {
 export function gameScoreLine(meta: GameResultMeta, viewerId: string, nameOf: (id: string) => string) {
   const [first, second] = meta.players;
   const draws = meta.draws > 0 ? ` · ${plural(meta.draws, "nul", "nuls")}` : "";
+
+  // Jeu à plusieurs : classement par victoires, « Vous 3 · Selin 2 · Alex 0 ».
+  if (meta.multiplayer) {
+    const ranking = meta.players
+      .filter((id): id is string => Boolean(id))
+      .map((id) => ({ id, wins: meta.wins[id] ?? 0 }))
+      .sort((left, right) => right.wins - left.wins);
+    return `${ranking.map(({ id, wins }) => `${nameOf(id)} ${wins}`).join(" · ")}${draws}`;
+  }
 
   if (!meta.players.includes(viewerId)) {
     if (!first || !second) return "";

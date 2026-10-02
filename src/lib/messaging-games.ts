@@ -5,6 +5,7 @@ import { assertConversationParticipant } from "@/lib/messaging-access";
 import {
   gameCatalogEntry,
   gameResultBody,
+  isMultiplayerGame,
   type GameItem,
   type GameResultMeta,
   type GamePrivate,
@@ -15,6 +16,7 @@ import {
   type GameType,
 } from "@/domain/games";
 import { GAME_ENGINES } from "@/lib/game-engines";
+import { MULTIPLAYER_ENGINES, type MultiplayerContext } from "@/lib/multiplayer-engines";
 
 /**
  * Accès aux parties de la messagerie, côté serveur.
@@ -24,7 +26,7 @@ import { GAME_ENGINES } from "@/lib/game-engines";
  */
 
 export const GAME_COLUMNS =
-  "id,conversation_id,game_type,status,created_by,player_one_id,player_two_id,state,result,result_reason,updated_at";
+  "id,conversation_id,game_type,status,created_by,player_one_id,player_two_id,players,winner_id,state,result,result_reason,updated_at";
 
 export type GameRow = {
   id: string;
@@ -34,14 +36,52 @@ export type GameRow = {
   created_by: string | null;
   player_one_id: string | null;
   player_two_id: string | null;
+  /** Jeux à plusieurs : joueurs dans l'ordre du tour. Vide pour un jeu à deux. */
+  players: string[] | null;
+  winner_id: string | null;
   state: GameState;
   result: GameResult | null;
   result_reason: string | null;
   updated_at: string;
 };
 
+/** État d'une partie à sa création. Un jeu à plusieurs commence en salle d'attente. */
 export function initialGameState(type: GameType): GameState {
+  if (isMultiplayerGame(type)) return { lobby: true };
   return GAME_ENGINES[type].initial();
+}
+
+/** Le jeu garde-t-il des données cachées, à rendre à chacun avec la partie ? */
+function hasSecrets(type: GameType) {
+  return isMultiplayerGame(type)
+    ? !!MULTIPLAYER_ENGINES[type].hasSecrets
+    : !!GAME_ENGINES[type].hasSecrets;
+}
+
+/** Joueurs dans l'ordre : la liste d'un jeu à plusieurs, les deux places sinon. */
+export function playersOf(row: Pick<GameRow, "game_type" | "players" | "player_one_id" | "player_two_id">) {
+  if (isMultiplayerGame(row.game_type)) return row.players ?? [];
+  return [row.player_one_id, row.player_two_id].filter((id): id is string => Boolean(id));
+}
+
+/** Contexte d'un moteur à plusieurs : secrets lus et écrits par rang de joueur. */
+export function multiplayerContext(
+  adminClient: SupabaseClient,
+  row: GameRow,
+  actorId: string,
+  payload: Record<string, unknown> | null,
+): MultiplayerContext {
+  const players = playersOf(row);
+  return {
+    gameId: row.id,
+    state: row.state,
+    player: players.indexOf(actorId),
+    count: players.length,
+    isCreator: row.created_by === actorId,
+    payload,
+    loadSecret: (player) => loadSecret(adminClient, row.id, players[player] ?? null),
+    saveSecret: (player, data) => saveSecret(adminClient, row.id, players[player] ?? null, data),
+  };
 }
 
 export function toGameItem(row: GameRow, privateData?: GamePrivate): GameItem {
@@ -53,6 +93,8 @@ export function toGameItem(row: GameRow, privateData?: GamePrivate): GameItem {
     createdBy: row.created_by,
     playerOneId: row.player_one_id,
     playerTwoId: row.player_two_id,
+    players: playersOf(row),
+    winnerId: row.winner_id ?? null,
     state: row.state,
     result: row.result,
     resultReason: row.result_reason,
@@ -98,8 +140,9 @@ export async function saveSecret(
  * propres donnees cachees. Celles de l'adversaire seulement une fois la partie terminee.
  */
 export async function gameForActor(adminClient: SupabaseClient, row: GameRow, actorId: string) {
-  if (!GAME_ENGINES[row.game_type].hasSecrets) return toGameItem(row);
-  if (row.status !== "finished") {
+  if (!hasSecrets(row.game_type)) return toGameItem(row);
+  // Jeu à plusieurs : ses propres secrets seulement, même une fois la partie finie.
+  if (isMultiplayerGame(row.game_type) || row.status !== "finished") {
     return toGameItem(row, { secret: await loadSecret(adminClient, row.id, actorId) });
   }
 
@@ -159,7 +202,8 @@ export function resolveGameId(value: unknown) {
   return gameId;
 }
 
-function winnerOf(row: Pick<GameRow, "result" | "player_one_id" | "player_two_id">) {
+function winnerOf(row: Pick<GameRow, "result" | "player_one_id" | "player_two_id" | "winner_id">) {
+  if (row.result === "winner") return row.winner_id;
   if (row.result === "player_one") return row.player_one_id;
   if (row.result === "player_two") return row.player_two_id;
   return null;
@@ -190,21 +234,38 @@ export async function postGameResult(adminClient: SupabaseClient, row: GameRow) 
       dans un groupe compte comme une partie jouee a deux. Les identifiants viennent de la
       base (uuid), pas du client : ils peuvent entrer tels quels dans le filtre.
     */
+    type HistoryRow = Pick<GameRow, "result" | "player_one_id" | "player_two_id" | "winner_id">;
+    const multiplayer = isMultiplayerGame(row.game_type);
     const [a, b] = [row.player_one_id, row.player_two_id];
-    let history: Pick<GameRow, "result" | "player_one_id" | "player_two_id">[] = [];
-    if (a && b) {
+    let history: HistoryRow[] = [];
+    if (multiplayer) {
+      /*
+        Jeu à plusieurs : classement de la CONVERSATION à ce jeu. Les joueurs changent
+        d'une partie à l'autre dans un groupe ; un face-à-face n'aurait pas de sens.
+      */
       history =
         (unwrap(
           await adminClient
             .from("games")
-            .select("result,player_one_id,player_two_id")
+            .select("result,player_one_id,player_two_id,winner_id")
+            .eq("conversation_id", row.conversation_id)
+            .eq("game_type", row.game_type)
+            .eq("status", "finished")
+            .not("result", "is", null),
+        ) as HistoryRow[] | null) ?? [];
+    } else if (a && b) {
+      history =
+        (unwrap(
+          await adminClient
+            .from("games")
+            .select("result,player_one_id,player_two_id,winner_id")
             .eq("game_type", row.game_type)
             .eq("status", "finished")
             .not("result", "is", null)
             .or(
               `and(player_one_id.eq.${a},player_two_id.eq.${b}),and(player_one_id.eq.${b},player_two_id.eq.${a})`,
             ),
-        ) as Pick<GameRow, "result" | "player_one_id" | "player_two_id">[] | null) ?? [];
+        ) as HistoryRow[] | null) ?? [];
     }
 
     const wins: Record<string, number> = {};
@@ -224,9 +285,10 @@ export async function postGameResult(adminClient: SupabaseClient, row: GameRow) 
       outcome: cancelled ? "cancelled" : row.result === "draw" ? "draw" : "win",
       winnerId: winnerOf(row),
       reason: row.result_reason,
-      players: [row.player_one_id, row.player_two_id],
+      players: multiplayer ? playersOf(row) : [row.player_one_id, row.player_two_id],
       wins,
       draws,
+      ...(multiplayer ? { multiplayer: true } : {}),
     };
 
     unwrap(
@@ -243,4 +305,29 @@ export async function postGameResult(adminClient: SupabaseClient, row: GameRow) 
   } catch (error) {
     console.error("[jeux] resultat non poste", row.id, error);
   }
+}
+
+/**
+ * Lance une partie à plusieurs avec ces joueurs : le moteur pose l'état initial et
+ * distribue les secrets (mains d'UNO), puis la partie passe « en cours ».
+ */
+export async function startMultiplayerGame(adminClient: SupabaseClient, row: GameRow, players: string[]) {
+  if (!isMultiplayerGame(row.game_type)) throw new ApiError("Partie introuvable.", 404);
+  const state = await MULTIPLAYER_ENGINES[row.game_type].start({
+    gameId: row.id,
+    count: players.length,
+    saveSecret: (player, data) => saveSecret(adminClient, row.id, players[player] ?? null, data),
+  });
+  return updateGameIfUnchanged(adminClient, row, { players, state, status: "active" });
+}
+
+/** Champs à écrire pour clore une partie à plusieurs. `winner` : rang, ou null pour une égalité. */
+export function multiplayerFinish(row: GameRow, winner: number | null, reason: string | null) {
+  const players = playersOf(row);
+  return {
+    status: "finished" as const,
+    result: winner === null ? ("draw" as const) : ("winner" as const),
+    winner_id: winner === null ? null : (players[winner] ?? null),
+    result_reason: reason,
+  };
 }

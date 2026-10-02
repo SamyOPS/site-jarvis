@@ -281,6 +281,7 @@ export function MessagesView({
                 onOpenGame={setOpenGameId}
                 isGroup={!!activeGroup}
                 nameOf={nameOf}
+                memberCount={activeGroup ? activeGroup.members.length + 1 : 2}
               />
             </>
           ) : (

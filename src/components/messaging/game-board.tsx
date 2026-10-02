@@ -146,7 +146,13 @@ export function GameBoard({ game, seat, opponentName, interactive, pending, send
  * sur un écran large et peu haut.
  */
 export function gameDialogWidth(type: GameItem["gameType"] | undefined, withChat = false) {
-  const wide = type === "battleship" || type === "guess_who" || type === "mastermind";
+  const wide =
+    type === "battleship" ||
+    type === "guess_who" ||
+    type === "mastermind" ||
+    type === "uno" ||
+    type === "ludo" ||
+    type === "quiz";
   // Le chat prend une colonne de 20rem a cote du plateau, a partir de l'ecran large.
   if (withChat) return wide ? "max-w-[min(98vw,100rem)]" : "max-w-[min(96vw,76rem)]";
   return wide ? "max-w-[min(96vw,80rem)]" : "max-w-[min(94vw,54rem)]";

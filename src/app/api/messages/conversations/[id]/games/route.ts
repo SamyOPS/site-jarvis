@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { ApiError, unwrap, withActor } from "@/lib/api-handler";
 import { MESSAGING_ROLES } from "@/domain/messaging";
-import { gameCatalogEntry, gameInvitationBody } from "@/domain/games";
+import { gameCatalogEntry, gameInvitationBody, isMultiplayerGame, playerRange } from "@/domain/games";
 import {
   assertConversationParticipant,
   MESSAGE_COLUMNS,
@@ -35,6 +35,22 @@ export const POST = withActor<RouteContext>(
     const entry = gameCatalogEntry(typeof payload?.gameType === "string" ? payload.gameType : null);
     if (!entry) throw new ApiError("Jeu inconnu.", 400);
 
+    /*
+      Jeu à plusieurs : la conversation doit compter assez de membres pour le jouer. Le
+      créateur est le premier assis ; les autres rejoignent en ouvrant l'invitation.
+    */
+    const multiplayer = isMultiplayerGame(entry.type);
+    if (multiplayer) {
+      const { count } = await adminClient
+        .from("conversation_participants")
+        .select("profile_id", { count: "exact", head: true })
+        .eq("conversation_id", conversationId);
+      const { min } = playerRange(entry);
+      if ((count ?? 0) < min) {
+        throw new ApiError(`${entry.name} se joue à ${min} au moins : invitez-le dans un groupe.`, 400);
+      }
+    }
+
     const game = unwrap(
       await adminClient
         .from("games")
@@ -42,7 +58,7 @@ export const POST = withActor<RouteContext>(
           conversation_id: conversationId,
           game_type: entry.type,
           created_by: profile.id,
-          player_one_id: profile.id,
+          ...(multiplayer ? { players: [profile.id] } : { player_one_id: profile.id }),
           state: initialGameState(entry.type),
         })
         .select(GAME_COLUMNS)

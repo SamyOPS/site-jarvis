@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 
 import { ApiError, withActor } from "@/lib/api-handler";
 import { MESSAGING_ROLES } from "@/domain/messaging";
+import { gameCatalogEntry, isMultiplayerGame, playerRange } from "@/domain/games";
 import {
   gameForActor,
   loadGameForActor,
   resolveGameId,
   saveSecret,
+  startMultiplayerGame,
   updateGameIfUnchanged,
 } from "@/lib/messaging-games";
 import { GAME_ENGINES } from "@/lib/game-engines";
@@ -26,6 +28,25 @@ export const POST = withActor<RouteContext>(
   async ({ adminClient, profile }, context) => {
     const gameId = resolveGameId((await context.params).id);
     const row = await loadGameForActor(adminClient, profile.id, gameId);
+
+    /*
+      Jeu à plusieurs : on s'assoit dans la salle d'attente. La partie démarre d'elle-même
+      quand la table est pleine ; avant, c'est le créateur qui la lance (route `start`).
+      Ouvrir une partie déjà lancée, ou pleine, la montre simplement — en spectateur.
+    */
+    if (isMultiplayerGame(row.game_type)) {
+      const players = row.players ?? [];
+      const { max } = playerRange(gameCatalogEntry(row.game_type)!);
+      if (players.includes(profile.id) || row.status !== "pending" || players.length >= max) {
+        return NextResponse.json({ game: await gameForActor(adminClient, row, profile.id) });
+      }
+      const seated = [...players, profile.id];
+      const updated =
+        seated.length === max
+          ? await startMultiplayerGame(adminClient, row, seated)
+          : await updateGameIfUnchanged(adminClient, row, { players: seated });
+      return NextResponse.json({ game: await gameForActor(adminClient, updated, profile.id) });
+    }
 
     const seated = row.player_one_id === profile.id || row.player_two_id === profile.id;
     if (seated || row.status !== "pending") {
