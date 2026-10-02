@@ -201,7 +201,8 @@ function quizQuestion(gameId: string, bankIndex: number): { question: QuizQuesti
       text: entry.text,
       choices: order.map((original) => entry.choices[original]),
     },
-    correct: order.indexOf(entry.answer),
+    // Dans la banque, la bonne réponse est toujours le premier choix.
+    correct: order.indexOf(0),
   };
 }
 
