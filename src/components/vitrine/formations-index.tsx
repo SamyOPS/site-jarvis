@@ -21,8 +21,7 @@ import { CARTE_MERE, DEVELOPPEUR, PROCESSEUR } from "@/features/vitrine/images";
 //  - au clic : panneau plein écran (image + typo + programme + contact).
 // Images = PLACEHOLDERS.
 
-// TODO : adresse de contact formations à confirmer.
-const CONTACT_EMAIL = "contact@jarvis-connect.fr";
+const CONTACT_EMAIL = "am@jarvis-connect.fr";
 
 // Même courbe que les autres transitions du site (départ lent → sortie douce).
 const EASE = [0.83, 0, 0.17, 1] as const;

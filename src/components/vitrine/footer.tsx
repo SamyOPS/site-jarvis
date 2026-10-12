@@ -19,8 +19,7 @@ import { VITRINE_FONT_VARS } from "@/features/vitrine/fonts";
 // la barre de navigation. Même registre que les sections sombres : noir, filets
 // à white/10, serif italique pour l'accroche, capitales pour les libellés.
 
-// TODO : adresse de contact à confirmer.
-const CONTACT_EMAIL = "contact@jarvis-connect.fr";
+const CONTACT_EMAIL = "am@jarvis-connect.fr";
 
 // Identité société : reprise des mentions légales (app/mentions-legales).
 const ADDRESS_1 = "4 Avenue de la Libération";
