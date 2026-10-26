@@ -1,4 +1,12 @@
 import type { TimeUnit } from "@/domain/common";
+import {
+  craSlotsHours,
+  craSlotsOverlapError,
+  craTimeSlotsError,
+  parseClockTime,
+  sortCraTimeSlots,
+  type CraTimeSlotDraft,
+} from "@/domain/cra";
 
 /** Types d'absence pointables sur le calendrier. */
 export const ABSENCE_TYPES = ["paid", "sick", "exceptional", "unpaid"] as const;
@@ -25,6 +33,8 @@ export type CraEntryInput = {
   dayQuantity?: unknown;
   hours?: unknown;
   label?: unknown;
+  /** Creneaux debut–fin d'une journee horaire. Voir `parseTimeSlots`. */
+  timeSlots?: unknown;
 };
 
 /**
@@ -68,7 +78,32 @@ export type ParsedCraEntry = {
   /** Quantite en heures. NULL pour une ligne facturee au jour. */
   hours: number | null;
   label: string | null;
+  /** Creneaux de la journee, NULL s'il n'y en a pas (toujours NULL hors mission horaire). */
+  time_slots: CraTimeSlotDraft[] | null;
 };
+
+/**
+ * Creneaux d'une ligne, valides et tries. Rend null pour une liste absente ou vide.
+ * Seuls `start`, `end` et `label` sont retenus : rien d'autre n'entre en base.
+ */
+function parseTimeSlots(value: unknown, index: number): CraTimeSlotDraft[] | null {
+  if (value === undefined || value === null) return null;
+  if (!Array.isArray(value)) {
+    throw new Error(`Les creneaux de la ligne ${index + 1} sont invalides.`);
+  }
+  if (!value.length) return null;
+  const slots = value.map((slot) => {
+    const raw = (slot ?? {}) as Record<string, unknown>;
+    return {
+      start: String(raw.start ?? "").trim(),
+      end: String(raw.end ?? "").trim(),
+      label: String(raw.label ?? "").trim(),
+    };
+  });
+  const problem = craTimeSlotsError(slots);
+  if (problem) throw new Error(`Ligne ${index + 1} : ${problem}`);
+  return sortCraTimeSlots(slots);
+}
 
 /** Totaux d'absence par type, dans la forme attendue par `cra_records`. */
 export function sumAbsenceDays(entries: ParsedCraEntry[]) {
@@ -107,7 +142,7 @@ export function parseCraEntries(
 ): ParsedCraEntry[] {
   const seen = new Set<string>();
 
-  return (entries ?? []).map((entry, index) => {
+  const parsed = (entries ?? []).map((entry, index): ParsedCraEntry => {
     const workDate = String(entry.workDate ?? "").trim();
     const parsedDate = new Date(workDate);
     if (!workDate || Number.isNaN(parsedDate.getTime())) {
@@ -142,6 +177,9 @@ export function parseCraEntries(
         throw new Error(`Deux absences sont saisies le ${work_date}.`);
       }
       seen.add(absenceKey);
+      if (parseTimeSlots(entry.timeSlots, index)) {
+        throw new Error(`Une absence ne se detaille pas en creneaux (ligne ${index + 1}).`);
+      }
       return {
         work_date,
         mission_id: null,
@@ -149,6 +187,7 @@ export function parseCraEntries(
         day_quantity: dayQuantity,
         hours: null,
         label,
+        time_slots: null,
       };
     }
 
@@ -162,8 +201,12 @@ export function parseCraEntries(
 
     const unit = missionId ? (missionUnits.get(missionId) ?? fallbackUnit) : fallbackUnit;
 
+    const timeSlots = parseTimeSlots(entry.timeSlots, index);
+
     if (unit.timeUnit === "hour") {
-      const hours = Number(entry.hours);
+      // Detaillee en creneaux, la journee vaut leur somme : le total ne peut pas diverger
+      // du detail, quoi que le client ait envoye dans `hours`.
+      const hours = timeSlots ? craSlotsHours(timeSlots) : Number(entry.hours);
       if (!Number.isFinite(hours) || hours <= 0 || hours > 24) {
         throw new Error(
           `Le nombre d'heures de la ligne ${index + 1} doit etre compris entre 0 et 24.`,
@@ -176,9 +219,15 @@ export function parseCraEntries(
         day_quantity: null,
         hours,
         label,
+        time_slots: timeSlots,
       };
     }
 
+    if (timeSlots) {
+      throw new Error(
+        `Les creneaux horaires ne concernent que les missions facturees a l'heure (ligne ${index + 1}).`,
+      );
+    }
     const dayQuantity = Number(entry.dayQuantity);
     if (!Number.isFinite(dayQuantity) || dayQuantity <= 0 || dayQuantity > 1) {
       throw new Error(`La quantite de la ligne ${index + 1} doit etre comprise entre 0 et 1.`);
@@ -190,8 +239,32 @@ export function parseCraEntries(
       day_quantity: dayQuantity,
       hours: null,
       label,
+      time_slots: null,
     };
   });
+
+  assertNoOverlapAcrossMissions(parsed);
+  return parsed;
+}
+
+/**
+ * Chevauchements ENTRE les entreprises d'une meme journee : 9 h - 12 h chez A et 11 h -
+ * 14 h chez B, c'est etre a deux endroits a la fois. Chaque ligne a deja ete verifiee
+ * seule ; il reste a croiser les lignes d'une meme date.
+ */
+function assertNoOverlapAcrossMissions(entries: ParsedCraEntry[]) {
+  const rangesByDate = new Map<string, [number, number][]>();
+  for (const entry of entries) {
+    for (const slot of entry.time_slots ?? []) {
+      const range: [number, number] = [parseClockTime(slot.start) ?? 0, parseClockTime(slot.end) ?? 0];
+      rangesByDate.set(entry.work_date, [...(rangesByDate.get(entry.work_date) ?? []), range]);
+    }
+  }
+  for (const [workDate, ranges] of rangesByDate) {
+    if (craSlotsOverlapError(ranges)) {
+      throw new Error(`Le ${workDate}, deux creneaux se chevauchent entre deux entreprises.`);
+    }
+  }
 }
 
 export function sumCraEntryHours(entries: { hours?: number | null }[]) {

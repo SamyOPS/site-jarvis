@@ -112,6 +112,7 @@ function buildWorkEntries(periodMonth: string, workedDaysCount: number): ParsedC
         day_quantity: 1,
         hours: null,
         label: null,
+        time_slots: null,
       });
     }
     cursor.setUTCDate(cursor.getUTCDate() + 1);
@@ -521,19 +522,24 @@ export const POST = withActor(
           workedDaysCount,
           // Nul pour un CRA saisi en journees : la ligne d'heures du PDF reste alors absente.
           workedHoursCount: totalHours,
-          paidLeaveDays: absenceDays.paid ?? 0,
-          sickLeaveDays: absenceDays.sick ?? 0,
-          exceptionalLeaveDays: absenceDays.exceptional ?? 0,
-          unpaidLeaveDays: absenceDays.unpaid ?? 0,
+          // Cles de `sumAbsenceDays` : celles des colonnes de cra_records. Le PDF lisait
+          // `paid`, `sick`... qui n'existent pas : les absences s'imprimaient toujours a 0.
+          paidLeaveDays: absenceDays.paid_leave_days ?? 0,
+          sickLeaveDays: absenceDays.sick_leave_days ?? 0,
+          exceptionalLeaveDays: absenceDays.exceptional_leave_days ?? 0,
+          unpaidLeaveDays: absenceDays.unpaid_leave_days ?? 0,
           periodMonth: periodStart,
           notes,
           entries: entries.map((entry) => ({
             workDate: entry.work_date,
             dayQuantity: Number(entry.day_quantity ?? 0),
+            hours: entry.hours,
+            absenceType: entry.absence_type,
             label: entry.label,
             companyName: entry.mission_id
               ? (companyByMissionId.get(entry.mission_id) ?? null)
               : null,
+            timeSlots: entry.time_slots,
           })),
           // Vide => rendu strictement identique a l'historique mono-entreprise.
           companies: missionLines.map((line) => ({

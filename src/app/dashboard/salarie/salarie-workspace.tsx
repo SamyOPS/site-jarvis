@@ -391,6 +391,7 @@ export default function SalarieWorkspace({
         day_quantity: number | null;
         hours: number | null;
         label: string | null;
+        time_slots: { start: string; end: string; label: string }[] | null;
       }[];
     };
     if (!payload.cra) {
@@ -417,6 +418,7 @@ export default function SalarieWorkspace({
           // l'equivalent de la quantite de jours.
           hours: entry.hours === null || entry.hours === undefined ? "" : String(entry.hours),
           label: entry.label ?? "",
+          timeSlots: entry.time_slots ?? [],
         })),
       ),
     );
@@ -673,6 +675,7 @@ export default function SalarieWorkspace({
     handleCraCalendarMonthChange,
     cycleCraWorkDate,
     setCraEntryHours,
+    setCraEntryTimeSlots,
     setCraEntryDayQuantity,
     removeCraWorkDate,
     applyCraHoursToAllEntries,
@@ -721,6 +724,9 @@ export default function SalarieWorkspace({
           dayQuantity: isHourly ? null : Number(entry.dayQuantity || 0),
           hours: isHourly ? craEntryHours(entry) : null,
           label: entry.label,
+          // Detail horaire : seulement pour une journee horaire detaillee. Le serveur en
+          // deduit les heures.
+          ...(isHourly && entry.timeSlots.length ? { timeSlots: entry.timeSlots } : {}),
         };
       }),
     };
@@ -1098,6 +1104,7 @@ export default function SalarieWorkspace({
               craTimeUnit={craTimeUnit}
               craDraftTotalHours={craDraftTotalHours}
               onSetCraEntryHours={setCraEntryHours}
+              onSetCraEntryTimeSlots={setCraEntryTimeSlots}
               onSetCraEntryDayQuantity={setCraEntryDayQuantity}
               onRemoveCraWorkDate={removeCraWorkDate}
               craMissions={craMissions}

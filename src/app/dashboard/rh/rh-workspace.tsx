@@ -1682,6 +1682,7 @@ export default function RhWorkspace({
         missionId: entry.missionId || undefined,
         absenceType: entry.absenceType || undefined,
         label: entry.label,
+        ...(entry.timeSlots.length ? { timeSlots: entry.timeSlots } : {}),
       }));
     if (!entriesPayload.length) {
       setSaveMessage("Selectionne au moins un jour travaille.");

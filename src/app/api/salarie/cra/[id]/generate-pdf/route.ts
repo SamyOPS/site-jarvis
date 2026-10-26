@@ -43,7 +43,7 @@ export const POST = withActor<RouteContext>(
 
     const { data: entries, error: entriesError } = await adminClient
       .from("cra_entries")
-      .select("work_date,mission_id,day_quantity,hours,label")
+      .select("work_date,mission_id,absence_type,day_quantity,hours,label,time_slots")
       .eq("cra_id", craRecord.id)
       .order("work_date", { ascending: true });
 
@@ -140,8 +140,11 @@ export const POST = withActor<RouteContext>(
         entries: (entries ?? []).map((entry) => ({
           workDate: entry.work_date,
           dayQuantity: Number(entry.day_quantity ?? 0),
+          hours: entry.hours === null ? null : Number(entry.hours),
+          absenceType: entry.absence_type,
           label: entry.label,
           companyName: companyByMissionId.get(entry.mission_id) ?? null,
+          timeSlots: entry.time_slots,
         })),
         companies: (missionLines ?? []).map(
           (line: {

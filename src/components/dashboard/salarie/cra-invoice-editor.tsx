@@ -19,7 +19,7 @@ import {
 } from "@/components/dashboard/salarie/cra/work-days-calendar";
 import { Button } from "@/components/ui/button";
 import type { TimeUnit } from "@/domain/common";
-import type { CraCalendarCell, CraEntryDraft } from "@/domain/cra";
+import type { CraCalendarCell, CraEntryDraft, CraTimeSlotDraft } from "@/domain/cra";
 import type { CraSummaryRow } from "@/features/dashboard/salarie/types";
 import { cn } from "@/lib/utils";
 
@@ -114,6 +114,8 @@ type SalarieCraInvoiceEditorProps = {
   craTimeUnit: TimeUnit;
   craDraftTotalHours: number;
   onSetCraEntryHours: (workDate: string, hours: number, missionId?: string) => void;
+  /** Creneaux horaires d'une journee (detail du CRA). */
+  onSetCraEntryTimeSlots?: (workDate: string, missionId: string, timeSlots: CraTimeSlotDraft[]) => void;
   onSetCraEntryDayQuantity: (workDate: string, dayQuantity: number, missionId?: string) => void;
   onRemoveCraWorkDate: (workDate: string, missionId?: string) => void;
   onApplyCraHoursToAllEntries: (hours: number) => void;
@@ -167,6 +169,7 @@ export function SalarieCraInvoiceEditor({
   craTimeUnit,
   craDraftTotalHours,
   onSetCraEntryHours,
+  onSetCraEntryTimeSlots,
   onSetCraEntryDayQuantity,
   onRemoveCraWorkDate,
   onApplyCraHoursToAllEntries,
@@ -282,6 +285,7 @@ export function SalarieCraInvoiceEditor({
           timeUnit={craTimeUnit}
           totalHours={craDraftTotalHours}
           onSetEntryHours={onSetCraEntryHours}
+          onSetEntryTimeSlots={onSetCraEntryTimeSlots}
           onSetEntryDayQuantity={onSetCraEntryDayQuantity}
           onRemoveWorkDate={onRemoveCraWorkDate}
           onApplyHoursToAllEntries={onApplyCraHoursToAllEntries}

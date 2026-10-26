@@ -21,7 +21,7 @@ import { SalarieLeaveRequestEditor, type LeaveRequestPayload } from "@/component
 import { SalarieDocumentsListView } from "@/components/dashboard/salarie/documents-list-view";
 import { SalariePendingRequests } from "@/components/dashboard/salarie/pending-requests";
 import type { TimeUnit } from "@/domain/common";
-import type { CraCalendarCell, CraEntryDraft } from "@/domain/cra";
+import type { CraCalendarCell, CraEntryDraft, CraTimeSlotDraft } from "@/domain/cra";
 import type {
   CraSummaryRow,
   SalarieDocumentRow as DocumentRow,
@@ -72,6 +72,8 @@ type SalarieDocumentsSectionProps = {
   craTimeUnit: TimeUnit;
   craDraftTotalHours: number;
   onSetCraEntryHours: (workDate: string, hours: number, missionId?: string) => void;
+  /** Creneaux horaires d'une journee (detail du CRA). */
+  onSetCraEntryTimeSlots?: (workDate: string, missionId: string, timeSlots: CraTimeSlotDraft[]) => void;
   onSetCraEntryDayQuantity: (workDate: string, dayQuantity: number, missionId?: string) => void;
   onRemoveCraWorkDate: (workDate: string, missionId?: string) => void;
   craMissions: CalendarMission[];
@@ -158,6 +160,7 @@ export function SalarieDocumentsSection({
   craTimeUnit,
   craDraftTotalHours,
   onSetCraEntryHours,
+  onSetCraEntryTimeSlots,
   onSetCraEntryDayQuantity,
   onRemoveCraWorkDate,
   craMissions,
@@ -421,6 +424,7 @@ export function SalarieDocumentsSection({
             craTimeUnit={craTimeUnit}
             craDraftTotalHours={craDraftTotalHours}
             onSetCraEntryHours={onSetCraEntryHours}
+            onSetCraEntryTimeSlots={onSetCraEntryTimeSlots}
             onSetCraEntryDayQuantity={onSetCraEntryDayQuantity}
             onRemoveCraWorkDate={onRemoveCraWorkDate}
             craMissions={craMissions}

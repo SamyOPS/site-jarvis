@@ -163,6 +163,76 @@ export function createPdfString(
   return pdf;
 }
 
+/**
+ * Variante MULTIPAGE de `createPdfString`, pour un document dont la longueur depend des
+ * donnees (le detail d'un CRA). Une chaine de contenu par page, A4 portrait.
+ *
+ * Fonction separee plutot qu'une option de `createPdfString` : la facture et la demande de
+ * conge continuent de passer par l'assemblage mono-page, leurs octets restent ceux
+ * d'aujourd'hui sans qu'il faille le reprouver.
+ *
+ * Les polices et le logo sont partages par toutes les pages ; chaque page a son flux.
+ * Ordre des objets : catalogue, arbre des pages, polices, logo eventuel, puis pour chaque
+ * page son objet suivi de son flux.
+ */
+export function createMultiPagePdfString(
+  pageContents: string[],
+  options?: { logoRgbBase64?: string | null },
+) {
+  const logoHex = options?.logoRgbBase64
+    ? `${logoHexFromBase64(options.logoRgbBase64)}>`
+    : null;
+  const pages = pageContents.length ? pageContents : [""];
+
+  const fontF1 = 3;
+  const fontF2 = 4;
+  const logoObject = logoHex ? 5 : null;
+  const firstPageObject = logoHex ? 6 : 5;
+  const pageObjectIds = pages.map((_, index) => firstPageObject + index * 2);
+
+  const resources = logoObject
+    ? `<< /Font << /F1 ${fontF1} 0 R /F2 ${fontF2} 0 R >> /XObject << /Im1 ${logoObject} 0 R >> >>`
+    : `<< /Font << /F1 ${fontF1} 0 R /F2 ${fontF2} 0 R >> >>`;
+
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    `<< /Type /Pages /Count ${pages.length} /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(" ")}] >>`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+  ];
+
+  if (logoHex) {
+    objects.push(
+      `<< /Type /XObject /Subtype /Image /Width 120 /Height 120 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length ${logoHex.length} >>\nstream\n${logoHex}\nendstream`,
+    );
+  }
+
+  pages.forEach((content, index) => {
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents ${pageObjectIds[index] + 1} 0 R /Resources ${resources} >>`,
+      `<< /Length ${byteLength(content)} >>\nstream\n${content}\nendstream`,
+    );
+  });
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+
+  objects.forEach((object, index) => {
+    offsets.push(byteLength(pdf));
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefOffset = byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n`;
+  pdf += "0000000000 65535 f \n";
+  for (let index = 1; index <= objects.length; index += 1) {
+    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return pdf;
+}
+
 /** Commande PDF « ecrire ce texte a cette position ». */
 export function createTextCommand(
   text: string,

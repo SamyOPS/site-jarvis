@@ -7,6 +7,7 @@ import {
   addCraEntry,
   buildWorkingDatesForMonth,
   craAbsenceTotalsByType,
+  craSlotsHours,
   craTotalDays,
   craTotalHours,
   craTotalsByMission,
@@ -20,6 +21,7 @@ import {
   removeCraEntries,
   sortCraEntries,
   type CraEntryDraft,
+  type CraTimeSlotDraft,
 } from "@/domain/cra";
 import type { InvoiceLineInput } from "@/features/dashboard/salarie/invoice-totals";
 
@@ -162,6 +164,7 @@ export function useCraEditor({
         hours: isHourly ? String(quantity) : "",
         dayQuantity: isHourly ? "" : String(quantity),
         label,
+        timeSlots: [],
       };
     },
     [missionUnitOf],
@@ -176,6 +179,7 @@ export function useCraEditor({
       hours: "",
       dayQuantity: String(dayQuantity),
       label,
+      timeSlots: [],
     }),
     [],
   );
@@ -318,13 +322,33 @@ export function useCraEditor({
         if (!previousEntries.some(isSlot)) {
           return addCraEntry(previousEntries, buildCraEntry(workDate, cappedHours, missionId));
         }
-        return patchCraEntries(previousEntries, isSlot, {
-          hours: String(cappedHours),
-          dayQuantity: "",
-        });
+        return patchCraEntries(
+          previousEntries,
+          (entry) => isSlot(entry) && !entry.timeSlots.length,
+          { hours: String(cappedHours), dayQuantity: "" },
+        );
       });
     },
     [activeMissionId, buildCraEntry],
+  );
+
+  /**
+   * Remplace les creneaux d'une journee horaire. Les heures de la ligne en decoulent
+   * (somme des creneaux valides) : le total affiche, facture et imprime colle au detail.
+   * Tant qu'aucun creneau n'est complet, les heures saisies auparavant sont conservees.
+   */
+  const setCraEntryTimeSlots = useCallback(
+    (workDate: string, missionId: string, timeSlots: CraTimeSlotDraft[]) => {
+      const hours = craSlotsHours(timeSlots);
+      setCraEntries((previousEntries) =>
+        patchCraEntries(
+          previousEntries,
+          (entry) => isSameCraSlot(entry, workDate, missionId),
+          hours > 0 ? { timeSlots, hours: String(hours), dayQuantity: "" } : { timeSlots },
+        ),
+      );
+    },
+    [],
   );
 
   /** Saisie en jours d'une entreprise sur une date, meme si elle n'y figure pas encore. */
@@ -368,11 +392,13 @@ export function useCraEditor({
     (hours: number) => {
       if (!Number.isFinite(hours) || hours <= 0) return;
       const cappedHours = Math.min(24, hours);
+      // Les journees detaillees en creneaux gardent leurs heures : elles en decoulent.
       setCraEntries((previousEntries) =>
-        patchCraEntries(previousEntries, (entry) => entry.missionId === activeMissionId, {
-          hours: String(cappedHours),
-          dayQuantity: "",
-        }),
+        patchCraEntries(
+          previousEntries,
+          (entry) => entry.missionId === activeMissionId && !entry.timeSlots.length,
+          { hours: String(cappedHours), dayQuantity: "" },
+        ),
       );
     },
     [activeMissionId],
@@ -499,6 +525,7 @@ export function useCraEditor({
     handleCraCalendarMonthChange,
     cycleCraWorkDate,
     setCraEntryHours,
+    setCraEntryTimeSlots,
     setCraEntryDayQuantity,
     removeCraWorkDate,
     applyCraHoursToAllEntries,

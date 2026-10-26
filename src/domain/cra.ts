@@ -29,7 +29,112 @@ export type CraEntryDraft = {
   /** Quantite en heures. Vide pour une mission facturee au jour. */
   hours: string;
   label: string;
+  /**
+   * Detail horaire d'une journee facturee a l'heure : creneaux debut–fin commentes. Vide
+   * pour une journee au jour, une absence, ou une journee horaire non detaillee. Non vide,
+   * il fait foi : `hours` en est deduit (voir `craSlotsHours`).
+   */
+  timeSlots: CraTimeSlotDraft[];
 };
+
+/** Creneau horaire d'une journee : heures « HH:MM », au quart d'heure. */
+export type CraTimeSlotDraft = {
+  start: string;
+  end: string;
+  label: string;
+};
+
+/**
+ * Pas des creneaux, en minutes. Au quart d'heure, une duree vaut toujours un multiple
+ * exact de 0,25 h : la quantite facturee (heures x taux) tombe juste au centime, ce que
+ * 1 h 20 (1,333... h) ne permettrait pas.
+ */
+export const CRA_SLOT_STEP_MINUTES = 15;
+/** Creneaux au plus par ligne : borne anti-absurdite, une journee en compte rarement 10. */
+export const CRA_MAX_SLOTS_PER_ENTRY = 24;
+export const CRA_SLOT_LABEL_MAX_LENGTH = 200;
+
+/**
+ * « HH:MM » en minutes depuis minuit, ou null si l'heure est invalide ou hors du pas du
+ * quart d'heure. « 24:00 » est accepte : c'est la fin d'un creneau qui court jusqu'a minuit.
+ */
+export function parseClockTime(value: string) {
+  const match = /^(\d{2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const minutes = Number(match[1]) * 60 + Number(match[2]);
+  if (Number(match[2]) >= 60 || minutes > 24 * 60) return null;
+  if (minutes % CRA_SLOT_STEP_MINUTES !== 0) return null;
+  return minutes;
+}
+
+/** Duree d'un creneau en minutes, ou null s'il est incomplet ou incoherent. */
+export function craSlotMinutes(slot: Pick<CraTimeSlotDraft, "start" | "end">) {
+  const start = parseClockTime(slot.start);
+  const end = parseClockTime(slot.end);
+  if (start === null || end === null || end <= start) return null;
+  return end - start;
+}
+
+/** Heures couvertes par des creneaux. Les creneaux invalides ne comptent pas. */
+export function craSlotsHours(slots: Pick<CraTimeSlotDraft, "start" | "end">[]) {
+  const minutes = slots.reduce((total, slot) => total + (craSlotMinutes(slot) ?? 0), 0);
+  return minutes / 60;
+}
+
+/**
+ * Premier probleme d'une liste de creneaux, ou null si elle est valide. Partage par la
+ * saisie (message sous les creneaux) et le serveur (refus a l'enregistrement) : les deux
+ * disent la meme chose.
+ */
+export function craTimeSlotsError(slots: CraTimeSlotDraft[]) {
+  if (slots.length > CRA_MAX_SLOTS_PER_ENTRY) {
+    return `${CRA_MAX_SLOTS_PER_ENTRY} creneaux au plus par journee.`;
+  }
+  const ranges: [number, number][] = [];
+  for (const [index, slot] of slots.entries()) {
+    const position = `Creneau ${index + 1}`;
+    const start = parseClockTime(slot.start);
+    const end = parseClockTime(slot.end);
+    if (start === null || end === null) {
+      return `${position} : heures attendues au format HH:MM, au quart d'heure (00, 15, 30, 45).`;
+    }
+    if (end <= start) return `${position} : la fin doit suivre le debut.`;
+    if (slot.label.trim().length > CRA_SLOT_LABEL_MAX_LENGTH) {
+      return `${position} : commentaire trop long (${CRA_SLOT_LABEL_MAX_LENGTH} caracteres maximum).`;
+    }
+    ranges.push([start, end]);
+  }
+  return craSlotsOverlapError(ranges);
+}
+
+/** Deux creneaux qui se chevauchent : on ne peut pas etre a deux endroits a la fois. */
+export function craSlotsOverlapError(ranges: [number, number][]) {
+  const sorted = [...ranges].sort((left, right) => left[0] - right[0]);
+  for (let index = 1; index < sorted.length; index += 1) {
+    if (sorted[index][0] < sorted[index - 1][1]) {
+      return "Deux creneaux se chevauchent.";
+    }
+  }
+  return null;
+}
+
+/** Creneaux dans l'ordre de la journee. */
+export function sortCraTimeSlots<T extends Pick<CraTimeSlotDraft, "start">>(slots: T[]) {
+  return [...slots].sort(
+    (left, right) => (parseClockTime(left.start) ?? 0) - (parseClockTime(right.start) ?? 0),
+  );
+}
+
+/** « 09:00 - 10:30 ». */
+export function formatCraSlotRange(slot: Pick<CraTimeSlotDraft, "start" | "end">) {
+  return `${slot.start} - ${slot.end}`;
+}
+
+/** « HH:MM » d'un nombre de minutes, borne a 24:00. */
+export function formatClockTime(minutes: number) {
+  const bounded = Math.max(0, Math.min(24 * 60, minutes));
+  return `${String(Math.floor(bounded / 60)).padStart(2, "0")}:${String(bounded % 60).padStart(2, "0")}`;
+}
 
 /** Libelles des types d'absence, dans l'ordre d'affichage. */
 export const ABSENCE_LABELS = [

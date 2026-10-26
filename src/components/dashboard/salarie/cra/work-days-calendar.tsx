@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, Minus, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { TimeUnit } from "@/domain/common";
 import { useDismissable } from "@/hooks/use-dismissable";
 import { craEntryHours, formatCraHours, formatCraPeriodLabel } from "@/domain/cra";
 import { getFrenchHolidayName } from "@/domain/holidays";
-import type { CraCalendarCell, CraEntryDraft } from "@/domain/cra";
+import type { CraCalendarCell, CraEntryDraft, CraTimeSlotDraft } from "@/domain/cra";
 import { cn } from "@/lib/utils";
+import { DayDetails } from "@/components/dashboard/salarie/cra/day-details";
 
 /** Entreprise selectionnable dans le calendrier. */
 export type CalendarMission = {
@@ -78,6 +79,8 @@ type WorkDaysCalendarProps = {
   timeUnit?: TimeUnit;
   totalHours?: number;
   onSetEntryHours?: (workDate: string, hours: number, missionId?: string) => void;
+  /** Creneaux d'une journee horaire. Absent : pas de detail horaire (saisie historique). */
+  onSetEntryTimeSlots?: (workDate: string, missionId: string, timeSlots: CraTimeSlotDraft[]) => void;
   onSetEntryDayQuantity?: (workDate: string, dayQuantity: number, missionId?: string) => void;
   onRemoveWorkDate?: (workDate: string, missionId?: string) => void;
   onApplyHoursToAllEntries?: (hours: number) => void;
@@ -112,6 +115,7 @@ export function WorkDaysCalendar({
   timeUnit = "day",
   totalHours = 0,
   onSetEntryHours,
+  onSetEntryTimeSlots,
   onSetEntryDayQuantity,
   onRemoveWorkDate,
   onApplyHoursToAllEntries,
@@ -124,7 +128,6 @@ export function WorkDaysCalendar({
   absenceTotals,
 }: WorkDaysCalendarProps) {
   const [commentsOpen, setCommentsOpen] = useState(false);
-  const [pendingCommentDate, setPendingCommentDate] = useState("");
   // Un seul editeur ouvert a la fois : la grille reste lisible.
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const editorRef = useDismissable<HTMLDivElement>(Boolean(editingDate), () =>
@@ -134,8 +137,8 @@ export function WorkDaysCalendar({
   // Le popover de repartition ne sert que s'il y a plusieurs entreprises a departager.
   const isMultiMission = missions.length > 1;
 
-  const commentedEntries = entries.filter((entry) => entry.label.trim());
-  const commentableEntries = entries.filter((entry) => !entry.label.trim());
+  // Journees deja detaillees : commentaire ou creneaux.
+  const detailedEntries = entries.filter((entry) => entry.label.trim() || entry.timeSlots.length);
   // La periode saisie peut differer du mois affiche : on le signale plutot que de
   // supprimer silencieusement les jours coches en naviguant.
   const isViewingOtherMonth = entries.length > 0 && periodMonth !== calendarMonth;
@@ -442,7 +445,7 @@ export function WorkDaysCalendar({
                       {dayTotal.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} j
                     </span>
                   ) : null}
-                  {dayEntries.some((item) => item.label.trim()) ? (
+                  {dayEntries.some((item) => item.label.trim() || item.timeSlots.length) ? (
                     <span className="absolute left-1 top-1 h-1.5 w-1.5 rounded-full bg-white/90" />
                   ) : null}
                 </button>
@@ -492,6 +495,13 @@ export function WorkDaysCalendar({
                                 step="0.5"
                                 value={missionEntry ? missionHours : ""}
                                 placeholder="0"
+                                // Detaillee en creneaux, la ligne tire ses heures des creneaux.
+                                disabled={Boolean(missionEntry?.timeSlots.length)}
+                                title={
+                                  missionEntry?.timeSlots.length
+                                    ? "Heures calculees depuis les creneaux"
+                                    : undefined
+                                }
                                 onChange={(event) => {
                                   const parsed = Number(event.target.value);
                                   if (!event.target.value.trim() || parsed <= 0) {
@@ -551,6 +561,27 @@ export function WorkDaysCalendar({
                     <p className="mb-1.5 px-1 text-[11px] capitalize text-[#0A1A2F]/60">
                       {formatEntryDateLabel(isoDate)}
                     </p>
+                    {entry.timeSlots.length ? (
+                      <div className="space-y-1.5 px-1">
+                        <p className="text-sm font-semibold text-[#0A1A2F]">
+                          {formatCraHours(entryHours)}
+                        </p>
+                        <p className="text-[11px] text-[#0A1A2F]/60">
+                          Calcule depuis {entry.timeSlots.length} creneau
+                          {entry.timeSlots.length > 1 ? "x" : ""}.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCommentsOpen(true);
+                            setEditingDate(null);
+                          }}
+                          className="text-[11px] font-medium text-[#2aa0dd] underline"
+                        >
+                          Modifier le detail
+                        </button>
+                      </div>
+                    ) : (
                     <div className="flex items-center gap-1">
                       <Button
                         type="button"
@@ -591,6 +622,7 @@ export function WorkDaysCalendar({
                         <Plus className="h-3.5 w-3.5" />
                       </Button>
                     </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
@@ -623,13 +655,15 @@ export function WorkDaysCalendar({
           aria-expanded={commentsOpen}
         >
           <span>
-            Commentaires par jour
-            {commentedEntries.length ? (
+            Detail des journees
+            {detailedEntries.length ? (
               <span className="ml-2 rounded-full bg-[#2aa0dd]/12 px-2 py-0.5 text-xs font-semibold text-[#2aa0dd]">
-                {commentedEntries.length}
+                {detailedEntries.length}
               </span>
             ) : (
-              <span className="ml-2 text-xs font-normal text-[#0A1A2F]/50">optionnel</span>
+              <span className="ml-2 text-xs font-normal text-[#0A1A2F]/50">
+                commentaires et creneaux horaires
+              </span>
             )}
           </span>
           <ChevronDown
@@ -638,71 +672,19 @@ export function WorkDaysCalendar({
         </button>
 
         {commentsOpen ? (
-          <div className="space-y-2 px-4 pb-4">
+          <div className="space-y-3 px-4 pb-4">
             <p className="text-xs text-[#0A1A2F]/60">
-              Chaque commentaire ajoute une ligne au PDF du CRA. Laisse vide pour les journees
-              ordinaires.
+              Chaque journee figure dans le detail du PDF. Pour une mission facturee a l&apos;heure,
+              decris ta journee en creneaux : les heures sont calculees a partir d&apos;eux.
             </p>
-
-            {commentedEntries.map((entry) => (
-              <div key={entry.workDate} className="flex items-center gap-2">
-                <span className="w-40 shrink-0 truncate text-xs capitalize text-[#0A1A2F]/70">
-                  {formatEntryDateLabel(entry.workDate)}
-                </span>
-                <input
-                  value={entry.label}
-                  onChange={(event) =>
-                    onUpdateEntry(entry.workDate, { label: event.target.value })
-                  }
-                  className="h-9 w-full rounded-md border border-slate-300 px-3 text-sm"
-                  placeholder="Mission client, intervention..."
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 shrink-0 text-[#0A1A2F]/50 hover:text-red-600"
-                  onClick={() => onUpdateEntry(entry.workDate, { label: "" })}
-                  aria-label={`Retirer le commentaire du ${formatEntryDateLabel(entry.workDate)}`}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-
-            {commentableEntries.length ? (
-              <div className="flex items-center gap-2 pt-1">
-                <select
-                  value={pendingCommentDate}
-                  onChange={(event) => setPendingCommentDate(event.target.value)}
-                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm capitalize sm:w-auto"
-                >
-                  <option value="">Choisir un jour...</option>
-                  {commentableEntries.map((entry) => (
-                    <option key={entry.workDate} value={entry.workDate}>
-                      {formatEntryDateLabel(entry.workDate)}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!pendingCommentDate}
-                  onClick={() => {
-                    onUpdateEntry(pendingCommentDate, { label: "Journee travaillee" });
-                    setPendingCommentDate("");
-                  }}
-                >
-                  <Plus className="mr-1 h-4 w-4" />
-                  Ajouter
-                </Button>
-              </div>
-            ) : entries.length ? (
-              <p className="text-xs text-[#0A1A2F]/50">Tous les jours coches sont commentes.</p>
-            ) : (
-              <p className="text-xs text-[#0A1A2F]/50">Coche d&apos;abord des jours travailles.</p>
-            )}
+            <DayDetails
+              entries={entries}
+              missions={missions}
+              colorOf={(missionId, absenceType) => missionColor(missions, missionId, absenceType)}
+              formatEntryDateLabel={formatEntryDateLabel}
+              onUpdateEntry={onUpdateEntry}
+              onSetEntryTimeSlots={onSetEntryTimeSlots}
+            />
           </div>
         ) : null}
       </div>

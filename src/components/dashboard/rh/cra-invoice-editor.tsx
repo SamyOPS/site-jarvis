@@ -155,6 +155,7 @@ export function RhCraInvoiceEditor({
           craTimeUnit={craEditor.craTimeUnit}
           craDraftTotalHours={craEditor.craDraftTotalHours}
           onSetCraEntryHours={craEditor.setCraEntryHours}
+          onSetCraEntryTimeSlots={craEditor.setCraEntryTimeSlots}
           onSetCraEntryDayQuantity={craEditor.setCraEntryDayQuantity}
           onRemoveCraWorkDate={craEditor.removeCraWorkDate}
           onApplyCraHoursToAllEntries={craEditor.applyCraHoursToAllEntries}
