@@ -5,6 +5,7 @@ import ScrollUpHome from "@/components/vitrine/scroll-up-home";
 import { ZoomParallax } from "@/components/vitrine/zoom-parallax";
 import ExpertiseGallery from "@/components/vitrine/expertise-gallery";
 import Clients from "@/components/vitrine/clients";
+import Partners from "@/components/vitrine/partners";
 import Formations from "@/components/vitrine/formations";
 import ImageBreak from "@/components/vitrine/image-break";
 import Faq from "@/components/vitrine/faq";
@@ -59,6 +60,9 @@ export default function DecouvrirPage() {
 
         {/* Section clients : le scroll vertical reprend après la galerie */}
         <Clients />
+
+        {/* Partenaires : même fond blanc que les clients, juste avant le noir des formations */}
+        <Partners />
 
         {/* Section formations : image plein écran + grand titre révélé */}
         <Formations />
