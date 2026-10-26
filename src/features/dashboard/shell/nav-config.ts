@@ -69,6 +69,8 @@ export type ConsoleNavConfig = {
    * liens vers une conversation precise (`?c=<id>`).
    */
   messagesHref: string;
+  /** Page CRA & Facture de l'espace. Destination de l'encart « Nouveautés » actuel. */
+  craHref: string;
   /**
    * Guide d'utilisation de l'espace, servi comme fichier statique depuis `public/`.
    * Alimente l'entree « Documentation » du pied de la barre laterale.
@@ -142,9 +144,9 @@ export type ConsoleFooter = {
 export const CONSOLE_FOOTER: ConsoleFooter = {
   note: {
     eyebrow: "Nouveautés",
-    title: "Messagerie interne",
-    description: "Écrivez à vos interlocuteurs directement depuis la console.",
-    linkLabel: "Ouvrir la messagerie",
+    title: "CRA heure par heure",
+    description: "Détaillez vos journées en créneaux commentés : le PDF les reprend jour par jour.",
+    linkLabel: "Ouvrir CRA & Facture",
   },
   // Les deux entrees du pied (« Centre d'aide », « Documentation ») dependent du role :
   // `getConsoleFooter` les ajoute.
@@ -158,7 +160,7 @@ export const CONSOLE_FOOTER: ConsoleFooter = {
  * Pied de barre laterale pour un espace donne.
  *
  * Trois elements dependent du role, et c'est tout : l'encart d'annonce, qui mene a la
- * messagerie de l'espace courant, l'entree « Centre d'aide », qui ouvre la FAQ de
+ * page CRA & Facture de l'espace courant, l'entree « Centre d'aide », qui ouvre la FAQ de
  * l'espace, et l'entree « Documentation », qui ouvre le guide du role. Sans
  * `documentationHref`, cette derniere reste affichee mais grisee —
  * l'emplacement ne disparait pas de l'interface parce qu'un guide manque.
@@ -167,7 +169,7 @@ export function getConsoleFooter(config: ConsoleNavConfig): ConsoleFooter {
   return {
     ...CONSOLE_FOOTER,
     note: CONSOLE_FOOTER.note
-      ? { ...CONSOLE_FOOTER.note, href: config.messagesHref }
+      ? { ...CONSOLE_FOOTER.note, href: config.craHref }
       : undefined,
     links: [
       ...CONSOLE_FOOTER.links,
@@ -194,6 +196,7 @@ export const RH_NAV_CONFIG: ConsoleNavConfig = {
   settingsHref: "/dashboard/rh/parametres",
   settingsLabel: "Paramètres",
   messagesHref: "/dashboard/rh/messages",
+  craHref: "/dashboard/rh/documents/cra-facture",
   documentationHref: "/docs/guide-espace-rh.pdf",
   helpHref: "/dashboard/rh/aide",
   groups: [
@@ -324,6 +327,7 @@ export const SALARIE_NAV_CONFIG: ConsoleNavConfig = {
   settingsHref: "/dashboard/salarie/parametres",
   settingsLabel: "Paramètres",
   messagesHref: "/dashboard/salarie/messages",
+  craHref: "/dashboard/salarie/documents/cra-facture",
   documentationHref: "/docs/guide-espace-salarie.pdf",
   helpHref: "/dashboard/salarie/aide",
   groups: [
