@@ -1,10 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { createAuthorizedFetch } from "@/lib/dashboard-api";
-import { browserSupabase } from "@/lib/supabase-browser";
-import { safeGetClientSession } from "@/lib/client-auth";
+import {
+  conversationsStore,
+  dropConversation,
+  onMessageInserted,
+  refreshConversations,
+  startConversationsSync,
+} from "@/features/messaging/conversations-store";
 import type {
   ConversationSummary,
   MessageItem,
@@ -15,20 +20,14 @@ import type {
  * Etat de la messagerie : conversations, fil ouvert, envoi.
  *
  * Un seul hook pour les deux points d'entree — le panneau de la barre superieure et la
- * page a deux volets. Ils montrent la meme chose sous deux formes ; leur donner chacun
- * leur chargement ferait deux compteurs de non-lus susceptibles de diverger.
- *
- * FRAICHEUR : Realtime pousse les nouveaux messages, et un rafraichissement periodique
- * prend le relais s'il n'est pas disponible. Les deux coexistent a dessein — l'abonnement
- * peut echouer silencieusement (publication absente, reseau coupe, onglet reveille apres
- * une mise en veille), et une messagerie qui se fige sans le dire est pire qu'une
- * messagerie lente.
+ * page a deux volets. La LISTE des conversations, elle, n'appartient a aucun des deux :
+ * elle vit dans un store partage (conversations-store), avec un seul abonnement Realtime
+ * et un seul minuteur pour tout l'onglet. Ce hook n'y ajoute que ce qui est propre a la
+ * page : le fil ouvert, l'envoi, les groupes.
  */
 
-/** Rythme du repli quand Realtime n'a pas pris la main. */
-const POLL_INTERVAL_MS = 5_000;
-/** Rythme de secours une fois Realtime etabli : filet, pas mecanisme principal. */
-const POLL_INTERVAL_REALTIME_MS = 60_000;
+/** Rythme de rechargement du fil ouvert quand Realtime n'a pas pris la main. */
+const THREAD_POLL_INTERVAL_MS = 5_000;
 
 type UseMessagingOptions = {
   /** Ne charge rien tant que la session n'est pas prete. */
@@ -66,23 +65,26 @@ export function useMessaging({
   currentUserId,
 }: UseMessagingOptions = {}) {
   const callApi = useMemo(() => createAuthorizedFetch("messagerie"), []);
-  /*
-    Nom de canal propre a chaque instance du hook. Le panneau de la barre superieure et la
-    page a deux volets sont montes en meme temps : deux canaux de MEME nom sur un seul
-    client Supabase se marchent dessus, et le second abonnement ne recoit rien.
-  */
-  const channelName = `messagerie:${useId()}`;
 
-  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [unreadTotal, setUnreadTotal] = useState(0);
+  // Liste partagee : une seule synchronisation pour tout l'onglet, quel que soit le
+  // nombre de composants qui la lisent.
+  useEffect(() => (enabled ? startConversationsSync() : undefined), [enabled]);
+  const list = useSyncExternalStore(
+    conversationsStore.subscribe,
+    conversationsStore.getSnapshot,
+    conversationsStore.getServerSnapshot,
+  );
+  const { conversations, unreadTotal, realtimeReady } = list;
+  const loadingConversations = enabled && !list.loaded;
+
   const [contacts, setContacts] = useState<MessagingContact[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageItem[]>([]);
-  const [loadingConversations, setLoadingConversations] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [realtimeReady, setRealtimeReady] = useState(false);
+  /** Erreur d'une action (envoi, ouverture...). Celle de la liste vient du store. */
+  const [actionError, setError] = useState<string | null>(null);
+  const error = actionError ?? list.error;
   /*
     Interlocuteur des fils ouverts depuis l'annuaire. Un fil sans message — tout neuf, ou
     supprime puis rouvert — n'est pas dans la liste : sans cette table, son en-tete ne
@@ -99,20 +101,6 @@ export function useMessaging({
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
   }, [activeConversationId]);
-
-  const refreshConversations = useCallback(async () => {
-    try {
-      const payload = (await callApi("/api/messages/conversations")) as {
-        items?: ConversationSummary[];
-        unreadTotal?: number;
-      } | null;
-      setConversations(payload?.items ?? []);
-      setUnreadTotal(payload?.unreadTotal ?? 0);
-      setError(null);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Chargement des conversations impossible.");
-    }
-  }, [callApi]);
 
   const loadMessages = useCallback(
     async (conversationId: string) => {
@@ -142,7 +130,7 @@ export function useMessaging({
         setLoadingMessages(false);
       }
     },
-    [callApi, loadMessages, refreshConversations],
+    [callApi, loadMessages],
   );
 
   /** Ouvre — ou cree — la conversation avec un contact, puis l'affiche. */
@@ -167,7 +155,7 @@ export function useMessaging({
         return null;
       }
     },
-    [callApi, openConversation, refreshConversations],
+    [callApi, openConversation],
   );
 
   const sendMessage = useCallback(
@@ -235,7 +223,7 @@ export function useMessaging({
         setSending(false);
       }
     },
-    [callApi, currentUserId, refreshConversations],
+    [callApi, currentUserId],
   );
 
   /**
@@ -270,22 +258,14 @@ export function useMessaging({
         return null;
       }
     },
-    [callApi, refreshConversations],
+    [callApi],
   );
 
-  // Chargement initial.
+  // Annuaire des destinataires, charge une fois (la liste, elle, vient du store).
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !loadContacts) return;
     let cancelled = false;
-
     void (async () => {
-      setLoadingConversations(true);
-      await refreshConversations();
-      if (!cancelled) setLoadingConversations(false);
-    })();
-
-    void (async () => {
-      if (!loadContacts) return;
       try {
         const payload = (await callApi("/api/messages/contacts")) as {
           items?: MessagingContact[];
@@ -297,114 +277,57 @@ export function useMessaging({
         // pour ne pas masquer celui du chargement des conversations.
       }
     })();
-
     return () => {
       cancelled = true;
     };
-  }, [callApi, enabled, loadContacts, refreshConversations]);
-
-  // Abonnement Realtime.
-  useEffect(() => {
-    if (!enabled || !browserSupabase) return;
-    const client = browserSupabase;
-    let channel: ReturnType<typeof client.channel> | null = null;
-    let cancelled = false;
-
-    void (async () => {
-      /*
-        Realtime evalue les policies de SELECT avec le jeton de l'utilisateur. Sans
-        `setAuth`, le canal parle en anonyme et la policy `messages_select_participant` ne
-        laisse rien passer : l'abonnement reussit et ne recoit jamais rien.
-      */
-      const { session } = await safeGetClientSession(client);
-      if (cancelled || !session?.access_token) return;
-      await client.realtime.setAuth(session.access_token);
-      if (cancelled) return;
-
-      channel = client
-        .channel(channelName)
-        .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: "messages" },
-          (payload) => {
-            const row = payload.new as {
-              id: string;
-              conversation_id: string;
-              sender_id: string | null;
-              body: string;
-              created_at: string;
-              game_id: string | null;
-              kind?: MessageItem["kind"];
-              meta?: MessageItem["meta"];
-            };
-
-            // Le fil ouvert se complete en place ; les autres ne touchent que la liste.
-            if (row.conversation_id === activeConversationIdRef.current) {
-              const incoming: MessageItem = {
-                id: row.id,
-                conversationId: row.conversation_id,
-                senderId: row.sender_id,
-                body: row.body,
-                createdAt: row.created_at,
-                gameId: row.game_id ?? null,
-                kind: row.kind ?? "message",
-                meta: row.meta ?? null,
-              };
-              setMessages((current) => {
-                if (current.some((item) => item.id === row.id)) return current;
-                // Notre propre message revenu par Realtime avant la reponse du POST : il
-                // prend la place de sa version provisoire au lieu de s'afficher en double.
-                const tempIndex = current.findIndex(
-                  (item) =>
-                    item.pending && item.senderId === row.sender_id && item.body === row.body,
-                );
-                if (tempIndex === -1) return [...current, incoming];
-                const next = [...current];
-                next[tempIndex] = incoming;
-                return next;
-              });
-            }
-            void refreshConversations();
-          },
-        )
-        .subscribe((status) => {
-          if (!cancelled) setRealtimeReady(status === "SUBSCRIBED");
-        });
-    })();
-
-    return () => {
-      cancelled = true;
-      setRealtimeReady(false);
-      if (channel) void client.removeChannel(channel);
-    };
-  }, [channelName, enabled, refreshConversations]);
+  }, [callApi, enabled, loadContacts]);
 
   /*
-    Repli periodique. L'intervalle s'allonge une fois Realtime etabli. Sans Realtime, le
-    fil ouvert est recharge lui aussi : rafraichir la seule liste laissait les messages
-    recus hors du fil jusqu'a sa reouverture.
+    Messages poussés par Realtime (via le store) : le fil ouvert se complète en place.
+    La liste, elle, est rafraîchie par le store lui-même.
   */
   useEffect(() => {
     if (!enabled) return;
-    const interval = window.setInterval(
-      () => {
-        void refreshConversations();
-        const conversationId = activeConversationIdRef.current;
-        if (realtimeReady || !conversationId) return;
-        void loadMessages(conversationId)
-          .then((items) => {
-            // Le fil a pu changer pendant la requete : on n'ecrase pas un autre fil.
-            if (activeConversationIdRef.current !== conversationId) return;
-            setMessages((current) => mergeWithPending(items, current));
-          })
-          .catch(() => {
-            // Le prochain tour reessaiera ; l'erreur de la liste suffit a signaler un souci.
-          });
-      },
-      realtimeReady ? POLL_INTERVAL_REALTIME_MS : POLL_INTERVAL_MS,
-    );
+    return onMessageInserted((incoming) => {
+      if (incoming.conversationId !== activeConversationIdRef.current) return;
+      setMessages((current) => {
+        if (current.some((item) => item.id === incoming.id)) return current;
+        // Notre propre message revenu par Realtime avant la reponse du POST : il prend la
+        // place de sa version provisoire au lieu de s'afficher en double.
+        const tempIndex = current.findIndex(
+          (item) =>
+            item.pending && item.senderId === incoming.senderId && item.body === incoming.body,
+        );
+        if (tempIndex === -1) return [...current, incoming];
+        const next = [...current];
+        next[tempIndex] = incoming;
+        return next;
+      });
+    });
+  }, [enabled]);
+
+  /*
+    Sans Realtime, le fil ouvert est rechargé périodiquement : rafraîchir la seule liste
+    laissait les messages reçus hors du fil jusqu'à sa réouverture. Avec Realtime, rien à
+    faire ici.
+  */
+  useEffect(() => {
+    if (!enabled || realtimeReady) return;
+    const interval = window.setInterval(() => {
+      const conversationId = activeConversationIdRef.current;
+      if (!conversationId) return;
+      void loadMessages(conversationId)
+        .then((items) => {
+          // Le fil a pu changer pendant la requete : on n'ecrase pas un autre fil.
+          if (activeConversationIdRef.current !== conversationId) return;
+          setMessages((current) => mergeWithPending(items, current));
+        })
+        .catch(() => {
+          // Le prochain tour reessaiera ; l'erreur de la liste suffit a signaler un souci.
+        });
+    }, THREAD_POLL_INTERVAL_MS);
     return () => window.clearInterval(interval);
-  }, [enabled, loadMessages, realtimeReady, refreshConversations]);
+  }, [enabled, loadMessages, realtimeReady]);
 
   const activeConversation = useMemo((): ConversationSummary | null => {
     if (!activeConversationId) return null;
@@ -445,7 +368,7 @@ export function useMessaging({
         return null;
       }
     },
-    [callApi, openConversation, refreshConversations],
+    [callApi, openConversation],
   );
 
   /**
@@ -469,7 +392,7 @@ export function useMessaging({
         return caught instanceof Error ? caught.message : "Modification impossible.";
       }
     },
-    [callApi, refreshConversations],
+    [callApi],
   );
 
   /** Quitte un groupe : il disparait de la liste, le fil se ferme. */
@@ -479,7 +402,7 @@ export function useMessaging({
         await callApi(`/api/messages/conversations/${encodeURIComponent(conversationId)}/leave`, {
           method: "POST",
         });
-        setConversations((current) => current.filter((item) => item.id !== conversationId));
+        dropConversation(conversationId);
         if (activeConversationIdRef.current === conversationId) {
           setActiveConversationId(null);
           setMessages([]);
@@ -490,7 +413,7 @@ export function useMessaging({
         return caught instanceof Error ? caught.message : "Impossible de quitter le groupe.";
       }
     },
-    [callApi, refreshConversations],
+    [callApi],
   );
 
   /**
@@ -503,7 +426,7 @@ export function useMessaging({
         await callApi(`/api/messages/conversations/${encodeURIComponent(conversationId)}`, {
           method: "DELETE",
         });
-        setConversations((current) => current.filter((item) => item.id !== conversationId));
+        dropConversation(conversationId);
         if (activeConversationIdRef.current === conversationId) {
           setActiveConversationId(null);
           setMessages([]);
@@ -516,7 +439,7 @@ export function useMessaging({
         return false;
       }
     },
-    [callApi, refreshConversations],
+    [callApi],
   );
 
   return {
