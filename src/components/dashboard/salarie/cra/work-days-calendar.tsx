@@ -144,8 +144,8 @@ export function WorkDaysCalendar({
   const isViewingOtherMonth = entries.length > 0 && periodMonth !== calendarMonth;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white">
-      <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="rounded-app-card border border-app-line bg-app-surface">
+      <div className="flex flex-col gap-3 border-b border-app-line p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-1">
           <Button
             type="button"
@@ -157,7 +157,7 @@ export function WorkDaysCalendar({
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="min-w-[9.5rem] text-center text-sm font-semibold capitalize text-[#0A1A2F]">
+          <span className="min-w-[9.5rem] text-center text-app-sm font-semibold capitalize text-app-text">
             {formatCraPeriodLabel(calendarMonth)}
           </span>
           <Button
@@ -177,17 +177,17 @@ export function WorkDaysCalendar({
             // Pas d'equivalent en jours ici : il tomberait sur des decimales peu
             // parlantes. Il reste affiche dans le recapitulatif de la facture, seul
             // endroit ou il sert.
-            <span className="text-sm font-semibold text-[#0A1A2F]">
+            <span className="text-app-sm font-semibold text-app-text">
               {formatCraHours(totalHours)}
             </span>
           ) : (
-            <span className="text-sm font-semibold text-[#0A1A2F]">
+            <span className="text-app-sm font-semibold text-app-text">
               {totalDays.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} jour
               {totalDays > 1 ? "s" : ""}
             </span>
           )}
           {serviceAmountLabel ? (
-            <span className="text-sm text-[#0A1A2F]/60">· {serviceAmountLabel} HT</span>
+            <span className="text-app-sm text-app-text-muted">· {serviceAmountLabel} HT</span>
           ) : null}
           <Button type="button" variant="outline" size="sm" onClick={onFillWorkingDays}>
             Tous les jours ouvres
@@ -216,7 +216,7 @@ export function WorkDaysCalendar({
               type="button"
               variant="ghost"
               size="sm"
-              className="text-[#0A1A2F]/60"
+              className="text-app-text-muted"
               onClick={onClearEntries}
             >
               Vider
@@ -226,7 +226,7 @@ export function WorkDaysCalendar({
       </div>
 
       {isViewingOtherMonth ? (
-        <div className="flex flex-wrap items-center gap-2 border-b border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+        <div className="flex flex-wrap items-center gap-2 border-b border-pending-line bg-pending-soft px-4 py-2 text-app-xs text-pending">
           <span>
             {entries.length} jour{entries.length > 1 ? "s" : ""} coche
             {entries.length > 1 ? "s" : ""} en {formatCraPeriodLabel(periodMonth)}. Le document
@@ -247,7 +247,7 @@ export function WorkDaysCalendar({
           {weekdayLabels.map((label) => (
             <div
               key={label}
-              className="px-1 text-center text-xs font-medium uppercase tracking-wide text-[#0A1A2F]/45"
+              className="px-1 text-center text-app-xs font-medium uppercase tracking-wide text-app-text-muted"
             >
               {label}
             </div>
@@ -257,8 +257,8 @@ export function WorkDaysCalendar({
             entreprises n'apparait qu'a partir de deux, pour qu'un consultant
             mono-entreprise retrouve son ecran d'avant. */}
         {isMultiMission || absenceTypes.length ? (
-          <div className="mb-2 flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-[#0A1A2F]/55">Pointer :</span>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="text-app-xs text-app-text-muted">Pointer :</span>
 
             {(isMultiMission ? missions : []).map((mission) => {
               const color = missionColor(missions, mission.id);
@@ -270,15 +270,15 @@ export function WorkDaysCalendar({
                   onClick={() => onSelectMission?.(mission.id)}
                   aria-pressed={isActive}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition",
+                    "flex items-center gap-2 rounded-app-control border px-3 py-1 text-app-xs transition",
                     isActive
-                      ? `${color.border} bg-slate-50 font-semibold text-[#0A1A2F]`
-                      : "border-slate-200 text-[#0A1A2F]/65 hover:border-slate-300",
+                      ? `${color.border} bg-app-surface-hover font-semibold text-app-text`
+                      : "border-app-line text-app-text-secondary hover:border-app-line-strong hover:text-app-text",
                   )}
                 >
                   <span className={cn("h-2.5 w-2.5 rounded-sm", color.bg)} />
                   <span className="max-w-[10rem] truncate">{mission.companyName}</span>
-                  <span className="text-[10px] text-[#0A1A2F]/45">
+                  <span className="text-app-xs text-app-text-muted">
                     {mission.timeUnit === "hour" ? "h" : "j"}
                   </span>
                 </button>
@@ -293,10 +293,10 @@ export function WorkDaysCalendar({
                 onClick={() => onSelectAbsence?.("")}
                 aria-pressed={!activeAbsenceType}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition",
+                  "flex items-center gap-2 rounded-app-control border px-3 py-1 text-app-xs transition",
                   !activeAbsenceType
-                    ? "border-[#2aa0dd] bg-slate-50 font-semibold text-[#0A1A2F]"
-                    : "border-slate-200 text-[#0A1A2F]/65 hover:border-slate-300",
+                    ? "border-[#2aa0dd] bg-app-surface-hover font-semibold text-app-text"
+                    : "border-app-line text-app-text-secondary hover:border-app-line-strong hover:text-app-text",
                 )}
               >
                 <span className="h-2.5 w-2.5 rounded-sm bg-[#2aa0dd]" />
@@ -315,16 +315,16 @@ export function WorkDaysCalendar({
                   onClick={() => onSelectAbsence?.(isActive ? "" : absence.value)}
                   aria-pressed={isActive}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition",
+                    "flex items-center gap-2 rounded-app-control border px-3 py-1 text-app-xs transition",
                     isActive
-                      ? `${color.border} bg-slate-50 font-semibold text-[#0A1A2F]`
-                      : "border-slate-200 text-[#0A1A2F]/65 hover:border-slate-300",
+                      ? `${color.border} bg-app-surface-hover font-semibold text-app-text`
+                      : "border-app-line text-app-text-secondary hover:border-app-line-strong hover:text-app-text",
                   )}
                 >
                   <span className={cn("h-2.5 w-2.5 rounded-sm", color.bg)} />
                   <span>{absence.label}</span>
                   {total > 0 ? (
-                    <span className="text-[10px] text-[#0A1A2F]/45">
+                    <span className="text-app-xs text-app-text-muted">
                       {total.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} j
                     </span>
                   ) : null}
@@ -394,17 +394,17 @@ export function WorkDaysCalendar({
                       : undefined)
                   }
                   className={cn(
-                    "relative aspect-square w-full overflow-hidden rounded-lg border transition-colors",
-                    isHourly ? "text-xs" : "text-sm",
+                    "relative aspect-square w-full overflow-hidden rounded-app-control border transition-colors",
+                    isHourly ? "text-app-xs" : "text-app-sm",
                     hasEntries
                       ? "font-semibold text-white"
                       : isDimmed
-                        ? "border-transparent bg-slate-100 text-slate-400 hover:bg-slate-200"
-                        : "border-slate-200 bg-white text-[#0A1A2F] hover:border-[#2aa0dd]/40 hover:bg-slate-50",
+                        ? "border-transparent bg-app-surface-hover text-app-text-muted hover:bg-app-line"
+                        : "border-app-line bg-app-field text-app-text hover:border-app-accent/50 hover:bg-app-surface-hover",
                     hasEntries
                       ? missionColor(missions, entry?.missionId ?? "", entry?.absenceType).border
                       : "",
-                    isEditing ? "ring-2 ring-[#2aa0dd]/40 ring-offset-1" : "",
+                    isEditing ? "ring-2 ring-app-accent/60 ring-offset-1 ring-offset-app-surface" : "",
                   )}
                   aria-pressed={hasEntries}
                 >
@@ -425,7 +425,7 @@ export function WorkDaysCalendar({
                   <span className="relative">
                     {isHourly && entry && dayEntries.length === 1 ? (
                       <span className="flex h-full flex-col items-center justify-center leading-tight">
-                        <span className="text-[10px] font-normal opacity-80">{dayNumber}</span>
+                        <span className="text-app-2xs font-normal opacity-80">{dayNumber}</span>
                         <span className="font-semibold">
                           {entryHours.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}h
                         </span>
@@ -436,12 +436,12 @@ export function WorkDaysCalendar({
                   </span>
 
                   {isHalfDay ? (
-                    <span className="absolute bottom-0.5 right-1 text-[10px] font-bold leading-none">
+                    <span className="absolute bottom-0.5 right-1 text-app-2xs font-semibold leading-none">
                       ½
                     </span>
                   ) : null}
                   {dayEntries.length > 1 ? (
-                    <span className="absolute bottom-0.5 right-1 text-[9px] font-bold leading-none">
+                    <span className="absolute bottom-0.5 right-1 text-[9px] font-semibold leading-none">
                       {dayTotal.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} j
                     </span>
                   ) : null}
@@ -453,16 +453,16 @@ export function WorkDaysCalendar({
                 {isEditing && isMultiMission ? (
                   <div
                     ref={editorRef}
-                    className="absolute left-1/2 top-full z-30 mt-1 w-72 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-2.5 shadow-lg"
+                    className="absolute left-1/2 top-full z-30 mt-1 w-72 -translate-x-1/2 rounded-app-card border border-app-line bg-app-raised p-3 shadow-app-raised"
                   >
                     <div className="mb-2 flex items-baseline justify-between gap-2">
-                      <p className="text-[11px] capitalize text-[#0A1A2F]/60">
+                      <p className="text-app-xs capitalize text-app-text-muted">
                         {formatEntryDateLabel(isoDate)}
                       </p>
                       <p
                         className={cn(
-                          "text-[11px] font-semibold",
-                          dayTotal > 1 ? "text-amber-600" : "text-[#0A1A2F]/60",
+                          "text-app-xs font-semibold",
+                          dayTotal > 1 ? "text-pending" : "text-app-text-muted",
                         )}
                       >
                         total {dayTotal.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} j
@@ -471,7 +471,7 @@ export function WorkDaysCalendar({
 
                     {/* Une ligne par entreprise, y compris celles non encore saisies :
                         c'est ainsi qu'on ajoute une seconde entreprise a la journee. */}
-                    <ul className="space-y-1.5">
+                    <ul className="space-y-2">
                       {missions.map((mission) => {
                         const missionEntry = dayEntries.find(
                           (item) => item.missionId === mission.id,
@@ -482,9 +482,9 @@ export function WorkDaysCalendar({
                         const color = missionColor(missions, mission.id);
 
                         return (
-                          <li key={mission.id} className="flex items-center gap-1.5">
+                          <li key={mission.id} className="flex items-center gap-2">
                             <span className={cn("h-2.5 w-2.5 shrink-0 rounded-sm", color.bg)} />
-                            <span className="min-w-0 flex-1 truncate text-xs text-[#0A1A2F]">
+                            <span className="min-w-0 flex-1 truncate text-app-xs text-app-text">
                               {mission.companyName}
                             </span>
                             {mission.timeUnit === "hour" ? (
@@ -511,7 +511,7 @@ export function WorkDaysCalendar({
                                   onSetEntryHours?.(isoDate, parsed, mission.id);
                                 }}
                                 onWheel={(event) => event.currentTarget.blur()}
-                                className="h-7 w-16 rounded-md border border-slate-300 px-1.5 text-center text-xs"
+                                className="h-7 w-16 rounded-app-control border border-app-line bg-app-field text-app-text placeholder:text-app-text-muted focus-visible:outline-app px-2 text-center text-app-xs"
                                 aria-label={`Heures chez ${mission.companyName}`}
                               />
                             ) : (
@@ -524,7 +524,7 @@ export function WorkDaysCalendar({
                                     mission.id,
                                   )
                                 }
-                                className="h-7 w-16 rounded-md border border-slate-300 px-1 text-center text-xs"
+                                className="h-7 w-16 rounded-app-control border border-app-line bg-app-field text-app-text placeholder:text-app-text-muted focus-visible:outline-app px-1 text-center text-app-xs"
                                 aria-label={`Journee chez ${mission.companyName}`}
                               >
                                 <option value="0">—</option>
@@ -532,7 +532,7 @@ export function WorkDaysCalendar({
                                 <option value="1">1 j</option>
                               </select>
                             )}
-                            <span className="w-3 text-[10px] text-[#0A1A2F]/45">
+                            <span className="w-3 text-app-xs text-app-text-muted">
                               {mission.timeUnit === "hour" ? "h" : ""}
                             </span>
                           </li>
@@ -546,7 +546,7 @@ export function WorkDaysCalendar({
                         onRemoveWorkDate?.(isoDate);
                         setEditingDate(null);
                       }}
-                      className="mt-2 w-full rounded-md px-2 py-1 text-xs text-red-600 transition hover:bg-red-50"
+                      className="mt-2 w-full rounded-app-control px-2 py-1 text-app-xs text-rejected transition hover:bg-rejected-soft"
                     >
                       Retirer ce jour
                     </button>
@@ -556,17 +556,17 @@ export function WorkDaysCalendar({
                 {isEditing && !isMultiMission && entry ? (
                   <div
                     ref={editorRef}
-                    className="absolute left-1/2 top-full z-30 mt-1 w-44 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+                    className="absolute left-1/2 top-full z-30 mt-1 w-44 -translate-x-1/2 rounded-app-card border border-app-line bg-app-raised p-2 shadow-app-raised"
                   >
-                    <p className="mb-1.5 px-1 text-[11px] capitalize text-[#0A1A2F]/60">
+                    <p className="mb-2 px-1 text-app-xs capitalize text-app-text-muted">
                       {formatEntryDateLabel(isoDate)}
                     </p>
                     {entry.timeSlots.length ? (
-                      <div className="space-y-1.5 px-1">
-                        <p className="text-sm font-semibold text-[#0A1A2F]">
+                      <div className="space-y-2 px-1">
+                        <p className="text-app-sm font-semibold text-app-text">
                           {formatCraHours(entryHours)}
                         </p>
-                        <p className="text-[11px] text-[#0A1A2F]/60">
+                        <p className="text-app-xs text-app-text-muted">
                           Calcule depuis {entry.timeSlots.length} creneau
                           {entry.timeSlots.length > 1 ? "x" : ""}.
                         </p>
@@ -576,7 +576,7 @@ export function WorkDaysCalendar({
                             setCommentsOpen(true);
                             setEditingDate(null);
                           }}
-                          className="text-[11px] font-medium text-[#2aa0dd] underline"
+                          className="text-app-xs font-medium text-app-accent-fg underline"
                         >
                           Modifier le detail
                         </button>
@@ -607,7 +607,7 @@ export function WorkDaysCalendar({
                           }
                         }}
                         onWheel={(event) => event.currentTarget.blur()}
-                        className="h-8 w-full rounded-md border border-slate-300 px-2 text-center text-sm"
+                        className="h-8 w-full rounded-app-control border border-app-line bg-app-field text-app-text placeholder:text-app-text-muted focus-visible:outline-app px-2 text-center text-app-sm"
                         autoFocus
                       />
                       <Button
@@ -629,7 +629,7 @@ export function WorkDaysCalendar({
                         onRemoveWorkDate?.(isoDate);
                         setEditingDate(null);
                       }}
-                      className="mt-1.5 w-full rounded-md px-2 py-1 text-xs text-red-600 transition hover:bg-red-50"
+                      className="mt-2 w-full rounded-app-control px-2 py-1 text-app-xs text-rejected transition hover:bg-rejected-soft"
                     >
                       Retirer ce jour
                     </button>
@@ -640,28 +640,28 @@ export function WorkDaysCalendar({
           })}
         </div>
 
-        <p className="mt-3 text-xs text-[#0A1A2F]/55">
+        <p className="mt-3 text-app-xs text-app-text-muted">
           {isHourly
             ? "Un clic coche le jour, un second ouvre la saisie des heures."
             : "Un clic coche une journee, un second la passe en demi-journee, un troisieme la retire."}
         </p>
       </div>
 
-      <div className="border-t border-slate-100">
+      <div className="border-t border-app-line">
         <button
           type="button"
           onClick={() => setCommentsOpen((open) => !open)}
-          className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-[#0A1A2F] transition hover:bg-slate-50"
+          className="flex w-full items-center justify-between px-4 py-3 text-left text-app-sm font-medium text-app-text transition hover:bg-app-surface-hover"
           aria-expanded={commentsOpen}
         >
           <span>
             Detail des journees
             {detailedEntries.length ? (
-              <span className="ml-2 rounded-full bg-[#2aa0dd]/12 px-2 py-0.5 text-xs font-semibold text-[#2aa0dd]">
+              <span className="ml-2 rounded-app-control bg-app-accent-soft px-2 py-1 text-app-xs font-semibold text-app-accent-fg">
                 {detailedEntries.length}
               </span>
             ) : (
-              <span className="ml-2 text-xs font-normal text-[#0A1A2F]/50">
+              <span className="ml-2 text-app-xs font-normal text-app-text-muted">
                 commentaires et creneaux horaires
               </span>
             )}
@@ -673,7 +673,7 @@ export function WorkDaysCalendar({
 
         {commentsOpen ? (
           <div className="space-y-3 px-4 pb-4">
-            <p className="text-xs text-[#0A1A2F]/60">
+            <p className="text-app-xs text-app-text-muted">
               Chaque journee figure dans le detail du PDF. Pour une mission facturee a l&apos;heure,
               decris ta journee en creneaux : les heures sont calculees a partir d&apos;eux.
             </p>

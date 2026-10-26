@@ -69,7 +69,7 @@ export function RhCraInvoiceEditor({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-[#0A1A2F]/80">
+      <div className="rounded-app-control bg-app-surface-hover px-4 py-3 text-app-sm text-app-text-secondary">
         Cette page permet de generer un CRA et une facture PDF a partir de la meme periode de
         travail.
       </div>
@@ -77,19 +77,19 @@ export function RhCraInvoiceEditor({
       <div className="max-w-5xl">
         <Card className="border-0 shadow-none">
           <CardHeader>
-            <CardTitle className="text-base">Collaborateur</CardTitle>
-            <p className="mt-1 text-sm text-[#0A1A2F]/70">
+            <CardTitle className="text-app-md">Collaborateur</CardTitle>
+            <p className="mt-1 text-app-sm text-app-text-secondary">
               Selectionne un collaborateur, puis saisis ses jours comme il le ferait lui-meme.
               Son propre profil de facturation est utilise.
             </p>
           </CardHeader>
           <CardContent>
             <div className="max-w-md space-y-1">
-              <label className="text-sm font-medium">Collaborateur cible</label>
+              <label className="text-app-sm font-medium">Collaborateur cible</label>
               <select
                 value={generateEmployeeId}
                 onChange={(event) => onGenerateEmployeeIdChange(event.target.value)}
-                className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
+                className="h-10 w-full rounded-app-control border border-app-line bg-app-field text-app-text placeholder:text-app-text-muted focus-visible:outline-app px-3 text-app-sm"
               >
                 <option value="">Choisir un collaborateur</option>
                 {employees.map((employee) => (
@@ -101,20 +101,20 @@ export function RhCraInvoiceEditor({
             </div>
 
             {employeeChosen && billingProfile ? (
-              <p className="mt-3 text-sm text-[#0A1A2F]/70">
+              <p className="mt-3 text-app-sm text-app-text-secondary">
                 Profil de facturation : <strong>{billingProfile.profileLabel}</strong>
               </p>
             ) : null}
 
             {employeeChosen && !billingProfile ? (
-              <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-900">
+              <p className="mt-4 rounded-app-control border border-rejected-line bg-rejected-soft px-4 py-3 text-app-sm text-rejected">
                 Ce collaborateur n&apos;a pas de profil de facturation. Renseigne-le avant de
                 generer un CRA ou une facture.
               </p>
             ) : null}
 
             {employeeChosen && !craMissionsLoading && craEditor.craMissions.length === 0 ? (
-              <p className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="mt-4 rounded-app-control border border-pending-line bg-pending-soft px-4 py-3 text-app-sm text-pending">
                 Ce collaborateur n&apos;a aucune entreprise cliente enregistree. La saisie reste
                 possible en journees, mais la facture ne pourra pas etre detaillee par
                 entreprise.

@@ -25,34 +25,34 @@ export function CraHistory({ items, selectedCraId, onSelect }: CraHistoryProps) 
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-[#0A1A2F]">Mes CRA</p>
-      <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+      <p className="text-app-sm font-medium text-app-text">Mes CRA</p>
+      <ul className="divide-y divide-app-line rounded-app-card border border-app-line">
         {items.map((item) => {
           const isSelected = item.id === selectedCraId;
           return (
             <li
               key={item.id}
-              className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5"
+              className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
             >
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="font-medium capitalize text-[#0A1A2F]">
+              <div className="flex flex-wrap items-center gap-2 text-app-sm">
+                <span className="font-medium capitalize text-app-text">
                   {formatCraPeriodLabel(item.period_month.slice(0, 7))}
                 </span>
-                <span className="text-[#0A1A2F]/60">
+                <span className="text-app-text-muted">
                   {Number(item.worked_days_count).toLocaleString("fr-FR", {
                     maximumFractionDigits: 2,
                   })}{" "}
                   j
                 </span>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-app-xs">
                   {statusLabels[item.status] ?? item.status}
                 </Badge>
                 {item.pdf_version > 0 ? (
-                  <span className="text-xs text-[#0A1A2F]/45">PDF v{item.pdf_version}</span>
+                  <span className="text-app-xs text-app-text-muted">PDF v{item.pdf_version}</span>
                 ) : null}
               </div>
               {isSelected ? (
-                <span className="text-xs font-semibold text-[#2aa0dd]">En cours d&apos;edition</span>
+                <span className="text-app-xs font-semibold text-app-accent-fg">En cours d&apos;edition</span>
               ) : (
                 <Button
                   type="button"

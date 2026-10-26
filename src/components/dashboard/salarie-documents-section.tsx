@@ -382,9 +382,9 @@ export function SalarieDocumentsSection({
           </div>
         ) : (
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0A1A2F]">{documentsCardTitle}</h2>
+            <h2 className="text-app-lg font-semibold text-app-text">{documentsCardTitle}</h2>
             {isPayslipsSubSection ? (
-              <p className="mt-0.5 text-xs text-[#0A1A2F]/60">
+              <p className="mt-0.5 text-app-xs text-app-text-muted">
                 Fiches de paie deposees par le service RH : consultation et telechargement.
               </p>
             ) : null}

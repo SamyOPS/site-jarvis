@@ -104,20 +104,20 @@ export function InvoiceSummary({
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-      <dl className="space-y-1.5 text-sm">
+    <div className="rounded-app-card border border-app-line bg-app-surface-hover p-4">
+      <dl className="space-y-2 text-app-sm">
         {rows.map((row, index) => (
           <div
             key={`${row.label}-${index}`}
             className={cn(
               "flex items-baseline justify-between gap-4",
-              row.strong ? "border-t border-slate-200 pt-1.5" : "",
+              row.strong ? "border-t border-app-line pt-2" : "",
             )}
           >
             <dt
               className={cn(
-                row.strong ? "font-semibold text-[#0A1A2F]" : "text-[#0A1A2F]/70",
-                row.muted ? "text-[#0A1A2F]/60" : "",
+                row.strong ? "font-semibold text-app-text" : "text-app-text-secondary",
+                row.muted ? "text-app-text-muted" : "",
               )}
             >
               {row.label}
@@ -125,7 +125,7 @@ export function InvoiceSummary({
             <dd
               className={cn(
                 "shrink-0 tabular-nums",
-                row.strong ? "font-semibold text-[#0A1A2F]" : "text-[#0A1A2F]/80",
+                row.strong ? "font-semibold text-app-text" : "text-app-text-secondary",
               )}
             >
               {row.value}

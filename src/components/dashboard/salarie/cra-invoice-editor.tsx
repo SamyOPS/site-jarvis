@@ -59,21 +59,21 @@ function CollapsibleSection({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="rounded-xl border border-slate-200">
+    <div className="rounded-app-card border border-app-line">
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-[#0A1A2F] transition hover:bg-slate-50"
+        className="flex w-full items-center justify-between px-4 py-3 text-left text-app-sm font-medium text-app-text transition hover:bg-app-surface-hover"
         aria-expanded={open}
       >
         <span>
           {title}
           {badge ? (
-            <span className="ml-2 rounded-full bg-[#2aa0dd]/12 px-2 py-0.5 text-xs font-semibold text-[#2aa0dd]">
+            <span className="ml-2 rounded-app-control bg-app-accent-soft px-2 py-1 text-app-xs font-semibold text-app-accent-fg">
               {badge}
             </span>
           ) : hint ? (
-            <span className="ml-2 text-xs font-normal text-[#0A1A2F]/50">{hint}</span>
+            <span className="ml-2 text-app-xs font-normal text-app-text-muted">{hint}</span>
           ) : null}
         </span>
         <ChevronDown className={cn("h-4 w-4 transition", open ? "rotate-180" : "")} />
@@ -217,10 +217,10 @@ export function SalarieCraInvoiceEditor({
 
   const tabTriggerClass = (value: CraInvoiceTab) =>
     cn(
-      "rounded-lg px-4 py-2 text-sm font-medium transition",
+      "rounded-app-control px-4 py-2 text-app-sm transition-colors focus-visible:outline-app",
       tab === value
-        ? "bg-white text-[#0A1A2F] shadow-sm"
-        : "text-[#0A1A2F]/60 hover:text-[#0A1A2F]",
+        ? "bg-app-surface-hover font-medium text-app-text"
+        : "text-app-text-secondary hover:bg-app-surface-hover hover:text-app-text",
     );
 
   return (
@@ -229,7 +229,7 @@ export function SalarieCraInvoiceEditor({
           grille 7 colonnes du calendrier deborderait. */}
       <div className="min-w-0 space-y-4">
       {!billingProfileReady ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="flex flex-wrap items-center gap-2 rounded-app-control border border-pending-line bg-pending-soft px-4 py-3 text-app-sm text-pending">
           <span>Renseigne ton profil de facturation pour pouvoir generer un document.</span>
           <Link href="/dashboard/salarie/parametres" className="font-semibold underline">
             Aller aux parametres
@@ -243,7 +243,7 @@ export function SalarieCraInvoiceEditor({
         className="space-y-4"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <TabsList className="inline-flex gap-1 rounded-xl bg-slate-100 p-1">
+          <TabsList className="inline-flex gap-1 rounded-app-control border border-app-line bg-app-surface p-1">
             <TabsTrigger value="cra" className={tabTriggerClass("cra")}>
               CRA
             </TabsTrigger>
@@ -255,7 +255,7 @@ export function SalarieCraInvoiceEditor({
             type="button"
             variant="ghost"
             size="sm"
-            className="text-[#0A1A2F]/55"
+            className="text-app-text-muted"
             onClick={resetCraEditor}
           >
             Remettre a 0
@@ -298,9 +298,9 @@ export function SalarieCraInvoiceEditor({
           absenceTotals={craAbsenceTotals}
         />
 
-        <TabsContent value="cra" className="space-y-4">
+        <TabsContent value="cra" className="space-y-4 rounded-app-card border border-app-line bg-app-surface p-5">
           {selectedCraSummary ? (
-            <p className="text-sm text-[#0A1A2F]/65">
+            <p className="text-app-sm text-app-text-secondary">
               CRA en cours · statut {selectedCraSummary.status} · PDF v
               {selectedCraSummary.pdf_version}
             </p>
@@ -309,7 +309,7 @@ export function SalarieCraInvoiceEditor({
           {/* Les absences se pointent sur le calendrier, via les puces au-dessus : il n'y a
               plus de compteurs a saisir, leur total en decoule. */}
           {leaveDaysTotal > 0 ? (
-            <p className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-[#0A1A2F]/70">
+            <p className="rounded-app-control bg-app-surface-hover px-4 py-3 text-app-sm text-app-text-secondary">
               Absences pointees :{" "}
               {ABSENCE_LABELS.filter((absence) => (craAbsenceTotals.get(absence.value) ?? 0) > 0)
                 .map(
@@ -321,12 +321,12 @@ export function SalarieCraInvoiceEditor({
           ) : null}
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-[#0A1A2F]">Notes</label>
+            <label className="text-app-sm font-medium text-app-text">Notes</label>
             <textarea
               value={craNotes}
               onChange={(event) => onCraNotesChange(event.target.value)}
               rows={3}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-full rounded-app-control border border-app-line bg-app-field text-app-text placeholder:text-app-text-muted focus-visible:outline-app px-3 py-2 text-app-sm"
               placeholder="Commentaire interne, precision de mission, etc."
             />
           </div>
@@ -340,7 +340,7 @@ export function SalarieCraInvoiceEditor({
               {craGenerating ? "Generation..." : "Generer le CRA"}
             </Button>
             {!hasEntries ? (
-              <span className="text-sm text-[#0A1A2F]/55">
+              <span className="text-app-sm text-app-text-muted">
                 Coche au moins un jour travaille.
               </span>
             ) : null}
@@ -349,9 +349,9 @@ export function SalarieCraInvoiceEditor({
           <CraHistory items={craItems} selectedCraId={selectedCraId} onSelect={onSelectCra} />
         </TabsContent>
 
-        <TabsContent value="facture" className="space-y-4">
+        <TabsContent value="facture" className="space-y-4 rounded-app-card border border-app-line bg-app-surface p-5">
           {!hasDailyRate && billingProfileReady ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div className="flex flex-wrap items-center gap-2 rounded-app-control border border-pending-line bg-pending-soft px-4 py-3 text-app-sm text-pending">
               <span>
                 {missionsWithoutRate.length
                   ? `Aucun tarif renseigne pour ${missionsWithoutRate.join(", ")} : la facture ne peut pas etre generee.`
@@ -362,15 +362,16 @@ export function SalarieCraInvoiceEditor({
               </Link>
             </div>
           ) : missionsWithoutRate.length ? (
-            <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div className="rounded-app-control border border-pending-line bg-pending-soft px-4 py-3 text-app-sm text-pending">
               {`Sans tarif, ${missionsWithoutRate.join(", ")} n'apparaitra pas sur la facture.`}
             </div>
           ) : null}
 
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <label className="flex cursor-pointer items-center gap-2 rounded-app-control border border-app-line bg-app-field px-3 py-2 text-app-sm text-app-text transition-colors hover:bg-app-surface-hover">
               <input
                 type="checkbox"
+                className="accent-app-accent"
                 checked={invoice.vatEnabled}
                 onChange={(event) =>
                   onInvoiceChange({ ...invoice, vatEnabled: event.target.checked })
@@ -378,9 +379,10 @@ export function SalarieCraInvoiceEditor({
               />
               TVA appliquee (20%)
             </label>
-            <label className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <label className="flex cursor-pointer items-center gap-2 rounded-app-control border border-app-line bg-app-field px-3 py-2 text-app-sm text-app-text transition-colors hover:bg-app-surface-hover">
               <input
                 type="checkbox"
+                className="accent-app-accent"
                 checked={invoice.discountGranted}
                 onChange={(event) =>
                   onInvoiceChange({ ...invoice, discountGranted: event.target.checked })
@@ -391,7 +393,7 @@ export function SalarieCraInvoiceEditor({
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-[#0A1A2F]">Montant deja paye</label>
+            <label className="text-app-sm font-medium text-app-text">Montant deja paye</label>
             <input
               type="number"
               min="0"
@@ -401,7 +403,7 @@ export function SalarieCraInvoiceEditor({
                 onInvoiceChange({ ...invoice, amountAlreadyPaid: event.target.value })
               }
               onWheel={(event) => event.currentTarget.blur()}
-              className="h-9 w-full rounded-md border border-slate-300 px-3 text-sm sm:max-w-[12rem]"
+              className="h-9 w-full rounded-app-control border border-app-line bg-app-field text-app-text placeholder:text-app-text-muted focus-visible:outline-app px-3 text-app-sm sm:max-w-[12rem]"
               placeholder="0.00"
             />
           </div>
@@ -411,14 +413,14 @@ export function SalarieCraInvoiceEditor({
             hint="aucun"
             badge={expensesTotal > 0 ? formatInvoiceAmount(expensesTotal) : null}
           >
-            <p className="mb-3 text-xs text-[#0A1A2F]/60">
+            <p className="mb-3 text-app-xs text-app-text-muted">
               Montants HT a refacturer. Les frais suivent la TVA si elle est activee, mais ne sont
               jamais escomptes.
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
               {expenseFields.map((field) => (
                 <div key={field.key} className="space-y-1">
-                  <label className="text-xs font-medium text-[#0A1A2F]/70">{field.label}</label>
+                  <label className="text-app-xs font-medium text-app-text-secondary">{field.label}</label>
                   <input
                     type="number"
                     min="0"
@@ -428,7 +430,7 @@ export function SalarieCraInvoiceEditor({
                       onInvoiceChange({ ...invoice, [field.key]: event.target.value })
                     }
                     onWheel={(event) => event.currentTarget.blur()}
-                    className="h-9 w-full rounded-md border border-slate-300 px-3 text-sm"
+                    className="h-9 w-full rounded-app-control border border-app-line bg-app-field text-app-text placeholder:text-app-text-muted focus-visible:outline-app px-3 text-app-sm"
                     placeholder="0.00"
                   />
                 </div>
@@ -457,7 +459,7 @@ export function SalarieCraInvoiceEditor({
               {invoiceGenerating ? "Generation..." : "Generer la facture"}
             </Button>
             {!hasEntries ? (
-              <span className="text-sm text-[#0A1A2F]/55">
+              <span className="text-app-sm text-app-text-muted">
                 Coche au moins un jour travaille.
               </span>
             ) : null}

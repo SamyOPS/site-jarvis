@@ -69,7 +69,7 @@ export function DayDetails({
   onSetEntryTimeSlots,
 }: DayDetailsProps) {
   if (!entries.length) {
-    return <p className="text-xs text-[#0A1A2F]/50">Coche d&apos;abord des jours sur le calendrier.</p>;
+    return <p className="text-app-xs text-app-text-muted">Coche d&apos;abord des jours sur le calendrier.</p>;
   }
 
   const showCompany = missions.length > 1;
@@ -92,24 +92,24 @@ export function DayDetails({
         return (
           <li
             key={`${entry.workDate}|${entry.missionId}|${entry.absenceType}`}
-            className={cn("rounded-lg border border-slate-200 p-3", !firstOfDay && "ml-4")}
+            className={cn("rounded-app-control border border-app-line p-3", !firstOfDay && "ml-4")}
           >
-            <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-app-xs">
               <span
                 className={cn(
                   "capitalize",
-                  firstOfDay ? "font-semibold text-[#0A1A2F]" : "text-[#0A1A2F]/50",
+                  firstOfDay ? "font-semibold text-app-text" : "text-app-text-muted",
                 )}
               >
                 {firstOfDay ? formatEntryDateLabel(entry.workDate) : "meme jour"}
               </span>
               {showCompany || entry.absenceType ? (
-                <span className="flex items-center gap-1.5 text-[#0A1A2F]/70">
+                <span className="flex items-center gap-2 text-app-text-secondary">
                   <span className={cn("h-2.5 w-2.5 rounded-sm", color.bg)} />
                   {entry.absenceType ? "Absence" : (mission?.companyName ?? "Sans entreprise")}
                 </span>
               ) : null}
-              <span className="ml-auto font-medium text-[#0A1A2F]/70">{quantityLabel(entry, hourly)}</span>
+              <span className="ml-auto font-medium text-app-text-secondary">{quantityLabel(entry, hourly)}</span>
             </div>
 
             <input
@@ -118,38 +118,38 @@ export function DayDetails({
                 onUpdateEntry(entry.workDate, { label: event.target.value }, entry.missionId)
               }
               maxLength={CRA_SLOT_LABEL_MAX_LENGTH}
-              className="h-9 w-full rounded-md border border-slate-300 px-3 text-sm"
+              className="h-9 w-full rounded-app-control border border-app-line bg-app-field text-app-text placeholder:text-app-text-muted focus-visible:outline-app px-3 text-app-sm"
               placeholder={hourly ? "Resume de la journee (optionnel)" : "Commentaire de la journee (optionnel)"}
               aria-label={`Commentaire du ${formatEntryDateLabel(entry.workDate)}`}
             />
 
             {hourly && onSetEntryTimeSlots ? (
-              <div className="mt-2 space-y-1.5">
+              <div className="mt-2 space-y-2">
                 {slots.map((slot, index) => (
-                  <div key={index} className="flex flex-wrap items-center gap-1.5 sm:flex-nowrap">
-                    <Clock className="hidden h-3.5 w-3.5 shrink-0 text-[#0A1A2F]/40 sm:block" />
+                  <div key={index} className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+                    <Clock className="hidden h-3.5 w-3.5 shrink-0 text-app-text-muted sm:block" />
                     <input
                       type="time"
                       step={CRA_SLOT_STEP_MINUTES * 60}
                       value={slot.start}
                       onChange={(event) => patchSlot(index, { start: event.target.value })}
-                      className="h-8 w-[6.5rem] rounded-md border border-slate-300 px-2 text-sm"
+                      className="h-8 w-[6.5rem] rounded-app-control border border-app-line bg-app-field text-app-text placeholder:text-app-text-muted focus-visible:outline-app px-2 text-app-sm"
                       aria-label={`Debut du creneau ${index + 1}`}
                     />
-                    <span className="text-xs text-[#0A1A2F]/50">a</span>
+                    <span className="text-app-xs text-app-text-muted">a</span>
                     <input
                       type="time"
                       step={CRA_SLOT_STEP_MINUTES * 60}
                       value={slot.end === "24:00" ? "23:59" : slot.end}
                       onChange={(event) => patchSlot(index, { end: event.target.value })}
-                      className="h-8 w-[6.5rem] rounded-md border border-slate-300 px-2 text-sm"
+                      className="h-8 w-[6.5rem] rounded-app-control border border-app-line bg-app-field text-app-text placeholder:text-app-text-muted focus-visible:outline-app px-2 text-app-sm"
                       aria-label={`Fin du creneau ${index + 1}`}
                     />
                     <input
                       value={slot.label}
                       onChange={(event) => patchSlot(index, { label: event.target.value })}
                       maxLength={CRA_SLOT_LABEL_MAX_LENGTH}
-                      className="h-8 min-w-0 flex-1 basis-full rounded-md border border-slate-300 px-2 text-sm sm:basis-auto"
+                      className="h-8 min-w-0 flex-1 basis-full rounded-app-control border border-app-line bg-app-field text-app-text placeholder:text-app-text-muted focus-visible:outline-app px-2 text-app-sm sm:basis-auto"
                       placeholder="Ce qui a ete fait sur ce creneau"
                       aria-label={`Commentaire du creneau ${index + 1}`}
                     />
@@ -157,7 +157,7 @@ export function DayDetails({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 shrink-0 text-[#0A1A2F]/50 hover:text-red-600"
+                      className="h-8 w-8 shrink-0 text-app-text-muted hover:text-rejected"
                       onClick={() => setSlots(slots.filter((_, position) => position !== index))}
                       aria-label={`Retirer le creneau ${index + 1}`}
                     >
@@ -166,7 +166,7 @@ export function DayDetails({
                   </div>
                 ))}
 
-                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                <div className="flex flex-wrap items-center gap-2 pt-1">
                   <Button
                     type="button"
                     variant="outline"
@@ -179,14 +179,14 @@ export function DayDetails({
                   </Button>
                   {slots.length ? (
                     slotError ? (
-                      <span className="text-xs font-medium text-amber-700">{slotError}</span>
+                      <span className="text-app-xs font-medium text-pending">{slotError}</span>
                     ) : (
-                      <span className="text-xs text-[#0A1A2F]/60">
+                      <span className="text-app-xs text-app-text-muted">
                         {formatCraHours(craSlotsHours(slots))} · calcule depuis les creneaux
                       </span>
                     )
                   ) : (
-                    <span className="text-xs text-[#0A1A2F]/50">
+                    <span className="text-app-xs text-app-text-muted">
                       Detaille la journee heure par heure pour un CRA precis.
                     </span>
                   )}
