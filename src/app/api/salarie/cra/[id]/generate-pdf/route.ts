@@ -43,7 +43,7 @@ export const POST = withActor<RouteContext>(
 
     const { data: entries, error: entriesError } = await adminClient
       .from("cra_entries")
-      .select("work_date,mission_id,absence_type,day_quantity,hours,label,time_slots")
+      .select("work_date,mission_id,absence_type,day_quantity,hours,label,time_slots,overtime_hours,night_overtime_hours")
       .eq("cra_id", craRecord.id)
       .order("work_date", { ascending: true });
 
@@ -145,6 +145,9 @@ export const POST = withActor<RouteContext>(
           label: entry.label,
           companyName: companyByMissionId.get(entry.mission_id) ?? null,
           timeSlots: entry.time_slots,
+          overtimeHours: entry.overtime_hours === null ? null : Number(entry.overtime_hours),
+          nightOvertimeHours:
+            entry.night_overtime_hours === null ? null : Number(entry.night_overtime_hours),
         })),
         companies: (missionLines ?? []).map(
           (line: {

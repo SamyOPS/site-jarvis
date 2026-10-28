@@ -122,7 +122,7 @@ type SalarieCraInvoiceEditorProps = {
   formatCraEntryDateLabel: (value: string) => string;
   updateCraEntry: (
     workDate: string,
-    patch: { dayQuantity?: string; label?: string },
+    patch: { dayQuantity?: string; label?: string; overtimeHours?: string; nightOvertimeHours?: string },
     missionId?: string,
   ) => void;
   /** Entreprises du collaborateur. Vide = comportement mono-entreprise historique. */

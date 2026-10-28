@@ -103,7 +103,11 @@ type RhDocumentsSectionProps = {
   onRhMoveDocumentToRoot: (document: RhDocumentRow) => void | Promise<void>;
   onViewDocument: (document: RhDocumentRow) => void | Promise<void>;
   onDownloadDocument: (document: RhDocumentRow) => void | Promise<void>;
-  onReviewDocument: (document: RhDocumentRow, status: "pending" | "validated" | "rejected") => void | Promise<void>;
+  onReviewDocument: (
+    document: RhDocumentRow,
+    status: "pending" | "validated" | "rejected",
+    comment?: string,
+  ) => void | Promise<void>;
   onDeleteRhDocument: (document: RhDocumentRow) => void | Promise<void>;
   onRestoreRhDocument: (document: RhDocumentRow) => void | Promise<void>;
   onDeleteRhDocumentPermanently: (document: RhDocumentRow) => void | Promise<void>;
@@ -513,11 +517,14 @@ export function RhDocumentsSection({
         onClose={closeReviewDialog}
         onConfirm={() => {
           if (!reviewDialogDocument || !reviewDialogStatus) return;
+          // Le brouillon est garde : si le serveur refuse, rouvrir la fenetre le restitue.
           onReviewDraftsChange((prev) => ({
             ...prev,
             [reviewDialogDocument.id]: reviewDialogComment,
           }));
-          void onReviewDocument(reviewDialogDocument, reviewDialogStatus);
+          // Le commentaire part avec l'appel : le brouillon ci-dessus n'est pas encore
+          // applique quand la revue le lirait.
+          void onReviewDocument(reviewDialogDocument, reviewDialogStatus, reviewDialogComment);
           closeReviewDialog();
         }}
       />

@@ -20,7 +20,16 @@ type CraPdfEntry = {
   companyName?: string | null;
   /** Detail horaire de la journee, dans l'ordre. */
   timeSlots?: CraPdfSlot[] | null;
+  /** Heures supplementaires de la journee, dont `nightOvertimeHours` de nuit. Declaratives. */
+  overtimeHours?: number | null;
+  nightOvertimeHours?: number | null;
 };
+
+/** « 2 h, dont 1 h de nuit » / « 2 h ». */
+function formatOvertime(overtime: number, night: number, unit: "h" | "heure(s)") {
+  const total = `${formatNumber(overtime)} ${unit}`;
+  return night > 0 ? `${total}, dont ${formatNumber(night)} ${unit} de nuit` : total;
+}
 
 /** Total travaille chez une entreprise cliente, dans l'unite de la mission. */
 export type CraPdfCompanySummary = {
@@ -214,7 +223,12 @@ type DetailRow = {
   client: string;
   time: string;
   /** Lignes de detail : texte simple, ou creneau (heures + commentaire). */
-  lines: ({ kind: "text"; text: string } | { kind: "slot"; range: string; text: string })[];
+  lines: (
+    | { kind: "text"; text: string }
+    | { kind: "slot"; range: string; text: string }
+    /** Mention mise en avant (heures supplementaires du jour). */
+    | { kind: "note"; text: string }
+  )[];
   /** Index de la journee, pour alterner le fond d'un jour a l'autre. */
   dayIndex: number;
 };
@@ -252,6 +266,13 @@ function buildDetailRows(input: CraPdfInput) {
         wrapped.forEach((line, index) =>
           lines.push({ kind: "slot", range: index === 0 ? `${slot.start} - ${slot.end}` : "", text: line }),
         );
+      }
+      const overtime = Number(entry.overtimeHours ?? 0);
+      if (overtime > 0) {
+        lines.push({
+          kind: "note",
+          text: `Heures sup : ${formatOvertime(overtime, Number(entry.nightOvertimeHours ?? 0), "h")}`,
+        });
       }
     }
 
@@ -378,8 +399,26 @@ function buildCraPages(input: CraPdfInput, withLogo: boolean) {
     text(`${formatNumber(days)} jour(s)`, x + 120, y, "F1", 10);
     if (index % 2 === 1) y -= 16;
   });
+  // Total des heures sup declarees jour par jour (absences exclues). Figee a 0 tant
+  // qu'aucune saisie n'existait.
+  const overtimeTotal = input.entries.reduce(
+    (total, entry) => total + (entry.absenceType ? 0 : Number(entry.overtimeHours ?? 0)),
+    0,
+  );
+  const nightTotal = input.entries.reduce(
+    (total, entry) => total + (entry.absenceType ? 0 : Number(entry.nightOvertimeHours ?? 0)),
+    0,
+  );
   text("Heures supplementaires :", LEFT, y, "F2", 10, NAVY);
-  text("0 heure(s), dont 0 heure(s) de nuit", LEFT + 140, y, "F1", 10);
+  text(
+    overtimeTotal > 0
+      ? formatOvertime(overtimeTotal, nightTotal, "heure(s)")
+      : "0 heure(s), dont 0 heure(s) de nuit",
+    LEFT + 140,
+    y,
+    "F1",
+    10,
+  );
   y -= 26;
 
   // --- Notes ------------------------------------------------------------------------
@@ -445,6 +484,8 @@ function buildCraPages(input: CraPdfInput, withLogo: boolean) {
       if (line.kind === "slot") {
         if (line.range) text(line.range, COLUMN.detail, lineY, "F2", 9, NAVY);
         if (line.text) text(line.text, SLOT_LABEL_X, lineY, "F1", 9);
+      } else if (line.kind === "note") {
+        text(line.text, COLUMN.detail, lineY, "F2", 9, NAVY);
       } else {
         text(line.text, COLUMN.detail, lineY, "F1", 9);
       }

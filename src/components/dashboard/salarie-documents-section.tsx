@@ -85,7 +85,11 @@ type SalarieDocumentsSectionProps = {
   craAbsenceTotals: Map<string, number>;
   onApplyCraHoursToAllEntries: (hours: number) => void;
   formatCraEntryDateLabel: (value: string) => string;
-  updateCraEntry: (workDate: string, patch: { dayQuantity?: string; label?: string }) => void;
+  updateCraEntry: (
+    workDate: string,
+    patch: { dayQuantity?: string; label?: string; overtimeHours?: string; nightOvertimeHours?: string },
+    missionId?: string,
+  ) => void;
   visibleDocuments: DocumentRow[];
   documentTypeFilter: string;
   documentPeriodFilter: string;

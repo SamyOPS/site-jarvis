@@ -8,6 +8,8 @@ import {
   CRA_SLOT_LABEL_MAX_LENGTH,
   CRA_SLOT_STEP_MINUTES,
   craEntryHours,
+  craOvertimeError,
+  craOvertimeTotals,
   craSlotsHours,
   craTimeSlotsError,
   formatClockTime,
@@ -25,7 +27,11 @@ type DayDetailsProps = {
   /** Couleur d'une ligne, la meme que sur le calendrier. */
   colorOf: (missionId: string, absenceType: string) => { bg: string };
   formatEntryDateLabel: (value: string) => string;
-  onUpdateEntry: (workDate: string, patch: { label?: string }, missionId?: string) => void;
+  onUpdateEntry: (
+    workDate: string,
+    patch: { label?: string; overtimeHours?: string; nightOvertimeHours?: string },
+    missionId?: string,
+  ) => void;
   onSetEntryTimeSlots?: (workDate: string, missionId: string, timeSlots: CraTimeSlotDraft[]) => void;
 };
 
@@ -73,8 +79,16 @@ export function DayDetails({
   }
 
   const showCompany = missions.length > 1;
+  const overtime = craOvertimeTotals(entries);
 
   return (
+    <div className="space-y-3">
+    {overtime.overtime > 0 ? (
+      <p className="text-app-xs text-app-text-secondary">
+        Heures supplementaires du mois : <span className="font-medium text-app-text">{formatCraHours(overtime.overtime)}</span>
+        {overtime.night > 0 ? `, dont ${formatCraHours(overtime.night)} de nuit` : ""}
+      </p>
+    ) : null}
     <ul className="space-y-3">
       {entries.map((entry, position) => {
         const hourly = isHourlyEntry(entry, missions);
@@ -193,9 +207,65 @@ export function DayDetails({
                 </div>
               </div>
             ) : null}
+
+            {/*
+              Heures supplementaires du jour : declaratives (imprimees sur le CRA, jamais
+              facturees), sur toute journee travaillee — au jour comme a l'heure.
+            */}
+            {!entry.absenceType ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-app-xs text-app-text-secondary">
+                <span>Heures sup</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="24"
+                  step="0.25"
+                  inputMode="decimal"
+                  value={entry.overtimeHours}
+                  onChange={(event) =>
+                    onUpdateEntry(
+                      entry.workDate,
+                      // Sans heures sup, plus d'heures de nuit non plus.
+                      event.target.value.trim()
+                        ? { overtimeHours: event.target.value }
+                        : { overtimeHours: "", nightOvertimeHours: "" },
+                      entry.missionId,
+                    )
+                  }
+                  onWheel={(event) => event.currentTarget.blur()}
+                  className="h-8 w-20 rounded-app-control border border-app-line bg-app-field px-2 text-center text-app-sm text-app-text placeholder:text-app-text-muted focus-visible:outline-app disabled:opacity-60"
+                  placeholder="0"
+                  aria-label={`Heures supplementaires du ${formatEntryDateLabel(entry.workDate)}`}
+                />
+                <span>h, dont nuit</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="24"
+                  step="0.25"
+                  inputMode="decimal"
+                  value={entry.nightOvertimeHours}
+                  disabled={!entry.overtimeHours.trim()}
+                  onChange={(event) =>
+                    onUpdateEntry(entry.workDate, { nightOvertimeHours: event.target.value }, entry.missionId)
+                  }
+                  onWheel={(event) => event.currentTarget.blur()}
+                  className="h-8 w-20 rounded-app-control border border-app-line bg-app-field px-2 text-center text-app-sm text-app-text placeholder:text-app-text-muted focus-visible:outline-app disabled:opacity-60"
+                  placeholder="0"
+                  aria-label={`Dont heures de nuit le ${formatEntryDateLabel(entry.workDate)}`}
+                />
+                <span>h</span>
+                {craOvertimeError(entry.overtimeHours, entry.nightOvertimeHours) ? (
+                  <span className="font-medium text-pending">
+                    {craOvertimeError(entry.overtimeHours, entry.nightOvertimeHours)}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </li>
         );
       })}
     </ul>
+    </div>
   );
 }

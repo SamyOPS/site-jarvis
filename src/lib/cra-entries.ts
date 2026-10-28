@@ -1,5 +1,6 @@
 import type { TimeUnit } from "@/domain/common";
 import {
+  craOvertimeError,
   craSlotsHours,
   craSlotsOverlapError,
   craTimeSlotsError,
@@ -35,6 +36,9 @@ export type CraEntryInput = {
   label?: unknown;
   /** Creneaux debut–fin d'une journee horaire. Voir `parseTimeSlots`. */
   timeSlots?: unknown;
+  /** Heures supplementaires de la journee, dont `nightOvertimeHours` de nuit. */
+  overtimeHours?: unknown;
+  nightOvertimeHours?: unknown;
 };
 
 /**
@@ -80,7 +84,31 @@ export type ParsedCraEntry = {
   label: string | null;
   /** Creneaux de la journee, NULL s'il n'y en a pas (toujours NULL hors mission horaire). */
   time_slots: CraTimeSlotDraft[] | null;
+  /** Heures supplementaires (declaratives, non facturees). NULL = aucune. */
+  overtime_hours: number | null;
+  night_overtime_hours: number | null;
 };
+
+/** Valeur d'heures recue (nombre, chaine, vide) en chaine, pour la regle partagee. */
+function hoursText(value: unknown) {
+  return value === undefined || value === null ? "" : String(value).trim();
+}
+
+/**
+ * Heures supplementaires d'une ligne, validees. Zero ou vide = NULL : « aucune ». Arrondies
+ * au centieme, pour qu'une saisie comme 1,333... n'arrive pas en base telle quelle.
+ */
+function parseOvertime(entry: CraEntryInput, index: number) {
+  const overtimeText = hoursText(entry.overtimeHours);
+  const nightText = hoursText(entry.nightOvertimeHours);
+  const problem = craOvertimeError(overtimeText, nightText);
+  if (problem) throw new Error(`Ligne ${index + 1} : ${problem}`);
+  const round = (value: string) => {
+    const parsed = Math.round(Number(value) * 100) / 100;
+    return value && parsed > 0 ? parsed : null;
+  };
+  return { overtime_hours: round(overtimeText), night_overtime_hours: round(nightText) };
+}
 
 /**
  * Creneaux d'une ligne, valides et tries. Rend null pour une liste absente ou vide.
@@ -180,6 +208,9 @@ export function parseCraEntries(
       if (parseTimeSlots(entry.timeSlots, index)) {
         throw new Error(`Une absence ne se detaille pas en creneaux (ligne ${index + 1}).`);
       }
+      if (parseOvertime(entry, index).overtime_hours) {
+        throw new Error(`Une absence ne porte pas d'heures supplementaires (ligne ${index + 1}).`);
+      }
       return {
         work_date,
         mission_id: null,
@@ -188,9 +219,12 @@ export function parseCraEntries(
         hours: null,
         label,
         time_slots: null,
+        overtime_hours: null,
+        night_overtime_hours: null,
       };
     }
 
+    const overtime = parseOvertime(entry, index);
     const key = `${work_date}|${missionId ?? ""}`;
     if (seen.has(key)) {
       throw new Error(
@@ -220,6 +254,7 @@ export function parseCraEntries(
         hours,
         label,
         time_slots: timeSlots,
+        ...overtime,
       };
     }
 
@@ -240,6 +275,7 @@ export function parseCraEntries(
       hours: null,
       label,
       time_slots: null,
+      ...overtime,
     };
   });
 

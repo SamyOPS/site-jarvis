@@ -69,7 +69,7 @@ type WorkDaysCalendarProps = {
   onClearEntries: () => void;
   onUpdateEntry: (
     workDate: string,
-    patch: { dayQuantity?: string; label?: string },
+    patch: { dayQuantity?: string; label?: string; overtimeHours?: string; nightOvertimeHours?: string },
     missionId?: string,
   ) => void;
   formatEntryDateLabel: (value: string) => string;
@@ -138,7 +138,9 @@ export function WorkDaysCalendar({
   const isMultiMission = missions.length > 1;
 
   // Journees deja detaillees : commentaire ou creneaux.
-  const detailedEntries = entries.filter((entry) => entry.label.trim() || entry.timeSlots.length);
+  const detailedEntries = entries.filter(
+    (entry) => entry.label.trim() || entry.timeSlots.length || entry.overtimeHours.trim(),
+  );
   // La periode saisie peut differer du mois affiche : on le signale plutot que de
   // supprimer silencieusement les jours coches en naviguant.
   const isViewingOtherMonth = entries.length > 0 && periodMonth !== calendarMonth;
@@ -662,7 +664,7 @@ export function WorkDaysCalendar({
               </span>
             ) : (
               <span className="ml-2 text-app-xs font-normal text-app-text-muted">
-                commentaires et creneaux horaires
+                commentaires, creneaux et heures sup
               </span>
             )}
           </span>

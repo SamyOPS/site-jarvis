@@ -165,6 +165,8 @@ export function useCraEditor({
         dayQuantity: isHourly ? "" : String(quantity),
         label,
         timeSlots: [],
+        overtimeHours: "",
+        nightOvertimeHours: "",
       };
     },
     [missionUnitOf],
@@ -180,6 +182,8 @@ export function useCraEditor({
       dayQuantity: String(dayQuantity),
       label,
       timeSlots: [],
+      overtimeHours: "",
+      nightOvertimeHours: "",
     }),
     [],
   );

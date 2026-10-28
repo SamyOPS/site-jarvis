@@ -35,7 +35,37 @@ export type CraEntryDraft = {
    * il fait foi : `hours` en est deduit (voir `craSlotsHours`).
    */
   timeSlots: CraTimeSlotDraft[];
+  /**
+   * Heures supplementaires de la journee, et parmi elles les heures de nuit. Vides = aucune.
+   * Declaratives : imprimees sur le CRA, jamais facturees. Jamais sur une absence.
+   */
+  overtimeHours: string;
+  nightOvertimeHours: string;
 };
+
+/** Total des heures supplementaires (et de nuit) du mois, absences exclues. */
+export function craOvertimeTotals(entries: Pick<CraEntryDraft, "absenceType" | "overtimeHours" | "nightOvertimeHours">[]) {
+  let overtime = 0;
+  let night = 0;
+  for (const entry of entries) {
+    if (entry.absenceType) continue;
+    overtime += Number(entry.overtimeHours) || 0;
+    night += Number(entry.nightOvertimeHours) || 0;
+  }
+  return { overtime, night };
+}
+
+/** Probleme de saisie des heures sup d'une journee, ou null. Partage saisie et serveur. */
+export function craOvertimeError(overtimeHours: string, nightOvertimeHours: string) {
+  const overtime = overtimeHours.trim() ? Number(overtimeHours) : 0;
+  const night = nightOvertimeHours.trim() ? Number(nightOvertimeHours) : 0;
+  if (!Number.isFinite(overtime) || overtime < 0 || overtime > 24) {
+    return "Heures supplementaires : entre 0 et 24.";
+  }
+  if (!Number.isFinite(night) || night < 0) return "Heures de nuit invalides.";
+  if (night > overtime) return "Les heures de nuit font partie des heures sup : elles ne peuvent pas les depasser.";
+  return null;
+}
 
 /** Creneau horaire d'une journee : heures « HH:MM », au quart d'heure. */
 export type CraTimeSlotDraft = {

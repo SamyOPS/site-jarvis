@@ -392,6 +392,8 @@ export default function SalarieWorkspace({
         hours: number | null;
         label: string | null;
         time_slots: { start: string; end: string; label: string }[] | null;
+        overtime_hours: number | null;
+        night_overtime_hours: number | null;
       }[];
     };
     if (!payload.cra) {
@@ -419,6 +421,8 @@ export default function SalarieWorkspace({
           hours: entry.hours === null || entry.hours === undefined ? "" : String(entry.hours),
           label: entry.label ?? "",
           timeSlots: entry.time_slots ?? [],
+          overtimeHours: entry.overtime_hours ? String(entry.overtime_hours) : "",
+          nightOvertimeHours: entry.night_overtime_hours ? String(entry.night_overtime_hours) : "",
         })),
       ),
     );
@@ -727,6 +731,10 @@ export default function SalarieWorkspace({
           // Detail horaire : seulement pour une journee horaire detaillee. Le serveur en
           // deduit les heures.
           ...(isHourly && entry.timeSlots.length ? { timeSlots: entry.timeSlots } : {}),
+          // Heures sup : declaratives, envoyees seulement si saisies.
+          ...(entry.overtimeHours.trim()
+            ? { overtimeHours: entry.overtimeHours, nightOvertimeHours: entry.nightOvertimeHours }
+            : {}),
         };
       }),
     };

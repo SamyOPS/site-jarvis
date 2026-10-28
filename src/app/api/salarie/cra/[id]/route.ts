@@ -47,7 +47,7 @@ export const GET = withActor<RouteContext>(
       // perdait les heures explicites saisies par le collaborateur. `absence_type` aussi :
       // sans lui, une absence revenait en journee travaillee sans entreprise, et le prochain
       // enregistrement la convertissait definitivement en jour facturable.
-      .select("id,work_date,mission_id,absence_type,day_quantity,hours,label,time_slots,created_at,updated_at")
+      .select("id,work_date,mission_id,absence_type,day_quantity,hours,label,time_slots,overtime_hours,night_overtime_hours,created_at,updated_at")
       .eq("cra_id", craRecord.id)
       .order("work_date", { ascending: true });
 

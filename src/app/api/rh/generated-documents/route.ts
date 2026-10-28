@@ -113,6 +113,8 @@ function buildWorkEntries(periodMonth: string, workedDaysCount: number): ParsedC
         hours: null,
         label: null,
         time_slots: null,
+        overtime_hours: null,
+        night_overtime_hours: null,
       });
     }
     cursor.setUTCDate(cursor.getUTCDate() + 1);
@@ -540,6 +542,8 @@ export const POST = withActor(
               ? (companyByMissionId.get(entry.mission_id) ?? null)
               : null,
             timeSlots: entry.time_slots,
+            overtimeHours: entry.overtime_hours,
+            nightOvertimeHours: entry.night_overtime_hours,
           })),
           // Vide => rendu strictement identique a l'historique mono-entreprise.
           companies: missionLines.map((line) => ({

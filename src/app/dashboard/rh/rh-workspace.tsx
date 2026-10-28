@@ -1683,6 +1683,9 @@ export default function RhWorkspace({
         absenceType: entry.absenceType || undefined,
         label: entry.label,
         ...(entry.timeSlots.length ? { timeSlots: entry.timeSlots } : {}),
+        ...(entry.overtimeHours.trim()
+          ? { overtimeHours: entry.overtimeHours, nightOvertimeHours: entry.nightOvertimeHours }
+          : {}),
       }));
     if (!entriesPayload.length) {
       setSaveMessage("Selectionne au moins un jour travaille.");
@@ -1855,14 +1858,24 @@ export default function RhWorkspace({
     await refreshDashboardData();
   }, [refreshDashboardData]);
 
-  const handleReviewDocument = useCallback(async (document: RHDocumentRow, nextStatus: "pending" | "validated" | "rejected") => {
+  /**
+   * `comment` est passe EXPLICITEMENT par la fenetre de revue. Le relire dans `reviewDrafts`
+   * echouait au premier clic : la fenetre y rangeait le commentaire puis appelait cette
+   * fonction dans le meme evenement, avant que React n'applique la mise a jour — le
+   * commentaire lu etait l'ancien, vide, et le refus etait rejete comme « sans commentaire ».
+   */
+  const handleReviewDocument = useCallback(async (
+    document: RHDocumentRow,
+    nextStatus: "pending" | "validated" | "rejected",
+    comment?: string,
+  ) => {
     const accessToken = await getFreshAccessToken();
     if (!accessToken) {
       setSaveMessage("Session RH manquante.");
       return;
     }
 
-    const reviewComment = (reviewDrafts[document.id] ?? "").trim();
+    const reviewComment = (comment ?? reviewDrafts[document.id] ?? "").trim();
     if (nextStatus === "rejected" && !reviewComment) {
       setSaveMessage("Un commentaire est obligatoire pour refuser un document.");
       return;
