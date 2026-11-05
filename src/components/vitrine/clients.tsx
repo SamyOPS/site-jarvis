@@ -49,6 +49,9 @@ const logos: {
   big?: boolean;
 }[] = [
   { src: "/Image/logo_client/3M-noir.png", alt: "3M", w: 257, h: 135 },
+  // Slogan « La prevention, c'est la sante » retire : illisible a cette taille. `big` :
+  // le mot « PREVOYANCE » sous le dessin serait sinon trop petit.
+  { src: "/Image/logo_client/b2v-noir.png", alt: "B2V Prévoyance", w: 296, h: 224, big: true },
   { src: "/Image/logo_client/barriere-noir.png", alt: "Barrière", w: 331, h: 240 },
   { src: "/Image/logo_client/bnp-paribas-noir.png", alt: "BNP Paribas", w: 600, h: 239 },
   { src: "/Image/logo_client/groupe-bpce-noir.png", alt: "BPCE", w: 600, h: 100 },
@@ -148,7 +151,7 @@ function Logo({
           sizes={`${Math.min(190, Math.ceil((w / h) * MAX_LOGO_HEIGHT_PX))}px`}
           draggable={false}
           /*
-            Taille de base portee a 40 px — 56 px pour les deux logos larges — soit ce qui
+            Taille de base portee a 40 px — 56 px pour les logos marques `big` — soit ce qui
             ne s'appliquait qu'a partir de `lg`. Le mobile part donc de 24 px a l'origine
             pour arriver ici a 40.
 
