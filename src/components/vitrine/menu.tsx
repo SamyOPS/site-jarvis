@@ -4,7 +4,7 @@ import { LogIn, Mail } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Fragment, memo, useEffect, useState } from "react";
+import { Fragment, memo, useEffect, useRef, useState } from "react";
 import FooterShader from "@/components/vitrine/footer-shader";
 import { usePageTransition } from "@/components/vitrine/page-transition";
 import { lockScroll, unlockScroll } from "@/features/vitrine/scroll-lock";
@@ -17,6 +17,7 @@ import {
 } from "@/features/vitrine/nav";
 import { VITRINE_FONT_VARS } from "@/features/vitrine/fonts";
 import { useDarkSectionAt } from "@/features/vitrine/use-dark-section";
+import { useDepthWheel } from "@/features/vitrine/use-depth-wheel";
 import { armPageReveal } from "@/lib/page-reveal";
 
 /*
@@ -104,6 +105,21 @@ export default function Menu() {
     48 px : un point situe DANS la barre, dont les enfants commencent a `top-8` (32 px).
   */
   const onDark = useDarkSectionAt(48, pathname);
+
+  /*
+    Roue des liens principaux : a l'ouverture, la page en cours est au centre (sous-page
+    comprise : un article ouvre la roue sur « Actualites »). Sur /decouvrir, plusieurs
+    entrees y menent ; la premiere l'emporte.
+  */
+  const wheelRef = useRef<HTMLDivElement>(null);
+  const activeLinkIndex = Math.max(
+    0,
+    mainLinks.findIndex(({ href }) => {
+      const path = href.split("#")[0] || "/";
+      return pathname === path || (path !== "/" && pathname.startsWith(`${path}/`));
+    }),
+  );
+  useDepthWheel(wheelRef, open, activeLinkIndex);
 
   // Ouvre/ferme le panneau. À l'ouverture, on fige son thème selon le fond.
   const toggle = () =>
@@ -353,24 +369,43 @@ export default function Menu() {
         {/* `relative` : le contenu doit passer AU-DESSUS du canvas, qui est absolu. */}
         <div className="relative flex h-full flex-col px-8 py-8 sm:px-12 sm:py-10">
           {/* Corps : gros liens à gauche + colonne d'infos à droite */}
-          <div className="flex flex-1 items-center justify-between gap-8">
-            <nav className="flex flex-col gap-1">
-              {mainLinks.map((link, i) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={(e) => onNav(e, link.href)}
-                  className={`block text-5xl font-bold uppercase leading-[1.05] tracking-tight transition-colors sm:text-7xl laptop:text-5xl ${panel.link}`}
-                >
-                  <RevealChars
-                    text={link.label}
-                    open={open}
-                    base={90 + i * 40}
-                    step={18}
-                  />
-                </Link>
-              ))}
-            </nav>
+          <div className="flex min-h-0 flex-1 items-center justify-between gap-8">
+            {/*
+              Roue des liens principaux (voir `useDepthWheel`) : la liste defile dans ce
+              cadre, l'entree centrale est au premier plan, les autres s'enfoncent.
+
+              - `[container-type:size]` + `50cqh` : la marge haute et basse de la liste vaut
+                une demi-hauteur de cadre, moins une demi-ligne (`0.5em`, la police etant
+                posee sur la liste). La premiere et la derniere entree peuvent ainsi venir
+                au centre, quelle que soit la hauteur de l'ecran.
+              - `snap-mandatory` + `snap-center` : le defilement s'arrete toujours sur une
+                entree centree.
+              - `overscroll-contain` : en butee, le geste ne remonte pas a la page.
+              - le masque fond le haut et le bas du cadre dans le panneau.
+            */}
+            <div
+              ref={wheelRef}
+              className="relative h-full min-w-0 flex-1 snap-y snap-mandatory overflow-y-auto overflow-x-hidden overscroll-contain [container-type:size] [mask-image:linear-gradient(to_bottom,transparent,black_20%,black_80%,transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              <nav className="flex flex-col gap-2 py-[calc(50cqh_-_0.5em)] text-5xl font-bold uppercase leading-[1.05] tracking-tight sm:text-7xl laptop:text-5xl">
+                {mainLinks.map((link, i) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={(e) => onNav(e, link.href)}
+                    data-depth-wheel-item=""
+                    className={`block w-fit max-w-full snap-center transition-colors ${panel.link}`}
+                  >
+                    <RevealChars
+                      text={link.label}
+                      open={open}
+                      base={90 + i * 40}
+                      step={18}
+                    />
+                  </Link>
+                ))}
+              </nav>
+            </div>
 
             <div className="hidden shrink-0 flex-col gap-8 text-sm sm:flex">
               <div className="flex flex-col gap-2">

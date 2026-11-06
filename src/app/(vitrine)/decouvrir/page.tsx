@@ -9,6 +9,7 @@ import Partners from "@/components/vitrine/partners";
 import Formations from "@/components/vitrine/formations";
 import ImageBreak from "@/components/vitrine/image-break";
 import Faq from "@/components/vitrine/faq";
+import LatestNews from "@/components/vitrine/latest-news";
 import { DEFENSE, ILLUSTRATIONS } from "@/features/vitrine/images";
 import Footer from "@/components/vitrine/footer";
 
@@ -16,6 +17,12 @@ import Footer from "@/components/vitrine/footer";
 // Expertises » par-dessus : c'est l'image de la section. Les six autres
 // composent la mosaïque autour — La Défense en est retirée pour ne pas s'y
 // répéter, et la liste est complétée pour garder sept cadres.
+/*
+  La section « Dernieres actualites » lit la base : la page est regeneree au plus une fois
+  par minute, comme /actualites. Un article publie y apparait sans redeploiement.
+*/
+export const revalidate = 60;
+
 const others = ILLUSTRATIONS.filter((img) => img !== DEFENSE);
 const showcaseImages = Array.from({ length: 7 }, (_, i) =>
   i === 0 ? DEFENSE : others[(i - 1) % others.length],
@@ -69,6 +76,9 @@ export default function DecouvrirPage() {
 
         {/* Image plein écran que le scroll dézoome en mosaïque */}
         <ImageBreak />
+
+        {/* Dernières actualités (absente tant qu'aucun article n'est paru) */}
+        <LatestNews />
 
         {/* FAQ, en clôture de page */}
         <Faq />

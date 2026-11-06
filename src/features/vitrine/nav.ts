@@ -16,6 +16,8 @@ export const mainLinks = [
    * toutes ses entrees principales dans `onNav`.
    */
   { label: "Offres d'emploi", href: "/decouvrir#offres" },
+  // Page du groupe (vitrine) : le menu et le pied de page y vont par `onNav`, avec le fondu.
+  { label: "Actualités", href: "/actualites" },
   { label: "FAQ", href: "/decouvrir#faq" },
 ];
 
