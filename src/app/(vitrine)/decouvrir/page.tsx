@@ -11,6 +11,7 @@ import ImageBreak from "@/components/vitrine/image-break";
 import Faq from "@/components/vitrine/faq";
 import LatestNews from "@/components/vitrine/latest-news";
 import { DEFENSE, ILLUSTRATIONS } from "@/features/vitrine/images";
+import { ZOOM_SCROLL_VH } from "@/features/vitrine/scroll-pace";
 import Footer from "@/components/vitrine/footer";
 
 // Le premier cadre est celui sur lequel le zoom se referme, titre « nos
@@ -54,11 +55,13 @@ export default function DecouvrirPage() {
           />
 
           {/* Cible du lien « Expertises » : positionnée à la fin du zoom (progress
-            ~1, à 200vh sur les 300vh), quand le titre est entièrement affiché. */}
+            ~1, au bout de sa course de défilement), quand le titre est entièrement
+            affiché. */}
           <span
             id="expertises"
             aria-hidden
-            className="pointer-events-none absolute left-0 top-[200vh]"
+            className="pointer-events-none absolute left-0"
+            style={{ top: `${ZOOM_SCROLL_VH}vh` }}
           />
         </section>
 

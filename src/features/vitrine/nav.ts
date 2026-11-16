@@ -2,20 +2,28 @@
 // une seule source de vérité, pour qu'un renommage de section (ex. « Offres »
 // devenue « Formations ») n'ait pas à être répercuté à deux endroits.
 
+// Destinations hors du groupe (vitrine) : l'espace connecte et les offres d'emploi.
+// Elles font partie de cette application — la vitrine, les offres et la console sont
+// un seul deploiement — mais sous un autre layout (ni fondu de page, ni meme menu) :
+// on les rejoint comme une sortie, voir `leavesVitrine` plus bas.
+//
+// Declarees AVANT `mainLinks`, qui s'en sert : une `const` lue avant sa ligne de
+// declaration fait echouer le chargement du module.
+export const AUTH_HREF = "/auth";
+export const JOBS_HREF = "/offres";
+
 export const mainLinks = [
   { label: "Accueil", href: "/" },
   { label: "Expertises", href: "/decouvrir#expertises" },
   { label: "Formations", href: "/decouvrir#formations" },
   /*
-   * Pointe la SECTION de /decouvrir, pas la page /offres — comme les autres entrees de
-   * cette liste. La page elle-meme reste atteignable par « Offres d'emploi » du bloc
-   * « Membre de Jarvis » ci-dessous, et par le lien pose sur la section.
+   * Mene directement a la PAGE des offres, et non a la section de /decouvrir.
    *
-   * La distinction compte au clic : une entree vers /offres sortirait de la vitrine, ce que
-   * le pied de page sait traiter (il teste `leavesVitrine`) mais pas le menu, qui envoie
-   * toutes ses entrees principales dans `onNav`.
+   * /offres est hors du groupe (vitrine) : c'est une sortie. Le pied de page et le menu
+   * testent tous deux `leavesVitrine` et l'empruntent avec le voile noir et une navigation
+   * de document, comme « Acceder a mon espace ».
    */
-  { label: "Offres d'emploi", href: "/decouvrir#offres" },
+  { label: "Offres d'emploi", href: JOBS_HREF },
   // Page du groupe (vitrine) : le menu et le pied de page y vont par `onNav`, avec le fondu.
   { label: "Actualités", href: "/actualites" },
   { label: "FAQ", href: "/decouvrir#faq" },
@@ -31,27 +39,11 @@ export const infoLinks = [
   { label: "S'inscrire à la newsletter", href: "#newsletter" },
 ];
 
-// Bloc « Membre de Jarvis », repris tel quel par le panneau du menu et le footer.
-// Ces deux destinations vivaient sur un site séparé, atteintes par leur URL
-// absolue ; elles font désormais partie de cette application — la vitrine, les
-// offres et la console sont un seul déploiement. Ce sont donc des routes
-// internes : <Link> et transition de page, sans rechargement complet.
-//
-// Elles ne sont pas dans le groupe (vitrine) : leur layout diffère (ni menu, ni
-// fondu de page). Le routeur s'en charge, la navigation reste côté client.
-export const AUTH_HREF = "/auth";
-export const JOBS_HREF = "/offres";
-
-export const memberLinks = [
-  { label: "Accéder à mon espace", href: AUTH_HREF },
-  /*
-   * « Voir toutes les offres » et non « Offres d'emploi » : ce libelle-la est desormais
-   * celui de l'entree de navigation principale, qui mene a la SECTION de /decouvrir. Deux
-   * liens homonymes vers deux destinations differentes cohabitaient dans le meme panneau.
-   * Le « toutes » dit ce qui les separe — la liste complete, par opposition a l'aperçu.
-   */
-  { label: "Voir toutes les offres", href: JOBS_HREF },
-];
+// Colonne « Membre de Jarvis » du PIED DE PAGE seulement : le panneau du menu ne
+// l'affiche plus (la connexion y reste par l'icone de la barre). « Voir toutes les
+// offres » n'y figure plus non plus : l'entree principale « Offres d'emploi » mene
+// desormais elle-meme a la page des offres.
+export const memberLinks = [{ label: "Accéder à mon espace", href: AUTH_HREF }];
 
 // Quitte la vitrine : mérite le voile, et le voile doit rester posé jusqu'à ce
 // que la page d'arrivée soit peinte.

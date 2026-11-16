@@ -4,7 +4,7 @@ import { LogIn, Mail } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Fragment, memo, useEffect, useRef, useState } from "react";
+import { Fragment, memo, useEffect, useState } from "react";
 import FooterShader from "@/components/vitrine/footer-shader";
 import { usePageTransition } from "@/components/vitrine/page-transition";
 import { lockScroll, unlockScroll } from "@/features/vitrine/scroll-lock";
@@ -12,31 +12,12 @@ import {
   AUTH_HREF,
   infoLinks,
   isInternalExit,
+  leavesVitrine,
   mainLinks,
-  memberLinks,
 } from "@/features/vitrine/nav";
 import { VITRINE_FONT_VARS } from "@/features/vitrine/fonts";
 import { useDarkSectionAt } from "@/features/vitrine/use-dark-section";
-import { useDepthWheel } from "@/features/vitrine/use-depth-wheel";
 import { armPageReveal } from "@/lib/page-reveal";
-
-/*
- * Cascade des liens « Membre de Jarvis ».
- *
- * `MEMBER_OFFSET` est plus court que la duree d'un libelle : les cascades se CHEVAUCHENT,
- * ce qui fait paraitre le bloc plus vif qu'une succession bien rangee. Une entree ajoutee a
- * `memberLinks` prend automatiquement le creneau suivant.
- */
-const MEMBER_BASE = 510;
-const MEMBER_OFFSET = 110;
-const MEMBER_STEP = 10;
-
-/**
- * Nombre de caracteres reellement animes par `RevealChars` : il decoupe le texte en mots
- * et n'anime que leurs lettres, les espaces ne comptent donc pas. C'est ce nombre qui dit
- * quand la cascade s'acheve, et donc quand la fleche doit suivre.
- */
-const animatedChars = (label: string) => label.replace(/s/g, "").length;
 
 // Révélation masquée lettre par lettre, pilotée par l'ouverture du panneau.
 // Les mots restent insécables (pas de coupure au milieu d'un mot).
@@ -69,7 +50,7 @@ const RevealChars = memo(function RevealChars({
               return (
                 <span key={ci} aria-hidden className="reveal-mask">
                   <span
-                    className={`inline-block transition-transform duration-420 ease-out ${
+                    className={`inline-block transition-transform duration-350 ease-out ${
                       open ? "translate-y-0" : "translate-y-full"
                     }`}
                     style={{ transitionDelay: open ? `${delay}ms` : "0ms" }}
@@ -105,21 +86,6 @@ export default function Menu() {
     48 px : un point situe DANS la barre, dont les enfants commencent a `top-8` (32 px).
   */
   const onDark = useDarkSectionAt(48, pathname);
-
-  /*
-    Roue des liens principaux : a l'ouverture, la page en cours est au centre (sous-page
-    comprise : un article ouvre la roue sur « Actualites »). Sur /decouvrir, plusieurs
-    entrees y menent ; la premiere l'emporte.
-  */
-  const wheelRef = useRef<HTMLDivElement>(null);
-  const activeLinkIndex = Math.max(
-    0,
-    mainLinks.findIndex(({ href }) => {
-      const path = href.split("#")[0] || "/";
-      return pathname === path || (path !== "/" && pathname.startsWith(`${path}/`));
-    }),
-  );
-  useDepthWheel(wheelRef, open, activeLinkIndex);
 
   // Ouvre/ferme le panneau. À l'ouverture, on fige son thème selon le fond.
   const toggle = () =>
@@ -179,6 +145,16 @@ export default function Menu() {
   const onExternal = (e: React.MouseEvent, href: string) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     e.preventDefault();
+
+    // Deja sur place : le menu est aussi monte sur les offres d'emploi, ou « Offres
+    // d'emploi » designe la page courante. Recharger serait absurde — on referme le
+    // panneau et on remonte, comme `onNav` dans le meme cas.
+    if (href === pathname) {
+      close();
+      window.setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 500);
+      return;
+    }
+
     leave(() => {
       // Le fondu ne s'arrete pas au depart : la page d'arrivee reprend le voile
       // et le dissipe. Uniquement vers cette application — un drapeau pose avant
@@ -368,151 +344,75 @@ export default function Menu() {
 
         {/* `relative` : le contenu doit passer AU-DESSUS du canvas, qui est absolu. */}
         <div className="relative flex h-full flex-col px-8 py-8 sm:px-12 sm:py-10">
-          {/* Corps : gros liens à gauche + colonne d'infos à droite */}
-          <div className="flex min-h-0 flex-1 items-center justify-between gap-8">
-            {/*
-              Roue des liens principaux (voir `useDepthWheel`) : la liste defile dans ce
-              cadre, l'entree centrale est au premier plan, les autres s'enfoncent.
+          {/*
+            Corps : les liens principaux, centres dans le panneau.
 
-              - `[container-type:size]` + `50cqh` : la marge haute et basse de la liste vaut
-                une demi-hauteur de cadre, moins une demi-ligne (`0.5em`, la police etant
-                posee sur la liste). La premiere et la derniere entree peuvent ainsi venir
-                au centre, quelle que soit la hauteur de l'ecran.
-              - `snap-mandatory` + `snap-center` : le defilement s'arrete toujours sur une
-                entree centree.
-              - `overscroll-contain` : en butee, le geste ne remonte pas a la page.
-              - le masque fond le haut et le bas du cadre dans le panneau.
-            */}
-            <div
-              ref={wheelRef}
-              className="relative h-full min-w-0 flex-1 snap-y snap-mandatory overflow-y-auto overflow-x-hidden overscroll-contain [container-type:size] [mask-image:linear-gradient(to_bottom,transparent,black_20%,black_80%,transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-              <nav className="flex flex-col gap-2 py-[calc(50cqh_-_0.5em)] text-5xl font-bold uppercase leading-[1.05] tracking-tight sm:text-7xl laptop:text-5xl">
-                {mainLinks.map((link, i) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={(e) => onNav(e, link.href)}
-                    data-depth-wheel-item=""
-                    className={`block w-fit max-w-full snap-center transition-colors ${panel.link}`}
-                  >
-                    <RevealChars
-                      text={link.label}
-                      open={open}
-                      base={90 + i * 40}
-                      step={18}
-                    />
-                  </Link>
-                ))}
-              </nav>
-            </div>
+            Taille bornee par la HAUTEUR de l'ecran (`dvh`) : la liste et le pied (liens d'information)
+            doivent tenir ensemble sans defilement, jusque sur un ecran bas — portable,
+            telephone a l'horizontale. Sur un ecran assez haut, les plafonds
+            `3rem` et `4.5rem` redonnent les tailles d'origine (text-5xl, text-7xl).
+          */}
+          <nav className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 text-center text-[min(3rem,6.5dvh)] font-bold uppercase leading-[1.05] tracking-tight sm:text-[min(4.5rem,6dvh)]">
+            {mainLinks.map((link, i) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                /*
+                  « Offres d'emploi » quitte la vitrine (/offres a son propre layout) : voile
+                  et navigation de document, sans quoi le `PageTransition` se demonterait et
+                  le voile sauterait d'un coup sec. Les autres entrees restent internes.
+                */
+                onClick={(e) =>
+                  leavesVitrine(link.href) ? onExternal(e, link.href) : onNav(e, link.href)
+                }
+                className={`block max-w-full transition-colors ${panel.link}`}
+              >
+                <RevealChars
+                  text={link.label}
+                  open={open}
+                  /*
+                    Cascade resserree : le dernier lien (« Offres d'emploi ») finissait de
+                    s'ecrire ~0,9 s apres l'ouverture, il est entier en ~0,55 s.
+                  */
+                  base={60 + i * 30}
+                  step={10}
+                />
+              </Link>
+            ))}
+          </nav>
 
-            <div className="hidden shrink-0 flex-col gap-8 text-sm sm:flex">
-              <div className="flex flex-col gap-2">
-                <span
-                  className={`text-xs font-semibold uppercase tracking-[0.2em] ${panel.label}`}
+          {/*
+            Pied du panneau : liens d'information en bas a gauche, en LIGNE et sans intitule,
+            renvoyes a la ligne si la largeur manque ; LinkedIn en bas a droite. Masques sur
+            mobile, comme avant.
+
+            Le bloc « Membre de Jarvis » n'est plus dans le panneau : la connexion reste a
+            portee par l'icone de la barre, toujours visible au-dessus.
+          */}
+          <div className="flex items-end justify-between gap-8">
+            <div className="hidden min-w-0 flex-wrap items-baseline gap-x-8 gap-y-2 text-sm sm:flex">
+              {infoLinks.map((link, k) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={(e) => onNav(e, link.href)}
+                  className={`font-medium uppercase tracking-tight transition-colors ${panel.info}`}
                 >
                   <RevealChars
-                    text="Contact"
+                    text={link.label}
                     open={open}
-                    base={320}
-                    step={12}
+                    base={220 + k * 24}
+                    step={6}
                   />
-                </span>
-                {infoLinks.map((link, k) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={(e) => onNav(e, link.href)}
-                    className={`font-medium uppercase tracking-tight transition-colors ${panel.info}`}
-                  >
-                    <RevealChars
-                      text={link.label}
-                      open={open}
-                      base={340 + k * 28}
-                      step={10}
-                    />
-                  </Link>
-                ))}
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <span
-                  className={`text-xs font-semibold uppercase tracking-[0.2em] ${panel.label}`}
-                >
-                  <RevealChars
-                    text="Membre de Jarvis"
-                    open={open}
-                    base={470}
-                    step={12}
-                  />
-                </span>
-                {/*
-                  Les deux liens etaient ecrits EN DOUBLE, libelles compris, alors que
-                  `memberLinks` les declare deja et que le pied de page, lui, les lit.
-                  C est ainsi qu un renommage n a touche qu un des deux endroits.
-
-                  Le delai de la fleche se DEDUIT maintenant du libelle. Les deux valeurs
-                  qui y figuraient en dur dataient des anciens reglages : apres la
-                  compression du tempo du panneau, elles accusaient pres de 800 ms de
-                  retard sur leur propre texte, et la fleche arrivait longtemps apres lui.
-                */}
-                {memberLinks.map((link, k) => {
-                  const start = MEMBER_BASE + k * MEMBER_OFFSET;
-                  return (
-                    <a
-                      key={link.href}
-                      href={link.href}
-                      onClick={(e) => onExternal(e, link.href)}
-                      className={`inline-flex items-center gap-1 font-medium uppercase tracking-tight transition-colors ${panel.info}`}
-                    >
-                      <RevealChars
-                        text={link.label}
-                        open={open}
-                        base={start}
-                        step={MEMBER_STEP}
-                      />
-                      <span aria-hidden className="reveal-mask">
-                        <span
-                          className={`inline-block transition-transform duration-420 ease-out ${
-                            open ? "translate-y-0" : "translate-y-full"
-                          }`}
-                          style={{
-                            transitionDelay: open
-                              ? `${start + animatedChars(link.label) * MEMBER_STEP}ms`
-                              : "0ms",
-                          }}
-                        >
-                        <svg
-                          className="h-4 w-4"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden
-                        >
-                          <line x1="7" y1="17" x2="17" y2="7" />
-                          <polyline points="7 7 17 7 17 17" />
-                        </svg>
-                        </span>
-                      </span>
-                    </a>
-                  );
-                })}
-              </div>
+                </Link>
+              ))}
             </div>
-          </div>
-
-          {/* Pied : réseaux sociaux en bas à droite */}
-          <div className="flex justify-end">
             <a
               href="https://www.linkedin.com/company/jarvis-connect/posts/"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="LinkedIn"
-              className={`flex h-11 w-11 items-center justify-center rounded-full border transition-colors ${panel.social}`}
+              className={`ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors ${panel.social}`}
             >
               <svg
                 className="h-5 w-5"

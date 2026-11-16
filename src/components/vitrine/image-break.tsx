@@ -16,12 +16,14 @@ const mosaic = Array.from({ length: 7 }, (_, i) => illustration(i));
 export default function ImageBreak() {
   return (
     /*
-      `id="offres"` : cible du lien « Offres d'emploi » du menu et du pied de page.
+      `id="offres"` : ancre de la section (/decouvrir#offres). Le lien « Offres d'emploi »
+      du menu et du pied de page ne la vise plus — il mene directement a la page /offres —
+      mais l'adresse reste valable pour qui l'aurait gardee.
 
       Sur la SECTION elle-meme, et non decalee comme celle des expertises. Ce zoom-ci est
       en `direction="out"` : le titre est entier des le premier pixel de la section, alors
-      que celui des expertises n'apparait qu'a la fin de son zoom — d'ou l'ancre posee a
-      200vh la-bas.
+      que celui des expertises n'apparait qu'a la fin de son zoom — d'ou l'ancre posee au
+      bout de sa course, la-bas.
     */
     <section id="offres" data-nav-dark className="relative bg-black">
       {/*

@@ -1,9 +1,11 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { RevealWords, revealWordCount } from "@/components/vitrine/reveal-words";
 
 // FAQ dans le registre du discours (composant Mission) : fond noir, colonne
-// serif centrée, révélation lettre par lettre quand la section entre à l'écran.
+// serif centrée, révélation mot par mot quand la section entre à l'écran.
 // Volontairement sobre — pas d'image, pas de numéros, pas de gros titre : juste
 // des filets fins, et une seule réponse ouverte à la fois pour que l'écran
 // reste calme. Textes = PLACEHOLDERS à valider.
@@ -37,63 +39,25 @@ const items = [
   },
 ];
 
-const STEP = 4; // ms entre chaque lettre (même cadence que le discours)
+/*
+ * Cascade MOT PAR MOT (voir `RevealWords`). Lettre par lettre, les ~250 lettres des
+ * questions demarraient leur transition dans la meme image, a l'entree de la section :
+ * 27 a 84 ms de recalcul de style en plein defilement. Par mot, ~45 elements, et la
+ * cascade tient en ~1 s au lieu de ~1,8 s.
+ */
+const STEP = 10; // ms entre deux mots
 const BASE = 120; // on arrive ici au scroll : pas de voile à attendre
 
-const visibleLen = (t: string) => t.replace(/\s/g, "").length;
-
-// Index de départ (en lettres) de chaque bloc, pour une cascade continue de
+// Index de départ (en mots) de chaque bloc, pour une cascade continue de
 // l'accroche jusqu'à la dernière question. Calculé une fois, hors rendu.
 let acc = 0;
 const introStart = acc;
-acc += visibleLen(INTRO);
+acc += revealWordCount(INTRO);
 const questions = items.map(({ q, a }) => {
   const start = acc;
-  acc += visibleLen(q);
+  acc += revealWordCount(q);
   return { q, a, start };
 });
-
-// Révélation lettre par lettre : chaque lettre monte depuis sa ligne (masque).
-// Identique au discours, `start` = lettres déjà passées avant ce bloc.
-function RevealText({
-  text,
-  shown,
-  start,
-}: {
-  text: string;
-  shown: boolean;
-  start: number;
-}) {
-  const words = text.split(" ");
-  let idx = -1;
-  return (
-    <span aria-label={text}>
-      {words.map((word, wi) => (
-        <Fragment key={wi}>
-          <span className="inline-block whitespace-nowrap">
-            {[...word].map((char, ci) => {
-              idx += 1;
-              const delay = BASE + (start + idx) * STEP;
-              return (
-                <span key={ci} aria-hidden className="reveal-mask-text">
-                  <span
-                    className={`inline-block transition-transform duration-500 ease-out ${
-                      shown ? "translate-y-0" : "translate-y-[135%]"
-                    }`}
-                    style={{ transitionDelay: shown ? `${delay}ms` : "0ms" }}
-                  >
-                    {char}
-                  </span>
-                </span>
-              );
-            })}
-          </span>
-          {wi < words.length - 1 ? " " : null}
-        </Fragment>
-      ))}
-    </span>
-  );
-}
 
 function Item({
   q,
@@ -123,7 +87,7 @@ function Item({
             open ? "text-white" : "text-white/80 group-hover:text-white"
           }`}
         >
-          <RevealText text={q} shown={shown} start={start} />
+          <RevealWords text={q} shown={shown} start={start} base={BASE} step={STEP} />
         </span>
 
         {/* + qui devient − : seule la barre verticale s'escamote */}
@@ -190,7 +154,7 @@ export default function Faq() {
           FooterShader) — le texte doit rester au-dessus. */}
       <div className="font-quote relative z-10 mx-auto w-full max-w-5xl px-6 sm:px-12">
         <p className="text-xl leading-snug text-white sm:text-2xl lg:text-3xl 2xl:text-4xl">
-          <RevealText text={INTRO} shown={shown} start={introStart} />
+          <RevealWords text={INTRO} shown={shown} start={introStart} base={BASE} step={STEP} />
         </p>
 
         <div className="mt-10 sm:mt-14">

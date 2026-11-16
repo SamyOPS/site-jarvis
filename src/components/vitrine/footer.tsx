@@ -78,7 +78,7 @@ const PALETTES: Record<
 // derrière un masque, en cascade. Même effet que le titre du menu et que le
 // « VI » du hero, ici déclenché par l'entrée de la section dans le viewport.
 const WORDMARK = "Jarvis Connect";
-const STEP = 45; // ms entre deux lettres
+const STEP = 30; // ms entre deux lettres (45 auparavant : ~1,3 s pour 13 lettres)
 
 function Wordmark({ className }: { className: string }) {
   const ref = useRef<HTMLParagraphElement>(null);
@@ -116,7 +116,7 @@ function Wordmark({ className }: { className: string }) {
         return (
           <span key={i} aria-hidden className="reveal-mask">
             <span
-              className={`inline-block transition-transform duration-700 ease-out ${
+              className={`inline-block transition-transform duration-600 ease-out ${
                 shown ? "translate-y-0" : "translate-y-full"
               }`}
               style={{ transitionDelay: shown ? `${idx * STEP}ms` : "0ms" }}

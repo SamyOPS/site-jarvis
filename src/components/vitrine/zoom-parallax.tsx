@@ -9,6 +9,7 @@ import { useRef } from "react";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 
+import { ZOOM_SCROLL_VH } from "@/features/vitrine/scroll-pace";
 import { useSectionProgress } from "@/features/vitrine/use-section-progress";
 import { useVitrineExit } from "@/features/vitrine/use-vitrine-exit";
 
@@ -92,6 +93,9 @@ type Tile = {
 // Tailwind ne générant pas de classe depuis une valeur d'exécution, elle passe
 // par `style`, ce qui supprime au passage les surcharges `!important` visant un
 // sélecteur enfant.
+// Hauteur du zoom : l'ecran epingle plus sa course (voir scroll-pace.ts).
+const ZOOM_SECTION_VH = 100 + ZOOM_SCROLL_VH;
+
 const TILES: Tile[] = [
   { top: 0, left: 0, height: 25, width: 25, peakScale: 4 },
   { top: -30, left: 5, height: 30, width: 35, peakScale: 5 },
@@ -293,7 +297,7 @@ export function ZoomParallax({
   const letters = title ? [...title] : [];
 
   return (
-    <div ref={container} className="relative h-[300vh]">
+    <div ref={container} className="relative" style={{ height: `${ZOOM_SECTION_VH}vh` }}>
       <div className="sticky top-0 h-screen overflow-hidden">
         {images.map(({ src, alt }, index) => (
           <ZoomTile

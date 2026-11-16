@@ -9,6 +9,7 @@ import { X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { lockScroll, unlockScroll } from "@/features/vitrine/scroll-lock";
+import { pinnedSectionVh } from "@/features/vitrine/scroll-pace";
 import { useSectionProgress } from "@/features/vitrine/use-section-progress";
 import {
   CARTE_MERE,
@@ -152,7 +153,8 @@ export default function ExpertiseGallery() {
   return (
     <section
       ref={container}
-      style={{ height: `${items.length * 100}vh` }}
+      // Course d'origine : un ecran de defilement par fiche suivante, ramene par `SCROLL_PACE`.
+      style={{ height: `${pinnedSectionVh((items.length - 1) * 100)}vh` }}
       className="relative bg-white text-zinc-900"
     >
       <div className="sticky top-0 h-screen overflow-hidden">

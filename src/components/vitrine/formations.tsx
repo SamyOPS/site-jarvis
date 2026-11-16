@@ -10,15 +10,18 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import FormationsIndex, { formations } from "@/components/vitrine/formations-index";
 import { DEFENSE } from "@/features/vitrine/images";
+import { pinnedScrollVh } from "@/features/vitrine/scroll-pace";
 import { useSectionProgress } from "@/features/vitrine/use-section-progress";
 
 // Réglages. Le capot est épinglé sur 100vh : la section mesure SECTION_VH, donc
 // il reste SCROLL_VH de scroll utile, que `scrollYProgress` mappe sur 0 → 1.
-// Les réglages sont exprimés en vh de scroll (via `p`) et non en progression
-// brute : la hauteur de la section peut changer sans dérégler l'escalier.
-const SECTION_VH = 430;
-const SCROLL_VH = SECTION_VH - 100;
-const p = (vh: number) => vh / SCROLL_VH;
+// Les réglages sont exprimés en vh de scroll À L'ALLURE D'ORIGINE (course de
+// DESIGN_SCROLL_VH), via `p` : `SCROLL_PACE` raccourcit la course réelle sans
+// dérégler l'escalier, qui se rejoue à l'identique, en moins de défilement.
+const DESIGN_SCROLL_VH = 330;
+const SCROLL_VH = pinnedScrollVh(DESIGN_SCROLL_VH);
+const SECTION_VH = 100 + SCROLL_VH;
+const p = (vh: number) => vh / DESIGN_SCROLL_VH;
 
 // Séquence : texte pleinement visible → fondu net → (texte disparu) → escalier
 // → ~90vh d'index épinglé, révélé et pleinement manipulable.
