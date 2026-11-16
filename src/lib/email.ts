@@ -408,3 +408,50 @@ export async function notifyUnreadMessages(params: UnreadMessagesNotificationPar
     html,
   });
 }
+
+type CraMonthlyReminderParams = {
+  recipientEmail: string;
+  recipientName: string | null;
+  /** « novembre 2026 » */
+  monthLabel: string;
+  /** « lundi 30 novembre » : dernier jour ouvre du mois. */
+  deadlineLabel: string;
+  /** CRA du mois pas encore soumis. */
+  needsCra: boolean;
+  /** Collaborateur qui facture, sans facture valable pour le mois. */
+  needsInvoice: boolean;
+};
+
+/**
+ * Rappel de fin de mois : soumettre le CRA et/ou generer la facture du mois.
+ *
+ * Le message ne cite que ce qui manque reellement : un collaborateur dont le CRA est deja
+ * soumis mais qui n'a pas encore genere sa facture n'est relance que pour la facture.
+ */
+export async function notifyCraMonthlyReminder(params: CraMonthlyReminderParams) {
+  const greeting = params.recipientName
+    ? `Bonjour ${escapeHtml(params.recipientName)},`
+    : "Bonjour,";
+  const month = escapeHtml(params.monthLabel);
+  const deadline = escapeHtml(params.deadlineLabel);
+
+  const tasks = [
+    params.needsCra ? `remplir et soumettre votre <strong>CRA de ${month}</strong>` : null,
+    params.needsInvoice ? `générer votre <strong>facture de ${month}</strong>` : null,
+  ].filter(Boolean);
+
+  const subjectParts = [params.needsCra ? "CRA" : null, params.needsInvoice ? "facture" : null].filter(Boolean);
+  const subject = `Rappel : votre ${subjectParts.join(" et votre ")} de ${params.monthLabel} - Jarvis Connect`;
+
+  const html = renderShell(`
+    <p>${greeting}</p>
+    <p>La fin du mois approche : pensez à ${tasks.join(" et à ")} avant le <strong>${deadline}</strong>.</p>
+    <p style="margin-top:24px">${renderButton(
+      buildDashboardLink("/dashboard/salarie/documents/cra-facture"),
+      params.needsCra ? "Remplir mon CRA" : "Générer ma facture",
+    )}</p>
+    <p style="color:#666">Si c'est déjà fait entre-temps, vous pouvez ignorer ce message.</p>
+  `);
+
+  return sendEmail({ to: params.recipientEmail, subject, html });
+}

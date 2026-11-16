@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { cronAuthorizationError } from "@/lib/cron-auth";
 import { getServerSupabaseClients } from "@/lib/server-supabase";
 import { notificationSettingsByUser } from "@/lib/notification-preferences";
 import { displayContactName } from "@/domain/messaging";
@@ -51,25 +52,10 @@ type ProfileRow = {
   role: string | null;
 };
 
-function isAuthorized(request: Request) {
-  const secret = process.env.MESSAGING_CRON_SECRET;
-  if (!secret) return false;
-
-  const header = request.headers.get("authorization") ?? "";
-  const bearer = header.startsWith("Bearer ") ? header.slice(7) : "";
-  return bearer === secret || request.headers.get("x-cron-secret") === secret;
-}
-
 export async function POST(request: Request) {
-  if (!process.env.MESSAGING_CRON_SECRET) {
-    return NextResponse.json(
-      { error: "MESSAGING_CRON_SECRET absent : tache desactivee." },
-      { status: 503 },
-    );
-  }
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Acces refuse." }, { status: 403 });
-  }
+  // Secret partage des taches planifiees (voir lib/cron-auth).
+  const denied = cronAuthorizationError(request);
+  if (denied) return denied;
 
   const { adminClient } = getServerSupabaseClients();
   const cutoff = new Date(Date.now() - GRACE_MINUTES * 60_000).toISOString();
