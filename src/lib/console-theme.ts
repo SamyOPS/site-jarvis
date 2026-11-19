@@ -35,7 +35,7 @@ export const CONSOLE_ROUTE_PREFIXES = [
  */
 export const VITRINE_ROUTE_PREFIXES = [
   "/",
-  "/decouvrir",
+  "/actualites",
   "/cgu",
   "/mentions-legales",
   "/politique-de-confidentialite",

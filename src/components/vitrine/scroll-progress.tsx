@@ -35,7 +35,7 @@ export default function ScrollProgress() {
   return (
     <div
       aria-hidden
-      className={`pointer-events-none fixed left-6 top-1/2 z-30 h-32 w-[3px] -translate-y-1/2 overflow-hidden rounded-full transition-opacity duration-500 sm:left-8 ${
+      className={`pointer-events-none fixed left-6 top-1/2 z-30 h-32 max-sm:hidden w-[3px] -translate-y-1/2 overflow-hidden rounded-full transition-opacity duration-500 sm:left-8 ${
         visible ? "opacity-100" : "opacity-0"
       }`}
     >

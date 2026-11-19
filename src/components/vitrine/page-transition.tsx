@@ -35,8 +35,8 @@ type TransitionCtx = {
 
     Sans cela, le chunk de la page d'arrivee n'etait reclame qu'au `router.push`, donc
     APRES le fondu : l'ecran restait noir le temps du fondu, PUIS le temps du reseau. Rien
-    dans la vitrine ne rend de <Link> vers /decouvrir — la navigation part d'un geste de
-    molette — Next n'avait donc aucune occasion de precharger de lui-meme.
+    dans la vitrine ne rendait de <Link> vers l'ancienne page /decouvrir — on y allait d'un
+    geste de molette — Next n'avait donc aucune occasion de precharger de lui-meme.
   */
   prefetch: (href: string) => void;
 };

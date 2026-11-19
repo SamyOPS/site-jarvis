@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { usePageTransition } from "@/components/vitrine/page-transition";
 
 // Révélation masquée lettre par lettre au chargement (même effet que la citation).
 function RevealText({
@@ -51,8 +50,6 @@ export default function Hero() {
   const [ignited, setIgnited] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
 
-  const { navigate, prefetch } = usePageTransition();
-
   // Bascule sur l'image du réacteur allumé pour simuler un allumage constant.
   const ignite = () => setIgnited(true);
 
@@ -72,45 +69,9 @@ export default function Hero() {
   }, []);
 
   /*
-    La destination est connue d'avance : c'est la SEULE que ce geste puisse atteindre. On
-    la precharge donc des que le navigateur est disponible, au lieu de decouvrir au moment
-    du `push` qu'il faut encore aller chercher le chunk — ce qui prolongeait le voile noir
-    de toute la duree du reseau, apres le fondu.
+    Plus de geste « molette vers le bas = page suivante » : le hero est la premiere section
+    de l'accueil, la page defile normalement sous lui (voir app/(vitrine)/page.tsx).
   */
-  useEffect(() => {
-    prefetch("/decouvrir");
-  }, [prefetch]);
-
-  // Sur l'accueil, scroller vers le bas déclenche la même transition que le
-  // bouton « Nous découvrir » (le hero ne défile pas de lui-même).
-  useEffect(() => {
-    let triggered = false;
-    const go = () => {
-      // Ne rien faire si le menu est ouvert (scroll verrouillé) ou déjà lancé.
-      if (document.documentElement.style.overflow === "hidden") return;
-      if (triggered) return;
-      triggered = true;
-      navigate("/decouvrir", "down");
-    };
-    const onWheel = (e: WheelEvent) => {
-      if (e.deltaY > 15) go();
-    };
-    let startY = 0;
-    const onTouchStart = (e: TouchEvent) => {
-      startY = e.touches[0]?.clientY ?? 0;
-    };
-    const onTouchMove = (e: TouchEvent) => {
-      if (startY - (e.touches[0]?.clientY ?? 0) > 40) go();
-    };
-    window.addEventListener("wheel", onWheel, { passive: true });
-    window.addEventListener("touchstart", onTouchStart, { passive: true });
-    window.addEventListener("touchmove", onTouchMove, { passive: true });
-    return () => {
-      window.removeEventListener("wheel", onWheel);
-      window.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchmove", onTouchMove);
-    };
-  }, [navigate]);
 
   // Parallaxe : le réacteur s'incline légèrement en suivant le curseur (3D).
   const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {

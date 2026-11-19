@@ -63,7 +63,7 @@ const TONES: Record<ShaderVariant, Tone> = {
     ink: 1,
     overlapVh: 55,
     // Zero : le debordement fournit deja toute la dissolution necessaire, et un
-    // plancher modifierait le rendu de /decouvrir sur les footers tres hauts.
+    // plancher modifierait le rendu de l'accueil sur les footers tres hauts.
     minFade: 0,
   },
   light: {

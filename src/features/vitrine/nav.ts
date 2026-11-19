@@ -14,10 +14,11 @@ export const JOBS_HREF = "/offres";
 
 export const mainLinks = [
   { label: "Accueil", href: "/" },
-  { label: "Expertises", href: "/decouvrir#expertises" },
-  { label: "Formations", href: "/decouvrir#formations" },
+  // Sections de l'accueil, qui porte toute la vitrine (/decouvrir y redirige).
+  { label: "Expertises", href: "/#expertises" },
+  { label: "Formations", href: "/#formations" },
   /*
-   * Mene directement a la PAGE des offres, et non a la section de /decouvrir.
+   * Mene directement a la PAGE des offres, et non au bandeau de l'accueil.
    *
    * /offres est hors du groupe (vitrine) : c'est une sortie. Le pied de page et le menu
    * testent tous deux `leavesVitrine` et l'empruntent avec le voile noir et une navigation
@@ -26,7 +27,7 @@ export const mainLinks = [
   { label: "Offres d'emploi", href: JOBS_HREF },
   // Page du groupe (vitrine) : le menu et le pied de page y vont par `onNav`, avec le fondu.
   { label: "Actualités", href: "/actualites" },
-  { label: "FAQ", href: "/decouvrir#faq" },
+  { label: "FAQ", href: "/#faq" },
 ];
 
 export const infoLinks = [

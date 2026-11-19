@@ -28,10 +28,10 @@ const ADDRESS_2 = "60160 Montataire, France";
 /**
  * Deux encres pour un même pied de page.
  *
- * `dark` clôt /decouvrir, dont les dernières sections (image pleine page, FAQ)
- * sont noires : le footer y prolonge le fond. `light` sert partout ailleurs —
- * offres d'emploi et pages légales, composées sur blanc — où un pavé noir
- * trancherait au lieu de conclure.
+ * `light` sert sur TOUTES les pages depuis que l'accueil est entierement sur fond
+ * blanc (19/11/2026) : accueil, actualites, offres d'emploi, pages legales. Un pave
+ * noir y trancherait au lieu de conclure. `dark` (valeur par defaut) n'est plus monte
+ * nulle part ; il prolongeait le fond des dernieres sections, quand elles etaient noires.
  *
  * Le ton clair se fond dans la page : meme blanc, et l'encre #1c1a17 du panneau
  * du menu. Pas de bandeau teinte pour marquer la separation — c'est le flux du

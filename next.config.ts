@@ -1,6 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /*
+    /decouvrir n'existe plus : toute la vitrine est sur l'accueil. Les liens deja partages
+    (/decouvrir#expertises...) aboutissent a la meme section — le navigateur conserve
+    l'ancre a travers la redirection.
+  */
+  async redirects() {
+    return [{ source: "/decouvrir", destination: "/", permanent: true }];
+  },
   allowedDevOrigins: ["192.168.1.125"],
   images: {
     /*

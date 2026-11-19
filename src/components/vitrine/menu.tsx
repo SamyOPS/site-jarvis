@@ -166,7 +166,7 @@ export default function Menu() {
   };
 
   // Clic sur un lien. Le href peut être un chemin, une ancre, ou les deux
-  // (ex. "/decouvrir#expertises").
+  // (ex. "/#expertises").
   const onNav = (e: React.MouseEvent, href: string) => {
     e.preventDefault();
     const [rawPath, hash] = href.split("#");

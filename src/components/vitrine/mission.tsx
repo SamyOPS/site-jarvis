@@ -58,8 +58,7 @@ export default function Mission() {
   return (
     <section
       ref={ref}
-      data-nav-dark
-      className="flex min-h-dvh flex-col justify-center bg-black pb-16 pt-24 text-white sm:pb-20 sm:pt-32 lg:pb-24 lg:pt-40 2xl:pt-48"
+      className="flex min-h-dvh flex-col justify-center bg-white pb-16 pt-24 text-zinc-900 sm:pb-20 sm:pt-32 lg:pb-24 lg:pt-40 2xl:pt-48"
     >
       <div className="font-quote mx-auto w-full max-w-3xl px-6 sm:px-12">
         {blocks.map(({ text, start }, i) => (
@@ -67,27 +66,29 @@ export default function Mission() {
             key={i}
             className={
               i === 0
-                ? "text-xl leading-snug text-white sm:text-2xl lg:text-3xl 2xl:text-4xl"
-                : "mt-4 text-base leading-relaxed text-white/70 sm:mt-6 sm:text-lg lg:text-xl 2xl:text-2xl"
+                ? "text-xl leading-snug text-zinc-900 sm:text-2xl lg:text-3xl 2xl:text-4xl"
+                : "mt-4 text-base leading-relaxed text-zinc-500 sm:mt-6 sm:text-lg lg:text-xl 2xl:text-2xl"
             }
           >
             <RevealWords text={text} shown={shown} start={start} base={BASE} step={STEP} />
           </p>
         ))}
 
-        <p className="mt-6 text-xl tracking-tight text-white sm:mt-10 sm:text-2xl lg:text-3xl 2xl:text-4xl">
+        <p className="mt-6 text-xl tracking-tight text-zinc-900 sm:mt-10 sm:text-2xl lg:text-3xl 2xl:text-4xl">
           <RevealWords text={CLOSING} shown={shown} start={closingStart} base={BASE} step={STEP} />
         </p>
 
-        {/* Signature manuscrite : l'image est noire, on l'inverse en blanc
-            pour la rendre visible sur le panneau noir. Elle apparaît en fondu
-            une fois le texte révélé. */}
+        {/* Signature manuscrite, a l'encre noire sur le fond blanc. Elle
+            apparaît en fondu une fois le texte révélé.
+            `signature-noir.png` et non `signature.png` : l'original a un fond blanc
+            OPAQUE, qui, compresse puis tourne de 12°, dessinait un rectangle grise sur
+            la page. La copie est derivee de l'original (encre noire, fond transparent). */}
         <Image
-          src="/Image/signature.png"
+          src="/Image/signature-noir.png"
           alt="Signature"
           width={1000}
           height={250}
-          className={`mt-6 ml-auto block h-auto w-48 -rotate-[12deg] invert transition-all duration-500 ease-out sm:mt-8 sm:w-64 lg:w-80 2xl:w-96 ${
+          className={`mt-6 ml-auto block h-auto w-48 -rotate-[12deg] transition-all duration-500 ease-out sm:mt-8 sm:w-64 lg:w-80 2xl:w-96 ${
             shown ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
           }`}
           style={{ transitionDelay: shown ? `${signatureDelay}ms` : "0ms" }}

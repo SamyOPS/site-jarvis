@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 
 import { RevealWords, revealWordCount } from "@/components/vitrine/reveal-words";
+import { SectionTitle } from "@/components/vitrine/section-title";
 
-// FAQ dans le registre du discours (composant Mission) : fond noir, colonne
+// FAQ dans le registre du discours (composant Mission) : fond blanc, colonne
 // serif centrée, révélation mot par mot quand la section entre à l'écran.
-// Volontairement sobre — pas d'image, pas de numéros, pas de gros titre : juste
-// des filets fins, et une seule réponse ouverte à la fois pour que l'écran
+// Grand titre comme les autres sections, puis une liste volontairement sobre —
+// pas d'image, pas de numéros : juste des filets fins, et une seule réponse ouverte à la fois pour que l'écran
 // reste calme. Textes = PLACEHOLDERS à valider.
 
-const INTRO = "Questions fréquentes";
 
 const items = [
   {
@@ -51,8 +51,6 @@ const BASE = 120; // on arrive ici au scroll : pas de voile à attendre
 // Index de départ (en mots) de chaque bloc, pour une cascade continue de
 // l'accroche jusqu'à la dernière question. Calculé une fois, hors rendu.
 let acc = 0;
-const introStart = acc;
-acc += revealWordCount(INTRO);
 const questions = items.map(({ q, a }) => {
   const start = acc;
   acc += revealWordCount(q);
@@ -75,7 +73,7 @@ function Item({
   onToggle: () => void;
 }) {
   return (
-    <div className="border-t border-white/10 last:border-b">
+    <div className="border-t border-zinc-900/15 last:border-b">
       <button
         type="button"
         onClick={onToggle}
@@ -84,7 +82,7 @@ function Item({
       >
         <span
           className={`flex-1 leading-snug transition-colors duration-300 sm:text-lg lg:text-xl 2xl:text-2xl ${
-            open ? "text-white" : "text-white/80 group-hover:text-white"
+            open ? "text-zinc-900" : "text-zinc-900/70 group-hover:text-zinc-900"
           }`}
         >
           <RevealWords text={q} shown={shown} start={start} base={BASE} step={STEP} />
@@ -95,9 +93,9 @@ function Item({
           aria-hidden
           className="relative mt-1 h-3 w-3 shrink-0 self-center opacity-50 transition-opacity duration-300 group-hover:opacity-100"
         >
-          <span className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-white" />
+          <span className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-zinc-900" />
           <span
-            className={`absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white transition-transform duration-500 ease-out ${
+            className={`absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-zinc-900 transition-transform duration-500 ease-out ${
               open ? "scale-y-0" : "scale-y-100"
             }`}
           />
@@ -112,7 +110,7 @@ function Item({
         }`}
       >
         <div className="overflow-hidden">
-          <p className="max-w-3xl pb-6 text-sm leading-relaxed text-white/55 sm:pb-7 sm:text-base lg:text-lg">
+          <p className="max-w-3xl pb-6 text-sm leading-relaxed text-zinc-500 sm:pb-7 sm:text-base lg:text-lg">
             {a}
           </p>
         </div>
@@ -147,17 +145,16 @@ export default function Faq() {
     <section
       ref={ref}
       id="faq"
-      data-nav-dark
-      className="flex min-h-dvh flex-col justify-center bg-black pb-16 pt-24 text-white sm:pb-20 sm:pt-32 lg:pb-24 lg:pt-40"
+      className="relative bg-white px-6 py-24 text-zinc-900 sm:px-12 sm:py-32"
     >
-      {/* z-10 : le flux du footer déborde sur le bas de cette section (voir
-          FooterShader) — le texte doit rester au-dessus. */}
-      <div className="font-quote relative z-10 mx-auto w-full max-w-5xl px-6 sm:px-12">
-        <p className="text-xl leading-snug text-white sm:text-2xl lg:text-3xl 2xl:text-4xl">
-          <RevealWords text={INTRO} shown={shown} start={introStart} base={BASE} step={STEP} />
-        </p>
+      {/* Grand titre, comme les autres sections, HORS du bloc serif des questions :
+          il en heriterait sinon la police. */}
+      <SectionTitle eyebrow="les" title="Questions fréquentes" />
 
-        <div className="mt-10 sm:mt-14">
+      {/* z-10 : garde le texte au-dessus du flux anime du pied de page, si
+          celui-ci venait a deborder sur la section (voir FooterShader). */}
+      <div className="font-quote relative z-10 mx-auto mt-16 w-full max-w-5xl sm:mt-24">
+        <div>
           {questions.map((it, i) => (
             <Item
               key={it.q}
