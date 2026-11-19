@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { ApiError, unwrap, withActor } from "@/lib/api-handler";
+import { notifyEmployeeOfDocumentRejection } from "@/lib/email";
+import { shouldNotify } from "@/lib/notification-preferences";
 import { assertRhAccess } from "@/lib/rh-access";
 
 export const runtime = "nodejs";
@@ -10,6 +12,16 @@ type ReviewStatus = (typeof REVIEW_STATUSES)[number];
 
 function isReviewStatus(value: unknown): value is ReviewStatus {
   return REVIEW_STATUSES.includes(value as ReviewStatus);
+}
+
+/** Page de l'espace salarie ou reprendre un document refuse, selon son type. */
+function rejectionDashboardPath(documentTypeCode: string | null) {
+  const code = documentTypeCode ?? "";
+  if (code.startsWith("cra") || code.startsWith("facture")) {
+    return "/dashboard/salarie/documents/cra-facture";
+  }
+  if (code === "conge") return "/dashboard/salarie/documents/conge";
+  return "/dashboard/salarie/documents";
 }
 
 type ReviewPayload = {
@@ -48,7 +60,7 @@ export const POST = withActor(
       await adminClient
         .from("employee_documents")
         .select(
-          "id,employee_id,document_type_id,period_month,status,deleted_at,source_kind,document_type:document_types(code)",
+          "id,employee_id,uploaded_by,document_type_id,period_month,status,deleted_at,source_kind,document_type:document_types(code,label)",
         )
         .eq("id", documentId)
         .maybeSingle(),
@@ -110,9 +122,10 @@ export const POST = withActor(
       );
     }
 
-    const documentTypeCode = Array.isArray(document.document_type)
-      ? (document.document_type[0]?.code ?? null)
-      : ((document.document_type as { code?: string } | null)?.code ?? null);
+    const documentType = (
+      Array.isArray(document.document_type) ? document.document_type[0] : document.document_type
+    ) as { code?: string | null; label?: string | null } | null;
+    const documentTypeCode = documentType?.code ?? null;
 
     if (document.source_kind === "generated" && documentTypeCode === "cra") {
       const craUpdate: Record<string, string | null> = {
@@ -143,6 +156,39 @@ export const POST = withActor(
         document_type_id: document.document_type_id,
       },
     });
+
+    /*
+      Refus d'un document que le collaborateur a LUI-MEME depose (piece, CRA, facture,
+      conge genere depuis son espace) : il est prevenu par e-mail, motif compris. Pas pour
+      une piece deposee par un RH, ni pour un document deja refuse qu'on refuse a nouveau.
+      Envoye avant le controle du journal : le refus a eu lieu, que le suivi ait echoue ou
+      non. Un echec d'envoi ne fait pas echouer la revue.
+    */
+    if (
+      nextStatus === "rejected" &&
+      document.status !== "rejected" &&
+      document.employee_id &&
+      document.uploaded_by === document.employee_id &&
+      (await shouldNotify(adminClient, document.employee_id, "documentRejections"))
+    ) {
+      const { data: employee } = await adminClient
+        .from("profiles")
+        .select("email,full_name")
+        .eq("id", document.employee_id)
+        .maybeSingle();
+      if (employee?.email) {
+        await notifyEmployeeOfDocumentRejection({
+          employeeEmail: employee.email,
+          employeeName: employee.full_name,
+          documentLabel: documentType?.label ?? "Document",
+          periodMonth: document.period_month,
+          reviewComment,
+          reviewerName: actorProfile.full_name ?? actorProfile.email,
+          dashboardPath: rejectionDashboardPath(documentTypeCode),
+        }).catch((error) => console.error("[email] notify employee rejection failed", error));
+      }
+    }
+
     if (eventError) {
       // Le message ne reprend pas celui de la base : le document a bien change de statut,
       // seul le journal a echoue, et l'utilisateur doit le savoir.

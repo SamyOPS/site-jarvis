@@ -455,3 +455,47 @@ export async function notifyCraMonthlyReminder(params: CraMonthlyReminderParams)
 
   return sendEmail({ to: params.recipientEmail, subject, html });
 }
+
+type DocumentRejectionParams = {
+  employeeEmail: string;
+  employeeName?: string | null;
+  /** Libelle du type de document (« CRA », « Facture », « Arret maladie »...). */
+  documentLabel: string;
+  periodMonth?: string | null;
+  /** Motif saisi par le RH : obligatoire pour refuser, donc toujours present. */
+  reviewComment: string;
+  reviewerName?: string | null;
+  /** Page de l'espace salarie ou reprendre le document. */
+  dashboardPath: string;
+};
+
+/**
+ * Refus d'un document que le collaborateur a lui-meme depose (piece, CRA, facture...).
+ *
+ * Le motif du RH est repris tel quel : c'est ce qui permet de corriger sans avoir a
+ * demander pourquoi. Il est echappe, et ses retours a la ligne conserves.
+ */
+export async function notifyEmployeeOfDocumentRejection(params: DocumentRejectionParams) {
+  const periodLabel = formatPeriodMonth(params.periodMonth);
+  const greeting = params.employeeName ? `Bonjour ${escapeHtml(params.employeeName)},` : "Bonjour,";
+  const documentName = `<strong>${escapeHtml(params.documentLabel)}</strong>${
+    periodLabel ? ` de ${escapeHtml(periodLabel)}` : ""
+  }`;
+  const reviewer = params.reviewerName ? ` par ${escapeHtml(params.reviewerName)}` : "";
+  const comment = escapeHtml(params.reviewComment).replace(/\r?\n/g, "<br>");
+
+  const html = renderShell(`
+    <p>${greeting}</p>
+    <p>Votre document ${documentName} a été <strong>refusé</strong>${reviewer}.</p>
+    <p style="margin:16px 0 4px;color:#666">Motif du refus :</p>
+    <blockquote style="margin:0;padding:8px 12px;border-left:3px solid #111;background:#f5f5f5">${comment}</blockquote>
+    <p style="margin-top:16px">Vous pouvez le corriger et le déposer à nouveau depuis votre espace.</p>
+    <p style="margin-top:24px">${renderButton(buildDashboardLink(params.dashboardPath), "Voir mes documents")}</p>
+  `);
+
+  return sendEmail({
+    to: params.employeeEmail,
+    subject: `Document refusé : ${params.documentLabel}${periodLabel ? ` - ${periodLabel}` : ""} - Jarvis Connect`,
+    html,
+  });
+}

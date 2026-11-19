@@ -73,6 +73,7 @@ export const NOTIFICATION_KINDS = [
   "documentRequests",
   "documentUploads",
   "generatedDocuments",
+  "documentRejections",
   "messageReminders",
 ] as const;
 
@@ -85,6 +86,7 @@ export const DEFAULT_NOTIFICATIONS: NotificationSettings = {
   documentRequests: true,
   documentUploads: true,
   generatedDocuments: true,
+  documentRejections: true,
   messageReminders: true,
 };
 
@@ -103,6 +105,10 @@ export const NOTIFICATION_LABELS: Record<
   generatedDocuments: {
     title: "CRA, factures et congés",
     description: "Quand un de ces documents est généré et ajouté à un espace.",
+  },
+  documentRejections: {
+    title: "Documents refusés",
+    description: "Quand un document que vous avez déposé est refusé, avec le motif du refus.",
   },
   messageReminders: {
     title: "Rappels de messagerie",
