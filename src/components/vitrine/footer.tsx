@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
 import { usePageTransition } from "@/components/vitrine/page-transition";
 import {
   infoLinks,
@@ -74,58 +73,16 @@ const PALETTES: Record<
   },
 };
 
-// Mot-symbole révélé lettre par lettre : chaque lettre monte depuis sa ligne
-// derrière un masque, en cascade. Même effet que le titre du menu et que le
-// « VI » du hero, ici déclenché par l'entrée de la section dans le viewport.
+// Mot-symbole « Jarvis Connect » en bas du pied de page. Texte fixe (il s'ecrivait lettre
+// par lettre a l'entree a l'ecran ; animations de texte retirees le 19/11/2026).
 const WORDMARK = "Jarvis Connect";
-const STEP = 30; // ms entre deux lettres (45 auparavant : ~1,3 s pour 13 lettres)
 
 function Wordmark({ className }: { className: string }) {
-  const ref = useRef<HTMLParagraphElement>(null);
-  const [shown, setShown] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setShown(true);
-          io.disconnect();
-        }
-      },
-      { threshold: 0.35 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
-  // Le décalage se compte sur les lettres visibles : l'espace entre les deux
-  // mots ne doit pas créer de trou dans la cascade.
-  let idx = -1;
-
   return (
     <p
-      ref={ref}
-      aria-label={WORDMARK}
       className={`-mx-6 mt-24 whitespace-nowrap text-center font-sans text-[10vw] font-bold uppercase leading-none tracking-tight sm:-mx-12 sm:mt-32 ${className}`}
     >
-      {[...WORDMARK].map((char, i) => {
-        if (char === " ") return " ";
-        idx += 1;
-        return (
-          <span key={i} aria-hidden className="reveal-mask">
-            <span
-              className={`inline-block transition-transform duration-600 ease-out ${
-                shown ? "translate-y-0" : "translate-y-full"
-              }`}
-              style={{ transitionDelay: shown ? `${idx * STEP}ms` : "0ms" }}
-            >
-              {char}
-            </span>
-          </span>
-        );
-      })}
+      {WORDMARK}
     </p>
   );
 }
@@ -306,10 +263,8 @@ export default function Footer({
           </div>
         </div>
 
-        {/* Mot-symbole en bas de page, comme sous le hero de l'accueil : mêmes
-            réglages typographiques (10vw, capitales, tracking serré), à l'encre
-            de la variante, révélé lettre par lettre à l'arrivée sur la
-            section. */}
+        {/* Mot-symbole en bas de page : 10vw, capitales, tracking serré, à l'encre
+            de la variante. */}
         <Wordmark className={palette.wordmark} />
       </div>
     </footer>

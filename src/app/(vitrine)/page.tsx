@@ -1,4 +1,3 @@
-import Clients from "@/components/vitrine/clients";
 import Expertises from "@/components/vitrine/expertises";
 import Faq from "@/components/vitrine/faq";
 import Footer from "@/components/vitrine/footer";
@@ -40,7 +39,6 @@ export default function Home() {
         <Hero />
         <Mission />
         <Expertises />
-        <Clients />
         <Partners />
         <Formations />
         <JobOffers />

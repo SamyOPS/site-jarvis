@@ -1,50 +1,27 @@
 "use client";
 
+import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
-// Révélation masquée lettre par lettre au chargement (même effet que la citation).
-function RevealText({
-  text,
-  base = 0,
-  step = 0.03,
-  className,
-}: {
-  text: string;
-  base?: number;
-  step?: number;
-  className?: string;
-}) {
-  let idx = -1;
-  const words = text.split(" ");
-  return (
-    <span className={className} aria-label={text}>
-      {words.map((word, wi) => (
-        <span
-          key={wi}
-          className={`inline-block whitespace-nowrap${
-            wi < words.length - 1 ? " mr-[0.25em]" : ""
-          }`}
-        >
-          {[...word].map((char, ci) => {
-            idx += 1;
-            return (
-              <span key={ci} aria-hidden className="reveal-mask">
-                <span
-                  className="reveal-inner"
-                  style={{ animationDelay: `${base + idx * step}s` }}
-                >
-                  {char}
-                </span>
-              </span>
-            );
-          })}
-        </span>
-      ))}
-    </span>
-  );
-}
+import { PILL_PRIMARY, TEXT_LINK, TRACE } from "@/components/auth/auth-styles";
+import { CLIENT_LOGOS } from "@/features/vitrine/client-logos";
 
+/**
+ * Hero de l'accueil, mise en page editoriale :
+ *  - a gauche, les mots-cles, le titre, une phrase sur ce que fait Jarvis Connect et deux
+ *    appels a l'action — texte fixe, sans animation d'apparition ;
+ *  - a droite, le reacteur (video d'allumage, puis image du reacteur allume) ;
+ *  - en bas, une bande de logos clients qui defile en continu.
+ *
+ * Il etait compose d'elements epars autour du reacteur (accroche, citation, « VI », nom de
+ * marque en bas) et ne disait ni quoi faire ni pour qui : il paraissait vide.
+ *
+ * LE REACTEUR EST CADRE EN CARRE (`object-cover`). La video et l'image sont toutes deux en
+ * 3:2, reacteur centre sur 42 % de la largeur : rognees a l'identique, le passage de l'une
+ * a l'autre reste invisible. Et ce cadrage ecarte le filigrane « KlingAI » incruste dans
+ * le coin bas-droit de la video (a partir de 85 % de la largeur), qui sort du carre.
+ */
 export default function Hero() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [ignited, setIgnited] = useState(false);
@@ -57,239 +34,168 @@ export default function Hero() {
     const video = videoRef.current;
     if (!video) return;
 
-    // Accessibilité : si l'utilisateur préfère réduire les animations, on
-    // affiche directement le réacteur allumé. Sinon, filet de sécurité au cas
-    // où la vidéo ne se charge pas (autoplay bloqué, erreur réseau…).
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    const delay = reduceMotion ? 0 : 12000;
-    const timer = window.setTimeout(ignite, delay);
+    // Mouvement réduit : réacteur allumé d'emblée. Sinon, filet de sécurité au cas où la
+    // vidéo ne se charge pas (lecture automatique bloquée, erreur réseau…).
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timer = window.setTimeout(ignite, reduceMotion ? 0 : 12000);
     return () => window.clearTimeout(timer);
   }, []);
 
-  /*
-    Plus de geste « molette vers le bas = page suivante » : le hero est la premiere section
-    de l'accueil, la page defile normalement sous lui (voir app/(vitrine)/page.tsx).
-  */
-
-  // Parallaxe : le réacteur s'incline légèrement en suivant le curseur (3D).
+  // Le réacteur s'incline légèrement en suivant le curseur (3D).
   const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
     const { innerWidth, innerHeight } = window;
-    const x = (e.clientX / innerWidth - 0.5) * 2; // -1 → 1
-    const y = (e.clientY / innerHeight - 0.5) * 2; // -1 → 1
-    setTilt({ x, y });
+    setTilt({ x: (e.clientX / innerWidth - 0.5) * 2, y: (e.clientY / innerHeight - 0.5) * 2 });
   };
-
   const resetTilt = () => setTilt({ x: 0, y: 0 });
-
-  // Citation : animée lettre par lettre (cascade verticale) après le titre.
-  const quote = "Records are made to be broken!";
-  const quoteBaseDelay = 1.3; // s, après l'apparition du titre
-  const quoteStep = 0.04; // s entre chaque lettre
-  const quoteLetterCount = quote.replace(/\s/g, "").length;
-  const captionDelay = quoteBaseDelay + quoteLetterCount * quoteStep + 0.25;
-  let letterIndex = -1; // incrémenté uniquement sur les caractères visibles
 
   return (
     <section
       onMouseMove={handleMouseMove}
       onMouseLeave={resetTilt}
-      className="relative h-dvh w-full overflow-hidden bg-white"
-      style={{ perspective: "1200px" }}
+      className="relative flex min-h-dvh w-full flex-col overflow-hidden bg-white text-zinc-900"
     >
-      {/* Réacteur (vidéo puis image) avec parallaxe 3D au curseur.
-          Sur portable (écran court) : léger retrait vertical pour dégager le titre. */}
-      <div
-        className="absolute inset-0 transition-transform duration-300 ease-out laptop:inset-y-[6%]"
-        style={{
-          transform: `rotateY(${tilt.x * 4}deg) rotateX(${-tilt.y * 4}deg) translateX(${tilt.x * 8}px) translateY(${tilt.y * 8}px)`,
-        }}
-      >
-        {/* Vidéo d'allumage du réacteur en fond plein écran.
-            Elle s'efface une fois l'image allumée prête (le ratio de la vidéo
-            diffère du PNG, sa lueur dépasserait sinon les bords de l'image). */}
-        <video
-          ref={videoRef}
-          className={`absolute inset-0 h-full w-full object-contain mix-blend-multiply transition-opacity duration-1000 ${
-            ignited ? "opacity-0" : "opacity-100"
-          }`}
-          src="/Video/allumage_reacteur_v1.mp4"
-          autoPlay
-          muted
-          playsInline
-          preload="auto"
-          onEnded={ignite}
-        />
+      {/*
+        `pt-28 sm:pt-36` : la barre du haut est fixe et ne reserve aucune place. Sur un
+        ecran peu haut (`laptop:`, 900 px et moins), marge et titre se resserrent pour que
+        la bande de logos reste dans le premier ecran.
+      */}
+      <div className="grid w-full flex-1 items-center gap-10 px-6 pb-10 pt-28 sm:px-12 sm:pt-36 sm:laptop:pt-28 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-16 lg:pb-12">
+        {/* Texte */}
+        <div className="flex min-w-0 flex-col items-start">
+          {/* Resserree sur mobile pour tenir sur une ligne. */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500 sm:gap-x-3 sm:text-sm sm:tracking-[0.25em]">
+            <span>Support</span>
+            <span className="text-zinc-300">·</span>
+            <span>Développement</span>
+            <span className="text-zinc-300">·</span>
+            <span>Sécurité</span>
+          </div>
 
-        {/* Image du réacteur allumé : prend le relais à la fin de la vidéo (fixe) */}
-        <div
-          className={`absolute inset-0 transition-opacity duration-1000 ${
-            ignited ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          <Image
-            src="/Image/reacteur_ark_allume_de_fasse.png"
-            alt="Réacteur Ark allumé"
-            fill
-            priority
-            draggable={false}
-            sizes="100vw"
-            className="object-contain mix-blend-multiply"
-          />
+          <h1 className="mt-6 text-[clamp(2.75rem,6vw,6rem)] font-bold uppercase leading-[0.92] tracking-tight sm:laptop:text-[clamp(2.5rem,5.2vw,5rem)]">
+            Propulsez vos projets IT &amp; digital.
+          </h1>
 
-          {/* Halo lumineux qui respire au centre du réacteur */}
-          <div
-            aria-hidden
-            className="animate-core pointer-events-none absolute left-[58%] top-[62%] h-[28vmin] w-[28vmin] -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(220,240,255,0.95) 0%, rgba(150,210,255,0.55) 45%, rgba(255,255,255,0) 70%)",
-            }}
-          />
+          <p className="mt-6 max-w-xl font-quote text-xl leading-snug text-zinc-500 sm:text-2xl">
+            Support informatique, développement, cybersécurité et infogérance : une ESN engagée aux
+            côtés de vos équipes, au quotidien.
+          </p>
+
+          <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
+            <a href="#expertises" className={PILL_PRIMARY}>
+              Nos expertises
+            </a>
+            <a href="#contact" className={TEXT_LINK}>
+              <span>Nous contacter</span>
+              <ArrowRight
+                aria-hidden
+                className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1 motion-reduce:transition-none"
+              />
+              <span aria-hidden className={TRACE} />
+            </a>
+          </div>
         </div>
-      </div>
 
-      {/* Flash de bloom au moment exact de l'allumage */}
-      {ignited && (
+        {/*
+          Réacteur, cadré en carré (voir plus haut), incliné au curseur.
+          - Bords fondus en cercle : le fond de la vidéo et de l'image n'est pas d'un blanc
+            pur (≈ #f8f8f8) et dessinait un carré gris pâle. Le réacteur, qui tient dans
+            63 % du carré, reste entièrement dans la zone nette (70 % du rayon).
+          - Sur grand écran, le carré est borné par la HAUTEUR de l'écran (moins la barre,
+            les marges et la bande de logos) : sur un portable 1366×768, il poussait la
+            bande de logos hors du premier écran.
+        */}
         <div
-          aria-hidden
-          className="animate-bloom pointer-events-none absolute left-1/2 top-[46%] h-[50vmin] w-[50vmin] rounded-full"
+          className="relative mx-auto aspect-square w-full max-w-sm transition-transform duration-300 ease-out [mask-image:radial-gradient(closest-side,black_70%,transparent)] sm:max-w-md lg:max-w-[min(100%,calc(100dvh-18rem))]"
           style={{
-            background:
-              "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(160,220,255,0.6) 40%, rgba(255,255,255,0) 70%)",
+            transform: `perspective(1200px) rotateY(${tilt.x * 4}deg) rotateX(${-tilt.y * 4}deg) translateX(${tilt.x * 8}px) translateY(${tilt.y * 8}px)`,
           }}
-        />
-      )}
-
-      {/*
-        Phrase d'accroche + mots clés, centrés en haut de page.
-
-        `top-20` (80 px) sur mobile, et non `top-10` : c'est exactement le bas de la
-        barre de navigation, dont les enfants sont `fixed top-8` (32 px) et dont la
-        hauteur est donnée par le burger, `h-12` (48 px). À 40 px, ce bloc passait
-        sous le bouton « Contactez nous » et sous le burger — invisible sur desktop,
-        où il reste large et centré loin des coins, mais franc sur un écran étroit.
-
-        `inset-x-0 mx-auto` et non `left-1/2 -translate-x-1/2` : un bloc absolu posé
-        à `left: 50%` sans `right` se dimensionne au plus sur la moitié restante du
-        conteneur, soit 50vw. Sur mobile, l'accroche se retrouvait pliée dans ~195 px
-        — d'où des lignes supplémentaires qui la faisaient déborder d'autant plus sur
-        la barre. Cadré sur toute la largeur, le bloc reste centré à l'identique sur
-        desktop, où `max-w-2xl` le bornait déjà bien avant les 50vw.
-      */}
-      <div className="pointer-events-none absolute inset-x-0 top-20 z-20 mx-auto flex max-w-2xl flex-col items-center gap-4 px-4 text-center sm:top-12">
-        <p
-          className="animate-fade-in text-2xl font-semibold leading-snug text-zinc-800 sm:text-4xl"
-          style={{ animationDelay: "0.5s" }}
         >
-          Propulsez vos projets IT &amp; digital.
-        </p>
-        <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.25em] text-zinc-500 sm:text-sm">
-          <RevealText text="Support" base={1.5} step={0.03} />
-          <span className="text-zinc-300">·</span>
-          <RevealText text="Développement" base={1.7} step={0.03} />
-          <span className="text-zinc-300">·</span>
-          <RevealText text="Sécurité" base={2} step={0.03} />
+          {/* Vidéo d'allumage, puis image du réacteur allumé qui prend le relais. */}
+          <video
+            ref={videoRef}
+            className={`absolute inset-0 h-full w-full object-cover mix-blend-multiply transition-opacity duration-1000 ${
+              ignited ? "opacity-0" : "opacity-100"
+            }`}
+            src="/Video/allumage_reacteur_v1.mp4"
+            autoPlay
+            muted
+            playsInline
+            preload="auto"
+            onEnded={ignite}
+          />
+          <div className={`absolute inset-0 transition-opacity duration-1000 ${ignited ? "opacity-100" : "opacity-0"}`}>
+            <Image
+              src="/Image/reacteur_ark_allume_de_fasse.png"
+              alt="Réacteur Ark allumé"
+              fill
+              priority
+              draggable={false}
+              sizes="(min-width: 1024px) 45vw, (min-width: 640px) 28rem, 24rem"
+              className="object-cover mix-blend-multiply"
+            />
+            {/*
+              Halo lumineux qui respire au centre du réacteur. Centré par l'animation
+              elle-même (`core-pulse` porte un translate(-50%, -50%)) : une classe de
+              translation s'y ajouterait. Sans animation (mouvement réduit), la classe
+              `motion-reduce:` reprend le centrage.
+            */}
+            <div
+              aria-hidden
+              className="animate-core pointer-events-none absolute left-1/2 top-1/2 h-[28%] w-[28%] rounded-full blur-2xl motion-reduce:-translate-x-1/2 motion-reduce:-translate-y-1/2"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(220,240,255,0.95) 0%, rgba(150,210,255,0.55) 45%, rgba(255,255,255,0) 70%)",
+              }}
+            />
+          </div>
+
+          {/* Flash de bloom au moment exact de l'allumage (centré par son animation ;
+              masqué en mouvement réduit, où il resterait affiché sans s'éteindre). */}
+          {ignited && (
+            <div
+              aria-hidden
+              className="animate-bloom pointer-events-none absolute left-1/2 top-1/2 h-[55%] w-[55%] rounded-full motion-reduce:hidden"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(160,220,255,0.6) 40%, rgba(255,255,255,0) 70%)",
+              }}
+            />
+          )}
         </div>
       </div>
 
-      {/* « VI » (6 en chiffres romains), style hachuré, en haut à droite */}
-      <span
-        aria-hidden
-        /*
-          Masque sur mobile. Il partageait la bande du reacteur avec la citation, sur une
-          largeur ou les trois ne tiennent pas. Un element absolu voit de toute facon son
-          `display` calcule en `block` : `sm:block` ne change donc rien au rendu, il ne
-          fait que defaire le `hidden`.
-        */
-        className="pointer-events-none absolute right-8 top-[32%] z-20 hidden -translate-y-1/2 select-none font-sans text-8xl font-bold leading-none tracking-tight sm:right-12 sm:block sm:text-[12rem] laptop:top-[42%]"
-      >
-        {["V", "I"].map((char, i) => (
-          <span key={i} className="reveal-mask">
-            <span
-              className="reveal-inner bg-clip-text text-transparent"
-              style={{
-                animationDelay: `${quoteBaseDelay + i * 0.12}s`,
-                backgroundImage:
-                  "repeating-linear-gradient(45deg, #18181b 0, #18181b 1.5px, transparent 1.5px, transparent 7px)",
-              }}
-            >
-              {char}
-            </span>
-          </span>
-        ))}
-      </span>
-
-      {/* Citation, à gauche, centrée verticalement, animée lettre par lettre */}
       {/*
-        MOBILE : la citation se pose SOUS le reacteur, plus au milieu de lui.
+        Bande de logos clients : defilement continu, au temps. La liste est posee deux fois ;
+        la seconde copie est masquee aux lecteurs d'ecran. Bords fondus par un masque.
 
-        La position est CALCULEE, pas devinee. Le visuel du reacteur est en 3:2 et rendu en
-        `object-contain` : en portrait il est donc borne par la largeur, haut de 100vw/1,5
-        = 66,66vw, et centre verticalement. Son bord bas tombe a `50dvh + 33,33vw`, quelle
-        que soit la taille du telephone. La citation demarre 1rem plus bas.
-
-        Pas de `-translate-y-1/2` sur mobile : ce calage donne le bord HAUT du bloc, il ne
-        faut donc pas le recentrer sur lui-meme.
-
-        `sm:laptop:` et non `laptop:` : la variante `laptop` est une hauteur d'ecran
-        (max-height 900px), que la plupart des telephones satisfont — elle ecrasait le
-        placement mobile. La restreindre a `sm:` lui rend son sens, « large ET court ».
-
-        Le raisonnement ne vaut qu'en portrait, seul cas ou l'image est bornee par la
-        largeur ; au-dela de 640px de large, les regles d'origine reprennent la main.
+        C'est desormais le SEUL endroit ou figurent les clients (la section « Ils nous font
+        confiance » plus bas dans la page a ete retiree). Son intitule s'affiche donc a cote
+        de la bande sur grand ecran — sur la meme ligne, pour ne pas allonger le hero, qui
+        tient tout juste dans un ecran.
       */}
-      <figure className="pointer-events-none absolute left-8 top-[calc(50dvh_+_33.33vw_+_1rem)] z-20 max-w-xs sm:left-12 sm:top-[32%] sm:max-w-sm sm:-translate-y-1/2 sm:laptop:top-[42%]">
-        <span
-          aria-hidden
-          className="animate-fade-in block font-sans text-5xl font-bold leading-none text-zinc-900"
-          style={{ animationDelay: `${quoteBaseDelay - 0.2}s` }}
-        >
-          “
-        </span>
-        <blockquote
-          aria-label={quote}
-          className="mt-1 font-sans text-xl font-bold uppercase leading-snug tracking-tight text-zinc-900 sm:text-2xl"
-        >
-          {quote.split(" ").map((word, wi, words) => (
-            <span
-              key={wi}
-              className={`inline-block whitespace-nowrap${
-                wi < words.length - 1 ? " mr-[0.25em]" : ""
-              }`}
-            >
-              {[...word].map((char, ci) => {
-                letterIndex += 1;
-                return (
-                  <span key={ci} aria-hidden className="reveal-mask">
-                    <span
-                      className="reveal-inner"
-                      style={{
-                        animationDelay: `${quoteBaseDelay + letterIndex * quoteStep}s`,
-                      }}
-                    >
-                      {char}
-                    </span>
-                  </span>
-                );
-              })}
-            </span>
-          ))}
-        </blockquote>
-        <figcaption
-          className="animate-fade-in mt-4 text-sm font-normal text-zinc-500"
-          style={{ animationDelay: `${captionDelay}s` }}
-        >
-          T.S.
-        </figcaption>
-      </figure>
-
-      {/* Titre de marque, en bas de page, fondu à l'arrivée */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center px-2 pb-8 sm:pb-12 laptop:pb-6">
-        <h1 className="animate-fade-in whitespace-nowrap font-sans text-center text-[10vw] font-bold uppercase leading-none tracking-tight text-zinc-900 laptop:text-[8vw]">
-          Jarvis Connect
-        </h1>
+      <div className="flex items-center border-t border-zinc-900/15 py-5 sm:py-6">
+        {/* `font-quote` sans variante : c'est une classe de globals.css, pas un utilitaire
+            Tailwind — `lg:font-quote` n'existerait pas. Masque sous `lg` de toute facon. */}
+        <p className="sr-only font-quote text-xl italic text-zinc-500 lg:not-sr-only lg:shrink-0 lg:pl-12 lg:pr-8">
+          Ils nous font confiance
+        </p>
+        <div className="min-w-0 flex-1 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+          <div className="animate-marquee flex w-max items-center gap-14 sm:gap-20">
+            {[...CLIENT_LOGOS, ...CLIENT_LOGOS].map((logo, index) => (
+              <Image
+                key={index}
+                src={logo.src}
+                alt={index < CLIENT_LOGOS.length ? logo.alt : ""}
+                aria-hidden={index >= CLIENT_LOGOS.length || undefined}
+                width={logo.w}
+                height={logo.h}
+                sizes="120px"
+                draggable={false}
+                className={`w-auto max-w-[120px] object-contain opacity-70 ${logo.big ? "h-9 sm:h-11" : "h-6 sm:h-8"}`}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );

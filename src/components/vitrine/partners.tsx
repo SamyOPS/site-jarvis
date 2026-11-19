@@ -3,7 +3,8 @@ import { LogoGrid, type GridLogo } from "@/components/vitrine/logo-grid";
 /*
  * Logos partenaires (public/Image/logo_partenaire).
  *
- * Meme regle que la section clients (voir clients.tsx) : l'encre est dans les FICHIERS.
+ * Meme regle que les logos clients (voir features/vitrine/client-logos.ts) : l'encre est
+ * dans les FICHIERS.
  * Les `-noir.png` sont derives des fichiers livres — noircis, marges rognees, bornes a
  * 600x240 — et les originaux restent dans le dossier pour pouvoir les regenerer. Un logo
  * dont l'aspect change doit changer de nom, sinon les caches servent l'ancien.
@@ -24,8 +25,8 @@ const partners: GridLogo[] = [
 /**
  * Section « Nos partenaires ».
  *
- * Distincte de « Ils nous font confiance » : un partenaire n'est pas un client, et les
- * melanger laisserait croire le contraire. Meme grammaire visuelle que les clients — titre
+ * Distincte des clients (bande « Ils nous font confiance » du hero) : un partenaire n'est
+ * pas un client, et les melanger laisserait croire le contraire. Meme grammaire visuelle que les clients — titre
  * en italique, filets noirs, logos noirs — mais une grille FIXE (`LogoGrid`) : avec une
  * poignee de logos, des bandes defilantes tourneraient a vide.
  *

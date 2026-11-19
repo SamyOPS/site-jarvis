@@ -1,16 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
-import { RevealWords, revealWordCount } from "@/components/vitrine/reveal-words";
 import { SectionTitle } from "@/components/vitrine/section-title";
 
-// FAQ dans le registre du discours (composant Mission) : fond blanc, colonne
-// serif centrée, révélation mot par mot quand la section entre à l'écran.
-// Grand titre comme les autres sections, puis une liste volontairement sobre —
-// pas d'image, pas de numéros : juste des filets fins, et une seule réponse ouverte à la fois pour que l'écran
-// reste calme. Textes = PLACEHOLDERS à valider.
-
+// FAQ dans le registre du discours (composant Mission) : fond blanc, colonne serif
+// centrée. Grand titre comme les autres sections, puis une liste volontairement sobre —
+// pas d'image, pas de numéros : juste des filets fins, et une seule réponse ouverte à la
+// fois pour que l'écran reste calme. Texte fixe, sans animation d'apparition.
+// Textes = PLACEHOLDERS à valider.
 
 const items = [
   {
@@ -39,36 +37,14 @@ const items = [
   },
 ];
 
-/*
- * Cascade MOT PAR MOT (voir `RevealWords`). Lettre par lettre, les ~250 lettres des
- * questions demarraient leur transition dans la meme image, a l'entree de la section :
- * 27 a 84 ms de recalcul de style en plein defilement. Par mot, ~45 elements, et la
- * cascade tient en ~1 s au lieu de ~1,8 s.
- */
-const STEP = 10; // ms entre deux mots
-const BASE = 120; // on arrive ici au scroll : pas de voile à attendre
-
-// Index de départ (en mots) de chaque bloc, pour une cascade continue de
-// l'accroche jusqu'à la dernière question. Calculé une fois, hors rendu.
-let acc = 0;
-const questions = items.map(({ q, a }) => {
-  const start = acc;
-  acc += revealWordCount(q);
-  return { q, a, start };
-});
-
 function Item({
   q,
   a,
-  start,
-  shown,
   open,
   onToggle,
 }: {
   q: string;
   a: string;
-  start: number;
-  shown: boolean;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -85,7 +61,7 @@ function Item({
             open ? "text-zinc-900" : "text-zinc-900/70 group-hover:text-zinc-900"
           }`}
         >
-          <RevealWords text={q} shown={shown} start={start} base={BASE} step={STEP} />
+          {q}
         </span>
 
         {/* + qui devient − : seule la barre verticale s'escamote */}
@@ -120,30 +96,10 @@ function Item({
 }
 
 export default function Faq() {
-  const ref = useRef<HTMLElement>(null);
-  const [shown, setShown] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
-
-  // Révèle le texte quand la section entre dans le viewport (au scroll).
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setShown(true);
-          io.disconnect();
-        }
-      },
-      { threshold: 0.35 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
 
   return (
     <section
-      ref={ref}
       id="faq"
       className="relative bg-white px-6 py-24 text-zinc-900 sm:px-12 sm:py-32"
     >
@@ -155,13 +111,11 @@ export default function Faq() {
           celui-ci venait a deborder sur la section (voir FooterShader). */}
       <div className="font-quote relative z-10 mx-auto mt-16 w-full max-w-5xl sm:mt-24">
         <div>
-          {questions.map((it, i) => (
+          {items.map((it, i) => (
             <Item
               key={it.q}
               q={it.q}
               a={it.a}
-              start={it.start}
-              shown={shown}
               open={open === i}
               onToggle={() => setOpen((cur) => (cur === i ? null : i))}
             />

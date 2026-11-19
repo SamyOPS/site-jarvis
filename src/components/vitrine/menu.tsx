@@ -4,7 +4,7 @@ import { LogIn, Mail } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Fragment, memo, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import FooterShader from "@/components/vitrine/footer-shader";
 import { usePageTransition } from "@/components/vitrine/page-transition";
 import { lockScroll, unlockScroll } from "@/features/vitrine/scroll-lock";
@@ -18,55 +18,6 @@ import {
 import { VITRINE_FONT_VARS } from "@/features/vitrine/fonts";
 import { useDarkSectionAt } from "@/features/vitrine/use-dark-section";
 import { armPageReveal } from "@/lib/page-reveal";
-
-// Révélation masquée lettre par lettre, pilotée par l'ouverture du panneau.
-// Les mots restent insécables (pas de coupure au milieu d'un mot).
-//
-// `memo` : le menu se re-rend chaque fois que la barre change d'encre en passant sur une
-// section sombre, donc en plein defilement. Ces libelles, une <span> par lettre, n'en
-// dependent pas — ils ne bougent qu'a l'ouverture. Sans `memo`, ce re-rendu coutait une
-// image entiere a chaque bascule.
-const RevealChars = memo(function RevealChars({
-  text,
-  open,
-  base = 0,
-  step = 12,
-}: {
-  text: string;
-  open: boolean;
-  base?: number;
-  step?: number;
-}) {
-  const words = text.split(" ");
-  let idx = -1;
-  return (
-    <span aria-label={text}>
-      {words.map((word, wi) => (
-        <Fragment key={wi}>
-          <span className="inline-block whitespace-nowrap">
-            {[...word].map((char, ci) => {
-              idx += 1;
-              const delay = base + idx * step;
-              return (
-                <span key={ci} aria-hidden className="reveal-mask">
-                  <span
-                    className={`inline-block transition-transform duration-350 ease-out ${
-                      open ? "translate-y-0" : "translate-y-full"
-                    }`}
-                    style={{ transitionDelay: open ? `${delay}ms` : "0ms" }}
-                  >
-                    {char}
-                  </span>
-                </span>
-              );
-            })}
-          </span>
-          {wi < words.length - 1 ? " " : null}
-        </Fragment>
-      ))}
-    </span>
-  );
-});
 
 export default function Menu() {
   const [open, setOpen] = useState(false);
@@ -213,12 +164,17 @@ export default function Menu() {
       `fixed` et de les arracher a la fenetre.
     */
     <div className={VITRINE_FONT_VARS}>
-      {/* Logo au premier plan : passe en blanc quand le panneau s'ouvre */}
+      {/*
+        Logo et nom de la societe au premier plan : passent en blanc quand le panneau
+        s'ouvre ou sur une section sombre. Le nom est masque sous `md` : plus etroit, il
+        ne tient pas a cote des boutons de droite (a 640 px, il touchait deja « Nous
+        contacter »).
+      */}
       <Link
         href="/"
         onClick={(e) => onNav(e, "/")}
-        aria-label="Jarvis — Accueil"
-        className="fixed left-8 top-8 z-50 sm:left-12 sm:top-12"
+        aria-label="Jarvis Connect — Accueil"
+        className="fixed left-8 top-8 z-50 flex items-center gap-3 sm:left-12 sm:top-12"
       >
         {/*
           Meme marque que la console (`console-mark.tsx`) : `/logo-jarvis-noir.png`, a
@@ -246,32 +202,40 @@ export default function Menu() {
             dark ? "invert" : "invert-0"
           }`}
         />
+        <span
+          className={`hidden text-lg font-bold uppercase leading-none tracking-tight transition-colors duration-300 md:inline ${
+            dark ? "text-white" : "text-zinc-900"
+          }`}
+        >
+          Jarvis Connect
+        </span>
       </Link>
 
       {/*
         Coin haut droit : contact, connexion, burger.
 
-        Les deux actions sont des PASTILLES A ICONE, au meme gabarit que le burger qui les
-        suit : trois ronds alignes plutot qu'un pave de texte suivi de deux boutons. Le
-        libelle n'est pas supprime mais passe en `sr-only` — invisible, toujours lu par
-        les lecteurs d'ecran — et `title` le restitue en infobulle au survol, faute de quoi
-        une icone seule laisse deviner sa fonction.
+        Contact : bouton TEXTE « Nous contacter » des `sm` ; pastille enveloppe sur
+        telephone, ou le texte ne tiendrait pas. Connexion : pastille a icone, au gabarit
+        du burger ; son libelle est en `sr-only` (lu par les lecteurs d'ecran) et `title`
+        le restitue en infobulle au survol.
+
+        Plus de fondu retarde a l'arrivee : le header est complet des la premiere image.
       */}
       <div className="fixed right-8 top-8 z-50 flex items-center gap-3 sm:right-12 sm:top-12">
         {/* Contact. Reste visible sur le panneau noir. */}
         <Link
           href="#contact"
           onClick={close}
-          title="Contactez nous"
-          className={`animate-fade-in flex h-10 w-10 items-center justify-center rounded-full border transition-colors duration-300 sm:h-12 sm:w-12 ${
+          className={`flex h-10 w-10 items-center justify-center rounded-full border transition-colors duration-300 sm:h-12 sm:w-auto sm:px-6 ${
             dark
               ? "border-white text-white hover:bg-white hover:text-black"
               : "border-zinc-900 text-zinc-900 hover:bg-zinc-900 hover:text-white"
           }`}
-          style={{ animationDelay: "0.9s" }}
         >
-          <Mail className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" aria-hidden />
-          <span className="sr-only">Contactez nous</span>
+          <Mail className="h-4 w-4 shrink-0 sm:hidden" aria-hidden />
+          <span className="sr-only sm:not-sr-only sm:whitespace-nowrap sm:text-xs sm:font-semibold sm:uppercase sm:tracking-[0.2em]">
+            Nous contacter
+          </span>
         </Link>
 
         {/*
@@ -284,12 +248,11 @@ export default function Menu() {
           href={AUTH_HREF}
           onClick={(e) => onExternal(e, AUTH_HREF)}
           title="Connexion"
-          className={`animate-fade-in flex h-10 w-10 items-center justify-center rounded-full border transition-colors duration-300 sm:h-12 sm:w-12 ${
+          className={`flex h-10 w-10 items-center justify-center rounded-full border transition-colors duration-300 sm:h-12 sm:w-12 ${
             dark
               ? "border-white text-white hover:bg-white hover:text-black"
               : "border-zinc-900 text-zinc-900 hover:bg-zinc-900 hover:text-white"
           }`}
-          style={{ animationDelay: "1s" }}
         >
           <LogIn className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" aria-hidden />
           <span className="sr-only">Connexion</span>
@@ -353,7 +316,7 @@ export default function Menu() {
             `3rem` et `4.5rem` redonnent les tailles d'origine (text-5xl, text-7xl).
           */}
           <nav className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 text-center text-[min(3rem,6.5dvh)] font-bold uppercase leading-[1.05] tracking-tight sm:text-[min(4.5rem,6dvh)]">
-            {mainLinks.map((link, i) => (
+            {mainLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -367,16 +330,7 @@ export default function Menu() {
                 }
                 className={`block max-w-full transition-colors ${panel.link}`}
               >
-                <RevealChars
-                  text={link.label}
-                  open={open}
-                  /*
-                    Cascade resserree : le dernier lien (« Offres d'emploi ») finissait de
-                    s'ecrire ~0,9 s apres l'ouverture, il est entier en ~0,55 s.
-                  */
-                  base={60 + i * 30}
-                  step={10}
-                />
+                {link.label}
               </Link>
             ))}
           </nav>
@@ -391,19 +345,14 @@ export default function Menu() {
           */}
           <div className="flex items-end justify-between gap-8">
             <div className="hidden min-w-0 flex-wrap items-baseline gap-x-8 gap-y-2 text-sm sm:flex">
-              {infoLinks.map((link, k) => (
+              {infoLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
                   onClick={(e) => onNav(e, link.href)}
                   className={`font-medium uppercase tracking-tight transition-colors ${panel.info}`}
                 >
-                  <RevealChars
-                    text={link.label}
-                    open={open}
-                    base={220 + k * 24}
-                    step={6}
-                  />
+                  {link.label}
                 </Link>
               ))}
             </div>

@@ -1,13 +1,12 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, X } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { ImageDetail, useImageDetail } from "@/components/vitrine/image-detail";
 import { SectionTitle } from "@/components/vitrine/section-title";
 import { DEFENSE, DEVELOPPEUR, PROCESSEUR, TECHNICIENS } from "@/features/vitrine/images";
-import { lockScroll, unlockScroll } from "@/features/vitrine/scroll-lock";
 
 /*
   Expertises : une rangee horizontale de fiches (image, titre, phrase d'accroche), que l'on
@@ -78,9 +77,6 @@ const items = [
   },
 ];
 
-// Depart lent -> acceleration -> ralentissement, pour le zoom de l'image vers le plein ecran.
-const IMG_TRANSITION = { duration: 0.65, ease: [0.83, 0, 0.17, 1] as const };
-
 /** Marge de tolerance (px) pour dire qu'on est en butee, malgre les arrondis. */
 const EDGE_TOLERANCE = 4;
 
@@ -92,35 +88,9 @@ export default function Expertises() {
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(true);
 
-  /*
-    Detail plein ecran. On memorise la position et la taille exactes de l'image cliquee
-    pour n'animer QU'ELLE, de la vignette au plein ecran (et retour).
-  */
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-  const [rect, setRect] = useState<{ top: number; left: number; width: number; height: number } | null>(
-    null,
-  );
+  // Detail plein ecran de la fiche dont on a clique l'image (voir `ImageDetail`).
+  const { openIndex, rect, open: openImage, close } = useImageDetail();
   const active = openIndex !== null ? items[openIndex] : null;
-  const close = () => setOpenIndex(null);
-  const openImage = (index: number, element: HTMLElement) => {
-    const box = element.getBoundingClientRect();
-    setRect({ top: box.top, left: box.left, width: box.width, height: box.height });
-    setOpenIndex(index);
-  };
-
-  // Page figee et fermeture a la touche Echap tant que le detail est ouvert.
-  useEffect(() => {
-    if (openIndex === null) return;
-    lockScroll();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpenIndex(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      unlockScroll();
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [openIndex]);
 
   // Boutons grises en butee : relu a chaque defilement de la rangee et a chaque
   // changement de taille (la largeur des fiches suit celle de l'ecran).
@@ -245,97 +215,36 @@ export default function Expertises() {
         ))}
       </div>
 
-      {/*
-        Detail plein ecran : SEULE l'image cliquee s'anime, depuis sa position mesuree
-        jusqu'au plein ecran (et retour). Le contenu est sa SOEUR et non son enfant : place
-        dans la boite animee, il serait compose a la taille de la vignette puis etire. Il
-        entre apres l'atterrissage de l'image et sort deux fois plus vite.
-      */}
-      <AnimatePresence>
-        {active && rect && (
-          <motion.div
-            key={openIndex}
-            role="dialog"
-            aria-modal="true"
-            aria-label={active.title}
-            onClick={close}
-            className="fixed inset-0 z-[80]"
-          >
-            <motion.div
-              initial={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height, borderRadius: 12 }}
-              animate={{ top: 0, left: 0, width: window.innerWidth, height: window.innerHeight, borderRadius: 0 }}
-              exit={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height, borderRadius: 12 }}
-              transition={IMG_TRANSITION}
-              className="fixed overflow-hidden"
-            >
-              <Image
-                src={active.image}
-                alt=""
-                aria-hidden="true"
-                fill
-                sizes="100vw"
-                draggable={false}
-                className="object-cover"
-              />
-            </motion.div>
+      <ImageDetail
+        detail={active && { key: active.index, image: active.image, label: active.title }}
+        rect={rect}
+        onClose={close}
+      >
+        {active && (
+          <>
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] uppercase tracking-[0.2em] text-white/70">
+              <span>{active.index}</span>
+              <span aria-hidden className="text-white/30">/</span>
+              <span>{active.domaine}</span>
+              <span aria-hidden className="text-white/30">/</span>
+              <span>{active.approche}</span>
+            </p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 24, transition: { duration: 0.2 } }}
-              transition={{ duration: 0.45, delay: IMG_TRANSITION.duration * 0.6, ease: "easeOut" }}
-              className="pointer-events-none fixed inset-0 flex flex-col justify-end"
-            >
-              {/* Voile de lisibilite : une photo ne garantit aucun contraste sous le texte. */}
-              <div
-                aria-hidden
-                className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/10"
-              />
+            <h2 className="font-quote text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">{active.title}</h2>
 
-              <button
-                type="button"
-                onClick={close}
-                autoFocus
-                aria-label="Fermer le détail"
-                className="pointer-events-auto absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full border border-white/40 text-white transition-colors duration-300 hover:bg-white hover:text-black sm:right-8 sm:top-8"
-              >
-                <X className="h-5 w-5" aria-hidden />
-              </button>
+            <p className="max-w-2xl text-sm leading-relaxed text-white/80 sm:text-base">{active.desc}</p>
 
-              {/* `stopPropagation` : selectionner du texte ne doit pas fermer le detail. */}
-              <div
-                onClick={(event) => event.stopPropagation()}
-                className="pointer-events-auto relative mx-auto flex max-h-[80svh] w-full max-w-5xl flex-col gap-4 overflow-y-auto px-6 pb-12 text-white sm:gap-5 sm:px-10 sm:pb-16"
-              >
-                <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] uppercase tracking-[0.2em] text-white/70">
-                  <span>{active.index}</span>
-                  <span aria-hidden className="text-white/30">/</span>
-                  <span>{active.domaine}</span>
-                  <span aria-hidden className="text-white/30">/</span>
-                  <span>{active.approche}</span>
-                </p>
-
-                <h2 className="font-quote text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">
-                  {active.title}
-                </h2>
-
-                <p className="max-w-2xl text-sm leading-relaxed text-white/80 sm:text-base">
-                  {active.desc}
-                </p>
-
-                <ul className="grid gap-x-10 gap-y-2 sm:grid-cols-2">
-                  {active.points.map((point) => (
-                    <li key={point} className="flex items-start gap-3 text-sm text-white/90 sm:text-base">
-                      <span aria-hidden className="mt-[0.6em] h-1 w-1 shrink-0 rounded-full bg-white/60" />
-                      {point}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </motion.div>
-          </motion.div>
+            <ul className="grid gap-x-10 gap-y-2 sm:grid-cols-2">
+              {active.points.map((point) => (
+                <li key={point} className="flex items-start gap-3 text-sm text-white/90 sm:text-base">
+                  <span aria-hidden className="mt-[0.6em] h-1 w-1 shrink-0 rounded-full bg-white/60" />
+                  {point}
+                </li>
+              ))}
+            </ul>
+          </>
         )}
-      </AnimatePresence>
+      </ImageDetail>
     </section>
   );
 }

@@ -372,26 +372,23 @@ html[data-site="vitrine"] img,
   }
 }
 
-/* Fondu d'apparition du titre des l'arrivee sur le site */
-@keyframes fade-in {
+
+/*
+  Bande de logos du hero : defilement CONTINU, au temps (pas au defilement de la page).
+  La piste contient la liste deux fois : a -50 %, la seconde copie occupe exactement la
+  place de la premiere, et la boucle repart sans saut.
+*/
+@keyframes marquee {
   from {
-    opacity: 0;
-    transform: translateY(12px);
+    transform: translateX(0);
   }
   to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: translateX(-50%);
   }
 }
 
-/* Revelation masquee : chaque lettre glisse vers le haut depuis sa ligne */
-@keyframes letter-reveal {
-  from {
-    transform: translateY(110%);
-  }
-  to {
-    transform: translateY(0);
-  }
+.animate-marquee {
+  animation: marquee 60s linear infinite;
 }
 
 .animate-halo {
@@ -412,34 +409,6 @@ html[data-site="vitrine"] img,
 
 .animate-scroll-bob {
   animation: scroll-bob 1.8s ease-in-out infinite;
-}
-
-.animate-fade-in {
-  opacity: 0;
-  animation: fade-in 1.4s ease-out 0.2s forwards;
-}
-
-.reveal-mask {
-  display: inline-block;
-  overflow: hidden;
-  vertical-align: bottom;
-  padding-bottom: 0.12em;
-}
-
-/* Variante pour le texte courant (bas de casse) : plus de marge basse afin de
-   ne pas rogner les jambages (g, p, y, q...). A utiliser avec translate-y-[135%]
-   pour que la lettre reste totalement cachee avant sa montee. */
-.reveal-mask-text {
-  display: inline-block;
-  overflow: hidden;
-  vertical-align: bottom;
-  padding-bottom: 0.28em;
-}
-
-.reveal-inner {
-  display: inline-block;
-  transform: translateY(110%);
-  animation: letter-reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* Texte rempli de hachures diagonales (style gravure) */
@@ -473,29 +442,19 @@ html[data-site="vitrine"] img,
 }
 
 /*
-  La regle generale plus haut dans cette feuille ramene deja toute animation a
-  0.01ms. Elle ne suffit pas ici : `.animate-fade-in` part d'`opacity: 0` et
-  `.reveal-inner` d'un `translateY(110%)` pose en dur, hors animation. Sans les
-  deux remises a zero ci-dessous, un utilisateur ayant demande moins de
-  mouvement lirait un hero vide et des lettres hors cadre.
+  Mouvement reduit : les animations en boucle s'arretent net. (Le fondu d'apparition
+  `.animate-fade-in` et les lettres revelees une a une `.reveal-inner`, qui partaient
+  d'un etat invisible pose en dur et demandaient ici une remise a zero, ont disparu
+  avec les animations de texte, le 19/11/2026.)
 */
 @media (prefers-reduced-motion: reduce) {
   .animate-halo,
   .animate-core,
   .animate-reactor,
   .animate-bloom,
-  .animate-scroll-bob {
+  .animate-scroll-bob,
+  .animate-marquee {
     animation: none;
-  }
-
-  .animate-fade-in {
-    animation: none;
-    opacity: 1;
-  }
-
-  .reveal-inner {
-    animation: none;
-    transform: none;
   }
 }
 
