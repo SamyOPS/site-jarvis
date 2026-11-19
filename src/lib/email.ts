@@ -499,3 +499,67 @@ export async function notifyEmployeeOfDocumentRejection(params: DocumentRejectio
     html,
   });
 }
+
+type LeaveApprovalParams = {
+  employeeEmail: string;
+  employeeName?: string | null;
+  /** Dates du conge (AAAA-MM-JJ), lues dans le journal du depot. Absentes : message general. */
+  startDate?: string | null;
+  endDate?: string | null;
+  leaveType?: "paid" | "unpaid" | null;
+  reviewerName?: string | null;
+};
+
+/** « lundi 7 decembre 2026 » (date seule, sans decalage de fuseau). */
+function formatLeaveDay(isoDate: string, style: "long" | "short") {
+  return new Date(`${isoDate}T12:00:00Z`).toLocaleDateString(
+    "fr-FR",
+    style === "long"
+      ? { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }
+      : { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" },
+  );
+}
+
+/**
+ * Validation par le RH d'une demande de conge faite par le collaborateur.
+ *
+ * Les dates sont rappelees : c'est ce que le collaborateur cherche dans ce courriel. Le
+ * nombre de jours ne l'est pas — celui de la demande compte les jours calendaires,
+ * week-ends compris, et serait lu comme des jours poses.
+ */
+export async function notifyEmployeeOfLeaveApproval(params: LeaveApprovalParams) {
+  const greeting = params.employeeName ? `Bonjour ${escapeHtml(params.employeeName)},` : "Bonjour,";
+  const hasDates = Boolean(params.startDate && params.endDate);
+  const sameDay = hasDates && params.startDate === params.endDate;
+  const period = hasDates
+    ? sameDay
+      ? ` du <strong>${escapeHtml(formatLeaveDay(params.startDate!, "long"))}</strong>`
+      : ` du <strong>${escapeHtml(formatLeaveDay(params.startDate!, "long"))}</strong> au <strong>${escapeHtml(
+          formatLeaveDay(params.endDate!, "long"),
+        )}</strong>`
+    : "";
+  const kind =
+    params.leaveType === "unpaid" ? " (congé sans solde)" : params.leaveType === "paid" ? " (congés payés)" : "";
+  const reviewer = params.reviewerName ? ` par ${escapeHtml(params.reviewerName)}` : "";
+
+  const html = renderShell(`
+    <p>${greeting}</p>
+    <p>Votre demande de congé${period}${kind} a été <strong>validée</strong>${reviewer}.</p>
+    <p style="margin-top:24px">${renderButton(
+      buildDashboardLink("/dashboard/salarie/documents/conge"),
+      "Voir mes congés",
+    )}</p>
+  `);
+
+  const subjectDates = hasDates
+    ? sameDay
+      ? ` : le ${formatLeaveDay(params.startDate!, "short")}`
+      : ` : du ${formatLeaveDay(params.startDate!, "short")} au ${formatLeaveDay(params.endDate!, "short")}`
+    : "";
+
+  return sendEmail({
+    to: params.employeeEmail,
+    subject: `Congé validé${subjectDates} - Jarvis Connect`,
+    html,
+  });
+}

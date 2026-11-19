@@ -74,6 +74,7 @@ export const NOTIFICATION_KINDS = [
   "documentUploads",
   "generatedDocuments",
   "documentRejections",
+  "leaveApprovals",
   "messageReminders",
 ] as const;
 
@@ -87,6 +88,7 @@ export const DEFAULT_NOTIFICATIONS: NotificationSettings = {
   documentUploads: true,
   generatedDocuments: true,
   documentRejections: true,
+  leaveApprovals: true,
   messageReminders: true,
 };
 
@@ -109,6 +111,10 @@ export const NOTIFICATION_LABELS: Record<
   documentRejections: {
     title: "Documents refusés",
     description: "Quand un document que vous avez déposé est refusé, avec le motif du refus.",
+  },
+  leaveApprovals: {
+    title: "Congés validés",
+    description: "Quand le service RH valide une demande de congé que vous avez faite.",
   },
   messageReminders: {
     title: "Rappels de messagerie",
